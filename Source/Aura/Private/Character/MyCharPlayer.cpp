@@ -6,6 +6,9 @@
 #include "AbilitySystemComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "MyPlayerState.h"
+#include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Components/CapsuleComponent.h"
 
 
 // Sets default values
@@ -13,6 +16,22 @@ AMyCharPlayer::AMyCharPlayer()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	// SpringArm= CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	// Camera= CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	// Camera->SetupAttachment(SpringArm);
+	// SpringArm->TargetArmLength = 600.0f;
+	// SpringArm->SetupAttachment(GetCapsuleComponent());
+	// SpringArm->bUsePawnControlRotation = false;
+	// SpringArm->bInheritPitch = false;
+	// SpringArm->bInheritRoll = false;
+	// SpringArm->bInheritYaw = true;
+
+	// Camera->bUsePawnControlRotation = false;
+
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationRoll = false;
+	bUseControllerRotationYaw = false;
+	
 }
 
 
@@ -36,7 +55,13 @@ void AMyCharPlayer::OnRep_PlayerState()
 	
 	if (!HasAuthority())
 	{
-		Cast<AMyPlayerState>(GetPlayerState())->AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(),this);
+		if (AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(GetPlayerState()))
+		{
+			if (MyPlayerState->AbilitySystemComponent)
+			{
+				MyPlayerState->AbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
+			}
+		}
 	}
 }
 
@@ -45,7 +70,13 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 	Super::PossessedBy(NewController);
 	if (HasAuthority())
 	{
-		Cast<AMyPlayerState>(GetPlayerState())->AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(),this);
+		if (AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(GetPlayerState()))
+		{
+			if (MyPlayerState->AbilitySystemComponent)
+			{
+				MyPlayerState->AbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
+			}
+		}
 	}
 }
 

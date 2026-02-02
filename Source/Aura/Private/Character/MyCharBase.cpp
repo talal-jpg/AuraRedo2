@@ -3,13 +3,14 @@
 
 #include "Character/MyCharBase.h"
 
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/Character.h"
+
 // Sets default values
 AMyCharBase::AMyCharBase()
 {
-	
-	CharMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharMesh"));
 	WeaponMesh= CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
-	SetRootComponent(CharMesh);
-	WeaponMesh->SetupAttachment(CharMesh,FName("WeaponSocket"));
+	WeaponMesh->SetupAttachment(GetMesh(),FName("HandSocket"));
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 

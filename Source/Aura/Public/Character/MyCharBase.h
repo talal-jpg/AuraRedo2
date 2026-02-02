@@ -16,11 +16,13 @@ public:
 	AMyCharBase();
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mesh)
-	USkeletalMeshComponent* CharMesh;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mesh)
 	USkeletalMeshComponent* WeaponMesh;
+	
+	
+	
+	
 
 public:	
 

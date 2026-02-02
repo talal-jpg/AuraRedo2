@@ -6,6 +6,8 @@
 #include "MyCharBase.h"
 #include "MyCharPlayer.generated.h"
 
+class UCameraComponent;
+class USpringArmComponent;
 class UInputMappingContext;
 
 UCLASS()
@@ -27,5 +29,7 @@ public:
 	
 	virtual void OnRep_PlayerState() override;
 	virtual void PossessedBy(AController* NewController) override;
+	
+	
 
 };
