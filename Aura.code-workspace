@@ -1,0 +1,5918 @@
+{
+	"folders": [
+		{
+			"name": "UE5",
+			"path": "."
+		}
+	],
+	"settings": {
+		"typescript.tsc.autoDetect": "off",
+		"npm.autoDetect": "off",
+		"terminal.integrated.env.linux": {
+			"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+			"DOTNET_ROOT": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
+			"DOTNET_HOST_PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+			"DOTNET_MULTILEVEL_LOOKUP": "0",
+			"DOTNET_ROLL_FORWARD": "LatestMajor"
+		}
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-vscode.cpptools",
+			"ms-dotnettools.csharp"
+		]
+	},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "Aura Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura Linux Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Debug",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura Linux DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"DebugGame",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura Linux Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Development",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Test Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Test",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Test Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Test",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura Linux Test Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Test Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Test",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Shipping Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Shipping",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Shipping Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Shipping",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura Linux Shipping Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura Linux Shipping Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"Linux",
+					"Shipping",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura LinuxArm64 Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Debug",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura LinuxArm64 DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"DebugGame",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura LinuxArm64 Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Development",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Test Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Test",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Test Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Test",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura LinuxArm64 Test Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Test Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Test",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Shipping Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Shipping",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Shipping Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Shipping",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"Aura LinuxArm64 Shipping Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Aura LinuxArm64 Shipping Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"Aura",
+					"LinuxArm64",
+					"Shipping",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build",
+					"AuraEditor Linux Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"Debug",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build",
+					"AuraEditor Linux DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"DebugGame",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build",
+					"AuraEditor Linux Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "AuraEditor Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"AuraEditor",
+					"Linux",
+					"Development",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build",
+					"UnrealEditor Linux Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"Debug",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build",
+					"UnrealEditor Linux DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"DebugGame",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"ShaderCompileWorker Linux Development Build",
+					"UnrealEditor Linux Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealEditor Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealEditor",
+					"Linux",
+					"Development",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame Linux Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Debug",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame Linux DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"DebugGame",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame Linux Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Development",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Test Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Test",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Test Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Test",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame Linux Test Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Test Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Test",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Shipping Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Shipping",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Shipping Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Shipping",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame Linux Shipping Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame Linux Shipping Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"Linux",
+					"Shipping",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Debug",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame LinuxArm64 Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Debug",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"DebugGame",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame LinuxArm64 DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"DebugGame",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Development",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame LinuxArm64 Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Development",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Test Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Test",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Test Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Test",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame LinuxArm64 Test Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Test Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Test",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Shipping Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Shipping",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Shipping Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Shipping",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build",
+					"UnrealGame LinuxArm64 Shipping Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "UnrealGame LinuxArm64 Shipping Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"UnrealGame",
+					"LinuxArm64",
+					"Shipping",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"UnrealBuildTool Linux Development Build"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition"
+				}
+			},
+			{
+				"label": "Android.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Android/Android.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Android.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Android/Android.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Android.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Android/Android.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Android.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Android/Android.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Apple.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Apple/Apple.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Apple.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Apple/Apple.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Apple.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Apple/Apple.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Apple.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Apple/Apple.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationScripts.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Scripts/AutomationScripts.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationScripts.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Scripts/AutomationScripts.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationScripts.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Scripts/AutomationScripts.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationScripts.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Scripts/AutomationScripts.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationTool Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationTool.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationTool Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationTool.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationTool Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationTool.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationTool Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationTool.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationTool+Scripts Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Source/Programs/AutomationTool/AutomationTool",
+				"args": [
+					"-list"
+				],
+				"dependsOn": [
+					"AutomationTool Linux Debug Build"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationTool+Scripts Linux Development Build",
+				"group": "build",
+				"command": "Engine/Source/Programs/AutomationTool/AutomationTool",
+				"args": [
+					"-list"
+				],
+				"dependsOn": [
+					"AutomationTool Linux Development Build"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationUtils.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationUtils/AutomationUtils.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationUtils.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationUtils/AutomationUtils.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationUtils.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationUtils/AutomationUtils.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "AutomationUtils.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationUtils/AutomationUtils.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "BuildGraph.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/BuildGraph/BuildGraph.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "BuildGraph.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/BuildGraph/BuildGraph.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "BuildGraph.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/BuildGraph/BuildGraph.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "BuildGraph.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/BuildGraph/BuildGraph.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "CookedEditor.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/CookedEditor/CookedEditor.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "CookedEditor.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/CookedEditor/CookedEditor.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "CookedEditor.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/CookedEditor/CookedEditor.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "CookedEditor.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/CookedEditor/CookedEditor.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "CrowdinLocalization.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/CrowdinLocalization/CrowdinLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "CrowdinLocalization.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/CrowdinLocalization/CrowdinLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "CrowdinLocalization.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/CrowdinLocalization/CrowdinLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "CrowdinLocalization.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/CrowdinLocalization/CrowdinLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.AspNet Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.AspNet/EpicGames.AspNet.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.AspNet Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.AspNet/EpicGames.AspNet.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.AspNet Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.AspNet/EpicGames.AspNet.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.AspNet Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.AspNet/EpicGames.AspNet.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Build Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Build/EpicGames.Build.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Build Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Build/EpicGames.Build.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Build Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Build/EpicGames.Build.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Build Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Build/EpicGames.Build.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.BuildGraph Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.BuildGraph/EpicGames.BuildGraph.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.BuildGraph Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.BuildGraph/EpicGames.BuildGraph.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.BuildGraph Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.BuildGraph/EpicGames.BuildGraph.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.BuildGraph Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.BuildGraph/EpicGames.BuildGraph.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Core Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Core/EpicGames.Core.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Core Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Core/EpicGames.Core.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Core Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Core/EpicGames.Core.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Core Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Core/EpicGames.Core.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Horde Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Horde/EpicGames.Horde.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Horde Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Horde/EpicGames.Horde.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Horde Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Horde/EpicGames.Horde.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Horde Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Horde/EpicGames.Horde.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.IoHash Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.IoHash/EpicGames.IoHash.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.IoHash Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.IoHash/EpicGames.IoHash.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.IoHash Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.IoHash/EpicGames.IoHash.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.IoHash Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.IoHash/EpicGames.IoHash.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.MongoDB Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.MongoDB/EpicGames.MongoDB.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.MongoDB Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.MongoDB/EpicGames.MongoDB.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.MongoDB Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.MongoDB/EpicGames.MongoDB.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.MongoDB Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.MongoDB/EpicGames.MongoDB.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.MsBuild Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.MsBuild/EpicGames.MsBuild.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.MsBuild Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.MsBuild/EpicGames.MsBuild.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.MsBuild Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.MsBuild/EpicGames.MsBuild.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.MsBuild Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.MsBuild/EpicGames.MsBuild.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.OIDC Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.OIDC/EpicGames.OIDC.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.OIDC Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.OIDC/EpicGames.OIDC.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.OIDC Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.OIDC/EpicGames.OIDC.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.OIDC Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.OIDC/EpicGames.OIDC.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Oodle Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Oodle/EpicGames.Oodle.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Oodle Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Oodle/EpicGames.Oodle.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Oodle Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Oodle/EpicGames.Oodle.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Oodle Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Oodle/EpicGames.Oodle.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Perforce.Fixture Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Perforce.Fixture/EpicGames.Perforce.Fixture.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Perforce.Fixture Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Perforce.Fixture/EpicGames.Perforce.Fixture.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Perforce.Fixture Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Perforce.Fixture/EpicGames.Perforce.Fixture.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Perforce.Fixture Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Perforce.Fixture/EpicGames.Perforce.Fixture.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Perforce Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Perforce/EpicGames.Perforce.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Perforce Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Perforce/EpicGames.Perforce.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Perforce Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Perforce/EpicGames.Perforce.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Perforce Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Perforce/EpicGames.Perforce.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.ProjectStore Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.ProjectStore/EpicGames.ProjectStore.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.ProjectStore Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.ProjectStore/EpicGames.ProjectStore.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.ProjectStore Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.ProjectStore/EpicGames.ProjectStore.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.ProjectStore Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.ProjectStore/EpicGames.ProjectStore.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Redis Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Redis/EpicGames.Redis.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Redis Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Redis/EpicGames.Redis.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Redis Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Redis/EpicGames.Redis.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Redis Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Redis/EpicGames.Redis.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.ScriptBuild Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.ScriptBuild/EpicGames.ScriptBuild.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.ScriptBuild Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.ScriptBuild/EpicGames.ScriptBuild.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.ScriptBuild Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.ScriptBuild/EpicGames.ScriptBuild.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.ScriptBuild Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.ScriptBuild/EpicGames.ScriptBuild.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Serialization Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Serialization/EpicGames.Serialization.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Serialization Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Serialization/EpicGames.Serialization.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Serialization Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Serialization/EpicGames.Serialization.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Serialization Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Serialization/EpicGames.Serialization.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Slack Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Slack/EpicGames.Slack.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Slack Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Slack/EpicGames.Slack.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Slack Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Slack/EpicGames.Slack.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Slack Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Slack/EpicGames.Slack.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Tracing Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Tracing/EpicGames.Tracing.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Tracing Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Tracing/EpicGames.Tracing.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Tracing Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Tracing/EpicGames.Tracing.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.Tracing Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.Tracing/EpicGames.Tracing.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.UBA Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.UBA/EpicGames.UBA.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.UBA Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.UBA/EpicGames.UBA.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.UBA Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.UBA/EpicGames.UBA.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.UBA Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.UBA/EpicGames.UBA.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.UHT Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.UHT/EpicGames.UHT.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.UHT Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.UHT/EpicGames.UHT.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.UHT Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.UHT/EpicGames.UHT.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "EpicGames.UHT Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/Shared/EpicGames.UHT/EpicGames.UHT.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Gauntlet.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Gauntlet/Gauntlet.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Gauntlet.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Gauntlet/Gauntlet.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Gauntlet.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Gauntlet/Gauntlet.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Gauntlet.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Gauntlet/Gauntlet.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "IOS.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/IOS/IOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "IOS.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/IOS/IOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "IOS.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/IOS/IOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "IOS.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/IOS/IOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Insights.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Insights/Insights.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Insights.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Insights/Insights.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Insights.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Insights/Insights.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Insights.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Insights/Insights.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Linux.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Linux/Linux.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Linux.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Linux/Linux.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Linux.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Linux/Linux.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Linux.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Linux/Linux.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "LiveLinkHub.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/LiveLinkHub/LiveLinkHub.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "LiveLinkHub.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/LiveLinkHub/LiveLinkHub.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "LiveLinkHub.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/LiveLinkHub/LiveLinkHub.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "LiveLinkHub.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/LiveLinkHub/LiveLinkHub.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Localization.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Localization/Localization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Localization.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Localization/Localization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Localization.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Localization/Localization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Localization.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Localization/Localization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "LowLevelTests.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/LowLevelTests/LowLevelTests.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "LowLevelTests.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/LowLevelTests/LowLevelTests.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "LowLevelTests.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/LowLevelTests/LowLevelTests.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "LowLevelTests.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/LowLevelTests/LowLevelTests.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Mac.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Mac/Mac.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Mac.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Mac/Mac.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Mac.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Mac/Mac.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Mac.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Mac/Mac.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Mutable.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Mutable/Mutable.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Mutable.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Mutable/Mutable.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Mutable.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Mutable/Mutable.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Mutable.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Mutable/Mutable.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "OneSkyLocalization.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/OneSkyLocalization/OneSkyLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "OneSkyLocalization.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/OneSkyLocalization/OneSkyLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "OneSkyLocalization.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/OneSkyLocalization/OneSkyLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "OneSkyLocalization.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/OneSkyLocalization/OneSkyLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "ScriptGeneratorUbtPlugin.ubtplugin Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Plugins/ScriptPlugin/Source/ScriptGeneratorUbtPlugin/ScriptGeneratorUbtPlugin.ubtplugin.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "ScriptGeneratorUbtPlugin.ubtplugin Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Plugins/ScriptPlugin/Source/ScriptGeneratorUbtPlugin/ScriptGeneratorUbtPlugin.ubtplugin.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "ScriptGeneratorUbtPlugin.ubtplugin Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Plugins/ScriptPlugin/Source/ScriptGeneratorUbtPlugin/ScriptGeneratorUbtPlugin.ubtplugin.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "ScriptGeneratorUbtPlugin.ubtplugin Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Plugins/ScriptPlugin/Source/ScriptGeneratorUbtPlugin/ScriptGeneratorUbtPlugin.ubtplugin.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "SmartlingLocalization.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/SmartlingLocalization/SmartlingLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "SmartlingLocalization.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/SmartlingLocalization/SmartlingLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "SmartlingLocalization.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/SmartlingLocalization/SmartlingLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "SmartlingLocalization.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/SmartlingLocalization/SmartlingLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "SteamDeck.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/SteamDeck/SteamDeck.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "SteamDeck.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/SteamDeck/SteamDeck.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "SteamDeck.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/SteamDeck/SteamDeck.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "SteamDeck.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/SteamDeck/SteamDeck.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "TVOS.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/TVOS/TVOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "TVOS.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/TVOS/TVOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "TVOS.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/TVOS/TVOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "TVOS.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/TVOS/TVOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Turnkey.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Turnkey/Turnkey.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Turnkey.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Turnkey/Turnkey.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Turnkey.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Turnkey/Turnkey.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Turnkey.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Turnkey/Turnkey.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "UnrealBuildTool Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "UnrealBuildTool Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "UnrealBuildTool Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "UnrealBuildTool Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "VisionOS.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Platforms/VisionOS/Source/Programs/AutomationTool/VisionOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "VisionOS.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Platforms/VisionOS/Source/Programs/AutomationTool/VisionOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "VisionOS.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Platforms/VisionOS/Source/Programs/AutomationTool/VisionOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "VisionOS.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Platforms/VisionOS/Source/Programs/AutomationTool/VisionOS.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Win.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Win/Win.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Win.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Win/Win.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Win.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Win/Win.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "Win.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/Win/Win.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "XLocLocalization.Automation Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/XLocLocalization/XLocLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "XLocLocalization.Automation Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Debug",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/XLocLocalization/XLocLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "XLocLocalization.Automation Linux Development Build",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"build",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/XLocLocalization/XLocLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			},
+			{
+				"label": "XLocLocalization.Automation Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+				"args": [
+					"clean",
+					"--configuration",
+					"Development",
+					"/mnt/new_partition/Engine/Source/Programs/AutomationTool/XLocLocalization/XLocLocalization.Automation.csproj"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/mnt/new_partition",
+					"env": {
+						"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+						"DOTNET_MULTILEVEL_LOOKUP": "0",
+						"DOTNET_ROLL_FORWARD": "LatestMajor"
+					}
+				}
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Launch Aura (Debug)",
+				"request": "launch",
+				"program": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi/Binaries/Linux/UnrealGame-Linux-Debug",
+				"preLaunchTask": "Aura Linux Debug Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Aura_redoWithAi": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi",
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch Aura (DebugGame)",
+				"request": "launch",
+				"program": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi/Binaries/Linux/UnrealGame-Linux-DebugGame",
+				"preLaunchTask": "Aura Linux DebugGame Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Aura_redoWithAi": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi",
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch Aura (Development)",
+				"request": "launch",
+				"program": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi/Binaries/Linux/UnrealGame",
+				"preLaunchTask": "Aura Linux Development Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Aura_redoWithAi": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi",
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch Aura (Test)",
+				"request": "launch",
+				"program": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi/Binaries/Linux/UnrealGame-Linux-Test",
+				"preLaunchTask": "Aura Linux Test Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Aura_redoWithAi": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi",
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch Aura (Shipping)",
+				"request": "launch",
+				"program": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi/Binaries/Linux/UnrealGame-Linux-Shipping",
+				"preLaunchTask": "Aura Linux Shipping Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Aura_redoWithAi": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi",
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch AuraEditor (Debug)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealEditor-Linux-Debug",
+				"preLaunchTask": "AuraEditor Linux Debug Build",
+				"args": [
+					"Aura"
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Aura_redoWithAi": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi",
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch AuraEditor (DebugGame)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealEditor-Linux-DebugGame",
+				"preLaunchTask": "AuraEditor Linux DebugGame Build",
+				"args": [
+					"Aura"
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Aura_redoWithAi": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi",
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch AuraEditor (Development)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealEditor",
+				"preLaunchTask": "AuraEditor Linux Development Build",
+				"args": [
+					"Aura"
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Aura_redoWithAi": "/mnt/new_partition/UnrealProjects/Aura_redoWithAi",
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch UnrealEditor (Debug)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealEditor-Linux-Debug",
+				"preLaunchTask": "UnrealEditor Linux Debug Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch UnrealEditor (DebugGame)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealEditor-Linux-DebugGame",
+				"preLaunchTask": "UnrealEditor Linux DebugGame Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch UnrealEditor (Development)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealEditor",
+				"preLaunchTask": "UnrealEditor Linux Development Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch UnrealGame (Debug)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealGame-Linux-Debug",
+				"preLaunchTask": "UnrealGame Linux Debug Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch UnrealGame (DebugGame)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealGame-Linux-DebugGame",
+				"preLaunchTask": "UnrealGame Linux DebugGame Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch UnrealGame (Development)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealGame",
+				"preLaunchTask": "UnrealGame Linux Development Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch UnrealGame (Test)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealGame-Linux-Test",
+				"preLaunchTask": "UnrealGame Linux Test Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "Launch UnrealGame (Shipping)",
+				"request": "launch",
+				"program": "/mnt/new_partition/Engine/Binaries/Linux/UnrealGame-Linux-Shipping",
+				"preLaunchTask": "UnrealGame Linux Shipping Build",
+				"args": [
+				],
+				"cwd": "/mnt/new_partition",
+				"type": "cppdbg",
+				"visualizerFile": "/mnt/new_partition/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true,
+				"sourceFileMap": {
+					"/UEVFS/Root": "/mnt/new_partition"
+				}
+			},
+			{
+				"name": "AutomationTool (Debug)",
+				"type": "coreclr",
+				"request": "launch",
+				"preLaunchTask": "AutomationTool+Scripts Linux Debug Build",
+				"program": "/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationTool",
+				"args": [
+					"-NoCompile"
+				],
+				"env": {
+					"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+					"DOTNET_ROOT": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
+					"DOTNET_HOST_PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+					"DOTNET_MULTILEVEL_LOOKUP": "0",
+					"DOTNET_ROLL_FORWARD": "LatestMajor"
+				},
+				"console": "internalConsole",
+				"internalConsoleOptions": "openOnSessionStart",
+				"stopAtEntry": false,
+				"cwd": "/mnt/new_partition"
+			},
+			{
+				"name": "AutomationTool (Development)",
+				"type": "coreclr",
+				"request": "launch",
+				"preLaunchTask": "AutomationTool+Scripts Linux Development Build",
+				"program": "/mnt/new_partition/Engine/Source/Programs/AutomationTool/AutomationTool",
+				"args": [
+					"-NoCompile"
+				],
+				"env": {
+					"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+					"DOTNET_ROOT": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
+					"DOTNET_HOST_PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+					"DOTNET_MULTILEVEL_LOOKUP": "0",
+					"DOTNET_ROLL_FORWARD": "LatestMajor"
+				},
+				"console": "internalConsole",
+				"internalConsoleOptions": "openOnSessionStart",
+				"stopAtEntry": false,
+				"cwd": "/mnt/new_partition"
+			},
+			{
+				"name": "UnrealBuildTool (Debug)",
+				"type": "coreclr",
+				"request": "launch",
+				"preLaunchTask": "UnrealBuildTool Linux Debug Build",
+				"program": "/mnt/new_partition/Engine/Source/Programs/UnrealBuildTool/bin/Debug/UnrealBuildTool",
+				"args": [
+				],
+				"env": {
+					"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+					"DOTNET_ROOT": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
+					"DOTNET_HOST_PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+					"DOTNET_MULTILEVEL_LOOKUP": "0",
+					"DOTNET_ROLL_FORWARD": "LatestMajor"
+				},
+				"console": "internalConsole",
+				"internalConsoleOptions": "openOnSessionStart",
+				"stopAtEntry": false,
+				"cwd": "/mnt/new_partition"
+			},
+			{
+				"name": "UnrealBuildTool (Development)",
+				"type": "coreclr",
+				"request": "launch",
+				"preLaunchTask": "UnrealBuildTool Linux Development Build",
+				"program": "/mnt/new_partition/Engine/Source/Programs/UnrealBuildTool/bin/Development/UnrealBuildTool",
+				"args": [
+				],
+				"env": {
+					"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+					"DOTNET_ROOT": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
+					"DOTNET_HOST_PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+					"DOTNET_MULTILEVEL_LOOKUP": "0",
+					"DOTNET_ROLL_FORWARD": "LatestMajor"
+				},
+				"console": "internalConsole",
+				"internalConsoleOptions": "openOnSessionStart",
+				"stopAtEntry": false,
+				"cwd": "/mnt/new_partition"
+			},
+			{
+				"name": "Generate Project Files",
+				"type": "coreclr",
+				"request": "launch",
+				"preLaunchTask": "UnrealBuildTool Linux Development Build",
+				"program": "/mnt/new_partition/Engine/Build/BatchFiles/RunUBT.bat",
+				"args": [
+					"-projectfiles",
+					"-vscode",
+					"-project=/mnt/new_partition/UnrealProjects/Aura_redoWithAi/Aura.uproject",
+					"-game",
+					"-engine",
+					"-dotnet"
+				],
+				"env": {
+					"PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+					"DOTNET_ROOT": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
+					"DOTNET_HOST_PATH": "/mnt/new_partition/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+					"DOTNET_MULTILEVEL_LOOKUP": "0",
+					"DOTNET_ROLL_FORWARD": "LatestMajor"
+				},
+				"console": "internalConsole",
+				"internalConsoleOptions": "openOnSessionStart",
+				"stopAtEntry": false,
+				"cwd": "/mnt/new_partition"
+			}
+		]
+	}
+}
