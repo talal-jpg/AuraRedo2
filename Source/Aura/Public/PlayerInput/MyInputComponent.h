@@ -31,7 +31,7 @@ public:
 	void BindAbilityAction(UMyInputConfig* InputConfig, UserClass Class, PressedFuncType PressedFunc, HeldFuncType HeldFunc,ReleasedFuncType ReleasedFunc)
 	{
 		if (!InputConfig)return;
-		for (FInputConfig Input: InputConfig)
+		for (FInputConfig Input: InputConfig->InputConfigs)
 		{
 			if (PressedFunc)
 			{

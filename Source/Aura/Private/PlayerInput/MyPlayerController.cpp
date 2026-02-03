@@ -32,8 +32,7 @@ void AMyPlayerController::SetupInputComponent()
 	UMyInputComponent* MyInputComp=Cast<UMyInputComponent>(InputComponent);
 	MyInputComp->BindAction(IA_Move,ETriggerEvent::Triggered,this,&AMyPlayerController::Move);
 	
-	MyInputComp->BindAbilityAction(InputConfig,this,PressedFunc,HeldFunc,ReleasedFunc);
-	
+	MyInputComp->BindAbilityAction(InputConfig,this,&AMyPlayerController::PressedFunc,&AMyPlayerController::HeldFunc,&AMyPlayerController::ReleasedFunc);
 }
 
 void AMyPlayerController::Move(const FInputActionValue& Value)
@@ -58,7 +57,7 @@ void AMyPlayerController::AutoMove(const FInputActionValue& Value)
 			SplineComp->AddSplinePoint(Point,ESplineCoordinateSpace::World,true);
 		}
 		
-		GetCharacter()->AddMovementInput()
+		// GetCharacter()->AddMovementInput()
 		
 		
 	}

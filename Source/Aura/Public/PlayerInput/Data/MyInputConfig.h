@@ -20,7 +20,7 @@ struct FInputConfig
 	FGameplayTag InputTag;
 	
 	UPROPERTY(EditAnywhere)
-	UInputAction InputAction;
+	UInputAction* InputAction;
 	
 };
 UCLASS()
