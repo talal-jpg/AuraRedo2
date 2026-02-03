@@ -2,6 +2,9 @@
 
 
 #include "PlayerInput/MyPlayerController.h"
+
+#include <string>
+
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "NavigationPath.h"
@@ -19,6 +22,14 @@ class UEnhancedInputLocalPlayerSubsystem;
 AMyPlayerController::AMyPlayerController()
 {
 	SplineComp= CreateDefaultSubobject<USplineComponent>(TEXT("SplineComp"));
+	// FInputModeGameOnly InputMode;
+}
+
+void AMyPlayerController::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	AutoMove();
+	CursorTrace();
 }
 
 void AMyPlayerController::SetupInputComponent()
@@ -35,6 +46,17 @@ void AMyPlayerController::SetupInputComponent()
 	MyInputComp->BindAbilityAction(InputConfig,this,&AMyPlayerController::PressedFunc,&AMyPlayerController::HeldFunc,&AMyPlayerController::ReleasedFunc);
 }
 
+void AMyPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+	FInputModeGameAndUI InputMode;
+	InputMode.SetHideCursorDuringCapture(false);
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	
+	SetInputMode(InputMode);
+	bShowMouseCursor=true;
+}
+
 void AMyPlayerController::Move(const FInputActionValue& Value)
 {
 	const FVector2d InputVal= Value.Get<FVector2d>();
@@ -45,23 +67,20 @@ void AMyPlayerController::Move(const FInputActionValue& Value)
 	GetCharacter()->AddMovementInput(RightVector,InputVal.Y);
 }
 
-void AMyPlayerController::AutoMove(const FInputActionValue& Value)
+void AMyPlayerController::AutoMove()
 {
-	if (ThisActor==nullptr)
+	if (!bIsAutoRunning)return;
+	float Dist= (GetCharacter()->GetActorLocation()-CachedLocation).SizeSquared();
+	if (Dist<DistThreshold)
 	{
-		CachedLocation=HitResult.ImpactPoint;
-		FVector PathStart= GetCharacter()->GetActorLocation();
-		UNavigationPath* NavigationPath=UNavigationSystemV1::FindPathToLocationSynchronously(this,PathStart,CachedLocation);
-		for (auto Point:NavigationPath->PathPoints)
-		{
-			SplineComp->AddSplinePoint(Point,ESplineCoordinateSpace::World,true);
-		}
-		
-		// GetCharacter()->AddMovementInput()
-		
-		
+		bIsAutoRunning=false;
 	}
-	
+	else
+	{
+		UKismetSystemLibrary::PrintString(GetWorld(),std::to_string(Dist).c_str());
+		FVector Dir= SplineComp->FindTangentClosestToWorldLocation(GetCharacter()->GetActorLocation(),ESplineCoordinateSpace::World);
+		GetCharacter()->AddMovementInput(Dir*MovementSpeed,1);
+	}
 }
 
 void AMyPlayerController::CursorTrace()
@@ -78,20 +97,34 @@ void AMyPlayerController::CursorTrace()
 	{
 		LastActor->UnHighlight();
 	}
-	
+	bIsTargeting=ThisActor!=nullptr;
 }
 
 void AMyPlayerController::PressedFunc(FGameplayTag InputTag)
 {
-	
+	PressedTime=0;
 }
 
 void AMyPlayerController::HeldFunc(FGameplayTag InputTag)
 {
+	PressedTime+=GetWorld()->DeltaTimeSeconds;
 }
 
 void AMyPlayerController::ReleasedFunc(FGameplayTag InputTag)
 {
+	if (PressedTime>PressedTimeThreshold)return;
+	if (!bIsTargeting)
+	{
+		CachedLocation=HitResult.ImpactPoint;
+		FVector PathStart= GetCharacter()->GetActorLocation();
+		UNavigationPath* NavigationPath=UNavigationSystemV1::FindPathToLocationSynchronously(this,PathStart,CachedLocation);
+		for (auto Point:NavigationPath->PathPoints)
+		{
+			SplineComp->AddSplinePoint(Point,ESplineCoordinateSpace::World,true);
+			DrawDebugSphere(GetWorld(),Point,10,10,FColor::Red,false,0.1f);
+		}
+		bIsAutoRunning=true;
+	}
 }
 
 

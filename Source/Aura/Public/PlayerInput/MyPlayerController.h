@@ -22,7 +22,9 @@ class AURA_API AMyPlayerController : public APlayerController
 	
 public:
 	AMyPlayerController();
+	virtual void Tick(float DeltaTime) override;
 	virtual void SetupInputComponent() override;
+	virtual void BeginPlay() override;
 	
 	UPROPERTY(EditAnywhere)
 	UInputMappingContext* IMC_PlayerInputMappingContext;
@@ -35,12 +37,16 @@ public:
 	/**
 	 * AutoMove
 	 */
-	void AutoMove(const FInputActionValue& Value);
+	void AutoMove();
 	
 	FHitResult HitResult;
 	FVector CachedLocation;
-	float DistThreshold=200.f;
-	float MovementSpeed=1000.f;
+	float DistThreshold=20000.f;
+	float MovementSpeed=100.f;
+	float PressedTime=0.f;
+	float PressedTimeThreshold=20.f;
+	bool bIsAutoRunning=false;
+	bool bIsTargeting=false;
 	
 	UPROPERTY()
 	USplineComponent* SplineComp;
