@@ -9,6 +9,7 @@ void UMyUserWidget::SetWidgetController(UMyWidgetController* InWidgetController)
 	WidgetControllerSet();
 }
 
-void UMyUserWidget::WidgetControllerSet()
+void UMyUserWidget::WidgetControllerSet_Implementation()
 {
 }
+

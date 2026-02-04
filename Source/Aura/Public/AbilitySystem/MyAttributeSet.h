@@ -17,17 +17,34 @@ class AURA_API UMyAttributeSet : public UAttributeSet
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
+public:
+	UMyAttributeSet();
+	
 	UPROPERTY(ReplicatedUsing = OnRep_Health)
 	FGameplayAttributeData Health;
 	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,Health)
 	
+	UPROPERTY(ReplicatedUsing = OnRep_MaxHealth)
+	FGameplayAttributeData MaxHealth;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,MaxHealth)
+	
 	UPROPERTY(ReplicatedUsing = OnRep_Mana)
 	FGameplayAttributeData Mana;
 	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,Mana)
+	
+	UPROPERTY(ReplicatedUsing = OnRep_MaxMana)
+	FGameplayAttributeData MaxMana;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,MaxMana)
 	
 	UFUNCTION()
 	void OnRep_Health(const FGameplayAttributeData& OldHealth);
 	
 	UFUNCTION()
 	void OnRep_Mana(const FGameplayAttributeData& OldMana);
+	
+	UFUNCTION()
+	void OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth);
+	
+	UFUNCTION()
+	void OnRep_MaxMana(const FGameplayAttributeData& OldMaxMana);
 };

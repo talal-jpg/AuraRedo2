@@ -25,5 +25,7 @@ void AMyHUD::InitOverlay()
 	OverlayWidgetController->SetWidgetControllerParams(Params);
 	OverlayWidget->SetWidgetController(OverlayWidgetController);
 	OverlayWidget->AddToViewport();
+	OverlayWidgetController->BindCallbacksToDependencies();
+	OverlayWidgetController->BroadcastInitialValues();
 	
 }
