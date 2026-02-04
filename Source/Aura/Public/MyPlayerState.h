@@ -6,8 +6,8 @@
 #include "GameFramework/PlayerState.h"
 #include "MyPlayerState.generated.h"
 
-class UAttributeSet;
-class UAbilitySystemComponent;
+class UMyAttributeSet;
+class UMyAbilitySystemComponent;
 /**
  * 
  */
@@ -19,10 +19,10 @@ class AURA_API AMyPlayerState : public APlayerState
 public:
 	
 	UPROPERTY()
-	UAbilitySystemComponent* AbilitySystemComponent;
+	UMyAbilitySystemComponent* AbilitySystemComponent;
 	
 	UPROPERTY()
-	UAttributeSet* AttributeSet;
+	UMyAttributeSet* AttributeSet;
 	
 	AMyPlayerState();
 	

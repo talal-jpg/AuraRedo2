@@ -1,0 +1,12 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
+
+void UMyOverlayWidgetController::BroadcastInitialValues()
+{
+}
+
+void UMyOverlayWidgetController::BindCallbacksToDependencies()
+{
+}

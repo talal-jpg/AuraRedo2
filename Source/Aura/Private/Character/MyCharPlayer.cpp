@@ -4,11 +4,9 @@
 #include "Character/MyCharPlayer.h"
 
 #include "AbilitySystemComponent.h"
-#include "EnhancedInputSubsystems.h"
 #include "MyPlayerState.h"
-#include "Camera/CameraComponent.h"
-#include "GameFramework/SpringArmComponent.h"
-#include "Components/CapsuleComponent.h"
+#include "AbilitySystem/MyAbilitySystemComponent.h"
+#include "UI/MyHUD.h"
 
 
 // Sets default values
@@ -77,6 +75,10 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 				MyPlayerState->AbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
 			}
 		}
+	}
+	if (NewController)
+	{
+		Cast<APlayerController>(NewController)->GetHUD<AMyHUD>()->InitOverlay();
 	}
 }
 

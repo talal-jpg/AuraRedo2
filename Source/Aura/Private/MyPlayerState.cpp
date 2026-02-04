@@ -4,9 +4,10 @@
 #include "MyPlayerState.h"
 
 #include "AbilitySystem/MyAbilitySystemComponent.h"
+#include "AbilitySystem/MyAttributeSet.h"
 
 AMyPlayerState::AMyPlayerState()
 {
-	AbilitySystemComponent=CreateDefaultSubobject<UMyAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
-	AttributeSet=CreateDefaultSubobject<UAttributeSet>(TEXT("AttributeSet"));
+	AbilitySystemComponent=CreateDefaultSubobject<UMyAbilitySystemComponent>(TEXT("MyAbilitySystemComponent"));
+	AttributeSet=CreateDefaultSubobject<UMyAttributeSet>(TEXT("MyAttributeSet"));
 }
