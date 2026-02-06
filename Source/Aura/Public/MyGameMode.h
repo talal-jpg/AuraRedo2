@@ -13,4 +13,7 @@ UCLASS()
 class AURA_API AMyGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
+	
+public:
+	
 };

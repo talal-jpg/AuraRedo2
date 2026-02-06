@@ -6,6 +6,7 @@
 #include "GameFramework/HUD.h"
 #include "MyHUD.generated.h"
 
+class UMyOverlayWidgetController;
 class UMyUserWidget;
 /**
  * 
@@ -26,6 +27,8 @@ private:
 	TSubclassOf<UMyUserWidget> OverlayUserWidgetClass;
 	
 	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UMyOverlayWidgetController> OverlayWidgetControllerClass;
 	
 	
 };

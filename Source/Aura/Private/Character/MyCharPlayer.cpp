@@ -6,6 +6,7 @@
 #include "AbilitySystemComponent.h"
 #include "MyPlayerState.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "UI/MyHUD.h"
 
 
@@ -55,10 +56,20 @@ void AMyCharPlayer::OnRep_PlayerState()
 	{
 		if (AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(GetPlayerState()))
 		{
-			if (MyPlayerState->AbilitySystemComponent)
+			if (MyPlayerState->MyAbilitySystemComponent)
 			{
-				MyPlayerState->AbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
+				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
+				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("OnRep_PlayerState"));
+				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
 			}
+		}
+	}
+	// Initializing HUD on client (PlayerController is only valid for local player)
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (AMyHUD* MyHUD = PC->GetHUD<AMyHUD>())
+		{
+			MyHUD->InitOverlay();
 		}
 	}
 }
@@ -70,15 +81,19 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 	{
 		if (AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(GetPlayerState()))
 		{
-			if (MyPlayerState->AbilitySystemComponent)
+			if (MyPlayerState->MyAbilitySystemComponent)
 			{
-				MyPlayerState->AbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
+				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
+				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
+				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("PossessedBy"));
 			}
 		}
 	}
-	if (NewController)
+	if (APlayerController* PC=Cast<APlayerController>(NewController))
 	{
-		Cast<APlayerController>(NewController)->GetHUD<AMyHUD>()->InitOverlay();
+		AMyHUD* MyHUD=PC->GetHUD<AMyHUD>();
+		if (!MyHUD)return;
+		MyHUD->InitOverlay();
 	}
 }
 

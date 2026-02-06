@@ -14,4 +14,6 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 {
 	GENERATED_BODY()
 	
+	public:
+	UMyAbilitySystemComponent();
 };

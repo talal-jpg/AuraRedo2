@@ -19,10 +19,10 @@ class AURA_API AMyPlayerState : public APlayerState
 public:
 	
 	UPROPERTY()
-	UMyAbilitySystemComponent* AbilitySystemComponent;
+	UMyAbilitySystemComponent* MyAbilitySystemComponent;
 	
 	UPROPERTY()
-	UMyAttributeSet* AttributeSet;
+	UMyAttributeSet* MyAttributeSet;
 	
 	AMyPlayerState();
 	

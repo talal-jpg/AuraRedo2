@@ -7,6 +7,9 @@ void UMyWidgetController::SetWidgetControllerParams(FWidgetControllerParams Para
 {
 	MyAbilitySystemComponent=Params.AbilitySystemComponent;
 	MyAttributeSet=Params.AttributeSet;
+	PlayerController=Params.PlayerController;
+	PlayerState=Params.PlayerState;
+	
 }
 
 void UMyWidgetController::BindCallbacksToDependencies()

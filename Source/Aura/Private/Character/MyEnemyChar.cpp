@@ -4,6 +4,7 @@
 #include "Character/MyEnemyChar.h"
 
 #include "AbilitySystem/MyAbilitySystemComponent.h"
+#include "AbilitySystem/MyAttributeSet.h"
 
 
 // Sets default values
@@ -11,8 +12,8 @@ AMyEnemyChar::AMyEnemyChar()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	AbilitySystemComponent=CreateDefaultSubobject<UMyAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
-	AttributeSet=CreateDefaultSubobject<UAttributeSet>(TEXT("AttributeSet"));
+	MyAbilitySystemComponent=CreateDefaultSubobject<UMyAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	MyAttributeSet=CreateDefaultSubobject<UMyAttributeSet>(TEXT("AttributeSet"));
 	
 }
 
@@ -20,9 +21,9 @@ AMyEnemyChar::AMyEnemyChar()
 void AMyEnemyChar::BeginPlay()
 {
 	Super::BeginPlay();
-	if (AbilitySystemComponent)
+	if (MyAbilitySystemComponent)
 	{
-		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		MyAbilitySystemComponent->InitAbilityActorInfo(this, this);
 	}
 }
 

@@ -3,3 +3,8 @@
 
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 
+UMyAbilitySystemComponent::UMyAbilitySystemComponent()
+{
+	SetIsReplicated(true);
+	ReplicationMode=EGameplayEffectReplicationMode::Mixed;
+}

@@ -3,8 +3,12 @@
 
 #include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
 
+#include "MyGameMode.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
+#include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Kismet/GameplayStatics.h"
+#include "PlayerInput/MyPlayerController.h"
 
 void UMyOverlayWidgetController::BroadcastInitialValues()
 {
@@ -19,6 +23,7 @@ void UMyOverlayWidgetController::BindCallbacksToDependencies()
 	MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(MyAttributeSet->GetHealthAttribute()).AddLambda(
 		[this](const FOnAttributeChangeData& Data)
 		{
+			// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("Health Changed: %f"),Data.NewValue));
 			OnHealthChangeDelegate.Broadcast(Data.NewValue);
 		}
 	);
@@ -44,5 +49,16 @@ void UMyOverlayWidgetController::BindCallbacksToDependencies()
 		}
 	);
 	
-	
+	MyAbilitySystemComponent->OnGameplayEffectAppliedDelegateToSelf.AddLambda(
+		[this](UAbilitySystemComponent* ASC, const FGameplayEffectSpec& GESpec, FActiveGameplayEffectHandle AtiveGEHandle)
+		{
+			FGameplayTagContainer AssetTags;
+			GESpec.GetAllAssetTags(AssetTags);
+			FGameplayTag MessageTag=AssetTags.GetByIndex(0);
+			if (!MessageTag.IsValid())return;
+			FPopupWidgetInfo* PopupWidgetInfoRow=DT_PopupWidgetInfo->FindRow<FPopupWidgetInfo>(FName(MessageTag.ToString()),FString(""));
+			OnEffectAppliedBroadcastPopupWidgetInfoDelegate.Broadcast(*PopupWidgetInfoRow);
+		}
+	);
 }
+

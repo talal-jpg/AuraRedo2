@@ -77,7 +77,6 @@ void AMyPlayerController::AutoMove()
 	}
 	else
 	{
-		UKismetSystemLibrary::PrintString(GetWorld(),std::to_string(Dist).c_str());
 		FVector Dir= SplineComp->FindTangentClosestToWorldLocation(GetCharacter()->GetActorLocation(),ESplineCoordinateSpace::World);
 		GetCharacter()->AddMovementInput(Dir*MovementSpeed,1);
 	}

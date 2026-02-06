@@ -14,18 +14,29 @@
 
 void AMyHUD::InitOverlay()
 {
-	APlayerController* PlayerController = GetOwningPlayerController();
-	OverlayWidget=CreateWidget<UMyUserWidget>(PlayerController, OverlayUserWidgetClass);
-	UMyOverlayWidgetController* OverlayWidgetController= NewObject<UMyOverlayWidgetController>();
-	AMyPlayerState* PlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
-	UMyAbilitySystemComponent* MyAbilitySystemComponent=PlayerState->AbilitySystemComponent;
-	UMyAttributeSet* AttributeSet=PlayerState->AttributeSet;
+	if (APlayerController* PlayerController = GetOwningPlayerController())
+	{
+		if (OverlayUserWidgetClass == nullptr)
+		{
+			UE_LOG(LogTemp, Error, TEXT("OverlayUserWidgetClass is not set in MyHUD!"));
+			return;
+		}
+		OverlayWidget=CreateWidget<UMyUserWidget>(PlayerController, OverlayUserWidgetClass);
+		UMyOverlayWidgetController* OverlayWidgetController= NewObject<UMyOverlayWidgetController>(this,OverlayWidgetControllerClass);
+		AMyPlayerState* PlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
+		if (PlayerState == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("PlayerState is null in InitOverlay"));
+			return;
+		}
+		UMyAbilitySystemComponent* MyAbilitySystemComponent=PlayerState->MyAbilitySystemComponent;
+		UMyAttributeSet* AttributeSet=PlayerState->MyAttributeSet;
 	
-	FWidgetControllerParams Params(PlayerController,PlayerState,MyAbilitySystemComponent,AttributeSet);
-	OverlayWidgetController->SetWidgetControllerParams(Params);
-	OverlayWidget->SetWidgetController(OverlayWidgetController);
-	OverlayWidget->AddToViewport();
-	OverlayWidgetController->BindCallbacksToDependencies();
-	OverlayWidgetController->BroadcastInitialValues();
-	
+		FWidgetControllerParams Params(PlayerController,PlayerState,MyAbilitySystemComponent,AttributeSet);
+		OverlayWidgetController->SetWidgetControllerParams(Params);
+		OverlayWidget->SetWidgetController(OverlayWidgetController);
+		OverlayWidget->AddToViewport();
+		OverlayWidgetController->BindCallbacksToDependencies();
+		OverlayWidgetController->BroadcastInitialValues();
+	}
 }

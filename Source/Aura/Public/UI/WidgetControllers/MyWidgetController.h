@@ -38,6 +38,12 @@ public:
 	UPROPERTY()
 	UMyAttributeSet* MyAttributeSet;
 	
+	UPROPERTY()
+	APlayerController* PlayerController;
+	
+	UPROPERTY()
+	APlayerState* PlayerState;
+	
 	void SetWidgetControllerParams(FWidgetControllerParams Params);
 	
 	virtual void BindCallbacksToDependencies();
