@@ -4,7 +4,27 @@
 
 namespace MyTags
 {
+	// InputTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_LMB)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_RMB)
+	// MessageTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_Potion_Health)
+	// AttributeTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Vital_Health)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Vital_Mana)
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Primary_Strength)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Primary_Agility)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Primary_Intelligence)
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_MaxHealth)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_MaxMana)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_HealthRegen)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_ManaRegen)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_MagicResist)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_Armor)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_AttackSpeed)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_MoveSpeed)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_TurnSpeed)
+	
 }

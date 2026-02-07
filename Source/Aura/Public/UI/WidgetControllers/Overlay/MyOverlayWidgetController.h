@@ -7,6 +7,7 @@
 #include "UI/WidgetControllers/MyWidgetController.h"
 #include "MyOverlayWidgetController.generated.h"
 
+class UMyAttributeMenuWidgetController;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttribChangeDelegateSignature, float, NewVal);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEffectAppliedDelegateSignature,FPopupWidgetInfo , WidgetInfo);
 /**
@@ -37,5 +38,14 @@ public:
 	
 	virtual void BroadcastInitialValues() override;
 	virtual void BindCallbacksToDependencies() override;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	UMyAttributeMenuWidgetController* AttributeMenuWidgetController=nullptr;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	TSubclassOf<UMyUserWidget> AttributeMenuWidgetClass;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	UMyUserWidget* AttributeMenuWidget=nullptr;
 	
 };

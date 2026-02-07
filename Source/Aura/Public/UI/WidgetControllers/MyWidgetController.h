@@ -38,7 +38,7 @@ public:
 	UPROPERTY()
 	UMyAttributeSet* MyAttributeSet;
 	
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	APlayerController* PlayerController;
 	
 	UPROPERTY()
@@ -46,6 +46,9 @@ public:
 	
 	void SetWidgetControllerParams(FWidgetControllerParams Params);
 	
+	UFUNCTION(BlueprintCallable)
 	virtual void BindCallbacksToDependencies();
+	
+	UFUNCTION(BlueprintCallable)
 	virtual void BroadcastInitialValues();
 };

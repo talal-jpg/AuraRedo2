@@ -19,7 +19,10 @@ class AURA_API UMyAttributeSet : public UAttributeSet
 	
 public:
 	UMyAttributeSet();
-	
+
+	/**
+	 * vital attributes
+	 */
 	UPROPERTY(ReplicatedUsing = OnRep_Health)
 	FGameplayAttributeData Health;
 	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,Health)
@@ -47,4 +50,93 @@ public:
 	
 	UFUNCTION()
 	void OnRep_MaxMana(const FGameplayAttributeData& OldMaxMana);
+	
+	/**
+	 *Primary Attributes
+	 */
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_Strength)
+	FGameplayAttributeData Strength;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,Strength)
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_Agility)
+	FGameplayAttributeData Agility;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,Agility)
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_Intelligence)
+	FGameplayAttributeData Intelligence;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,Intelligence)
+	
+	UFUNCTION()
+	void OnRep_Strength(const FGameplayAttributeData& OldStrength);
+	
+	UFUNCTION()
+	void OnRep_Agility(const FGameplayAttributeData& OldAgility);
+	
+	UFUNCTION()
+	void OnRep_Intelligence(const FGameplayAttributeData& OldIntelligence);
+	
+	/**
+	 * Secondary Attributes
+	 */
+	
+	/**
+	 *Dependency Chart
+*	Attribute 	Primary Stat	Secondary Stat	Derived Bonus (per 1 point)
+*Strength 🧱	Health	HP & HP Regen	+22 Max HP, +0.1 HP Regeneration
+*Agility ⚔️	Physical	Armor & Attack Speed	+1/6 Armor (~0.16), +1 Attack Speed , Movement Speed , Turn Speed
+*Intelligence 🔮	Mana	Mana & Magic Resist	+12 Max Mana, +0.05 Mana Regen, +0.1% Magic Resist
+*Primary ⭐	Damage	Attack Damage	+1.0 Attack Damage (+0.7 for Universal heroes)
+*/	
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_HealthRegen)
+	FGameplayAttributeData HealthRegen;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,HealthRegen)
+	
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_ManaRegen)
+	FGameplayAttributeData ManaRegen;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,ManaRegen)
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_MagicResist)
+	FGameplayAttributeData MagicResist;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,MagicResist)
+	
+	UFUNCTION()
+	void OnRep_HealthRegen(const FGameplayAttributeData& OldHealthRegen);
+	
+	UFUNCTION()
+	void OnRep_ManaRegen(const FGameplayAttributeData& OldManaRegen);
+	
+	UFUNCTION()
+	void OnRep_MagicResist(const FGameplayAttributeData& OldMagicResist);
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_Armor)
+	FGameplayAttributeData Armor;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,Armor)
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_AttackSpeed)
+	FGameplayAttributeData AttackSpeed;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,AttackSpeed)
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_MoveSpeed)
+	FGameplayAttributeData MoveSpeed;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,MoveSpeed)
+	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_TurnSpeed)
+	FGameplayAttributeData TurnSpeed;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,TurnSpeed)
+	
+	UFUNCTION()
+	void OnRep_Armor(const FGameplayAttributeData& OldArmor);
+	
+	UFUNCTION()
+	void OnRep_AttackSpeed(const FGameplayAttributeData& OldAttackSpeed);
+	
+	UFUNCTION()
+	void OnRep_MoveSpeed(const FGameplayAttributeData& OldMoveSpeed);
+	
+	UFUNCTION()
+	void OnRep_TurnSpeed(const FGameplayAttributeData& OldTurnSpeed);
+	
+	TMap<FGameplayTag,FGameplayAttribute> TagToAttributeMap;
 };
