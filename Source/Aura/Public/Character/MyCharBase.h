@@ -5,13 +5,15 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
+#include "MyCombatInterface.h"
 #include "MyCharBase.generated.h"
 
+class UGameplayAbility;
 class UMyAttributeSet;
 class UMyAbilitySystemComponent;
 
 UCLASS(Abstract)
-class AURA_API AMyCharBase : public ACharacter, public IAbilitySystemInterface
+class AURA_API AMyCharBase : public ACharacter, public IAbilitySystemInterface , public IMyCombatInterface
 {
 	GENERATED_BODY()
 
@@ -24,7 +26,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mesh)
 	USkeletalMeshComponent* WeaponMesh;
 	
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	UMyAbilitySystemComponent* MyAbilitySystemComponent;
 	
 	UPROPERTY()
@@ -32,9 +34,10 @@ protected:
 	
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	
+	UPROPERTY(EditAnywhere)
+	TArray<TSubclassOf<UGameplayAbility>> StartupAbilities;
 	
-	
-
+	virtual void GiveStartupAbilities();
 public:	
 
 };

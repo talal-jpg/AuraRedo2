@@ -6,6 +6,8 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "MyBPFuncLib.generated.h"
 
+class UMyAbilitySystemComponent;
+enum class ECharacterClass : uint8;
 struct FGameplayTagContainer;
 class UMyOverlayWidgetController;
 class UMyWidgetController;
@@ -22,5 +24,8 @@ class AURA_API UMyBPFuncLib : public UBlueprintFunctionLibrary
 	
 	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
 	static void GetAllGameplayTags(UPARAM(ref) FGameplayTagContainer& OutGameplayTags);
+	
+	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
+	static void InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,UMyAbilitySystemComponent* MyAbilitySystemComponent,float IN_CharacterLevel);
 };
 

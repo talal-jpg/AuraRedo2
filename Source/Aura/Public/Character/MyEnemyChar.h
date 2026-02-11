@@ -4,10 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "MyCharBase.h"
+#include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
 #include "MyEnemyChar.generated.h"
 
+class UWidgetComponent;
+class UMyUserWidget;
 class UAttributeSet;
 class UAbilitySystemComponent;
+
 
 UCLASS()
 class AURA_API AMyEnemyChar : public AMyCharBase
@@ -26,7 +30,16 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
+	UPROPERTY(EditAnywhere)
+	UMyUserWidget* HealthBar;
+	
+	UPROPERTY(EditAnywhere)
+	UWidgetComponent* HealthBarWidgetComponent;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnAttribChangeDelegateSignature OnHealthChangeDelegate;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnAttribChangeDelegateSignature OnMaxHealthChangeDelegate;
 };

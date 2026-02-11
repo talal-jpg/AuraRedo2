@@ -2,9 +2,11 @@
 
 
 #include "Character/MyEnemyChar.h"
-
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
+#include "Components/WidgetComponent.h"
+#include "StaticLib/MyBPFuncLib.h"
+#include "UI/UserWidgets/MyUserWidget.h"
 
 
 // Sets default values
@@ -14,7 +16,8 @@ AMyEnemyChar::AMyEnemyChar()
 	PrimaryActorTick.bCanEverTick = true;
 	MyAbilitySystemComponent=CreateDefaultSubobject<UMyAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	MyAttributeSet=CreateDefaultSubobject<UMyAttributeSet>(TEXT("AttributeSet"));
-	
+	HealthBarWidgetComponent=CreateDefaultSubobject<UWidgetComponent>(TEXT("HealthBar"));
+	HealthBarWidgetComponent->SetupAttachment(GetRootComponent());
 }
 
 // Called when the game starts or when spawned
@@ -24,18 +27,32 @@ void AMyEnemyChar::BeginPlay()
 	if (MyAbilitySystemComponent)
 	{
 		MyAbilitySystemComponent->InitAbilityActorInfo(this, this);
+		GiveStartupAbilities();
+		//InitAttrToBeCalledInBPCharClassToBeDifferentForEachEnemy
 	}
+	HealthBar=Cast<UMyUserWidget>(HealthBarWidgetComponent->GetUserWidgetObject());
+	HealthBar->SetWidgetController(this);
+	
+	MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(MyAttributeSet->GetHealthAttribute()).AddLambda(
+		[this](const FOnAttributeChangeData& Data)
+		{
+			OnHealthChangeDelegate.Broadcast(Data.NewValue);
+		}
+	);
+	MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(MyAttributeSet->GetMaxHealthAttribute()).AddLambda(
+		[this](const FOnAttributeChangeData& Data)
+			{
+				OnMaxHealthChangeDelegate.Broadcast(Data.NewValue);
+			}
+	);
+	
+	OnHealthChangeDelegate.Broadcast(MyAttributeSet->GetHealth());
+	OnMaxHealthChangeDelegate.Broadcast(MyAttributeSet->GetMaxHealth());
 }
 
 // Called every frame
 void AMyEnemyChar::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-}
-
-// Called to bind functionality to input
-void AMyEnemyChar::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 

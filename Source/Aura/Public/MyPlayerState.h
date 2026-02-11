@@ -26,4 +26,6 @@ public:
 	
 	AMyPlayerState();
 	
+	int32 Level=1;
+	
 };

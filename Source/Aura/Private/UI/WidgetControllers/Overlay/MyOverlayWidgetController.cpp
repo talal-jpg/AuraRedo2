@@ -9,6 +9,11 @@
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Kismet/GameplayStatics.h"
 #include "PlayerInput/MyPlayerController.h"
+#include "UI/Data/DA_MyAbilityInfo.h"
+
+UMyOverlayWidgetController::UMyOverlayWidgetController()
+{
+}
 
 void UMyOverlayWidgetController::BroadcastInitialValues()
 {
@@ -60,5 +65,32 @@ void UMyOverlayWidgetController::BindCallbacksToDependencies()
 			OnEffectAppliedBroadcastPopupWidgetInfoDelegate.Broadcast(*PopupWidgetInfoRow);
 		}
 	);
+	
+	if (MyAbilitySystemComponent->bAbilitiesGiven)
+	{
+		BroadcastAbilityInfo();
+	}
+	else
+	{
+		MyAbilitySystemComponent->OnAbilitiesGivenDelegate.AddUObject(this, &UMyOverlayWidgetController::BroadcastAbilityInfo);
+	}
 }
+
+void UMyOverlayWidgetController::BroadcastAbilityInfo()
+{
+	
+	FForEachAbilityDelegateSignature ForEachAbilityDelegate;
+	
+	ForEachAbilityDelegate.BindLambda(
+		[this](const FGameplayAbilitySpec& AbilitySpec)
+		{
+			FAbilityInfo AbilityInfo=DA_AbilityInfo->GetAbilityInfoForTag(MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec));
+			AbilityInfo.InputTag= MyAbilitySystemComponent->GetInputTagFromSpec(AbilitySpec);
+			
+			BroadcastAbilityInfoDelegate.Broadcast(AbilityInfo);
+		}
+	);
+	MyAbilitySystemComponent->ForEachAbility(ForEachAbilityDelegate);
+}
+
 

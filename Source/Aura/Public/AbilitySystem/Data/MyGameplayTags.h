@@ -27,4 +27,11 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_MoveSpeed)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_TurnSpeed)
 	
+	// AbilityTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Abilities_FireBolt)
+	
+	// EventTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_XPGained)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_HitReact)
+	
 }

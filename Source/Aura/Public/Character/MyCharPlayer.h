@@ -6,6 +6,7 @@
 #include "MyCharBase.h"
 #include "MyCharPlayer.generated.h"
 
+class UGameplayEffect;
 class UCameraComponent;
 class USpringArmComponent;
 class UInputMappingContext;
@@ -31,5 +32,21 @@ public:
 	virtual void PossessedBy(AController* NewController) override;
 	
 	
-
+	void InitializeAttributes();
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UGameplayEffect> PrimaryAttributesEffect;
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UGameplayEffect> SecondaryAttributesEffect;
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UGameplayEffect> VitalAttributesEffect;
+	
+	virtual int32 GetLevel() override;
+	
+	virtual void GiveStartupAbilities() override;
+	
+	
+	
 };

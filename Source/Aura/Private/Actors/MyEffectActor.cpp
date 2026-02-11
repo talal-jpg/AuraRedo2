@@ -30,6 +30,7 @@ void AMyEffectActor::OnOverlap(AActor* OverlappingActor)
 				return;
 			}
 			FGameplayEffectContextHandle EffectContextHandle=ActorAsASC->MakeEffectContext();
+
 			FGameplayEffectSpecHandle GESpecHandle=ActorAsASC->MakeOutgoingSpec(GameplayEffectClass,ActorLevel,EffectContextHandle);
 			FActiveGameplayEffectHandle ActiveGEHandle=ActorAsASC->ApplyGameplayEffectSpecToSelf(*GESpecHandle.Data.Get());
 

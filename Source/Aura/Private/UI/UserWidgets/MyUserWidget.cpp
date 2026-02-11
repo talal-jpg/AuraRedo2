@@ -3,7 +3,7 @@
 
 #include "UI/UserWidgets/MyUserWidget.h"
 
-void UMyUserWidget::SetWidgetController(UMyWidgetController* InWidgetController)
+void UMyUserWidget::SetWidgetController(UObject* InWidgetController)
 {
 	MyWidgetController=InWidgetController;
 	WidgetControllerSet();

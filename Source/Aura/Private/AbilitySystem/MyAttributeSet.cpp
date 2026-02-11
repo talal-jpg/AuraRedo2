@@ -24,11 +24,6 @@ UMyAttributeSet::UMyAttributeSet()
 	TagToAttributeMap.Add(MyTags::Attribute_Secondary_AttackSpeed,GetAttackSpeedAttribute());
 	TagToAttributeMap.Add(MyTags::Attribute_Secondary_MoveSpeed,GetMoveSpeedAttribute());
 	TagToAttributeMap.Add(MyTags::Attribute_Secondary_TurnSpeed,GetTurnSpeedAttribute());
-	
-	InitHealth(50);
-	InitMana(50);
-	InitMaxHealth(100);
-	InitMaxMana(100);
 }
 void UMyAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {

@@ -61,6 +61,8 @@ void AMyCharPlayer::OnRep_PlayerState()
 				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("OnRep_PlayerState"));
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
+				InitializeAttributes();
+				GiveStartupAbilities();
 			}
 		}
 	}
@@ -85,6 +87,8 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 			{
 				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
+				InitializeAttributes();
+				GiveStartupAbilities();
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("PossessedBy"));
 			}
 		}
@@ -96,5 +100,37 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 		MyHUD->InitOverlay();
 	}
 }
+
+void AMyCharPlayer::InitializeAttributes()
+{
+	// InitPrimaryAttrs
+	FGameplayEffectContextHandle EffectContextHandle=MyAbilitySystemComponent->MakeEffectContext();
+	EffectContextHandle.AddInstigator(this,this);
+	FGameplayEffectSpecHandle SpecHandlePrimary=MyAbilitySystemComponent->MakeOutgoingSpec(PrimaryAttributesEffect,GetLevel(),EffectContextHandle);
+	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandlePrimary.Data.Get());
+	
+	//InitSecondaryAttrs
+	FGameplayEffectSpecHandle SpecHandleSecondary=MyAbilitySystemComponent->MakeOutgoingSpec(SecondaryAttributesEffect,GetLevel(),EffectContextHandle);
+	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleSecondary.Data.Get());
+	
+	//InitVitalAttrs
+	FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,GetLevel(),EffectContextHandle);
+	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleVital.Data.Get());
+}
+
+
+int32 AMyCharPlayer::GetLevel()
+{
+	return GetPlayerState<AMyPlayerState>()->Level;
+}
+
+void AMyCharPlayer::GiveStartupAbilities()
+{
+	Super::GiveStartupAbilities();
+	MyAbilitySystemComponent->bAbilitiesGiven=true;
+	MyAbilitySystemComponent->OnAbilitiesGivenDelegate.Broadcast();
+}
+
+
 
 

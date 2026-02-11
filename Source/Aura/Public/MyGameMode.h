@@ -6,6 +6,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "MyGameMode.generated.h"
 
+class UDA_MyEnemyCharacterClassInfo;
 /**
  * 
  */
@@ -15,5 +16,8 @@ class AURA_API AMyGameMode : public AGameModeBase
 	GENERATED_BODY()
 	
 public:
+	
+	UPROPERTY(EditAnywhere)
+	UDA_MyEnemyCharacterClassInfo* DA_MyEnemyCharacterClassInfo;
 	
 };
