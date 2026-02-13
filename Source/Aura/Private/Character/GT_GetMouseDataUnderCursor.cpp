@@ -18,7 +18,7 @@ void UGT_GetMouseDataUnderCursor::Activate()
 	bool bIsLocalllyControlled=Ability->GetCurrentActorInfo()->IsLocallyControlled();
 	if (bIsLocalllyControlled)
 	{
-		UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Locally Controlled"));
+		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Locally Controlled"));
 		SendMouseCursorData();
 	}
 	else
@@ -42,7 +42,7 @@ void UGT_GetMouseDataUnderCursor::SendMouseCursorData()
 	FGameplayAbilityTargetDataHandle TargetDataHandle;
 	TargetData->HitResult=HitResult;
 	TargetDataHandle.Add(TargetData);
-	UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Mouse Cursor HitResult: ") + HitResult.ToString());
+	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Mouse Cursor HitResult: ") + HitResult.ToString());
 	AbilitySystemComponent.Get()->ServerSetReplicatedTargetData(GetAbilitySpecHandle(),GetActivationPredictionKey(),TargetDataHandle,FGameplayTag(),AbilitySystemComponent->ScopedPredictionKey);
 	
 	if (ShouldBroadcastAbilityTaskDelegates())

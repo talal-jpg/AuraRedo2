@@ -33,10 +33,13 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_TurnSpeed,"Attribute.Secondary.TurnSpeed");
 	
 	// AbilityTags
-	UE_DEFINE_GAMEPLAY_TAG(Abilities_FireBolt,"Abilities.FireBolt")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_FireBolt,"Ability.FireBolt")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Projectile,"Ability.Projectile")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")
 	
 	// EventTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")
 	UE_DEFINE_GAMEPLAY_TAG(Event_HitReact,"Event.HitReact")
+	UE_DEFINE_GAMEPLAY_TAG(Event_SpawnFireBall,"Event.SpawnFireBall")
 	
 }

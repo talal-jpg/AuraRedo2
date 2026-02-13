@@ -41,10 +41,12 @@ public:
 	
 	FHitResult HitResult;
 	FVector CachedLocation;
-	float DistThreshold=20000.f;
+	
+	UPROPERTY(EditAnywhere)
+	float DistThreshold=500.f;
 	float MovementSpeed=100.f;
 	float PressedTime=0.f;
-	float PressedTimeThreshold=20.f;
+	float PressedTimeThreshold=2.2f;
 	bool bIsAutoRunning=false;
 	bool bIsTargeting=false;
 	

@@ -38,6 +38,8 @@ protected:
 	TArray<TSubclassOf<UGameplayAbility>> StartupAbilities;
 	
 	virtual void GiveStartupAbilities();
+	
+	virtual FVector GetCombatSocketLocation() override;
 public:	
 
 };

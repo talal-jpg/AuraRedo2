@@ -11,6 +11,7 @@
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
+#include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Components/SplineComponent.h"
 #include "GameFramework/Character.h"
@@ -58,6 +59,15 @@ void AMyPlayerController::BeginPlay()
 	
 	SetInputMode(InputMode);
 	bShowMouseCursor=true;
+	
+	AMyPlayerState* PS=GetPlayerState<AMyPlayerState>();
+	PS->MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PS->MyAttributeSet->GetMoveSpeedAttribute()).AddLambda(
+		[this](const FOnAttributeChangeData& Data)
+		{
+			MovementSpeed=Data.NewValue;
+		}
+	);
+	MovementSpeed=PS->MyAttributeSet->GetMoveSpeed();
 }
 
 void AMyPlayerController::Move(const FInputActionValue& Value)
@@ -73,7 +83,7 @@ void AMyPlayerController::Move(const FInputActionValue& Value)
 void AMyPlayerController::AutoMove()
 {
 	if (!bIsAutoRunning)return;
-	float Dist= (GetCharacter()->GetActorLocation()-CachedLocation).SizeSquared();
+	float Dist= (GetCharacter()->GetActorLocation()-CachedLocation).Size();
 	if (Dist<DistThreshold)
 	{
 		bIsAutoRunning=false;
@@ -95,7 +105,7 @@ void AMyPlayerController::CursorTrace()
 	{
 		ThisActor->Highlight();
 	}
-	if (LastActor)
+	if (ThisActor== nullptr && LastActor)
 	{
 		LastActor->UnHighlight();
 	}
@@ -105,14 +115,17 @@ void AMyPlayerController::CursorTrace()
 void AMyPlayerController::PressedFunc(FGameplayTag InputTag)
 {
 	PressedTime=0;
+	if (!bIsTargeting)return;
 	UMyAbilitySystemComponent* MyASC=GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent;
 	
 	for (auto Ability:MyASC->GetActivatableAbilities())
 	{
 		FGameplayTagContainer AbilityTags=Ability.GetDynamicSpecSourceTags();
+		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("AbilityTag: ") + AbilityTags.First().ToString());
 		if (InputTag.MatchesTagExact(AbilityTags.First()))
 		{
-			MyASC->TryActivateAbility(Ability.Handle);
+			// bool WasActivated=MyASC->TryActivateAbility(Ability.Handle);
+			MyASC->TryActivateAbility(Ability.Handle);	
 		}
 	}
 }
@@ -126,6 +139,7 @@ void AMyPlayerController::ReleasedFunc(FGameplayTag InputTag)
 {
 	if (InputTag == MyTags::Input_LMB)
 	{
+		SplineComp->ClearSplinePoints();
 		if (PressedTime>PressedTimeThreshold)return;
 		if (!bIsTargeting)
 		{
@@ -137,6 +151,7 @@ void AMyPlayerController::ReleasedFunc(FGameplayTag InputTag)
 				SplineComp->AddSplinePoint(Point,ESplineCoordinateSpace::World,true);
 				DrawDebugSphere(GetWorld(),Point,10,10,FColor::Red,false,0.1f);
 			}
+			SplineComp->UpdateSpline();
 			bIsAutoRunning=true;
 		}
 	}

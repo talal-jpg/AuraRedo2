@@ -25,4 +25,7 @@ public:
 	
 	virtual int32 GetLevel();
 	
+	virtual FVector GetCombatSocketLocation();
+	
+	
 };

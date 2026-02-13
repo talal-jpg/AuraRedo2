@@ -54,5 +54,10 @@ void AMyCharBase::GiveStartupAbilities()
 	}
 }
 
+FVector AMyCharBase::GetCombatSocketLocation()
+{
+	return WeaponMesh->GetSocketLocation(FName("CombatSocket"));
+}
+
 
 

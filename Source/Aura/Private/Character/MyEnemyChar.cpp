@@ -5,6 +5,7 @@
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "Components/WidgetComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "StaticLib/MyBPFuncLib.h"
 #include "UI/UserWidgets/MyUserWidget.h"
 
@@ -54,5 +55,18 @@ void AMyEnemyChar::BeginPlay()
 void AMyEnemyChar::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+void AMyEnemyChar::Highlight()
+{
+	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Highlighted"));
+	GetMesh()->SetCustomDepthStencilValue(100);
+ }
+
+void AMyEnemyChar::UnHighlight()
+{
+	GetMesh()->SetCustomDepthStencilValue(0);
+	
+	UKismetSystemLibrary::PrintString(GetWorld(),TEXT("UnHighlighted"));
 }
 

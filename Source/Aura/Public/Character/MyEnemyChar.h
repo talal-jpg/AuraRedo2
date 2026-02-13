@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MyCharBase.h"
+#include "Interfaces/MyHighlightInterface.h"
 #include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
 #include "MyEnemyChar.generated.h"
 
@@ -14,7 +15,7 @@ class UAbilitySystemComponent;
 
 
 UCLASS()
-class AURA_API AMyEnemyChar : public AMyCharBase
+class AURA_API AMyEnemyChar : public AMyCharBase , public IMyHighlightInterface
 {
 	GENERATED_BODY()
 
@@ -42,4 +43,8 @@ public:
 	
 	UPROPERTY(BlueprintAssignable)
 	FOnAttribChangeDelegateSignature OnMaxHealthChangeDelegate;
+	
+	virtual void Highlight() override;
+	
+	virtual void UnHighlight() override;
 };
