@@ -4,6 +4,7 @@
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 UMyAbilitySystemComponent::UMyAbilitySystemComponent()
 {
@@ -42,4 +43,31 @@ FGameplayTag UMyAbilitySystemComponent::GetInputTagFromSpec(const FGameplayAbili
 		}
 	}
 	return FGameplayTag();
+}
+
+void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
+{
+	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	for (auto AbilitySpec:GetActivatableAbilities())
+	{
+		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag)){
+			AbilitySpecInputPressed(AbilitySpec);
+			TryActivateAbility(AbilitySpec.Handle);
+			//happens auto in AbilitySpecInputPressed
+			// if (AbilitySpec.IsActive())
+			// {
+			// 	FPredictionKey OriginalPredictionKey=AbilitySpec.Ability->GetCurrentActivationInfo().GetActivationPredictionKey();
+			// 	InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed,AbilitySpec.Handle,OriginalPredictionKey,ScopedPredictionKey);
+			// }
+			
+		}
+	}
+}
+
+void UMyAbilitySystemComponent::AbilityInputHeld(FGameplayTag InputTag)
+{
+}
+
+void UMyAbilitySystemComponent::AbilityInputReleased(FGameplayTag InputTag)
+{
 }

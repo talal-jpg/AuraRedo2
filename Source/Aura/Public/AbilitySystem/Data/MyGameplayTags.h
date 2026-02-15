@@ -26,6 +26,7 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_AttackSpeed)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_MoveSpeed)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_TurnSpeed)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_AttackDamage)
 	
 	// AbilityTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_FireBolt)
@@ -36,5 +37,8 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_XPGained)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_HitReact)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_SpawnFireBall)
+	
+	//SetByCallerMagTag
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetDamageByCaller)
 	
 }

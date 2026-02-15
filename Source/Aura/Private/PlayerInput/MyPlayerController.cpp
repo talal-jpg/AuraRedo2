@@ -61,13 +61,20 @@ void AMyPlayerController::BeginPlay()
 	bShowMouseCursor=true;
 	
 	AMyPlayerState* PS=GetPlayerState<AMyPlayerState>();
-	PS->MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PS->MyAttributeSet->GetMoveSpeedAttribute()).AddLambda(
-		[this](const FOnAttributeChangeData& Data)
-		{
-			MovementSpeed=Data.NewValue;
-		}
-	);
-	MovementSpeed=PS->MyAttributeSet->GetMoveSpeed();
+	
+	if (!IsLocalController())return;
+	// FString Str= FString::Printf(TEXT("LocalRole: %s, RemoteRole : %s"),*LexToString(GetLocalRole()),*LexToString(GetRemoteRole()));
+	// UKismetSystemLibrary::PrintString(GetWorld(),Str,true,true,FLinearColor::Red,30);
+	
+	//check if ASC inited then Bind
+	//can call a delegate when inits an bind in that lambda
+	// PS->MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PS->MyAttributeSet->GetMoveSpeedAttribute()).AddLambda(
+	// 	[this](const FOnAttributeChangeData& Data)
+	// 	{
+	// 		MovementSpeed=Data.NewValue;
+	// 	}
+	// );
+	// MovementSpeed=PS->MyAttributeSet->GetMoveSpeed();
 }
 
 void AMyPlayerController::Move(const FInputActionValue& Value)
@@ -117,17 +124,7 @@ void AMyPlayerController::PressedFunc(FGameplayTag InputTag)
 	PressedTime=0;
 	if (!bIsTargeting)return;
 	UMyAbilitySystemComponent* MyASC=GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent;
-	
-	for (auto Ability:MyASC->GetActivatableAbilities())
-	{
-		FGameplayTagContainer AbilityTags=Ability.GetDynamicSpecSourceTags();
-		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("AbilityTag: ") + AbilityTags.First().ToString());
-		if (InputTag.MatchesTagExact(AbilityTags.First()))
-		{
-			// bool WasActivated=MyASC->TryActivateAbility(Ability.Handle);
-			MyASC->TryActivateAbility(Ability.Handle);	
-		}
-	}
+	MyASC->AbilityInputPressed(InputTag);
 }
 
 void AMyPlayerController::HeldFunc(FGameplayTag InputTag)

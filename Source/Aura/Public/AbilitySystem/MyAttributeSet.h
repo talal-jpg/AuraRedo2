@@ -126,6 +126,10 @@ public:
 	FGameplayAttributeData TurnSpeed;
 	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,TurnSpeed)
 	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_AttackDamage)
+	FGameplayAttributeData AttackDamage;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,AttackDamage)
+	
 	UFUNCTION()
 	void OnRep_Armor(const FGameplayAttributeData& OldArmor);
 	
@@ -137,6 +141,9 @@ public:
 	
 	UFUNCTION()
 	void OnRep_TurnSpeed(const FGameplayAttributeData& OldTurnSpeed);
+	
+	UFUNCTION()
+	void OnRep_AttackDamage(const FGameplayAttributeData& OldAttackDamage);
 	
 	TMap<FGameplayTag,FGameplayAttribute> TagToAttributeMap;
 };

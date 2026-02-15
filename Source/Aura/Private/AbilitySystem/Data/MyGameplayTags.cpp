@@ -31,6 +31,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_AttackSpeed,"Attribute.Secondary.AttackSpeed");
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_MoveSpeed,"Attribute.Secondary.MoveSpeed");
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_TurnSpeed,"Attribute.Secondary.TurnSpeed");
+	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_AttackDamage,"Attribute.Secondary.AttackDamage");
 	
 	// AbilityTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_FireBolt,"Ability.FireBolt")
@@ -41,5 +42,8 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")
 	UE_DEFINE_GAMEPLAY_TAG(Event_HitReact,"Event.HitReact")
 	UE_DEFINE_GAMEPLAY_TAG(Event_SpawnFireBall,"Event.SpawnFireBall")
+	
+	//SetByCallerMagTag
+	UE_DEFINE_GAMEPLAY_TAG(SetDamageByCaller,"SetDamageByCaller")
 	
 }

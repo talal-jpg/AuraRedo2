@@ -4,6 +4,7 @@
 #include "AbilitySystem/Abilities/GA_Projectile.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Actors/MyProjectile.h"
 #include "Character/MyCombatInterface.h"
 #include "Kismet/GameplayStatics.h"
@@ -33,9 +34,11 @@ void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent
 	
 	//GESpec
 	FGameplayEffectContextHandle GEContextHandle=ASC->MakeEffectContext();
+	
 	GEContextHandle.AddInstigator(AvatarActor,AvatarActor);
 	GEContextHandle.AddSourceObject(AvatarActor);
-	const FGameplayEffectSpecHandle GESpecHandle=ASC->MakeOutgoingSpec(DamageEffectClass,Level,GEContextHandle);
+	FGameplayEffectSpecHandle GESpecHandle=ASC->MakeOutgoingSpec(DamageEffectClass,Level,GEContextHandle);
+	// GESpecHandle.Data.Get()->SetSetByCallerMagnitude(MyTags::SetDamageByCaller,)
 	
 	//SpawnProj
 	AMyProjectile* MyProjectile=GetWorld()->SpawnActorDeferred<AMyProjectile>(ProjectileClass,SpawnXform,nullptr);

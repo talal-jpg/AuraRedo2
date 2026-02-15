@@ -18,7 +18,7 @@ AMyEffectActor::AMyEffectActor()
 
 void AMyEffectActor::OnOverlap(AActor* OverlappingActor)
 {
-	if (!HasAuthority())return;
+	// if (!HasAuthority())return;
 	if (ApplicationPolicy==EApplicationPolicy::ApplyOnOverlap)
 	{
 		if (IAbilitySystemInterface* AbilitySystemIF=Cast<IAbilitySystemInterface>(OverlappingActor))
@@ -46,7 +46,7 @@ void AMyEffectActor::OnOverlap(AActor* OverlappingActor)
 
 void AMyEffectActor::OnEndOverlap(AActor* OverlappingActor)
 {
-	if (!HasAuthority())return;
+	// if (!HasAuthority())return;
 	if (RemovalPolicy==ERemovalPolicy::RemoveOnEndOverlap)
 	{
 		if (IAbilitySystemInterface* AbilitySystemIF=Cast<IAbilitySystemInterface>(OverlappingActor))

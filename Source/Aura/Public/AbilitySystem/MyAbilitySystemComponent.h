@@ -30,4 +30,10 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	FGameplayTag GetAbilityTagFromSpec(const FGameplayAbilitySpec& AbilitySpec);
 	
 	FGameplayTag GetInputTagFromSpec(const FGameplayAbilitySpec& AbilitySpec);
+	
+	void AbilityInputPressed(FGameplayTag InputTag);
+	
+	void AbilityInputHeld(FGameplayTag InputTag);
+	
+	void AbilityInputReleased(FGameplayTag InputTag);
 };

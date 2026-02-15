@@ -25,6 +25,8 @@ AMyProjectile::AMyProjectile()
 	ProjectileMovementComponent->InitialSpeed=1000.f;
 	ProjectileMovementComponent->MaxSpeed=1000.;
 	ProjectileMovementComponent->ProjectileGravityScale=0.f;
+	bReplicates=true;
+	AActor::SetReplicateMovement(true);
 }
 
 // Called when the game starts or when spawned
