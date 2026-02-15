@@ -2,7 +2,8 @@
 
 
 #include "AbilitySystem/MyAttributeSet.h"
-
+#include "GameplayEffectExtension.h"
+#include "GameplayEffectTypes.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 
@@ -41,6 +42,7 @@ void UMyAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,MagicResist,COND_None,REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,Armor,COND_None,REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,AttackSpeed,COND_None,REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,AttackDamage,COND_None,REPNOTIFY_Always);
 	
 }
 
@@ -117,5 +119,28 @@ void UMyAttributeSet::OnRep_TurnSpeed(const FGameplayAttributeData& OldTurnSpeed
 
 void UMyAttributeSet::OnRep_AttackDamage(const FGameplayAttributeData& OldAttackDamage)
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(UMyAttributeSet,TurnSpeed,OldAttackDamage);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMyAttributeSet,AttackDamage,OldAttackDamage);
+}
+
+void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
+{
+	if (Data.EvaluatedData.Attribute==GetIncomingDamageAttribute())
+	{
+		SetHealth(GetHealth()-Data.EvaluatedData.Magnitude);
+	}
+	
+	if (Data.EvaluatedData.Attribute==GetHealthAttribute())
+	{
+		// Data.EvaluatedData.Magnitude=FMath::Clamp(Data.EvaluatedData.Magnitude,0.f,GetMaxHealth());
+		SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
+	}
+}
+
+void UMyAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+{
+	if (Attribute==GetHealthAttribute())
+	{
+		// SetHealth(FMath::Clamp(NewValue,0.f,GetMaxHealth()));
+		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxHealth());
+	}
 }

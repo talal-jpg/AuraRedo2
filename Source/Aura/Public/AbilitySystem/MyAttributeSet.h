@@ -130,6 +130,12 @@ public:
 	FGameplayAttributeData AttackDamage;
 	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,AttackDamage)
 	
+	//MetaAttributes
+	
+	UPROPERTY(EditAnywhere)
+	FGameplayAttributeData IncomingDamage;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,IncomingDamage)
+	
 	UFUNCTION()
 	void OnRep_Armor(const FGameplayAttributeData& OldArmor);
 	
@@ -146,4 +152,8 @@ public:
 	void OnRep_AttackDamage(const FGameplayAttributeData& OldAttackDamage);
 	
 	TMap<FGameplayTag,FGameplayAttribute> TagToAttributeMap;
+	
+	virtual void PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data) override;
+	
+	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 };
