@@ -14,3 +14,7 @@ FVector IMyCombatInterface::GetCombatSocketLocation()
 {
 	return FVector::ZeroVector;
 }
+
+void IMyCombatInterface::HandleDeath()
+{
+}

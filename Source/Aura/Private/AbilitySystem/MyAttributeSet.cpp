@@ -5,6 +5,8 @@
 #include "GameplayEffectExtension.h"
 #include "GameplayEffectTypes.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Character/MyCharBase.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 UMyAttributeSet::UMyAttributeSet()
@@ -126,7 +128,31 @@ void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 {
 	if (Data.EvaluatedData.Attribute==GetIncomingDamageAttribute())
 	{
-		SetHealth(GetHealth()-Data.EvaluatedData.Magnitude);
+		float NewHealth=GetHealth()-Data.EvaluatedData.Magnitude;
+		if (bool bIsFatal =NewHealth<=0.f)
+		{
+			// HandleDeath
+			if (IMyCombatInterface* MyCombatIF=Cast<IMyCombatInterface>(GetOwningActor()))
+			{
+				MyCombatIF->HandleDeath();
+			}
+		}
+		else
+		{
+			FGameplayTag HitReactTag= MyTags::Ability_HitReact;
+			
+			GetOwningAbilitySystemComponent()->TryActivateAbilitiesByTag(HitReactTag.GetSingleTagContainer());
+			// for (auto AbilitySpec:GetOwningAbilitySystemComponent()->GetActivatableAbilities())
+			// {
+			// 	if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(HitReactTag))
+			// 	{
+			// 		UKismetSystemLibrary::PrintString(this,AbilitySpec.GetDebugString());
+			// 		GetOwningAbilitySystemComponent()->AbilitySpecInputPressed(AbilitySpec);
+			// 		GetOwningAbilitySystemComponent()->TryActivateAbility(AbilitySpec.Handle);
+			// 	}
+			// }
+		}
+		SetHealth(NewHealth);
 	}
 	
 	if (Data.EvaluatedData.Attribute==GetHealthAttribute())

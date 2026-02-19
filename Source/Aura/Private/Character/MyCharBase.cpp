@@ -7,6 +7,7 @@
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 // Sets default values
@@ -57,6 +58,21 @@ void AMyCharBase::GiveStartupAbilities()
 FVector AMyCharBase::GetCombatSocketLocation()
 {
 	return WeaponMesh->GetSocketLocation(FName("CombatSocket"));
+}
+
+void AMyCharBase::HandleDeath_Implementation()
+{
+	WeaponMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	WeaponMesh->SetCollisionProfileName("Ragdoll");
+	WeaponMesh->SetSimulatePhysics(true);
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->StopMovementImmediately();
+	
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);//IsRedundant
+	GetMesh()->SetCollisionProfileName("Ragdoll");
+	GetMesh()->SetSimulatePhysics(true);
+	
 }
 
 

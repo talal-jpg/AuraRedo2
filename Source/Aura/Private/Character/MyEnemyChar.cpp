@@ -54,7 +54,10 @@ void AMyEnemyChar::BeginPlay()
 // Called every frame
 void AMyEnemyChar::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+	// for (auto Ability:MyAbilitySystemComponent->GetActivatableAbilities())
+	// {
+	// 	UKismetSystemLibrary::PrintString(this,Ability.GetDebugString());
+	// }
 }
 
 void AMyEnemyChar::Highlight()
@@ -67,6 +70,6 @@ void AMyEnemyChar::UnHighlight()
 {
 	GetMesh()->SetCustomDepthStencilValue(0);
 	
-	UKismetSystemLibrary::PrintString(GetWorld(),TEXT("UnHighlighted"));
+	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("UnHighlighted"));
 }
 

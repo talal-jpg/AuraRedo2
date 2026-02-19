@@ -46,7 +46,7 @@ void AMyPlayerController::SetupInputComponent()
 	
 	UMyInputComponent* MyInputComp=Cast<UMyInputComponent>(InputComponent);
 	MyInputComp->BindAction(IA_Move,ETriggerEvent::Triggered,this,&AMyPlayerController::Move);
-	
+	MyInputComp->BindAction(IA_Look,ETriggerEvent::Triggered,this,&AMyPlayerController::LookAround);
 	MyInputComp->BindAbilityAction(InputConfig,this,&AMyPlayerController::PressedFunc,&AMyPlayerController::HeldFunc,&AMyPlayerController::ReleasedFunc);
 }
 
@@ -85,6 +85,13 @@ void AMyPlayerController::Move(const FInputActionValue& Value)
 	FVector RightVector=RotMat.GetUnitAxis(EAxis::Y);
 	GetCharacter()->AddMovementInput(ForwardDir,InputVal.X);
 	GetCharacter()->AddMovementInput(RightVector,InputVal.Y);
+}
+
+void AMyPlayerController::LookAround(const FInputActionValue& Value)
+{
+	FVector2D InputVal= Value.Get<FVector2D>();
+	AddYawInput(InputVal.X);
+	AddPitchInput(InputVal.Y);
 }
 
 void AMyPlayerController::AutoMove()

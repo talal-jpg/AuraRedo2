@@ -40,6 +40,10 @@ protected:
 	virtual void GiveStartupAbilities();
 	
 	virtual FVector GetCombatSocketLocation() override;
+	
+	UFUNCTION(NetMulticast, reliable)
+	virtual void HandleDeath() override;
+	
 public:	
 
 };

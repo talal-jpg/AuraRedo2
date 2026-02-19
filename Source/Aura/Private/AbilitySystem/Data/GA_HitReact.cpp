@@ -9,10 +9,13 @@
 
 void UGA_HitReact::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 	if (UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this,MyTags::Event_HitReact))
 	{
 		UAbilityTask_PlayMontageAndWait* AT_PlayeMontageAndWait=UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,FName("None"),HitReactMontage);
+		
 		AT_PlayeMontageAndWait->OnCompleted.AddDynamic(this,&ThisClass::OnCompletedCallback);
+		AT_PlayeMontageAndWait->Activate();
 		AT_PlayeMontageAndWait->OnCancelled.AddDynamic(this,&ThisClass::OnCompletedCallback);
 		AT_PlayeMontageAndWait->OnInterrupted.AddDynamic(this,&ThisClass::OnCompletedCallback);
 	}

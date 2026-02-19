@@ -32,7 +32,12 @@ public:
 	UPROPERTY(EditAnywhere)
 	UInputAction* IA_Move;
 	
+	UPROPERTY(EditAnywhere)
+	UInputAction* IA_Look;
+	
 	void Move(const FInputActionValue& Value);
+	
+	void LookAround(const FInputActionValue& Value);
 
 	/**
 	 * AutoMove

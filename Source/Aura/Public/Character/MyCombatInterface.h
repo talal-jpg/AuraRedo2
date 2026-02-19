@@ -27,5 +27,6 @@ public:
 	
 	virtual FVector GetCombatSocketLocation();
 	
+	virtual void HandleDeath();
 	
 };
