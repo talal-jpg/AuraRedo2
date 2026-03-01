@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "MyPlayerController.generated.h"
 
+class UMyFloatingWidgetComponent;
 struct FGameplayTag;
 class UMyInputConfig;
 class USplineComponent;
@@ -25,6 +26,13 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupInputComponent() override;
 	virtual void BeginPlay() override;
+	
+	
+	UFUNCTION(Client, reliable)
+	void ShowDamageTextOnHit(float DamageAmount,ACharacter* TargetChar);
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UMyFloatingWidgetComponent> FloatingWidgetClass;
 	
 	UPROPERTY(EditAnywhere)
 	UInputMappingContext* IMC_PlayerInputMappingContext;
@@ -73,5 +81,9 @@ public:
 	void PressedFunc(FGameplayTag InputTag);
 	void HeldFunc(FGameplayTag InputTag);
 	void ReleasedFunc(FGameplayTag InputTag);
+	
+	
+	UPROPERTY()
+	UMyFloatingWidgetComponent* FloatingWidgetComp;
 	
 };

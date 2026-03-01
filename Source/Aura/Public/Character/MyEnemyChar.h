@@ -8,6 +8,10 @@
 #include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
 #include "MyEnemyChar.generated.h"
 
+enum class ECharacterClass : uint8;
+class UBehaviorTreeComponent;
+class UBehaviorTree;
+class AMyAiController;
 class UWidgetComponent;
 class UMyUserWidget;
 class UAttributeSet;
@@ -31,6 +35,13 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	virtual void PossessedBy(AController* NewController) override;
+	
+	UPROPERTY(EditAnywhere)
+	AMyAiController* MyAiController;
+	
+	UPROPERTY(EditAnywhere)
+	UBehaviorTree* BehaviorTreeAsset;
 	
 	UPROPERTY(EditAnywhere)
 	UMyUserWidget* HealthBar;
@@ -43,6 +54,7 @@ public:
 	
 	UPROPERTY(BlueprintAssignable)
 	FOnAttribChangeDelegateSignature OnMaxHealthChangeDelegate;
+	
 	
 	virtual void Highlight() override;
 	

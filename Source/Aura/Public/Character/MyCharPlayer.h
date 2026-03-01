@@ -47,6 +47,9 @@ public:
 	
 	virtual void GiveStartupAbilities() override;
 	
+	virtual void GivePassiveAbilities() override;
+	
+	virtual int32 GetPlayerLevel() override;
 	
 	
 };

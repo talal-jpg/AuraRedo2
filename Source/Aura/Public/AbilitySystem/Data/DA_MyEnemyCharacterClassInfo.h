@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "ScalableFloat.h"
 #include "Engine/DataAsset.h"
 #include "DA_MyEnemyCharacterClassInfo.generated.h"
 
@@ -27,6 +28,10 @@ struct FEnemyCharClassInfo
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UGameplayEffect> PrimaryAttributesEffect;
+	
+	UPROPERTY(EditAnywhere)
+	FScalableFloat XpRewardForKillingAtLevel;
+	
 };
 /**
  * 

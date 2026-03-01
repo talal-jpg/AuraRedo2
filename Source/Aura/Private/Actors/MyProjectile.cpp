@@ -38,6 +38,7 @@ void AMyProjectile::BeginPlay()
 
 void AMyProjectile::OnSphereBeginOverlapCallback(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 {
+	if (OtherActor==SpawningActorToIgnore)return;
 	if (IAbilitySystemInterface* AbilityIF= Cast<IAbilitySystemInterface>(OtherActor))
 	{
 		UAbilitySystemComponent* ASC=AbilityIF->GetAbilitySystemComponent();

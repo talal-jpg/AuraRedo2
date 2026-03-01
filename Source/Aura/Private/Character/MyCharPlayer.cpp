@@ -127,9 +127,21 @@ int32 AMyCharPlayer::GetLevel()
 void AMyCharPlayer::GiveStartupAbilities()
 {
 	Super::GiveStartupAbilities();
+	GivePassiveAbilities();
 	MyAbilitySystemComponent->bAbilitiesGiven=true;
 	MyAbilitySystemComponent->OnAbilitiesGivenDelegate.Broadcast();
 }
+
+void AMyCharPlayer::GivePassiveAbilities()
+{
+	Super::GivePassiveAbilities();
+}
+
+int32 AMyCharPlayer::GetPlayerLevel()
+{
+	return GetPlayerState<AMyPlayerState>()->Level;
+}
+
 
 
 

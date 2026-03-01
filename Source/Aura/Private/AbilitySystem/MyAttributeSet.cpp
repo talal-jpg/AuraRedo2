@@ -4,10 +4,17 @@
 #include "AbilitySystem/MyAttributeSet.h"
 #include "GameplayEffectExtension.h"
 #include "GameplayEffectTypes.h"
+#include "MyAiController.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "Character/MyCharBase.h"
+#include "Character/MyEnemyChar.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "PlayerInput/MyPlayerController.h"
+#include "StaticLib/MyBPFuncLib.h"
 
 UMyAttributeSet::UMyAttributeSet()
 {
@@ -29,6 +36,7 @@ UMyAttributeSet::UMyAttributeSet()
 	TagToAttributeMap.Add(MyTags::Attribute_Secondary_TurnSpeed,GetTurnSpeedAttribute());
 	TagToAttributeMap.Add(MyTags::Attribute_Secondary_AttackDamage,GetAttackDamageAttribute());
 }
+
 void UMyAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -124,8 +132,10 @@ void UMyAttributeSet::OnRep_AttackDamage(const FGameplayAttributeData& OldAttack
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UMyAttributeSet,AttackDamage,OldAttackDamage);
 }
 
-void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
+void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& Data)
 {
+	FEffectProperties EffectProperties;
+	SetEffectProperties(Data,EffectProperties);
 	if (Data.EvaluatedData.Attribute==GetIncomingDamageAttribute())
 	{
 		float NewHealth=GetHealth()-Data.EvaluatedData.Magnitude;
@@ -135,6 +145,18 @@ void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 			if (IMyCombatInterface* MyCombatIF=Cast<IMyCombatInterface>(GetOwningActor()))
 			{
 				MyCombatIF->HandleDeath();
+				
+				FGameplayEventData GameplayEventData;
+				
+				//TODO Add GetLevelImp to EnemyChar default returns 1
+				int32 TargetCharLevel=MyCombatIF->GetPlayerLevel();
+				ECharacterClass TargetCharClass=MyCombatIF->GetCharacterClass();
+				//Get Char Class , Get Level , then find and send
+				int32 IncomingXpReward=0;
+				UMyBPFuncLib::GetXpRewardForCharacterClassAtLevel(EffectProperties.SourceAvatarActor,TargetCharClass,TargetCharLevel,IncomingXpReward);
+				GameplayEventData.EventMagnitude=IncomingXpReward;
+				GameplayEventData.EventTag=MyTags::Attribute_Meta_IncomingXp;
+				UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(EffectProperties.SourceAvatarActor,MyTags::Event_ApplyGEPassively,GameplayEventData);
 			}
 		}
 		else
@@ -142,24 +164,27 @@ void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 			FGameplayTag HitReactTag= MyTags::Ability_HitReact;
 			
 			GetOwningAbilitySystemComponent()->TryActivateAbilitiesByTag(HitReactTag.GetSingleTagContainer());
-			// for (auto AbilitySpec:GetOwningAbilitySystemComponent()->GetActivatableAbilities())
-			// {
-			// 	if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(HitReactTag))
-			// 	{
-			// 		UKismetSystemLibrary::PrintString(this,AbilitySpec.GetDebugString());
-			// 		GetOwningAbilitySystemComponent()->AbilitySpecInputPressed(AbilitySpec);
-			// 		GetOwningAbilitySystemComponent()->TryActivateAbility(AbilitySpec.Handle);
-			// 	}
-			// }
+			
 		}
 		SetHealth(NewHealth);
 	}
 	
+	//ClampHealth
 	if (Data.EvaluatedData.Attribute==GetHealthAttribute())
 	{
 		// Data.EvaluatedData.Magnitude=FMath::Clamp(Data.EvaluatedData.Magnitude,0.f,GetMaxHealth());
 		SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
 	}
+	
+	//ShowDamageTextFloatingWidget
+	if (EffectProperties.SourceAvatarActor != EffectProperties.TargetAvatarActor)
+	{
+		if (AMyPlayerController* PC=Cast<AMyPlayerController>(EffectProperties.SourceController))
+		{
+			PC->ShowDamageTextOnHit(10,EffectProperties.TargetCharacter);
+		}
+	}
+	
 }
 
 void UMyAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
@@ -170,3 +195,36 @@ void UMyAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, fl
 		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxHealth());
 	}
 }
+
+void UMyAttributeSet::SetEffectProperties(FGameplayEffectModCallbackData& Data, FEffectProperties& EffectProperties)
+{
+	EffectProperties.EffectContextHandle= Data.EffectSpec.GetContext();
+	EffectProperties.SourceASC= EffectProperties.EffectContextHandle.GetOriginalInstigatorAbilitySystemComponent();
+	
+	if (IsValid(EffectProperties.SourceASC) && EffectProperties.SourceASC->AbilityActorInfo.IsValid() && EffectProperties.SourceASC->AbilityActorInfo->AvatarActor.IsValid())
+	{
+		EffectProperties.SourceAvatarActor=EffectProperties.SourceASC->AbilityActorInfo->AvatarActor.Get();
+		EffectProperties.SourceController=EffectProperties.SourceASC->AbilityActorInfo->PlayerController.Get();
+		
+		if (EffectProperties.SourceController == nullptr && EffectProperties.SourceAvatarActor != nullptr)
+		{
+			if (const APawn* Pawn = Cast<APawn>(EffectProperties.SourceAvatarActor))
+			{
+				EffectProperties.SourceController = Pawn->GetController();
+			}
+		}
+		if (EffectProperties.SourceController)
+		{
+			EffectProperties.SourceCharacter = Cast<ACharacter>(EffectProperties.SourceController->GetPawn());
+		}
+	}
+
+	if (Data.Target.AbilityActorInfo.IsValid() && Data.Target.AbilityActorInfo->AvatarActor.IsValid())
+	{
+		EffectProperties.TargetAvatarActor = Data.Target.AbilityActorInfo->AvatarActor.Get();
+		EffectProperties.TargetController = Data.Target.AbilityActorInfo->PlayerController.Get();
+		EffectProperties.TargetCharacter = Cast<ACharacter>(EffectProperties.TargetAvatarActor);
+		EffectProperties.TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(EffectProperties.TargetAvatarActor);
+	}
+}
+	

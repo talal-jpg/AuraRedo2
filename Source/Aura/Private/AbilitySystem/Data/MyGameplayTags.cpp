@@ -33,15 +33,22 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_TurnSpeed,"Attribute.Secondary.TurnSpeed");
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_AttackDamage,"Attribute.Secondary.AttackDamage");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Attribute_Meta_IncomingDamage,"Attribute.Meta.IncomingDamage");
+	UE_DEFINE_GAMEPLAY_TAG(Attribute_Meta_IncomingXp,"Attribute.Meta.IncomingXp");
+	
 	// AbilityTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_FireBolt,"Ability.FireBolt")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Projectile,"Ability.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Enemy_MeleeDamage,"Ability.Enemy.MeleeDamage")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Enemy_RangedDamage,"Ability.Enemy.RangedDamage")
 	
 	// EventTags
-	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")
+	UE_DEFINE_GAMEPLAY_TAG(Event_ApplyGEPassively,"Event.ApplyGEPassively")
 	UE_DEFINE_GAMEPLAY_TAG(Event_HitReact,"Event.HitReact")
 	UE_DEFINE_GAMEPLAY_TAG(Event_SpawnFireBall,"Event.SpawnFireBall")
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_MeleeAttack,"Event.Enemy.MeleeAttack")
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_RangedAttack,"Event.Enemy.RangedAttack")
 	
 	//SetByCallerMagTag
 	UE_DEFINE_GAMEPLAY_TAG(SetDamageByCaller,"SetDamageByCaller")

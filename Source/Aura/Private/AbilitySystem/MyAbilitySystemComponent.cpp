@@ -10,6 +10,7 @@ UMyAbilitySystemComponent::UMyAbilitySystemComponent()
 {
 	SetIsReplicated(true);
 	ReplicationMode=EGameplayEffectReplicationMode::Mixed;
+
 }
 
 void UMyAbilitySystemComponent::ForEachAbility(const FForEachAbilityDelegateSignature& ForEachAbilityDelegate)

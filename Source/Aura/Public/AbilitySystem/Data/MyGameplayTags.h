@@ -28,15 +28,23 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_TurnSpeed)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_AttackDamage)
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Meta_IncomingDamage)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Meta_IncomingXp)
+	
+	
 	// AbilityTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_FireBolt)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Projectile)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_HitReact)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_MeleeDamage)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_RangedDamage)
 	
 	// EventTags
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_XPGained)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_ApplyGEPassively)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_HitReact)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_SpawnFireBall)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_MeleeAttack)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_RangedAttack)
 	
 	//SetByCallerMagTag
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetDamageByCaller)

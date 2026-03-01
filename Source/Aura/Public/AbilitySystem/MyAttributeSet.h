@@ -10,6 +10,39 @@
 /**
  * 
  */
+USTRUCT()
+struct FEffectProperties
+{
+	GENERATED_BODY()
+	FEffectProperties() {}
+	
+	FGameplayEffectContextHandle EffectContextHandle;
+	
+	UPROPERTY()
+	UAbilitySystemComponent* SourceASC=nullptr;
+	
+	UPROPERTY()
+	AActor* SourceAvatarActor=nullptr;
+	
+	UPROPERTY()
+	AController* SourceController=nullptr;
+	
+	UPROPERTY()
+	ACharacter* SourceCharacter=nullptr;
+	
+	UPROPERTY()
+	UAbilitySystemComponent* TargetASC=nullptr;
+	
+	UPROPERTY()
+	AActor* TargetAvatarActor=nullptr;
+	
+	UPROPERTY()
+	AController* TargetController=nullptr;
+	
+	UPROPERTY()
+	ACharacter* TargetCharacter=nullptr;
+};
+
 UCLASS()
 class AURA_API UMyAttributeSet : public UAttributeSet
 {
@@ -136,6 +169,10 @@ public:
 	FGameplayAttributeData IncomingDamage;
 	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,IncomingDamage)
 	
+	UPROPERTY(EditAnywhere)
+	FGameplayAttributeData IncomingXp;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,IncomingXp)
+	
 	UFUNCTION()
 	void OnRep_Armor(const FGameplayAttributeData& OldArmor);
 	
@@ -153,7 +190,9 @@ public:
 	
 	TMap<FGameplayTag,FGameplayAttribute> TagToAttributeMap;
 	
-	virtual void PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data) override;
+	virtual void PostGameplayEffectExecute(FGameplayEffectModCallbackData& Data) override;
 	
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
+	
+	void SetEffectProperties(FGameplayEffectModCallbackData& Data,FEffectProperties& EffectProperties);
 };

@@ -7,6 +7,7 @@
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
+#include "MotionWarpingComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -55,9 +56,50 @@ void AMyCharBase::GiveStartupAbilities()
 	}
 }
 
-FVector AMyCharBase::GetCombatSocketLocation()
+void AMyCharBase::GivePassiveAbilities()
+{
+	if (PassiveAbilities.Num() <= 0)return;
+	for (TSubclassOf<UGameplayAbility> AbilityClass : PassiveAbilities)
+	{
+		FGameplayAbilitySpec GASpec=MyAbilitySystemComponent->BuildAbilitySpecFromClass(AbilityClass);
+		MyAbilitySystemComponent->GiveAbilityAndActivateOnce(GASpec);
+	}
+}
+
+
+FVector AMyCharBase::GetCombatSocketLocation_Implementation()
 {
 	return WeaponMesh->GetSocketLocation(FName("CombatSocket"));
+}
+
+void AMyCharBase::SetCombatTarget_Implementation(AActor* InCombatTarget)
+{
+	
+	if (UActorComponent* MotionWarpingComponent= GetComponentByClass(UMotionWarpingComponent::StaticClass()))
+	{
+		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("MotionWarpingComponent Found"));
+		UMotionWarpingComponent* MotionWarpingComp=Cast<UMotionWarpingComponent>(MotionWarpingComponent);
+		FMotionWarpingTarget WarpTarget;
+		WarpTarget.Name=TEXT("LookAt");
+		if (!InCombatTarget)return;
+		WarpTarget.Location=InCombatTarget->GetActorLocation();
+		MotionWarpingComp->AddOrUpdateWarpTarget(WarpTarget);
+	}
+	else
+	{
+		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("MotionWarpingComponent Not Found"));
+	}
+	CombatTarget=InCombatTarget;
+}
+
+ECharacterClass AMyCharBase::GetCharacterClass()
+{
+	return CharacterClass;
+}
+
+AActor* AMyCharBase::GetCombatTarget_Implementation()
+{
+	return CombatTarget;
 }
 
 void AMyCharBase::HandleDeath_Implementation()

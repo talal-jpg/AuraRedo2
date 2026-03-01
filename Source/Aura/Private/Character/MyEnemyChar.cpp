@@ -2,8 +2,15 @@
 
 
 #include "Character/MyEnemyChar.h"
+
+#include "MyAiController.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
+#include "AbilitySystem/Data/DA_MyEnemyCharacterClassInfo.h"
+#include "AbilitySystem/Data/MyGameplayTags.h"
+#include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "StaticLib/MyBPFuncLib.h"
@@ -49,6 +56,7 @@ void AMyEnemyChar::BeginPlay()
 	
 	OnHealthChangeDelegate.Broadcast(MyAttributeSet->GetHealth());
 	OnMaxHealthChangeDelegate.Broadcast(MyAttributeSet->GetMaxHealth());
+	
 }
 
 // Called every frame
@@ -60,10 +68,32 @@ void AMyEnemyChar::Tick(float DeltaTime)
 	// }
 }
 
+void AMyEnemyChar::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	if (!HasAuthority())return;
+	MyAiController=Cast<AMyAiController>(NewController);
+	MyAiController->BehaviorTree->GetBlackboardComponent()->InitializeBlackboard(*BehaviorTreeAsset->BlackboardAsset);
+	MyAiController->RunBehaviorTree(BehaviorTreeAsset);
+	MyAiController->BehaviorTree->GetBlackboardComponent()->SetValueAsObject(FName("SelfActor"),this);
+	MyAiController->BehaviorTree->GetBlackboardComponent()->SetValueAsBool(FName("bIsRanged"),CharacterClass==ECharacterClass::Warrior? false:true);
+	// UKismetSystemLibrary::PrintString(this,(CharacterClass==ECharacterClass::Warrior?"Melee":"Ranged"),true,true,FLinearColor::Green,30);
+	
+	MyAiController->BehaviorTree->GetBlackboardComponent()->SetValueAsBool(FName("bIsHitReacting"),MyAbilitySystemComponent->GetOwnedGameplayTags().HasTagExact(MyTags::Event_HitReact));
+	
+	MyAbilitySystemComponent->RegisterGameplayTagEvent(MyTags::Event_HitReact,EGameplayTagEventType::NewOrRemoved).AddLambda(
+		[this](const FGameplayTag Tag, int32 Count)
+		{
+			MyAiController->GetBlackboardComponent()->SetValueAsBool(FName("bIsHitReacting"),Count>0);
+			// UKismetSystemLibrary::PrintString(this,FString::Printf(TEXT("HitReact Count: %d"),Count));
+		}
+	);
+}
+
 void AMyEnemyChar::Highlight()
 {
-	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Highlighted"));
 	GetMesh()->SetCustomDepthStencilValue(100);
+	// MyAiController->BehaviorTree->GetBlackboardComponent()->SetValueAsVector(FName("GoToLoc"),GetActorLocation()+FVector(200,0,0));
  }
 
 void AMyEnemyChar::UnHighlight()

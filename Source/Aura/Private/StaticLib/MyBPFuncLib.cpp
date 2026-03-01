@@ -44,6 +44,7 @@ void UMyBPFuncLib::GetAllGameplayTags(FGameplayTagContainer& OutGameplayTags)
 void UMyBPFuncLib::InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,UMyAbilitySystemComponent* MyAbilitySystemComponent,float IN_CharacterLevel)
 {
 	AMyGameMode* MyGameMode=Cast<AMyGameMode>(UGameplayStatics::GetGameMode(MyAbilitySystemComponent));
+	if (!MyAbilitySystemComponent->IsOwnerActorAuthoritative())return;
 	FEnemyCharClassInfo EnemyCharClassInfo = MyGameMode->DA_MyEnemyCharacterClassInfo->GetInfoForClass(IN_CharacterClass);
 	FGameplayEffectContextHandle GEContextHandle = MyAbilitySystemComponent->MakeEffectContext();
 	AActor* ASCAvatarActor=MyAbilitySystemComponent->GetAvatarActor();
@@ -56,4 +57,12 @@ void UMyBPFuncLib::InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,U
 	
 	FGameplayEffectSpecHandle GESpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(MyGameMode->DA_MyEnemyCharacterClassInfo->VitalAttributesEffect,IN_CharacterLevel,GEContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*GESpecHandleVital.Data.Get());
+}
+
+void UMyBPFuncLib::GetXpRewardForCharacterClassAtLevel(UObject* WorldContextObject,ECharacterClass In_CharacterClass,int32 InLevel,int32& OutXpReward)
+{
+	AMyGameMode* MyGameMode=Cast<AMyGameMode>(UGameplayStatics::GetGameMode(WorldContextObject));
+	FEnemyCharClassInfo CharClassInfo=MyGameMode->DA_MyEnemyCharacterClassInfo->GetInfoForClass(In_CharacterClass);
+	int32 XpReward=CharClassInfo.XpRewardForKillingAtLevel.GetValueAtLevel(InLevel);
+	OutXpReward=XpReward;
 }

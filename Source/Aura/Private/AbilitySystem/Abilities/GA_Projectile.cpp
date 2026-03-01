@@ -6,7 +6,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Actors/MyProjectile.h"
-#include "Character/MyCombatInterface.h"
+#include "Interfaces/MyCombatInterface.h"
 #include "Kismet/GameplayStatics.h"
 
 void UGA_Projectile::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
@@ -22,7 +22,10 @@ void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent
 	// UAbilitySystemComponent* ASC= ActorInfo->AbilitySystemComponent.Get();
 	IMyCombatInterface* CombatInterface=Cast<IMyCombatInterface>(AvatarActor);
 	float Level=CombatInterface->GetLevel();
-	FVector SpawnLocation=CombatInterface->GetCombatSocketLocation();
+	
+	if (!AvatarActor->Implements<UMyCombatInterface>())return;
+	FVector SpawnLocation=IMyCombatInterface::Execute_GetCombatSocketLocation(AvatarActor);
+	// FVector SpawnLocation=CombatInterface->GetCombatSocketLocation();
 	
 	//SpawnXform
 	FTransform SpawnXform=FTransform();

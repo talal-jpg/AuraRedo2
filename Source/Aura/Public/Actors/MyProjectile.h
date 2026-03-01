@@ -46,4 +46,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	UNiagaraSystem* BurstNiagaraSystem;
 	
+	UPROPERTY()
+	AActor* SpawningActorToIgnore;
+	
 };

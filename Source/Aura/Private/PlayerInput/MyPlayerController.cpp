@@ -18,6 +18,7 @@
 #include "Interfaces/MyHighlightInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "PlayerInput/MyInputComponent.h"
+#include "UI/MyFloatingWidgetComponent.h"
 
 
 class UEnhancedPlayerInput;
@@ -75,6 +76,22 @@ void AMyPlayerController::BeginPlay()
 	// 	}
 	// );
 	// MovementSpeed=PS->MyAttributeSet->GetMoveSpeed();
+}
+
+void AMyPlayerController::ShowDamageTextOnHit_Implementation(float DamageAmount, ACharacter* TargetChar)
+{
+	
+	if (IsValid(TargetChar) && FloatingWidgetClass)
+	{
+		UMyFloatingWidgetComponent* MyFloatingWidgetComponent= NewObject<UMyFloatingWidgetComponent>(TargetChar,FloatingWidgetClass);
+		bool bAttached=MyFloatingWidgetComponent->AttachToComponent(TargetChar->GetRootComponent(),FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		MyFloatingWidgetComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		MyFloatingWidgetComponent->RegisterComponent();
+		
+		
+		// UKismetSystemLibrary::PrintString(GetWorld(), bAttached ? TEXT("Attached") : TEXT("Not Attached"), true, true, FLinearColor::Red, 30);
+		MyFloatingWidgetComponent->ShowDamageNumber(DamageAmount);
+	}
 }
 
 void AMyPlayerController::Move(const FInputActionValue& Value)

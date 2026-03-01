@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
-#include "MyCombatInterface.h"
+#include "Interfaces/MyCombatInterface.h"
 #include "MyCharBase.generated.h"
 
 class UGameplayAbility;
@@ -37,12 +37,29 @@ protected:
 	UPROPERTY(EditAnywhere)
 	TArray<TSubclassOf<UGameplayAbility>> StartupAbilities;
 	
+	UPROPERTY(EditAnywhere)
+	TArray<TSubclassOf<UGameplayAbility>> PassiveAbilities;
+	
 	virtual void GiveStartupAbilities();
 	
-	virtual FVector GetCombatSocketLocation() override;
+	virtual void GivePassiveAbilities();
+	
+	virtual FVector GetCombatSocketLocation_Implementation() override;
+	
+	virtual void SetCombatTarget_Implementation(AActor* InCombatTarget) override;
+	
+	virtual ECharacterClass GetCharacterClass() override;
+	
+	virtual AActor* GetCombatTarget_Implementation() override;
+	
+	UPROPERTY(BlueprintReadWrite, Category = "Combat")
+	AActor* CombatTarget;
 	
 	UFUNCTION(NetMulticast, reliable)
 	virtual void HandleDeath() override;
+	
+	UPROPERTY(EditAnywhere)
+	ECharacterClass CharacterClass;
 	
 public:	
 
