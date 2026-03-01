@@ -5,17 +5,13 @@
 
 
 // Add default functionality here for any IMyCombatInterface functions that are not pure virtual.
-int32 IMyCombatInterface::GetLevel()
-{
-	return 0;
-}
 
 
 void IMyCombatInterface::HandleDeath()
 {
 }
 
-int32 IMyCombatInterface::GetPlayerLevel()
+int32 IMyCombatInterface::GetCharLevel()
 {
 	return 1;
 }

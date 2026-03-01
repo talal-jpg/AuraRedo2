@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MyCharBase.h"
+#include "Character/MyPlayerInterface.h"
 #include "MyCharPlayer.generated.h"
 
 class UGameplayEffect;
@@ -12,7 +13,7 @@ class USpringArmComponent;
 class UInputMappingContext;
 
 UCLASS()
-class AURA_API AMyCharPlayer : public AMyCharBase
+class AURA_API AMyCharPlayer : public AMyCharBase , public IMyPlayerInterface
 {
 	GENERATED_BODY()
 
@@ -43,13 +44,19 @@ public:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UGameplayEffect> VitalAttributesEffect;
 	
-	virtual int32 GetLevel() override;
-	
 	virtual void GiveStartupAbilities() override;
 	
 	virtual void GivePassiveAbilities() override;
 	
-	virtual int32 GetPlayerLevel() override;
+	virtual int32 GetCharLevel() override;
+	
+	//** MyPlayerInterface **//
+	virtual int32 FindLevelForXP_Implementation(int32 XP) override;
+	virtual int32 GetXP_Implementation() override;
+	
+	
+	
+	
 	
 	
 };

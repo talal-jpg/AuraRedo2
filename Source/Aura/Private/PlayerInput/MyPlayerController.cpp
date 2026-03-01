@@ -147,7 +147,7 @@ void AMyPlayerController::PressedFunc(FGameplayTag InputTag)
 {
 	PressedTime=0;
 	if (!bIsTargeting)return;
-	UMyAbilitySystemComponent* MyASC=GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent;
+	UMyAbilitySystemComponent* MyASC=Cast<UMyAbilitySystemComponent>(GetPlayerState<AMyPlayerState>()->GetAbilitySystemComponent());
 	MyASC->AbilityInputPressed(InputTag);
 }
 

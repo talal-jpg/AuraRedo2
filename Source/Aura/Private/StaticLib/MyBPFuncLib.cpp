@@ -24,8 +24,8 @@ void UMyBPFuncLib::GetAttributeMenuWidgetController(UMyOverlayWidgetController* 
 	{
 		OutWidgetController=NewObject<UMyAttributeMenuWidgetController>(WorldContextObject);
 		AMyPlayerState* MyPlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
-		UMyAbilitySystemComponent* ASC= MyPlayerState->MyAbilitySystemComponent;
-		UMyAttributeSet* AttributeSet=MyPlayerState->MyAttributeSet;
+		UMyAbilitySystemComponent* ASC=Cast<UMyAbilitySystemComponent>(MyPlayerState->GetAbilitySystemComponent());
+		UMyAttributeSet* AttributeSet=Cast<UMyAttributeSet>(MyPlayerState->GetAttributeSet());
 		
 		FWidgetControllerParams WcParams= FWidgetControllerParams(PlayerController,MyPlayerState,ASC,AttributeSet);
 		OutWidgetController->SetWidgetControllerParams(WcParams);

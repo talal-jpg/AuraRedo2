@@ -56,11 +56,11 @@ void AMyCharPlayer::OnRep_PlayerState()
 	{
 		if (AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(GetPlayerState()))
 		{
-			if (MyPlayerState->MyAbilitySystemComponent)
+			if (UMyAbilitySystemComponent* MyASC=Cast<UMyAbilitySystemComponent>(MyPlayerState->GetAbilitySystemComponent()))
 			{
-				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
+				MyASC->InitAbilityActorInfo(MyPlayerState, this);
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("OnRep_PlayerState"));
-				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
+				MyAbilitySystemComponent=MyASC;
 				InitializeAttributes();
 				GiveStartupAbilities();
 			}
@@ -81,12 +81,13 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 	Super::PossessedBy(NewController);
 	if (HasAuthority())
 	{
-		if (AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(GetPlayerState()))
+		if (AMyPlayerState* MyPlayerState = GetPlayerState<AMyPlayerState>())
 		{
-			if (MyPlayerState->MyAbilitySystemComponent)
+			if (UMyAbilitySystemComponent* MyASC=Cast<UMyAbilitySystemComponent>(MyPlayerState->GetAbilitySystemComponent()))
 			{
-				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
-				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
+				MyASC->InitAbilityActorInfo(MyPlayerState, this);
+				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("OnRep_PlayerState"));
+				MyAbilitySystemComponent=MyASC;
 				InitializeAttributes();
 				GiveStartupAbilities();
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("PossessedBy"));
@@ -106,23 +107,18 @@ void AMyCharPlayer::InitializeAttributes()
 	// InitPrimaryAttrs
 	FGameplayEffectContextHandle EffectContextHandle=MyAbilitySystemComponent->MakeEffectContext();
 	EffectContextHandle.AddInstigator(this,this);
-	FGameplayEffectSpecHandle SpecHandlePrimary=MyAbilitySystemComponent->MakeOutgoingSpec(PrimaryAttributesEffect,GetLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandlePrimary=MyAbilitySystemComponent->MakeOutgoingSpec(PrimaryAttributesEffect,GetCharLevel(),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandlePrimary.Data.Get());
 	
 	//InitSecondaryAttrs
-	FGameplayEffectSpecHandle SpecHandleSecondary=MyAbilitySystemComponent->MakeOutgoingSpec(SecondaryAttributesEffect,GetLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandleSecondary=MyAbilitySystemComponent->MakeOutgoingSpec(SecondaryAttributesEffect,GetCharLevel(),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleSecondary.Data.Get());
 	
 	//InitVitalAttrs
-	FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,GetLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,GetCharLevel(),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleVital.Data.Get());
 }
 
-
-int32 AMyCharPlayer::GetLevel()
-{
-	return GetPlayerState<AMyPlayerState>()->Level;
-}
 
 void AMyCharPlayer::GiveStartupAbilities()
 {
@@ -137,9 +133,19 @@ void AMyCharPlayer::GivePassiveAbilities()
 	Super::GivePassiveAbilities();
 }
 
-int32 AMyCharPlayer::GetPlayerLevel()
+int32 AMyCharPlayer::GetCharLevel()
 {
-	return GetPlayerState<AMyPlayerState>()->Level;
+	return GetPlayerState<AMyPlayerState>()->GetLevel();
+}
+
+int32 AMyCharPlayer::FindLevelForXP_Implementation(int32 XP)
+{
+	return GetPlayerState<AMyPlayerState>()->LevelUpInfo->FindLevelForXp(XP);
+}
+
+int32 AMyCharPlayer::GetXP_Implementation()
+{
+	return GetPlayerState<AMyPlayerState>()->GetXP();
 }
 
 

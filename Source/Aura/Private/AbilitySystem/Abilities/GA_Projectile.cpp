@@ -21,7 +21,7 @@ void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent
 	// AActor* AvatarActor= ActorInfo->AvatarActor.Get();
 	// UAbilitySystemComponent* ASC= ActorInfo->AbilitySystemComponent.Get();
 	IMyCombatInterface* CombatInterface=Cast<IMyCombatInterface>(AvatarActor);
-	float Level=CombatInterface->GetLevel();
+	float Level=CombatInterface->GetCharLevel();
 	
 	if (!AvatarActor->Implements<UMyCombatInterface>())return;
 	FVector SpawnLocation=IMyCombatInterface::Execute_GetCombatSocketLocation(AvatarActor);

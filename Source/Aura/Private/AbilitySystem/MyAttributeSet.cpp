@@ -139,7 +139,7 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 	if (Data.EvaluatedData.Attribute==GetIncomingDamageAttribute())
 	{
 		float NewHealth=GetHealth()-Data.EvaluatedData.Magnitude;
-		if (bool bIsFatal =NewHealth<=0.f)
+		if (bool bIsFatal =NewHealth<=-1.f)
 		{
 			// HandleDeath
 			if (IMyCombatInterface* MyCombatIF=Cast<IMyCombatInterface>(GetOwningActor()))
@@ -148,8 +148,8 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 				
 				FGameplayEventData GameplayEventData;
 				
-				//TODO Add GetLevelImp to EnemyChar default returns 1
-				int32 TargetCharLevel=MyCombatIF->GetPlayerLevel();
+				
+				int32 TargetCharLevel=MyCombatIF->GetCharLevel();
 				ECharacterClass TargetCharClass=MyCombatIF->GetCharacterClass();
 				//Get Char Class , Get Level , then find and send
 				int32 IncomingXpReward=0;
@@ -185,6 +185,10 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 		}
 	}
 	
+	if (Data.EvaluatedData.Attribute==GetIncomingXpAttribute())
+	{
+		
+	}
 }
 
 void UMyAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
@@ -226,5 +230,6 @@ void UMyAttributeSet::SetEffectProperties(FGameplayEffectModCallbackData& Data, 
 		EffectProperties.TargetCharacter = Cast<ACharacter>(EffectProperties.TargetAvatarActor);
 		EffectProperties.TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(EffectProperties.TargetAvatarActor);
 	}
+	
 }
 	

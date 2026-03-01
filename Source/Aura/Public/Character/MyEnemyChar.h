@@ -59,4 +59,9 @@ public:
 	virtual void Highlight() override;
 	
 	virtual void UnHighlight() override;
+	
+	virtual int32 GetCharLevel() override;
+	
+	UPROPERTY(EditAnywhere)
+	int32 Level=1;
 };

@@ -29,8 +29,8 @@ void AMyHUD::InitOverlay()
 			UE_LOG(LogTemp, Warning, TEXT("PlayerState is null in InitOverlay"));
 			return;
 		}
-		UMyAbilitySystemComponent* MyAbilitySystemComponent=PlayerState->MyAbilitySystemComponent;
-		UMyAttributeSet* AttributeSet=PlayerState->MyAttributeSet;
+		UMyAbilitySystemComponent* MyAbilitySystemComponent=Cast<UMyAbilitySystemComponent>(PlayerState->GetAbilitySystemComponent());
+		UMyAttributeSet* AttributeSet=Cast<UMyAttributeSet>(PlayerState->GetAttributeSet());
 	
 		FWidgetControllerParams Params(PlayerController,PlayerState,MyAbilitySystemComponent,AttributeSet);
 		OverlayWidgetController->SetWidgetControllerParams(Params);
