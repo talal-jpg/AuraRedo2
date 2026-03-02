@@ -4,6 +4,7 @@
 #include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
 
 #include "MyGameMode.h"
+#include "MyPlayerState.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
@@ -25,6 +26,8 @@ void UMyOverlayWidgetController::BroadcastInitialValues()
 
 void UMyOverlayWidgetController::BindCallbacksToDependencies()
 {
+	
+	Cast<AMyPlayerState>(PlayerState)->OnXPChangedDelegate.AddUObject(this,&ThisClass::OnXPChangedCallback);	
 	MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(MyAttributeSet->GetHealthAttribute()).AddLambda(
 		[this](const FOnAttributeChangeData& Data)
 		{
@@ -91,6 +94,11 @@ void UMyOverlayWidgetController::BroadcastAbilityInfo()
 		}
 	);
 	MyAbilitySystemComponent->ForEachAbility(ForEachAbilityDelegate);
+}
+
+void UMyOverlayWidgetController::OnXPChangedCallback(int32 NewXP)
+{
+	GetMyPlayerState()->LevelUpInfo->FindLevelForXp(NewXP);
 }
 
 

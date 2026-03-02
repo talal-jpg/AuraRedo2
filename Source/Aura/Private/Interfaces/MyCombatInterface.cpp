@@ -11,10 +11,6 @@ void IMyCombatInterface::HandleDeath()
 {
 }
 
-int32 IMyCombatInterface::GetCharLevel()
-{
-	return 1;
-}
 
 ECharacterClass IMyCombatInterface::GetCharacterClass()
 {

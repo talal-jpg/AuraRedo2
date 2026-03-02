@@ -133,9 +133,31 @@ void AMyCharPlayer::GivePassiveAbilities()
 	Super::GivePassiveAbilities();
 }
 
-int32 AMyCharPlayer::GetCharLevel()
+int32 AMyCharPlayer::GetCharLevel_Implementation()
 {
 	return GetPlayerState<AMyPlayerState>()->GetLevel();
+}
+
+
+void AMyCharPlayer::AddToXP_Implementation(int32 InXP)
+{
+	AMyPlayerState* MyPlayerState=GetPlayerState<AMyPlayerState>();
+	check(MyPlayerState);
+	MyPlayerState->AddToXP(InXP);
+}
+
+void AMyCharPlayer::AddToPlayerLevel_Implementation(int32 InPlayerLevel)
+{
+	AMyPlayerState* MyPlayerState=GetPlayerState<AMyPlayerState>();
+	check(MyPlayerState);
+	MyPlayerState->AddToLevel(InPlayerLevel);
+	
+	//TODO Get ASC and update Ability Statuses
+}
+
+void AMyCharPlayer::LevelUp_Implementation()
+{
+	IMyPlayerInterface::LevelUp_Implementation();
 }
 
 int32 AMyCharPlayer::FindLevelForXP_Implementation(int32 XP)
@@ -146,6 +168,40 @@ int32 AMyCharPlayer::FindLevelForXP_Implementation(int32 XP)
 int32 AMyCharPlayer::GetXP_Implementation()
 {
 	return GetPlayerState<AMyPlayerState>()->GetXP();
+}
+
+int32 AMyCharPlayer::GetAttributePoints_Implementation()
+{
+	return GetPlayerState<AMyPlayerState>()->GetAttributePoints();
+}
+
+int32 AMyCharPlayer::GetSpellPoints_Implementation()
+{
+	return GetPlayerState<AMyPlayerState>()->GetSpellPoints();
+}
+
+void AMyCharPlayer::AddToAttributePoints_Implementation(int32 InAttributePoints)
+{
+	GetPlayerState<AMyPlayerState>()->AddToAttributePoints(InAttributePoints);
+}
+
+void AMyCharPlayer::AddToSpellPoints_Implementation(int32 InSpellPoints)
+{
+	GetPlayerState<AMyPlayerState>()->AddToSpellPoints(InSpellPoints);
+}
+
+int32 AMyCharPlayer::GetAttributePointsReward_Implementation(int32 Level)
+{
+	const AMyPlayerState* MyPlayerState = GetPlayerState<AMyPlayerState>();
+	check(MyPlayerState);
+	return MyPlayerState->LevelUpInfo->LevelUpInfos[Level].AttributePointsReward;
+}
+
+int32 AMyCharPlayer::GetSpellPointsReward_Implementation(int32 Level)
+{
+	const AMyPlayerState* MyPlayerState = GetPlayerState<AMyPlayerState>();
+	check(MyPlayerState);
+	return MyPlayerState->LevelUpInfo->LevelUpInfos[Level].SpellPointsReward;
 }
 
 

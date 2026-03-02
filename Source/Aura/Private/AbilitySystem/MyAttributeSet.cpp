@@ -10,6 +10,7 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Character/MyCharBase.h"
 #include "Character/MyEnemyChar.h"
+#include "Character/MyPlayerInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -187,7 +188,35 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 	
 	if (Data.EvaluatedData.Attribute==GetIncomingXpAttribute())
 	{
-		
+		//Source and Target Actor is the same
+		if (EffectProperties.SourceAvatarActor && EffectProperties.SourceAvatarActor->Implements<UMyPlayerInterface>() && EffectProperties.SourceAvatarActor->Implements<UMyCombatInterface>())
+		{
+			int32 LocalIncomingXp=GetIncomingXp();
+			SetIncomingXp(0.f);
+			AActor* TargetActor=EffectProperties.TargetAvatarActor;
+			int32 CurrentLevel=IMyCombatInterface::Execute_GetCharLevel(TargetActor);
+			int32 CurrentXP= IMyPlayerInterface::Execute_GetXP(TargetActor);
+			int32 NewLevel=IMyPlayerInterface::Execute_FindLevelForXP(TargetActor,LocalIncomingXp+CurrentXP);
+			int32 NumLevelUps=NewLevel-CurrentLevel;
+			if (NumLevelUps>0)
+			{
+				IMyPlayerInterface::Execute_AddToPlayerLevel(TargetActor,NumLevelUps);
+				int32 AttributePointsReward=0;
+				int32 SpellPointsReward=0;
+				
+				for (int i=0;i<NumLevelUps;++i)
+				{
+					AttributePointsReward+=IMyPlayerInterface::Execute_GetAttributePointsReward(TargetActor,CurrentLevel+i);
+					SpellPointsReward+=IMyPlayerInterface::Execute_GetSpellPointsReward(TargetActor,CurrentLevel+i);
+				}
+				IMyPlayerInterface::Execute_AddToAttributePoints(TargetActor,AttributePointsReward);
+				IMyPlayerInterface::Execute_AddToSpellPoints(TargetActor,SpellPointsReward);
+				
+				IMyPlayerInterface::Execute_LevelUp(TargetActor);
+			}
+			
+			IMyPlayerInterface::Execute_AddToXP(EffectProperties.SourceAvatarActor,LocalIncomingXp);
+		}
 	}
 }
 

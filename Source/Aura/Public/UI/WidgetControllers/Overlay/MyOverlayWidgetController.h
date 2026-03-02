@@ -64,4 +64,5 @@ public:
 	
 	void BroadcastAbilityInfo();
 	
+	void OnXPChangedCallback(int32 NewXP);
 };

@@ -35,21 +35,25 @@ AMyPlayerState::AMyPlayerState()
 void AMyPlayerState::AddToXP(int32 InXP)
 {
 	XP+=InXP;
+	OnXPChangedDelegate.Broadcast(XP);
 }
 
 void AMyPlayerState::AddToLevel(int32 InLevel)
 {
 	Level+=InLevel;
+	OnLevelChangedDelegate.Broadcast(Level,true);
 }
 
 void AMyPlayerState::AddToAttributePoints(int32 InAttributePoints)
 {
 	AttributePoints+=InAttributePoints;
+	OnAttributePointsChangedDelegate.Broadcast(AttributePoints);
 }
 
 void AMyPlayerState::AddToSpellPoints(int32 InSpellPoints)
 {
 	SpellPoints+=InSpellPoints;
+	OnSpellPointsChangedDelegate.Broadcast(SpellPoints);
 }
 
 void AMyPlayerState::SetLevel(int32 InLevel)

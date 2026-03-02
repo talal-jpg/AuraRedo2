@@ -36,7 +36,8 @@ public:
 	
 	virtual void HandleDeath();
 	
-	virtual int32 GetCharLevel();
+	UFUNCTION(BlueprintCallable,BlueprintNativeEvent)
+	int32 GetCharLevel();
 	
 	virtual ECharacterClass GetCharacterClass();
 	

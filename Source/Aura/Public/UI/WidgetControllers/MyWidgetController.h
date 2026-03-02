@@ -6,6 +6,8 @@
 #include "UObject/Object.h"
 #include "MyWidgetController.generated.h"
 
+class AMyPlayerController;
+class AMyPlayerState;
 class UMyAttributeSet;
 class UMyAbilitySystemComponent;
 
@@ -44,6 +46,12 @@ public:
 	UPROPERTY()
 	APlayerState* PlayerState;
 	
+	UPROPERTY()
+	AMyPlayerController* MyPlayerController;
+	
+	UPROPERTY()
+	AMyPlayerState* MyPlayerState;
+	
 	void SetWidgetControllerParams(FWidgetControllerParams Params);
 	
 	UFUNCTION(BlueprintCallable)
@@ -51,4 +59,8 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	virtual void BroadcastInitialValues();
+	
+	
+	AMyPlayerState* GetMyPlayerState();
+	AMyPlayerController* GetMyPlayerController();
 };

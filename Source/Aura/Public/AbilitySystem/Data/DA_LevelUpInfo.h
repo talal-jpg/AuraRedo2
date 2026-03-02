@@ -18,10 +18,10 @@ struct FLevelUpInfo
 	int32 XpRequired;
 	
 	UPROPERTY(EditAnywhere)
-	int32 AttributePoints;
+	int32 AttributePointsReward;
 	
 	UPROPERTY(EditAnywhere)
-	int32 SpellPoints;
+	int32 SpellPointsReward;
 };
 /**
  * 
@@ -31,11 +31,11 @@ class AURA_API UDA_LevelUpInfo : public UDataAsset
 {
 	GENERATED_BODY()
 	
-	UPROPERTY(EditAnywhere)
-	TArray<FLevelUpInfo> LevelUpInfos;
 	
 	public:
 	int32 FindLevelForXp(int32 InXp);
 	
+	UPROPERTY(EditAnywhere)
+	TArray<FLevelUpInfo> LevelUpInfos;
 	
 };

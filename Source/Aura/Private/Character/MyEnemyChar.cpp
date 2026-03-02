@@ -103,8 +103,9 @@ void AMyEnemyChar::UnHighlight()
 	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("UnHighlighted"));
 }
 
-int32 AMyEnemyChar::GetCharLevel()
+int32 AMyEnemyChar::GetCharLevel_Implementation()
 {
 	return Level;
 }
+
 
