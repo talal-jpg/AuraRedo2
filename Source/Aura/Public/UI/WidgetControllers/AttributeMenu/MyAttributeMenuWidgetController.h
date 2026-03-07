@@ -8,6 +8,7 @@
 #include "MyAttributeMenuWidgetController.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAttributeValueChangeDelegateSignature,FGameplayTag,Tag,float,NewVal);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttributePointsChangedDelegateSignature, int32, InNewAttributePoints);
 /**
  * 
  */
@@ -19,8 +20,15 @@ class AURA_API UMyAttributeMenuWidgetController : public UMyWidgetController
 	UPROPERTY(BlueprintAssignable)
 	FOnAttributeValueChangeDelegateSignature OnAttributeValueChangeDelegate;
 	
+	UPROPERTY(BlueprintAssignable)
+	FOnAttributePointsChangedDelegateSignature OnAttributePointsChangedDelegate;
+	
 	virtual void BindCallbacksToDependencies() override;
 	
 	virtual void BroadcastInitialValues() override;
+	
+	UFUNCTION(BlueprintCallable)
+	void UpgradeAttribute(FGameplayTag InAttributeTag);
+	void OnAttributePointsChangedCallback(int32 NewAttributePoints);
 	
 };

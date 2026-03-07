@@ -19,11 +19,22 @@ struct FAbilityInfo
 	FGameplayTag AbilityStatus;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	FGameplayTag CooldownTag;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	FGameplayTag InputTag;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	UTexture2D* Icon;
 	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	UTexture2D* BackgroundMaterial;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	int32 LevelRequirement;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	TSubclassOf<UGameplayAbility> GameplayAbilityClass;
 	
 	
 };

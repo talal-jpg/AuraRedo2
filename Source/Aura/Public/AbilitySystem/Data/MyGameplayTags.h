@@ -39,6 +39,17 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_MeleeDamage)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_RangedDamage)
 	
+	// Ability_Status
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Locked)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Eligible)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Unlocked)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Equipped)
+	
+	// Ability_Type
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type_Passive)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type_Offensive)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type_None)
+	
 	// EventTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_ApplyGEPassively)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_HitReact)

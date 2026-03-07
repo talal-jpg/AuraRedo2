@@ -30,6 +30,7 @@ class AURA_API AMyPlayerState : public APlayerState , public IAbilitySystemInter
 	UAttributeSet* GetAttributeSet()const {return MyAttributeSet;}
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
 	AMyPlayerState();
 	
 	UPROPERTY(EditAnywhere)
@@ -88,4 +89,5 @@ class AURA_API AMyPlayerState : public APlayerState , public IAbilitySystemInter
 	
 	UFUNCTION()
 	void OnRep_SpellPoints(int32 OldSpellPoints);
+	
 };

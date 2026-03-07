@@ -3,7 +3,7 @@
 
 #include "AbilitySystem/Data/DA_LevelUpInfo.h"
 
-int32 UDA_LevelUpInfo::FindLevelForXp(int32 InXp)
+int32 UDA_LevelUpInfo::FindLevelForXP(int32 InXP)
 {
 	int32 Level=1;
 	bool bSearching=true;
@@ -11,7 +11,7 @@ int32 UDA_LevelUpInfo::FindLevelForXp(int32 InXp)
 	{
 		if (LevelUpInfos.Num()-1<=Level) return Level;
 		
-		if (InXp>=LevelUpInfos[Level].XpRequired)
+		if (LevelUpInfos[Level].LevelUpXPRequirement<InXP)
 		{
 			Level++;
 		}

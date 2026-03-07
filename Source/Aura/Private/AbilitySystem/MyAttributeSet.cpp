@@ -2,6 +2,9 @@
 
 
 #include "AbilitySystem/MyAttributeSet.h"
+
+#include <string>
+
 #include "GameplayEffectExtension.h"
 #include "GameplayEffectTypes.h"
 #include "MyAiController.h"
@@ -140,8 +143,13 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 	if (Data.EvaluatedData.Attribute==GetIncomingDamageAttribute())
 	{
 		float NewHealth=GetHealth()-Data.EvaluatedData.Magnitude;
-		if (bool bIsFatal =NewHealth<=-1.f)
+		if (bool bIsFatal =NewHealth<=0.f)
 		{
+				UKismetSystemLibrary::PrintString(GetOwningActor(),TEXT("Fatal Damage from server"));
+			if (!GetOwningActor()->HasAuthority())
+			{
+				UKismetSystemLibrary::PrintString(GetOwningActor(),TEXT("Fatal Damage from Client"));
+			}
 			// HandleDeath
 			if (IMyCombatInterface* MyCombatIF=Cast<IMyCombatInterface>(GetOwningActor()))
 			{
@@ -149,15 +157,16 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 				
 				FGameplayEventData GameplayEventData;
 				
-				
-				int32 TargetCharLevel=MyCombatIF->GetCharLevel();
+				int32 TargetCharLevel=IMyCombatInterface::Execute_GetCharLevel(EffectProperties.TargetAvatarActor);
 				ECharacterClass TargetCharClass=MyCombatIF->GetCharacterClass();
-				//Get Char Class , Get Level , then find and send
 				int32 IncomingXpReward=0;
 				UMyBPFuncLib::GetXpRewardForCharacterClassAtLevel(EffectProperties.SourceAvatarActor,TargetCharClass,TargetCharLevel,IncomingXpReward);
+				// UKismetSystemLibrary::PrintString(EffectProperties.SourceAvatarActor,FString::Printf(TEXT("Incoming Xp Reward: %d"),IncomingXpReward));
 				GameplayEventData.EventMagnitude=IncomingXpReward;
 				GameplayEventData.EventTag=MyTags::Attribute_Meta_IncomingXp;
-				UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(EffectProperties.SourceAvatarActor,MyTags::Event_ApplyGEPassively,GameplayEventData);
+				//Event not being rec even on server when enemy dies from client
+				UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(EffectProperties.SourceAvatarActor,MyTags::Attribute_Meta_IncomingXp,GameplayEventData);
+				UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("SERVER: Sent XP Event to %s"), *EffectProperties.SourceAvatarActor->GetName()));
 			}
 		}
 		else
@@ -192,12 +201,14 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 		if (EffectProperties.SourceAvatarActor && EffectProperties.SourceAvatarActor->Implements<UMyPlayerInterface>() && EffectProperties.SourceAvatarActor->Implements<UMyCombatInterface>())
 		{
 			int32 LocalIncomingXp=GetIncomingXp();
+			UKismetSystemLibrary::PrintString(EffectProperties.SourceAvatarActor,FString::Printf(TEXT("Incoming Xp: %d"),LocalIncomingXp));
 			SetIncomingXp(0.f);
 			AActor* TargetActor=EffectProperties.TargetAvatarActor;
 			int32 CurrentLevel=IMyCombatInterface::Execute_GetCharLevel(TargetActor);
 			int32 CurrentXP= IMyPlayerInterface::Execute_GetXP(TargetActor);
 			int32 NewLevel=IMyPlayerInterface::Execute_FindLevelForXP(TargetActor,LocalIncomingXp+CurrentXP);
 			int32 NumLevelUps=NewLevel-CurrentLevel;
+			
 			if (NumLevelUps>0)
 			{
 				IMyPlayerInterface::Execute_AddToPlayerLevel(TargetActor,NumLevelUps);
@@ -214,7 +225,6 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 				
 				IMyPlayerInterface::Execute_LevelUp(TargetActor);
 			}
-			
 			IMyPlayerInterface::Execute_AddToXP(EffectProperties.SourceAvatarActor,LocalIncomingXp);
 		}
 	}

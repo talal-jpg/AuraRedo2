@@ -22,12 +22,15 @@ void UMyOverlayWidgetController::BroadcastInitialValues()
 	OnManaChangeDelegate.Broadcast(MyAttributeSet->GetMana());
 	OnMaxHealthChangeDelegate.Broadcast(MyAttributeSet->GetMaxHealth());
 	OnMaxManaChangeDelegate.Broadcast(MyAttributeSet->GetMaxMana());
+	//HardCoding Initial vals for XP and level
+	OnXPPercentChangedDelegate.Broadcast(0.0f);
+	OnLevelChangedDelegate.Broadcast(1);
 }
 
 void UMyOverlayWidgetController::BindCallbacksToDependencies()
 {
-	
-	Cast<AMyPlayerState>(PlayerState)->OnXPChangedDelegate.AddUObject(this,&ThisClass::OnXPChangedCallback);	
+	GetMyPlayerState()->OnXPChangedDelegate.AddUObject(this,&ThisClass::OnXPChangedCallback);	
+	GetMyPlayerState()->OnLevelChangedDelegate.AddUObject(this,&ThisClass::OnLevelChangedCallback);
 	MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(MyAttributeSet->GetHealthAttribute()).AddLambda(
 		[this](const FOnAttributeChangeData& Data)
 		{
@@ -98,7 +101,33 @@ void UMyOverlayWidgetController::BroadcastAbilityInfo()
 
 void UMyOverlayWidgetController::OnXPChangedCallback(int32 NewXP)
 {
-	GetMyPlayerState()->LevelUpInfo->FindLevelForXp(NewXP);
+	
+	
+	UDA_LevelUpInfo* LevelUpInfo = GetMyPlayerState()->LevelUpInfo;
+	checkf(LevelUpInfo, TEXT("Unabled to find LevelUpInfo. Please fill out AuraPlayerState Blueprint"));
+	
+	const int32 Level = LevelUpInfo->FindLevelForXP(NewXP);
+	const int32 MaxLevel = LevelUpInfo->LevelUpInfos.Num();
+	
+	if (Level <= MaxLevel && Level > 0)
+	{
+		const int32 LevelUpRequirement = LevelUpInfo->LevelUpInfos[Level].LevelUpXPRequirement;
+		const int32 PreviousLevelUpRequirement = LevelUpInfo->LevelUpInfos[Level - 1].LevelUpXPRequirement;
+	
+		const int32 DeltaLevelRequirement = LevelUpRequirement - PreviousLevelUpRequirement;
+		const int32 XPForThisLevel = NewXP - PreviousLevelUpRequirement;
+	
+		const float XPBarPercent = static_cast<float>(XPForThisLevel) / static_cast<float>(DeltaLevelRequirement);
+	
+		OnXPPercentChangedDelegate.Broadcast(XPBarPercent);
+		// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("Level Up: %d/%d"),Level,MaxLevel));
+	}
 }
+
+void UMyOverlayWidgetController::OnLevelChangedCallback(int32 NewLevel,bool bLevelUp)
+{
+	OnLevelChangedDelegate.Broadcast(NewLevel);
+}
+
 
 

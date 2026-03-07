@@ -66,3 +66,15 @@ void UMyBPFuncLib::GetXpRewardForCharacterClassAtLevel(UObject* WorldContextObje
 	int32 XpReward=CharClassInfo.XpRewardForKillingAtLevel.GetValueAtLevel(InLevel);
 	OutXpReward=XpReward;
 }
+
+UDA_MyEnemyCharacterClassInfo* UMyBPFuncLib::GetCharacterClassInfo(const UObject* WorldContextObject)
+{
+	AMyGameMode* MyGameMode= Cast<AMyGameMode>(UGameplayStatics::GetGameMode(WorldContextObject));
+	return MyGameMode->DA_MyEnemyCharacterClassInfo;
+}
+
+UDA_MyAbilityInfo* UMyBPFuncLib::GetAbilityInfo(const UObject* WorldContextObject)
+{
+	AMyGameMode* MyGameMode= Cast<AMyGameMode>(UGameplayStatics::GetGameMode(WorldContextObject));
+	return MyGameMode->DA_MyAbilityInfo;
+}

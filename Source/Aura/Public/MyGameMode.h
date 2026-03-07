@@ -6,6 +6,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "MyGameMode.generated.h"
 
+class UDA_MyAbilityInfo;
 class UDA_MyEnemyCharacterClassInfo;
 /**
  * 
@@ -19,5 +20,8 @@ public:
 	
 	UPROPERTY(EditAnywhere)
 	UDA_MyEnemyCharacterClassInfo* DA_MyEnemyCharacterClassInfo;
+	
+	UPROPERTY(EditAnywhere)
+	UDA_MyAbilityInfo* DA_MyAbilityInfo;
 	
 };

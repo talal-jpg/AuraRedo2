@@ -38,6 +38,7 @@ AMyCharPlayer::AMyCharPlayer()
 void AMyCharPlayer::BeginPlay()
 {
 	Super::BeginPlay();
+	if (!MyAbilitySystemComponent)return;
 	
 	
 }
@@ -62,7 +63,7 @@ void AMyCharPlayer::OnRep_PlayerState()
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("OnRep_PlayerState"));
 				MyAbilitySystemComponent=MyASC;
 				InitializeAttributes();
-				GiveStartupAbilities();
+				// GiveStartupAbilities();
 			}
 		}
 	}
@@ -94,6 +95,10 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 			}
 		}
 	}
+	for (auto Ability:MyAbilitySystemComponent->GetActivatableAbilities())
+	{
+		UKismetSystemLibrary::PrintString(this,Ability.GetDebugString());
+	}
 	if (APlayerController* PC=Cast<APlayerController>(NewController))
 	{
 		AMyHUD* MyHUD=PC->GetHUD<AMyHUD>();
@@ -107,15 +112,15 @@ void AMyCharPlayer::InitializeAttributes()
 	// InitPrimaryAttrs
 	FGameplayEffectContextHandle EffectContextHandle=MyAbilitySystemComponent->MakeEffectContext();
 	EffectContextHandle.AddInstigator(this,this);
-	FGameplayEffectSpecHandle SpecHandlePrimary=MyAbilitySystemComponent->MakeOutgoingSpec(PrimaryAttributesEffect,GetCharLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandlePrimary=MyAbilitySystemComponent->MakeOutgoingSpec(PrimaryAttributesEffect,IMyCombatInterface::Execute_GetCharLevel(this),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandlePrimary.Data.Get());
 	
 	//InitSecondaryAttrs
-	FGameplayEffectSpecHandle SpecHandleSecondary=MyAbilitySystemComponent->MakeOutgoingSpec(SecondaryAttributesEffect,GetCharLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandleSecondary=MyAbilitySystemComponent->MakeOutgoingSpec(SecondaryAttributesEffect,IMyCombatInterface::Execute_GetCharLevel(this),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleSecondary.Data.Get());
 	
 	//InitVitalAttrs
-	FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,GetCharLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,IMyCombatInterface::Execute_GetCharLevel(this),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleVital.Data.Get());
 }
 
@@ -162,7 +167,7 @@ void AMyCharPlayer::LevelUp_Implementation()
 
 int32 AMyCharPlayer::FindLevelForXP_Implementation(int32 XP)
 {
-	return GetPlayerState<AMyPlayerState>()->LevelUpInfo->FindLevelForXp(XP);
+	return GetPlayerState<AMyPlayerState>()->LevelUpInfo->FindLevelForXP(XP);
 }
 
 int32 AMyCharPlayer::GetXP_Implementation()

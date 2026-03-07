@@ -6,6 +6,8 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "MyBPFuncLib.generated.h"
 
+class UDA_MyAbilityInfo;
+class UDA_MyEnemyCharacterClassInfo;
 class UMyAbilitySystemComponent;
 enum class ECharacterClass : uint8;
 struct FGameplayTagContainer;
@@ -33,6 +35,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
 	static void GetXpRewardForCharacterClassAtLevel(UObject* WorldContextObject,ECharacterClass In_CharacterClass,int32 InLevel,int32& OutXpReward);
 	
+	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
+	static UDA_MyEnemyCharacterClassInfo* GetCharacterClassInfo(const UObject* WorldContextObject);
+	
+	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
+	static UDA_MyAbilityInfo* GetAbilityInfo(const UObject* WorldContextObject);
 	
 	
 };

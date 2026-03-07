@@ -15,6 +15,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttribChangeDelegateSignature, fl
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEffectAppliedDelegateSignature,FPopupWidgetInfo , WidgetInfo);
 DECLARE_DELEGATE_OneParam(FForEachAbilityDelegateSignature,const FGameplayAbilitySpec&);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBroadcastAbilityInfoDelegateSignature, FAbilityInfo,AbilityInfo);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnXPPercentChangedDelegateSignature, float, XPPercent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLevelChangedDelegateSignature, int32, InNewLevel);
 /**
  * 
  */
@@ -41,6 +43,13 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnEffectAppliedDelegateSignature OnEffectAppliedBroadcastPopupWidgetInfoDelegate;
 	
+	UPROPERTY(BlueprintAssignable)
+	FOnXPPercentChangedDelegateSignature OnXPPercentChangedDelegate;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnLevelChangedDelegateSignature OnLevelChangedDelegate;
+	
+	
 	UPROPERTY(EditAnywhere)
 	UDataTable* DT_PopupWidgetInfo;
 	
@@ -65,4 +74,7 @@ public:
 	void BroadcastAbilityInfo();
 	
 	void OnXPChangedCallback(int32 NewXP);
+	void OnLevelChangedCallback(int32 NewLevel,bool bLevelUp);
+	
+	
 };

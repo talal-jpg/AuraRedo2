@@ -14,9 +14,11 @@ struct FLevelUpInfo
 	UPROPERTY(EditAnywhere)
 	int32 Level;
 	
+	//Requirement for the next level
 	UPROPERTY(EditAnywhere)
-	int32 XpRequired;
+	int32 LevelUpXPRequirement;
 	
+	//Rewards for the next level, last entry in level wont reward any points bcz thr wont be a next level to go to
 	UPROPERTY(EditAnywhere)
 	int32 AttributePointsReward;
 	
@@ -33,7 +35,7 @@ class AURA_API UDA_LevelUpInfo : public UDataAsset
 	
 	
 	public:
-	int32 FindLevelForXp(int32 InXp);
+	int32 FindLevelForXP(int32 InXP);
 	
 	UPROPERTY(EditAnywhere)
 	TArray<FLevelUpInfo> LevelUpInfos;

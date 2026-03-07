@@ -43,6 +43,16 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Enemy_MeleeDamage,"Ability.Enemy.MeleeDamage")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Enemy_RangedDamage,"Ability.Enemy.RangedDamage")
 	
+	// AbilityStatus
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Locked,"Ability.Status.Locked")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Eligible,"Ability.Status.Eligible");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Unlocked,"Ability.Status.Unlocked");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Equipped,"Ability.Status.Equipped");
+	
+	// AbilityType
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Type_Passive,"Ability.Type.Passive");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Type_Offensive,"Ability.Type.Offensive");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Type_None,"Ability.Type.None");
 	// EventTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_ApplyGEPassively,"Event.ApplyGEPassively")
 	UE_DEFINE_GAMEPLAY_TAG(Event_HitReact,"Event.HitReact")

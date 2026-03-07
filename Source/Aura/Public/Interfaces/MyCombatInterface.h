@@ -34,6 +34,7 @@ public:
 	UFUNCTION(BlueprintCallable,BlueprintNativeEvent)
 	AActor* GetCombatTarget();
 	
+	//will have to replace with Implements? and Execute if decide to make it BlueprintNative in future
 	virtual void HandleDeath();
 	
 	UFUNCTION(BlueprintCallable,BlueprintNativeEvent)
