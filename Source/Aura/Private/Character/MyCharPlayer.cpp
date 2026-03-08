@@ -95,10 +95,10 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 			}
 		}
 	}
-	for (auto Ability:MyAbilitySystemComponent->GetActivatableAbilities())
-	{
-		UKismetSystemLibrary::PrintString(this,Ability.GetDebugString());
-	}
+	// for (auto Ability:MyAbilitySystemComponent->GetActivatableAbilities())
+	// {
+	// 	UKismetSystemLibrary::PrintString(this,Ability.GetDebugString());
+	// }
 	if (APlayerController* PC=Cast<APlayerController>(NewController))
 	{
 		AMyHUD* MyHUD=PC->GetHUD<AMyHUD>();

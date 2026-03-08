@@ -37,6 +37,7 @@ class AURA_API UMyWidgetController : public UObject
 public:
 	UPROPERTY()
 	UMyAbilitySystemComponent* MyAbilitySystemComponent;
+	
 	UPROPERTY()
 	UMyAttributeSet* MyAttributeSet;
 	

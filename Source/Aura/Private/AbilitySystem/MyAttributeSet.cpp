@@ -13,7 +13,7 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Character/MyCharBase.h"
 #include "Character/MyEnemyChar.h"
-#include "Character/MyPlayerInterface.h"
+#include "Interfaces/MyPlayerInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"

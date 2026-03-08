@@ -33,6 +33,7 @@ namespace MyTags
 	
 	
 	// AbilityTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_None)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_FireBolt)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Projectile)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_HitReact)

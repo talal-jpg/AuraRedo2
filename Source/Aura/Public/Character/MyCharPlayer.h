@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MyCharBase.h"
-#include "Character/MyPlayerInterface.h"
+#include "Interfaces/MyPlayerInterface.h"
 #include "MyCharPlayer.generated.h"
 
 class UGameplayEffect;

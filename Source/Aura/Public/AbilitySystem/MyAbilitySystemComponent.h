@@ -33,9 +33,12 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	
 	FGameplayTag GetStatusTagFromSpec(const FGameplayAbilitySpec& AbilitySpec);
 	
-	FGameplayAbilitySpec GetAbilitySpecFromTag(FGameplayTag AbilityTag);
+	FGameplayAbilitySpec* GetAbilitySpecFromTag(FGameplayTag AbilityTag);
+	
+	void GetDescriptionsByAbilityTag(FGameplayTag AbilityTag,FString& Description,FString& NextLevelDescription);
 	
 	
+	// 
 	void UpdateAbilityStauses();
 	
 	UFUNCTION(BlueprintCallable,Category="AbilitySystem")
@@ -51,4 +54,5 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	
 	void AddStartupAbilities(TArray<TSubclassOf<UGameplayAbility>> StartupAbilities);
 	
+	virtual void OnRep_ActivateAbilities() override;
 };

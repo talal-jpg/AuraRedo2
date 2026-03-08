@@ -10,7 +10,7 @@
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Kismet/GameplayStatics.h"
 #include "PlayerInput/MyPlayerController.h"
-#include "UI/Data/DA_MyAbilityInfo.h"
+#include "AbilitySystem/Data/DA_MyAbilityInfo.h"
 
 UMyOverlayWidgetController::UMyOverlayWidgetController()
 {
@@ -90,8 +90,11 @@ void UMyOverlayWidgetController::BroadcastAbilityInfo()
 	ForEachAbilityDelegate.BindLambda(
 		[this](const FGameplayAbilitySpec& AbilitySpec)
 		{
+			FGameplayTag AbilityTag=MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec);
 			FAbilityInfo AbilityInfo=DA_AbilityInfo->GetAbilityInfoForTag(MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec));
 			AbilityInfo.InputTag= MyAbilitySystemComponent->GetInputTagFromSpec(AbilitySpec);
+			UKismetSystemLibrary::PrintString(this,AbilityInfo.Description);
+			UKismetSystemLibrary::PrintString(this,AbilityTag.ToString());
 			
 			BroadcastAbilityInfoDelegate.Broadcast(AbilityInfo);
 		}

@@ -6,8 +6,9 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
-#include "Character/MyPlayerInterface.h"
+#include "Interfaces/MyPlayerInterface.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "StaticLib/MyBPFuncLib.h"
 
 UMyAbilitySystemComponent::UMyAbilitySystemComponent()
 {
@@ -28,7 +29,7 @@ FGameplayTag UMyAbilitySystemComponent::GetAbilityTagFromSpec(const FGameplayAbi
 {
 	for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags())
 	{
-		if (Tag.MatchesTag(UGameplayTagsManager::Get().RequestGameplayTag(FName("Abilities"))))
+		if (Tag.MatchesTag(UGameplayTagsManager::Get().RequestGameplayTag(FName("Ability"))))
 		{
 			return Tag;
 		}
@@ -63,17 +64,27 @@ FGameplayTag UMyAbilitySystemComponent::GetStatusTagFromSpec(const FGameplayAbil
 	return FGameplayTag();
 }
 
-FGameplayAbilitySpec UMyAbilitySystemComponent::GetAbilitySpecFromTag(FGameplayTag AbilityTag)
+FGameplayAbilitySpec* UMyAbilitySystemComponent::GetAbilitySpecFromTag(FGameplayTag AbilityTag)
 {
 	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
 	for (auto AbilitySpec:GetActivatableAbilities())
 	{
 		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(AbilityTag)){
-			return AbilitySpec;
+			return &AbilitySpec;
 		}
 	}
 	return nullptr;
 }
+
+void UMyAbilitySystemComponent::GetDescriptionsByAbilityTag(FGameplayTag AbilityTag, FString& Description,
+	FString& NextLevelDescription)
+{
+	UDA_MyAbilityInfo* MyAbilityInfo=UMyBPFuncLib::GetAbilityInfo(GetAvatarActor());
+	FAbilityInfo AbilityInfo=MyAbilityInfo->GetAbilityInfoForTag(AbilityTag);
+	Description=AbilityInfo.Description;
+	NextLevelDescription=AbilityInfo.NextLevelDescription;
+}
+
 
 void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
 {
@@ -132,6 +143,17 @@ void UMyAbilitySystemComponent::AddStartupAbilities(TArray<TSubclassOf<UGameplay
 		{
 			UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid InputTag for Ability: ") + AbilityClass.Get()->GetName());
 		}
+	}
+}
+
+void UMyAbilitySystemComponent::OnRep_ActivateAbilities()
+{
+	Super::OnRep_ActivateAbilities();
+	
+	if (!bAbilitiesGiven)
+	{
+		bAbilitiesGiven=true;
+		OnAbilitiesGivenDelegate.Broadcast();
 	}
 }
 

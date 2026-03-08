@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UI/Data/DA_MyAbilityInfo.h"
+#include "AbilitySystem/Data/DA_MyAbilityInfo.h"
 #include "UI/Data/UIDataTypes.h"
 #include "UI/WidgetControllers/MyWidgetController.h"
 #include "MyOverlayWidgetController.generated.h"

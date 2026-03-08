@@ -37,6 +37,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Meta_IncomingXp,"Attribute.Meta.IncomingXp");
 	
 	// AbilityTags
+	UE_DEFINE_GAMEPLAY_TAG(Ability_None,"Ability.None")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_FireBolt,"Ability.FireBolt")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Projectile,"Ability.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")

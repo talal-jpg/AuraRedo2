@@ -7,6 +7,8 @@
 #include "Engine/DataAsset.h"
 #include "DA_MyAbilityInfo.generated.h"
 
+class UGameplayAbility;
+
 USTRUCT(BlueprintType)
 struct FAbilityInfo
 {
@@ -36,6 +38,11 @@ struct FAbilityInfo
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	TSubclassOf<UGameplayAbility> GameplayAbilityClass;
 	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	FString Description;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	FString NextLevelDescription;
 	
 };
 

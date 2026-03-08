@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "UI/Data/DA_MyAbilityInfo.h"
+#include "AbilitySystem/Data/DA_MyAbilityInfo.h"
 
 FAbilityInfo UDA_MyAbilityInfo::GetAbilityInfoForTag(FGameplayTag AbilityTag)
 {
