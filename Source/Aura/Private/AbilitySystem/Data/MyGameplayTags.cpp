@@ -6,6 +6,7 @@ namespace MyTags
 {
 	
 	// InputTags
+	UE_DEFINE_GAMEPLAY_TAG(Input,"Input")
 	UE_DEFINE_GAMEPLAY_TAG(Input_LMB,"Input.LMB")
 	UE_DEFINE_GAMEPLAY_TAG(Input_RMB,"Input.RMB")
 	
@@ -39,6 +40,7 @@ namespace MyTags
 	// AbilityTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_None,"Ability.None")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_FireBolt,"Ability.FireBolt")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Electrocute,"Ability.Electrocute")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Projectile,"Ability.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Enemy_MeleeDamage,"Ability.Enemy.MeleeDamage")
@@ -63,5 +65,8 @@ namespace MyTags
 	
 	//SetByCallerMagTag
 	UE_DEFINE_GAMEPLAY_TAG(SetDamageByCaller,"SetDamageByCaller")
+	
+	//CooldownTag
+	UE_DEFINE_GAMEPLAY_TAG(Cooldown,"Cooldown")
 	
 }

@@ -4,6 +4,9 @@
 #include "UI/WidgetControllers/MyWidgetController.h"
 
 #include "MyPlayerState.h"
+#include "AbilitySystem/MyAbilitySystemComponent.h"
+#include "AbilitySystem/Data/DA_MyAbilityInfo.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "PlayerInput/MyPlayerController.h"
 
 void UMyWidgetController::SetWidgetControllerParams(FWidgetControllerParams Params)
@@ -36,3 +39,22 @@ AMyPlayerController* UMyWidgetController::GetMyPlayerController()
 }
 
 
+void UMyWidgetController::BroadcastAbilityInfo()
+{
+	
+	FForEachAbilityDelegateSignature ForEachAbilityDelegate;
+	
+	ForEachAbilityDelegate.BindLambda(
+		[this](const FGameplayAbilitySpec& AbilitySpec)
+		{
+			FGameplayTag AbilityTag=MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec);
+			FAbilityInfo AbilityInfo=DA_AbilityInfo->GetAbilityInfoForTag(MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec));
+			AbilityInfo.InputTag= MyAbilitySystemComponent->GetInputTagFromSpec(AbilitySpec);
+			UKismetSystemLibrary::PrintString(this,AbilityInfo.Description);
+			UKismetSystemLibrary::PrintString(this,AbilityTag.ToString());
+			
+			BroadcastAbilityInfoDelegate.Broadcast(AbilityInfo);
+		}
+	);
+	MyAbilitySystemComponent->ForEachAbility(ForEachAbilityDelegate);
+}

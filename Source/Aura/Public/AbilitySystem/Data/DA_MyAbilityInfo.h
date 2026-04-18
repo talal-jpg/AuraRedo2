@@ -21,6 +21,9 @@ struct FAbilityInfo
 	FGameplayTag AbilityStatus;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	FGameplayTag AbilityType;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	FGameplayTag CooldownTag;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
@@ -54,9 +57,10 @@ class AURA_API UDA_MyAbilityInfo : public UDataAsset
 {
 	GENERATED_BODY()
 	
-	UPROPERTY(EditAnywhere)
-	TArray<FAbilityInfo> AbilityInfos;
 	
 public:
 	FAbilityInfo GetAbilityInfoForTag(FGameplayTag AbilityTag);
+	
+	UPROPERTY(EditAnywhere)
+	TArray<FAbilityInfo> AbilityInfos;
 };

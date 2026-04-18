@@ -5,7 +5,7 @@
 
 FAbilityInfo UDA_MyAbilityInfo::GetAbilityInfoForTag(FGameplayTag AbilityTag)
 {
-	for(const FAbilityInfo& AbilityInfo:AbilityInfos)
+	for(FAbilityInfo AbilityInfo:AbilityInfos)
 	{
 		if(AbilityInfo.AbilityTag==AbilityTag)
 		{

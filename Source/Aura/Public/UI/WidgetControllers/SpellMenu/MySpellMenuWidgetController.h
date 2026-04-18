@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "MyPlayerState.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "UI/WidgetControllers/MyWidgetController.h"
 #include "MySpellMenuWidgetController.generated.h"
@@ -21,17 +22,17 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpellGlobeReassignedSignature, cons
 /**
  * 
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable)
 class AURA_API UMySpellMenuWidgetController : public UMyWidgetController
 {
 	GENERATED_BODY()
 
 public:
-	// virtual void BroadcastInitialValues() override;
-	// virtual void BindCallbacksToDependencies() override;
+	virtual void BroadcastInitialValues() override;
+	virtual void BindCallbacksToDependencies() override;
 
-	// UPROPERTY(BlueprintAssignable)
-	// FOnPlayerStatChanged SpellPointsChanged;
+	UPROPERTY(BlueprintAssignable)
+	FOnPlayerStatChangedDelegateSignature SpellPointsChanged;
 
 	UPROPERTY(BlueprintAssignable)
 	FSpellGlobeSelectedSignature SpellGlobeSelectedDelegate;
@@ -48,18 +49,19 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SpellGlobeSelected(const FGameplayTag& AbilityTag);
 
-	// UFUNCTION(BlueprintCallable)
-	// void SpendPointButtonPressed();
+	UFUNCTION(BlueprintCallable)
+	void SpendPointButtonPressed();
 	//
-	// UFUNCTION(BlueprintCallable)
-	// void GlobeDeselect();
+	UFUNCTION(BlueprintCallable)
+	void GlobeDeselect();
 	//
-	// UFUNCTION(BlueprintCallable)
-	// void EquipButtonPressed();
+	UFUNCTION(BlueprintCallable)
+	void EquipButtonPressed();
 	//
-	// UFUNCTION(BlueprintCallable)
-	// void SpellRowGlobePressed(const FGameplayTag& SlotTag, const FGameplayTag& AbilityType);
-	// void OnAbilityEquipped(const FGameplayTag& AbilityTag, const FGameplayTag& Status, const FGameplayTag& Slot, const FGameplayTag& PreviousSlot);
+	UFUNCTION(BlueprintCallable)
+	void SpellRowGlobePressed(const FGameplayTag& SlotTag, const FGameplayTag& AbilityType);
+	
+	void OnAbilityEquipped(const FGameplayTag& AbilityTag, const FGameplayTag& Slot);
 
 private:
 	

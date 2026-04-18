@@ -82,25 +82,6 @@ void UMyOverlayWidgetController::BindCallbacksToDependencies()
 	}
 }
 
-void UMyOverlayWidgetController::BroadcastAbilityInfo()
-{
-	
-	FForEachAbilityDelegateSignature ForEachAbilityDelegate;
-	
-	ForEachAbilityDelegate.BindLambda(
-		[this](const FGameplayAbilitySpec& AbilitySpec)
-		{
-			FGameplayTag AbilityTag=MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec);
-			FAbilityInfo AbilityInfo=DA_AbilityInfo->GetAbilityInfoForTag(MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec));
-			AbilityInfo.InputTag= MyAbilitySystemComponent->GetInputTagFromSpec(AbilitySpec);
-			UKismetSystemLibrary::PrintString(this,AbilityInfo.Description);
-			UKismetSystemLibrary::PrintString(this,AbilityTag.ToString());
-			
-			BroadcastAbilityInfoDelegate.Broadcast(AbilityInfo);
-		}
-	);
-	MyAbilitySystemComponent->ForEachAbility(ForEachAbilityDelegate);
-}
 
 void UMyOverlayWidgetController::OnXPChangedCallback(int32 NewXP)
 {

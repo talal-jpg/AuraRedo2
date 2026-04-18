@@ -3,6 +3,8 @@
 
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 
+#include <string>
+
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
@@ -47,13 +49,13 @@ FGameplayTag UMyAbilitySystemComponent::GetInputTagFromSpec(const FGameplayAbili
 			return Tag;
 		}
 	}
-	return FGameplayTag();
+	return MyTags::Input;
 }
 
 FGameplayTag UMyAbilitySystemComponent::GetStatusTagFromSpec(const FGameplayAbilitySpec& AbilitySpec)
 {
-	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
-	for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags())
+	// FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags().GetGameplayTagArray())
 	{
 		//Requesting Parent of Ability.Status.Equipped = Ability.Status
 		if (Tag.MatchesTag(MyTags::Ability_Status_Equipped.GetTag().RequestDirectParent()))
@@ -67,7 +69,7 @@ FGameplayTag UMyAbilitySystemComponent::GetStatusTagFromSpec(const FGameplayAbil
 FGameplayAbilitySpec* UMyAbilitySystemComponent::GetAbilitySpecFromTag(FGameplayTag AbilityTag)
 {
 	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
-	for (auto AbilitySpec:GetActivatableAbilities())
+	for (auto& AbilitySpec:GetActivatableAbilities())
 	{
 		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(AbilityTag)){
 			return &AbilitySpec;
@@ -76,15 +78,40 @@ FGameplayAbilitySpec* UMyAbilitySystemComponent::GetAbilitySpecFromTag(FGameplay
 	return nullptr;
 }
 
-void UMyAbilitySystemComponent::GetDescriptionsByAbilityTag(FGameplayTag AbilityTag, FString& Description,
-	FString& NextLevelDescription)
+void UMyAbilitySystemComponent::GetDescriptionsByAbilityTag(FGameplayTag AbilityTag, FString& Description,FString& NextLevelDescription)
 {
 	UDA_MyAbilityInfo* MyAbilityInfo=UMyBPFuncLib::GetAbilityInfo(GetAvatarActor());
+	if (!MyAbilityInfo)
+	{
+		UKismetSystemLibrary::PrintString(GetWorld(),TEXT("MyAbilityInfo is null No GameMode Present"));
+		return;
+	}
 	FAbilityInfo AbilityInfo=MyAbilityInfo->GetAbilityInfoForTag(AbilityTag);
 	Description=AbilityInfo.Description;
 	NextLevelDescription=AbilityInfo.NextLevelDescription;
 }
 
+void UMyAbilitySystemComponent::UpdateAbilityStatuses(int32 InPlayerLevel)
+{
+	UDA_MyAbilityInfo* DA_AbilityInfo= UMyBPFuncLib::GetAbilityInfo(GetAvatarActor());
+	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	for (auto AbilityInfo: DA_AbilityInfo->AbilityInfos)
+	{
+		if (InPlayerLevel<AbilityInfo.LevelRequirement)continue;
+		if (GetAbilitySpecFromTag(AbilityInfo.AbilityTag)==nullptr)
+		{
+			FGameplayAbilitySpec GASpec= FGameplayAbilitySpec(AbilityInfo.GameplayAbilityClass,1);
+			GASpec.GetDynamicSpecSourceTags().AddTag(AbilityInfo.AbilityTag);
+			GASpec.GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Eligible);
+			
+			FGameplayAbilitySpecHandle GASpecHandle=GiveAbility(GASpec);
+			// MarkAbilitySpecDirty(*FindAbilitySpecFromHandle(GASpecHandle));
+			ClientUpdateAbilityStatus(AbilityInfo.AbilityTag,MyTags::Ability_Status_Eligible,AbilityInfo.LevelRequirement);
+		}
+	}
+	
+	
+}
 
 void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
 {
@@ -111,6 +138,92 @@ void UMyAbilitySystemComponent::AbilityInputHeld(FGameplayTag InputTag)
 
 void UMyAbilitySystemComponent::AbilityInputReleased(FGameplayTag InputTag)
 {
+}
+
+void UMyAbilitySystemComponent::ServerSpendSpellPoints_Implementation(FGameplayTag AbilityTag)
+{
+	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	if (FGameplayAbilitySpec* AbilitySpec=GetAbilitySpecFromTag(AbilityTag))
+	{
+		if (GetAvatarActor()->Implements<UMyPlayerInterface>())
+		{
+			IMyPlayerInterface::Execute_AddToSpellPoints(GetAvatarActor(),-1);
+		}
+		
+		FGameplayTag StatusTag=GetStatusTagFromSpec(*AbilitySpec);
+		if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Eligible))
+		{
+			FGameplayTagContainer& DynamicTags=AbilitySpec->GetDynamicSpecSourceTags();
+			
+			
+			DynamicTags.RemoveTag(MyTags::Ability_Status_Eligible);
+			DynamicTags.AddTag(MyTags::Ability_Status_Unlocked);
+			StatusTag=MyTags::Ability_Status_Unlocked;
+		}
+		else if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Equipped) || StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked))
+		{
+			AbilitySpec->Level +=1;
+		}
+		ClientUpdateAbilityStatus(AbilityTag,StatusTag,AbilitySpec->Level);
+		MarkAbilitySpecDirty(*AbilitySpec);
+	}
+}
+
+void UMyAbilitySystemComponent::ClientUpdateAbilityStatus_Implementation(FGameplayTag AbilityTag,FGameplayTag StatusTag, int32 AbilityLevel)
+{
+	AbilityStatusChangedDelegate.Broadcast(AbilityTag,StatusTag,AbilityLevel);
+}
+
+void UMyAbilitySystemComponent::ServerEquipAbility_Implementation(FGameplayTag AbilityTag,FGameplayTag SlotTag)
+{
+	if (FGameplayAbilitySpec* AbilitySpec=GetAbilitySpecFromTag(AbilityTag))
+	{
+		UKismetSystemLibrary::PrintString(GetWorld(),AbilitySpec->Ability->GetName());
+		//TODO Talal Fix func , accounting for all the edge cases
+		FGameplayTag PrevSlot= GetInputTagFromSpec(*AbilitySpec);
+		FGameplayTag Status=GetStatusTagFromSpec(*AbilitySpec);
+		
+		bool bStatusValid=Status == MyTags::Ability_Status_Equipped || Status == MyTags::Ability_Status_Unlocked;
+		if (bStatusValid)
+		{
+			// CancelAbilityHandle(AbilitySpec->Handle);
+			//if have slot (HaveAbilitySpec) , Clear , if it i passive ability also stop the ability
+			if (FGameplayAbilitySpec* AbilitySpecInSlot=GetAbilitySpecFromSlot(SlotTag))
+			{
+				AbilitySpecInSlot->GetDynamicSpecSourceTags().RemoveTag(SlotTag);
+				AbilitySpecInSlot->GetDynamicSpecSourceTags().RemoveTag(GetStatusTagFromSpec(*AbilitySpecInSlot));
+				AbilitySpecInSlot->GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Unlocked);
+			}
+			//if not have a slot , ie Input_Tag not found 
+			if(GetInputTagFromSpec(*AbilitySpec).IsValid())
+			{
+				UKismetSystemLibrary::PrintString(this, "InSideLoop");
+				FGameplayTagContainer& DynamicTags=AbilitySpec->GetDynamicSpecSourceTags();
+				DynamicTags.RemoveTag(GetStatusTagFromSpec(*AbilitySpec));
+				DynamicTags.AddTag(MyTags::Ability_Status_Equipped);
+				
+				UKismetSystemLibrary::PrintString(this, SlotTag.ToString(),true,true,FLinearColor::Red,10.f);
+				DynamicTags.AddTag(SlotTag);
+				
+				MarkAbilitySpecDirty(*AbilitySpec);
+				
+				UKismetSystemLibrary::PrintString(this, GetInputTagFromSpec(*AbilitySpec).ToString(),true,true,FLinearColor::Red,10.f);
+				// if (AbilityType==Passive){Activate}
+			}
+			//remove tag current status, add equip status , assign Slot ie add inputTag,activate only for passive 
+			ClientUpdateAbilityEquip(AbilityTag,SlotTag);
+		}
+		
+		// FGameplayTagContainer& DynamicTagsContainer=AbilitySpec->GetDynamicSpecSourceTags();
+		// FGameplayTagContainer TagContainer=DynamicTagsContainer.Filter(FGameplayTagContainer(MyTags::Input));
+		// DynamicTagsContainer.RemoveTag(TagContainer.First());
+		// DynamicTagsContainer.AddTag(SlotTag);
+	}
+}
+
+void UMyAbilitySystemComponent::ClientUpdateAbilityEquip_Implementation(FGameplayTag AbilityTag, FGameplayTag SlotTag)
+{
+	AbilityEquipChangedDelegate.Broadcast(AbilityTag,SlotTag);
 }
 
 void UMyAbilitySystemComponent::AddStartupAbilities(TArray<TSubclassOf<UGameplayAbility>> StartupAbilities)
@@ -155,6 +268,48 @@ void UMyAbilitySystemComponent::OnRep_ActivateAbilities()
 		bAbilitiesGiven=true;
 		OnAbilitiesGivenDelegate.Broadcast();
 	}
+}
+
+FGameplayTag UMyAbilitySystemComponent::GetStatusTagFromAbilityTag(const FGameplayTag& AbilityTag)
+{
+	if (const FGameplayAbilitySpec* AbilitySpec=GetAbilitySpecFromTag(AbilityTag))
+	{
+		return GetStatusTagFromSpec(*AbilitySpec);
+	}
+	return FGameplayTag();
+}
+
+FGameplayTag UMyAbilitySystemComponent::GetSlotFromAbilityTag(const FGameplayTag& AbilityTag)
+{
+	if (const FGameplayAbilitySpec* AbilitySpec=GetAbilitySpecFromTag(AbilityTag))
+	{
+		return GetInputTagFromSpec(*AbilitySpec);
+	}
+	return FGameplayTag();
+}
+
+FGameplayAbilitySpec* UMyAbilitySystemComponent::GetAbilitySpecFromSlot(const FGameplayTag& SlotTag)
+{
+	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	for (auto& AbilitySpec:GetActivatableAbilities())
+	{
+		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(SlotTag)){
+			return &AbilitySpec;
+		}
+	}
+	return nullptr;
+}
+
+bool UMyAbilitySystemComponent::IsSlotEmpty(FGameplayTag SlotTag)
+{
+	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	for (auto AbilitySpec:GetActivatableAbilities())
+	{
+		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(SlotTag)){
+			return false;
+		}
+	}
+	return true;
 }
 
 void UMyAbilitySystemComponent::ServerUpgradeAttribute_Implementation(FGameplayTag AttributeTag)

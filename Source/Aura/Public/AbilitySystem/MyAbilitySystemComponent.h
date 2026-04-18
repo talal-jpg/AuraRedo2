@@ -4,10 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystemComponent.h"
+#include "GameplayAbilitySpec.h"
 #include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
 #include "MyAbilitySystemComponent.generated.h"
 
 DECLARE_MULTICAST_DELEGATE(FOnAbilitiesGivenDelegateSignature)
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FAbilityStatusChangedDelegateSignature, const FGameplayTag& /*AbilityTag*/, const FGameplayTag& /*StatusTag*/, int32 /*AbilityLevel*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FAbilityEquipChangedDelegateSignature, const FGameplayTag& /*AbilityTag*/, const FGameplayTag& /*InputTag*/);
+
 
 /**
  * 
@@ -18,6 +22,10 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	GENERATED_BODY()
 	
 	public:
+	
+	FAbilityStatusChangedDelegateSignature AbilityStatusChangedDelegate;
+	
+	FAbilityEquipChangedDelegateSignature AbilityEquipChangedDelegate;
 	
 	UMyAbilitySystemComponent();
 	
@@ -39,7 +47,7 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	
 	
 	// 
-	void UpdateAbilityStauses();
+	void UpdateAbilityStatuses(int32 InPlayerLevel);
 	
 	UFUNCTION(BlueprintCallable,Category="AbilitySystem")
 	
@@ -52,7 +60,29 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	UFUNCTION(Server,Reliable)
 	void ServerUpgradeAttribute(FGameplayTag AttributeTag);
 	
+	UFUNCTION(Server,Reliable)
+	void ServerSpendSpellPoints(FGameplayTag AbilityTag);
+	
+	UFUNCTION(Server,Reliable)
+	void ServerEquipAbility(FGameplayTag AbilityTag,FGameplayTag SlotTag);
+	
+	UFUNCTION(Client,Reliable)
+	void ClientUpdateAbilityStatus(FGameplayTag AbilityTag,FGameplayTag StatusTag,int32 AbilityLevel);
+	
+	UFUNCTION(Client,Reliable)
+	void ClientUpdateAbilityEquip(FGameplayTag AbilityTag,FGameplayTag SlotTag);
+	
 	void AddStartupAbilities(TArray<TSubclassOf<UGameplayAbility>> StartupAbilities);
 	
 	virtual void OnRep_ActivateAbilities() override;
+	
+	TMap<FGameplayAbilitySpec*,FGameplayTagContainer> AbilitySpecToTags;
+	
+	FGameplayTag GetStatusTagFromAbilityTag(const FGameplayTag& AbilityTag);
+	FGameplayTag GetSlotFromAbilityTag(const FGameplayTag& AbilityTag);
+	FGameplayAbilitySpec* GetAbilitySpecFromSlot(const FGameplayTag& SlotTag);
+	
+	bool IsSlotEmpty(FGameplayTag SlotTag);
+	
+	
 };

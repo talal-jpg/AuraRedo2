@@ -5,6 +5,7 @@
 namespace MyTags
 {
 	// InputTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_LMB)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_RMB)
 	// MessageTags
@@ -35,6 +36,7 @@ namespace MyTags
 	// AbilityTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_None)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_FireBolt)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Electrocute)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Projectile)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_HitReact)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_MeleeDamage)
@@ -60,5 +62,8 @@ namespace MyTags
 	
 	//SetByCallerMagTag
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetDamageByCaller)
+	
+	//CooldownTag
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown)
 	
 }

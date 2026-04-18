@@ -157,7 +157,9 @@ void AMyCharPlayer::AddToPlayerLevel_Implementation(int32 InPlayerLevel)
 	check(MyPlayerState);
 	MyPlayerState->AddToLevel(InPlayerLevel);
 	
-	//TODO Get ASC and update Ability Statuses
+	//GiveAbilityOnLevelUp
+	MyAbilitySystemComponent->UpdateAbilityStatuses(MyPlayerState->GetLevel()+InPlayerLevel);
+	
 }
 
 void AMyCharPlayer::LevelUp_Implementation()

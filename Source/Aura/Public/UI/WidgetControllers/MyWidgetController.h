@@ -3,9 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AbilitySystem/Data/DA_MyAbilityInfo.h"
 #include "UObject/Object.h"
 #include "MyWidgetController.generated.h"
 
+struct FGameplayAbilitySpec;
+class UDA_MyAbilityInfo;
 class AMyPlayerController;
 class AMyPlayerState;
 class UMyAttributeSet;
@@ -27,6 +30,10 @@ struct FWidgetControllerParams
 	UPROPERTY()
 	UMyAttributeSet* AttributeSet;
 };
+
+DECLARE_DELEGATE_OneParam(FForEachAbilityDelegateSignature,const FGameplayAbilitySpec&);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBroadcastAbilityInfoDelegateSignature, FAbilityInfo,AbilityInfo);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerStatChangedDelegateSignature, int32, NewValue);
 /**
  * 
  */
@@ -61,6 +68,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	virtual void BroadcastInitialValues();
 	
+	UPROPERTY(EditAnywhere)
+	UDA_MyAbilityInfo* DA_AbilityInfo;
+	
+	void BroadcastAbilityInfo();
+	
+	UPROPERTY(BlueprintAssignable)
+	FBroadcastAbilityInfoDelegateSignature BroadcastAbilityInfoDelegate;
 	
 	AMyPlayerState* GetMyPlayerState();
 	AMyPlayerController* GetMyPlayerController();

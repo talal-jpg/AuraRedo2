@@ -22,7 +22,7 @@ void UMyBPFuncLib::GetAttributeMenuWidgetController(UMyOverlayWidgetController* 
 	}
 	else
 	{
-		OutWidgetController=NewObject<UMyAttributeMenuWidgetController>(WorldContextObject);
+		OutWidgetController=NewObject<UMyAttributeMenuWidgetController>(WorldContextObject,OverlayWidgetController->AttributeMenuWidgetControllerClassToConstruct);
 		AMyPlayerState* MyPlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
 		UMyAbilitySystemComponent* ASC=Cast<UMyAbilitySystemComponent>(MyPlayerState->GetAbilitySystemComponent());
 		UMyAttributeSet* AttributeSet=Cast<UMyAttributeSet>(MyPlayerState->GetAttributeSet());
@@ -31,6 +31,26 @@ void UMyBPFuncLib::GetAttributeMenuWidgetController(UMyOverlayWidgetController* 
 		OutWidgetController->SetWidgetControllerParams(WcParams);
 	}
 }
+
+void UMyBPFuncLib::GetSpellMenuWidgetController(UMyOverlayWidgetController* OverlayWidgetController,
+	UObject* WorldContextObject, UMyWidgetController*& OutWidgetController, APlayerController* PlayerController)
+{
+	if (UMySpellMenuWidgetController* SpellMenuWidgetController=OverlayWidgetController->SpellMenuWidgetController)
+	{
+		OutWidgetController=SpellMenuWidgetController;
+	}
+	else
+	{
+		OutWidgetController=NewObject<UMySpellMenuWidgetController>(WorldContextObject,OverlayWidgetController->SpellMenuWidgetControllerClassConstruct);
+		AMyPlayerState* MyPlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
+		UMyAbilitySystemComponent* ASC=Cast<UMyAbilitySystemComponent>(MyPlayerState->GetAbilitySystemComponent());
+		UMyAttributeSet* AttributeSet=Cast<UMyAttributeSet>(MyPlayerState->GetAttributeSet());
+		
+		FWidgetControllerParams WcParams= FWidgetControllerParams(PlayerController,MyPlayerState,ASC,AttributeSet);
+		OutWidgetController->SetWidgetControllerParams(WcParams);
+	}
+}
+
 
 void UMyBPFuncLib::GetAllGameplayTags(FGameplayTagContainer& OutGameplayTags)
 {
@@ -76,5 +96,6 @@ UDA_MyEnemyCharacterClassInfo* UMyBPFuncLib::GetCharacterClassInfo(const UObject
 UDA_MyAbilityInfo* UMyBPFuncLib::GetAbilityInfo(const UObject* WorldContextObject)
 {
 	AMyGameMode* MyGameMode= Cast<AMyGameMode>(UGameplayStatics::GetGameMode(WorldContextObject));
+	if (!MyGameMode)return nullptr;
 	return MyGameMode->DA_MyAbilityInfo;
 }
