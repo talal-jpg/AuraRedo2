@@ -64,6 +64,6 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetDamageByCaller)
 	
 	//CooldownTag
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Firebolt)
 	
 }

@@ -7,9 +7,11 @@
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "WaitCooldownChange.generated.h"
 
+struct FActiveGameplayEffectHandle;
+struct FGameplayEffectSpec;
 struct FGameplayTag;
 class UAbilitySystemComponent;
-DECLARE_DYNAMIC_DELEGATE_OneParam(FOnCooldownChangeDelegateSignature, float, TimeRemaining);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCooldownChangeDelegateSignature, float, TimeRemaining);
 /**
  * 
  */
@@ -36,5 +38,10 @@ class AURA_API UWaitCooldownChange : public UBlueprintAsyncActionBase
 	UAbilitySystemComponent* ASC;
 	
 	FGameplayTag CooldownTag;
+	
+	void OnCooldownTagChanged(const FGameplayTag InCooldownTag,int32 count);
+	
+	void OnActiveGameplayEffectAdded(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& GESpec, FActiveGameplayEffectHandle ActiveGameplayEffectHandle);
+	
 	
 };

@@ -58,7 +58,7 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 	
 	//TODO Add delegate to send to widget 
 	
-	MyAbilitySystemComponent->RegisterGameplayTagEvent(MyTags::Cooldown,EGameplayTagEventType::NewOrRemoved).AddLambda(
+	MyAbilitySystemComponent->RegisterGameplayTagEvent(MyTags::Cooldown_Firebolt,EGameplayTagEventType::NewOrRemoved).AddLambda(
 		[this](const FGameplayTag Tag, int32 Count)
 		{
 			UKismetSystemLibrary::PrintString(this,FString::Printf(TEXT("Cooldown Count: %d"),Count));

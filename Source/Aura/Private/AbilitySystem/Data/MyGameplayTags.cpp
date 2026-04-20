@@ -67,6 +67,6 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(SetDamageByCaller,"SetDamageByCaller")
 	
 	//CooldownTag
-	UE_DEFINE_GAMEPLAY_TAG(Cooldown,"Cooldown")
+	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Firebolt,"Cooldown.Firebolt")
 	
 }
