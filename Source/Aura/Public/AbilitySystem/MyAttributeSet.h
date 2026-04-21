@@ -7,6 +7,40 @@
 #include "AbilitySystemComponent.h"
 #include "MyAttributeSet.generated.h"
 
+USTRUCT()
+struct FEffectProperties
+{
+	GENERATED_BODY()
+	
+	FEffectProperties() {}
+	
+	FGameplayEffectContextHandle EffectContextHandle;
+	
+	UPROPERTY()
+	UAbilitySystemComponent* SourceASC = nullptr;
+	
+	UPROPERTY()
+	AActor* SourceAvatarActor = nullptr;
+	
+	UPROPERTY()
+	AController* SourceController = nullptr;
+	
+	UPROPERTY()
+	ACharacter* SourceCharacter = nullptr;
+	
+	UPROPERTY()
+	UAbilitySystemComponent* TargetASC = nullptr;
+	
+	UPROPERTY()
+	AActor* TargetAvatarActor = nullptr;
+	
+	UPROPERTY()
+	AController* TargetController = nullptr;
+	
+	UPROPERTY()
+	ACharacter* TargetCharacter = nullptr;
+};
+
 /**
  * 
  */
@@ -19,6 +53,11 @@ class AURA_API UMyAttributeSet : public UAttributeSet
 	
 public:
 	UMyAttributeSet();
+	
+	virtual void PostGameplayEffectExecute(FGameplayEffectModCallbackData& Data) override;
+	
+	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
+	
 
 	/**
 	 * vital attributes
@@ -145,5 +184,19 @@ public:
 	UFUNCTION()
 	void OnRep_AttackDamage(const FGameplayAttributeData& OldAttackDamage);
 	
+	
+	/**
+	 * Meta Attributes
+	 */
+	
+	UPROPERTY()
+	FGameplayAttributeData IncomingDamage;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,IncomingDamage)
+	
+	
 	TMap<FGameplayTag,FGameplayAttribute> TagToAttributeMap;
+	
+private:
+	
+	void SetEffectProperties(const FGameplayEffectModCallbackData& Data, FEffectProperties& Props);
 };
