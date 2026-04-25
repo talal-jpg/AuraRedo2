@@ -70,3 +70,9 @@ void AMyEnemyChar::UnHighlight()
 	UKismetSystemLibrary::PrintString(GetWorld(),TEXT("UnHighlighted"));
 }
 
+void AMyEnemyChar::Die()
+{
+	SetLifeSpan(LifeSpan);
+	Super::Die();
+}
+

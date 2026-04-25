@@ -5,8 +5,12 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "GameplayEffectExtension.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Character/MyCombatInterface.h"
 #include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "PlayerInput/MyPlayerController.h"
 
 UMyAttributeSet::UMyAttributeSet()
 {
@@ -56,6 +60,26 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 			SetHealth(FMath::Clamp(NewHealth,0.0f,GetMaxHealth()));
 			
 			const bool bFatal=NewHealth<=0.f;
+			if (bFatal)
+			{
+				IMyCombatInterface* CombatInterface=Cast<IMyCombatInterface>(Props.TargetAvatarActor);
+				if (CombatInterface)
+				{
+					CombatInterface->Die();
+				}
+			}
+			else
+			{
+				bool Activated=Props.TargetASC->TryActivateAbilitiesByTag(MyTags::Ability_HitReact.GetTag().GetSingleTagContainer());
+			}
+			
+			if (Props.SourceCharacter != Props.TargetCharacter)
+			{
+				if (AMyPlayerController* MyPC=Cast<AMyPlayerController>(UGameplayStatics::GetPlayerController(Props.SourceCharacter,0)))
+				{
+					MyPC->ShowDamageNumber(LocalIncomingDamage,Props.TargetCharacter);
+				}
+			}
 		}
 	}
 }

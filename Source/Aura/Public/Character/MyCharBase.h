@@ -21,6 +21,20 @@ public:
 	// Sets default values for this character's properties
 	AMyCharBase();
 
+	void Dissolve();
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void StartDissolveTimeline(UMaterialInstanceDynamic* MaterialInstanceDynamic);
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void StartWeaponDissolveTimeline(UMaterialInstanceDynamic* MaterialInstanceDynamic);
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UMaterialInstance> DissolveMaterialInstance;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UMaterialInstance> WeaponDissolveMaterialInstance;
+
 protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mesh)
@@ -40,6 +54,11 @@ protected:
 	virtual void GiveStartupAbilities();
 	
 	virtual FVector GetCombatSocketLocation() override;
+	
+	 virtual void Die() override;
+	
+	UFUNCTION(NetMulticast,Reliable)
+	virtual void MulticastHandleDeath();
 public:	
 
 };

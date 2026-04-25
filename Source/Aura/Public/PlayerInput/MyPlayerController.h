@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "MyPlayerController.generated.h"
 
+class UDamageTextWidgetComponent;
 struct FGameplayTag;
 class UMyInputConfig;
 class USplineComponent;
@@ -68,5 +69,13 @@ public:
 	void PressedFunc(FGameplayTag InputTag);
 	void HeldFunc(FGameplayTag InputTag);
 	void ReleasedFunc(FGameplayTag InputTag);
+	
+	UFUNCTION(Client,Reliable)
+	void ShowDamageNumber(float InDamage,ACharacter* TargetCharacter);
+	
+	private:
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UDamageTextWidgetComponent> DamageTextWidgetComponentClass;
 	
 };

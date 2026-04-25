@@ -18,6 +18,7 @@
 #include "Interfaces/MyHighlightInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "PlayerInput/MyInputComponent.h"
+#include "UI/DamageTextWidgetComponent.h"
 
 
 class UEnhancedPlayerInput;
@@ -152,6 +153,21 @@ void AMyPlayerController::ReleasedFunc(FGameplayTag InputTag)
 			bIsAutoRunning=true;
 		}
 	}
+}
+
+void AMyPlayerController::ShowDamageNumber_Implementation(float InDamage,ACharacter* TargetCharacter)
+{
+	if (IsValid(TargetCharacter) && DamageTextWidgetComponentClass)
+	{
+		UDamageTextWidgetComponent* DamageTextWidgetComponent=NewObject<UDamageTextWidgetComponent>(TargetCharacter,DamageTextWidgetComponentClass);
+		DamageTextWidgetComponent->RegisterComponent();
+		
+		DamageTextWidgetComponent->AttachToComponent(TargetCharacter->GetRootComponent(),FAttachmentTransformRules::KeepRelativeTransform);
+		DamageTextWidgetComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		
+		DamageTextWidgetComponent->SetDamageText(InDamage);
+	}
+	
 }
 
 

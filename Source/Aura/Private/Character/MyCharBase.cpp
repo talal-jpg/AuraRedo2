@@ -17,6 +17,23 @@ AMyCharBase::AMyCharBase()
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
+void AMyCharBase::Dissolve()
+{
+	if (IsValid(DissolveMaterialInstance))
+	{
+		UMaterialInstanceDynamic* DynamicMatInst= UMaterialInstanceDynamic::Create(DissolveMaterialInstance,this);
+		GetMesh()->SetMaterial(0,DynamicMatInst);
+		
+		StartDissolveTimeline(DynamicMatInst);
+	}
+	if (IsValid(WeaponDissolveMaterialInstance))
+	{
+		UMaterialInstanceDynamic* DynamicMatInst2= UMaterialInstanceDynamic::Create(WeaponDissolveMaterialInstance,this);
+		WeaponMesh->SetMaterial(0,DynamicMatInst2);
+		StartWeaponDissolveTimeline(DynamicMatInst2);
+	}
+}
+
 UAbilitySystemComponent* AMyCharBase::GetAbilitySystemComponent() const
 {
 	return MyAbilitySystemComponent;
@@ -57,6 +74,28 @@ void AMyCharBase::GiveStartupAbilities()
 FVector AMyCharBase::GetCombatSocketLocation()
 {
 	return WeaponMesh->GetSocketLocation(FName("CombatSocket"));
+}
+
+void AMyCharBase::Die()
+{
+	WeaponMesh->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepWorld,true));
+	MulticastHandleDeath();
+}
+
+void AMyCharBase::MulticastHandleDeath_Implementation()
+{
+	WeaponMesh->SetSimulatePhysics(true);
+	WeaponMesh->SetEnableGravity(true);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	
+	GetMesh()->SetSimulatePhysics(true);
+	GetMesh()->SetEnableGravity(true);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	GetMesh()->SetCollisionResponseToChannel(ECC_WorldStatic,ECR_Block);
+	
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
+	Dissolve();
 }
 
 

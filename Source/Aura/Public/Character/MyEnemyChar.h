@@ -47,4 +47,9 @@ public:
 	virtual void Highlight() override;
 	
 	virtual void UnHighlight() override;
+	
+	virtual void Die() override;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadOnly,Category="Combat")
+	float LifeSpan= 5.f;
 };
