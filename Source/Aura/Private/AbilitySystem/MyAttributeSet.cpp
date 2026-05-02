@@ -113,6 +113,9 @@ void UMyAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,MagicResist,COND_None,REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,Armor,COND_None,REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,AttackSpeed,COND_None,REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,TurnSpeed,COND_None,REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,AttackDamage,COND_None,REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMyAttributeSet,CritChance,COND_None,REPNOTIFY_Always);
 	
 }
 
@@ -190,6 +193,11 @@ void UMyAttributeSet::OnRep_TurnSpeed(const FGameplayAttributeData& OldTurnSpeed
 void UMyAttributeSet::OnRep_AttackDamage(const FGameplayAttributeData& OldAttackDamage)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UMyAttributeSet,TurnSpeed,OldAttackDamage);
+}
+
+void UMyAttributeSet::OnRep_CritChance(const FGameplayAttributeData& OldCritChance)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMyAttributeSet,TurnSpeed,OldCritChance);
 }
 
 void UMyAttributeSet::SetEffectProperties(const FGameplayEffectModCallbackData& Data, FEffectProperties& Props)

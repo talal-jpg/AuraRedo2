@@ -59,7 +59,8 @@ void UMyOverlayWidgetController::BindCallbacksToDependencies()
 		{
 			FGameplayTagContainer AssetTags;
 			GESpec.GetAllAssetTags(AssetTags);
-			FGameplayTag MessageTag=AssetTags.GetByIndex(0);
+			FGameplayTagContainer MessageTagContainer= MyTags::Message.GetTag().GetSingleTagContainer();
+			FGameplayTag MessageTag=AssetTags.Filter(MessageTagContainer).Last();
 			if (!MessageTag.IsValid())return;
 			FPopupWidgetInfo* PopupWidgetInfoRow=DT_PopupWidgetInfo->FindRow<FPopupWidgetInfo>(FName(MessageTag.ToString()),FString(""));
 			OnEffectAppliedBroadcastPopupWidgetInfoDelegate.Broadcast(*PopupWidgetInfoRow);
@@ -84,6 +85,10 @@ void UMyOverlayWidgetController::BroadcastAbilityInfo()
 	ForEachAbilityDelegate.BindLambda(
 		[this](const FGameplayAbilitySpec& AbilitySpec)
 		{
+			// Debug
+			// FString Str=MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec).ToString();
+			// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("Ability: %s"),*Str));
+			
 			FAbilityInfo AbilityInfo=DA_AbilityInfo->GetAbilityInfoForTag(MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec));
 			AbilityInfo.InputTag= MyAbilitySystemComponent->GetInputTagFromSpec(AbilitySpec);
 			

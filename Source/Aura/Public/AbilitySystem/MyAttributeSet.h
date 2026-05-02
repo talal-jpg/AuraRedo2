@@ -169,6 +169,10 @@ public:
 	FGameplayAttributeData AttackDamage;
 	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,AttackDamage)
 	
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_CritChance)
+	FGameplayAttributeData CritChance;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,CritChance)
+	
 	UFUNCTION()
 	void OnRep_Armor(const FGameplayAttributeData& OldArmor);
 	
@@ -184,6 +188,8 @@ public:
 	UFUNCTION()
 	void OnRep_AttackDamage(const FGameplayAttributeData& OldAttackDamage);
 	
+	UFUNCTION()
+	void OnRep_CritChance(const FGameplayAttributeData& OldCritChance);
 	
 	/**
 	 * Meta Attributes

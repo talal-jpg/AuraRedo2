@@ -8,6 +8,7 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_LMB)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_RMB)
 	// MessageTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_Potion_Health)
 	// AttributeTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Vital_Health)
@@ -29,9 +30,16 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_AttackDamage)
 	
 	// AbilityTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_None)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_FireBolt)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Projectile)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_HitReact)
+	
+	// AbilityCooldownTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_FireBolt)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Projectile)
+	
+	
 	
 	// EventTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_XPGained)

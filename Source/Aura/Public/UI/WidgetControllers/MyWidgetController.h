@@ -33,7 +33,7 @@ class AURA_API UMyWidgetController : public UObject
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	UMyAbilitySystemComponent* MyAbilitySystemComponent;
 	UPROPERTY()
 	UMyAttributeSet* MyAttributeSet;

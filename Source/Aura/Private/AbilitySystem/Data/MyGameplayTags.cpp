@@ -10,6 +10,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Input_RMB,"Input.RMB")
 	
 	// MessageTags
+	UE_DEFINE_GAMEPLAY_TAG(Message,"Message")
 	UE_DEFINE_GAMEPLAY_TAG(Message_Potion_Health,"Message.Potion.Health")
 	
 	// AttributeTags
@@ -34,9 +35,15 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_AttackDamage,"Attribute.Secondary.AttackDamage");
 	
 	// AbilityTags
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_None,"Ability.None")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_FireBolt,"Ability.FireBolt")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Projectile,"Ability.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")
+	
+	// AbilityCooldownTags
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_FireBolt,"Ability.Cooldown.FireBolt")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Projectile,"Ability.Cooldown.Projectile")
 	
 	// EventTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")

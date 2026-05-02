@@ -24,7 +24,7 @@ FGameplayTag UMyAbilitySystemComponent::GetAbilityTagFromSpec(const FGameplayAbi
 {
 	for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags())
 	{
-		if (Tag.MatchesTag(UGameplayTagsManager::Get().RequestGameplayTag(FName("Abilities"))))
+		if (Tag.MatchesTagDepth(MyTags::Ability_None)> 0)
 		{
 			return Tag;
 		}
