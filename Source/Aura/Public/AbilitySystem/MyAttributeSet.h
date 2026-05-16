@@ -199,6 +199,9 @@ public:
 	FGameplayAttributeData IncomingDamage;
 	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,IncomingDamage)
 	
+	UPROPERTY()
+	FGameplayAttributeData IncomingXP;
+	ATTRIBUTE_ACCESSORS_BASIC(UMyAttributeSet,IncomingXP)
 	
 	TMap<FGameplayTag,FGameplayAttribute> TagToAttributeMap;
 	

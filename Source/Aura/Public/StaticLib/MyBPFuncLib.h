@@ -23,9 +23,15 @@ class AURA_API UMyBPFuncLib : public UBlueprintFunctionLibrary
 	static void GetAttributeMenuWidgetController(UMyOverlayWidgetController* OverlayWidgetController,UObject* WorldContextObject, UMyWidgetController*& OutWidgetController, APlayerController* PlayerController);
 	
 	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
+	static void GetSpellMenuWidgetController(UMyOverlayWidgetController* OverlayWidgetController,UObject* WorldContextObject, UMyWidgetController*& OutWidgetController, APlayerController* PlayerController);
+	
+	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
 	static void GetAllGameplayTags(UPARAM(ref) FGameplayTagContainer& OutGameplayTags);
 	
 	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
 	static void InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,UMyAbilitySystemComponent* MyAbilitySystemComponent,float IN_CharacterLevel);
+	
+public:
+	static int32 GetXPRewardForCharacterClass(ECharacterClass IN_CharacterClass,int32 InLevel,UObject* InWorldContextObject);
 };
 

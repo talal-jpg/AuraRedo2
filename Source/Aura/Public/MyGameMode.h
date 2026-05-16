@@ -6,7 +6,9 @@
 #include "GameFramework/GameModeBase.h"
 #include "MyGameMode.generated.h"
 
+class UMyLevelUpInfo;
 class UDA_MyEnemyCharacterClassInfo;
+class UMySpellMenuWidgetController;
 /**
  * 
  */
@@ -19,5 +21,11 @@ public:
 	
 	UPROPERTY(EditAnywhere)
 	UDA_MyEnemyCharacterClassInfo* DA_MyEnemyCharacterClassInfo;
+	
+	UPROPERTY(EditAnywhere)
+	UMyLevelUpInfo* DA_MyLevelUpInfo;
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UMySpellMenuWidgetController> SpellMenuWidgetControllerClass;
 	
 };

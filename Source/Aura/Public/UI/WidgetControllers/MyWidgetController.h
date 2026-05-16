@@ -3,11 +3,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UI/Data/DA_MyAbilityInfo.h"
 #include "UObject/Object.h"
 #include "MyWidgetController.generated.h"
 
+struct FGameplayAbilitySpec;
 class UMyAttributeSet;
 class UMyAbilitySystemComponent;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBroadcastAbilityInfoDelegateSignature, FAbilityInfo,AbilityInfo);
+DECLARE_DELEGATE_OneParam(FForEachAbilityDelegateSignature,const FGameplayAbilitySpec&);
 
 USTRUCT()
 struct FWidgetControllerParams
@@ -51,4 +56,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	virtual void BroadcastInitialValues();
+	
+	UPROPERTY(BlueprintAssignable)
+	FBroadcastAbilityInfoDelegateSignature BroadcastAbilityInfoDelegate;
+	
+	void BroadcastAbilityInfo(UDA_MyAbilityInfo* AbilityInfo);
 };

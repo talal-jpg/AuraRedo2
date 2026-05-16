@@ -57,6 +57,8 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ArmorDef,Params,Armor);
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CritChanceDef,Params,CritChance);
 	
+	
+	
 	float Damage=Spec.GetSetByCallerMagnitude(MyTags::SetDamageByCaller);
 	
 	int32 RandIntBlock=FMath::RandRange(0,100);

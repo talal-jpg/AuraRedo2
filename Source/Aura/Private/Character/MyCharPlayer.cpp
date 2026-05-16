@@ -3,9 +3,14 @@
 
 #include "Character/MyCharPlayer.h"
 
+#include <string>
+
 #include "AbilitySystemComponent.h"
 #include "MyPlayerState.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
+#include "AbilitySystem/Abilities/MyGameplayAbility.h"
+#include "AbilitySystem/Data/MyGameplayTags.h"
+#include "AbilitySystem/Data/MyLevelUpInfo.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "UI/MyHUD.h"
 
@@ -63,6 +68,7 @@ void AMyCharPlayer::OnRep_PlayerState()
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
 				InitializeAttributes();
 				GiveStartupAbilities();
+				GivePassiveStartupAbilities();
 			}
 		}
 	}
@@ -89,6 +95,7 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
 				InitializeAttributes();
 				GiveStartupAbilities();
+				GivePassiveStartupAbilities();
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("PossessedBy"));
 			}
 		}
@@ -121,7 +128,7 @@ void AMyCharPlayer::InitializeAttributes()
 
 int32 AMyCharPlayer::GetLevel()
 {
-	return GetPlayerState<AMyPlayerState>()->Level;
+	return GetPlayerState<AMyPlayerState>()->GetLevel();
 }
 
 void AMyCharPlayer::GiveStartupAbilities()
@@ -130,6 +137,87 @@ void AMyCharPlayer::GiveStartupAbilities()
 	MyAbilitySystemComponent->bAbilitiesGiven=true;
 	MyAbilitySystemComponent->OnAbilitiesGivenDelegate.Broadcast();
 }
+
+void AMyCharPlayer::AddToXP_Implementation(int32 XP)
+{
+	GetPlayerState<AMyPlayerState>()->AddToXP(XP);
+}
+
+int32 AMyCharPlayer::GetXP_Implementation()
+{
+	return GetPlayerState<AMyPlayerState>()->GetXP();
+}
+
+void AMyCharPlayer::AddToLevel_Implementation(int32 InLevels)
+{
+	GetPlayerState<AMyPlayerState>()->AddToLevel(InLevels);
+}
+
+void AMyCharPlayer::AddToAttribPoints_Implementation(int32 InAttribPoints)
+{
+	GetPlayerState<AMyPlayerState>()->AddToAttributePoints(InAttribPoints);
+}
+
+int32 AMyCharPlayer::GetAttribPoints_Implementation()
+{
+	return GetPlayerState<AMyPlayerState>()->GetAttributePoints();
+}
+
+void AMyCharPlayer::AddToSpellPoints_Implementation(int32 InSpellPoints)
+{
+	GetPlayerState<AMyPlayerState>()->AddToSpellPoints(InSpellPoints);
+}
+
+int32 AMyCharPlayer::GetSpellPoints_Implementation()
+{
+	return GetPlayerState<AMyPlayerState>()->GetSpellPoints();
+}
+
+void AMyCharPlayer::LevelUp_Implementation()
+{
+	//TODO Give New Abilities Niagara system etc. 
+	TArray<TSubclassOf<UGameplayAbility>> AbilitiesUnLocked;
+	
+	UMyLevelUpInfo* MyLevelUpInfo=GetPlayerState<AMyPlayerState>()->MyLevelUpInfo;
+	checkf(MyLevelUpInfo,TEXT("PleaseSetLevelUpInfoOnPlayerStateSoThatItCanBePresentOnClientsAsWell"));
+	// UKismetSystemLibrary::PrintString(GetWorld(),std::to_string(GetLevel()).c_str());
+	// GetLevel -1 bcz will look in the levelUpInfo list 
+	MyLevelUpInfo->GetAbilitiesForLevel(GetLevel()-1,AbilitiesUnLocked);
+	if (AbilitiesUnLocked.Num()==0)return;
+	
+	for (TSubclassOf<UGameplayAbility> AbilityClass : AbilitiesUnLocked)
+	{
+		UMyGameplayAbility* MyGA =Cast<UMyGameplayAbility>(AbilityClass.GetDefaultObject());
+		FGameplayTag InputTag= MyTags::Input_None;
+		FGameplayTag AbilityTag= MyGA->AbilityTag;
+		if (!MyGA)
+		{
+			UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid AbilityClass for Ability: ") + AbilityClass.Get()->GetName());
+		}
+		if (MyGA)
+		{
+			FGameplayAbilitySpec GameplayAbilitySpec=MyAbilitySystemComponent->BuildAbilitySpecFromClass(AbilityClass);
+			
+			if (InputTag.IsValid())
+			{
+				GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(InputTag);
+			}
+			if (AbilityTag.IsValid())
+			{
+				GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(AbilityTag);
+			}
+			GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Unlocked);
+			
+			MyAbilitySystemComponent->GiveAbility(GameplayAbilitySpec);
+		}
+		else
+		{
+			UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid InputTag for Ability: ") + AbilityClass.Get()->GetName());
+		}
+	}
+
+}
+
 
 
 

@@ -6,6 +6,7 @@ namespace MyTags
 {
 	
 	// InputTags
+	UE_DEFINE_GAMEPLAY_TAG(Input_None,"Input.None")
 	UE_DEFINE_GAMEPLAY_TAG(Input_LMB,"Input.LMB")
 	UE_DEFINE_GAMEPLAY_TAG(Input_RMB,"Input.RMB")
 	
@@ -34,16 +35,28 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_TurnSpeed,"Attribute.Secondary.TurnSpeed");
 	UE_DEFINE_GAMEPLAY_TAG(Attribute_Secondary_AttackDamage,"Attribute.Secondary.AttackDamage");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Attribute_Meta_XP,"Attribute.Meta.XP");
+	
+	
 	// AbilityTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_None,"Ability.None")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_FireBolt,"Ability.FireBolt")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Projectile,"Ability.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Electrocute,"Ability.Electrocute")
+	
+	//AbilityStatuses
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Locked,"Ability.Status.Locked")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Eligible,"Ability.Status.Eligible")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Unlocked,"Ability.Status.Unlocked")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Equiped,"Ability.Status.Equiped")
 	
 	// AbilityCooldownTags
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_None,"Ability.Cooldown.None")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_FireBolt,"Ability.Cooldown.FireBolt")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Projectile,"Ability.Cooldown.Projectile")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Electrocute,"Ability.Cooldown.Electrocute")
 	
 	// EventTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")

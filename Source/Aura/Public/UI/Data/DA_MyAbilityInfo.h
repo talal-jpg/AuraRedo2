@@ -22,9 +22,10 @@ struct FAbilityInfo
 	FGameplayTag InputTag;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
-	UTexture2D* Icon;
+	FGameplayTag CooldownTag;
 	
-	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	UTexture2D* Icon=nullptr;
 	
 };
 

@@ -11,7 +11,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "UI/WidgetControllers/AttributeMenu/MyAttributeMenuWidgetController.h"
 #include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
+#include "UI/WidgetControllers/SpellMenu/MySpellMenuWidgetController.h"
 
+class UMySpellMenuWidgetController;
 class AMyPlayerState;
 
 void UMyBPFuncLib::GetAttributeMenuWidgetController(UMyOverlayWidgetController* OverlayWidgetController,UObject* WorldContextObject, UMyWidgetController*& OutWidgetController,APlayerController* PlayerController)
@@ -32,6 +34,28 @@ void UMyBPFuncLib::GetAttributeMenuWidgetController(UMyOverlayWidgetController* 
 	}
 }
 
+void UMyBPFuncLib::GetSpellMenuWidgetController(UMyOverlayWidgetController* OverlayWidgetController,
+	UObject* WorldContextObject, UMyWidgetController*& OutWidgetController, APlayerController* PlayerController)
+{
+	if (UMySpellMenuWidgetController* MenuWidgetController=OverlayWidgetController->SpellMenuWidgetController)
+	{
+		OutWidgetController=MenuWidgetController;
+	}
+	else
+	{
+		AMyPlayerState* MyPlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
+		TSubclassOf<UMySpellMenuWidgetController> MySpellMenuWCClass=MyPlayerState->MySpellMenuWidgetControllerClass;
+		checkf(MySpellMenuWCClass,TEXT("PleaseSetSpellMenuWidgetControllerClassOnPlayerState"));
+		UMySpellMenuWidgetController* MySpellMenuWidgetController=NewObject<UMySpellMenuWidgetController>(WorldContextObject,MySpellMenuWCClass);
+		UMyAbilitySystemComponent* ASC= MyPlayerState->MyAbilitySystemComponent;
+		UMyAttributeSet* AttributeSet=MyPlayerState->MyAttributeSet;
+		
+		FWidgetControllerParams WcParams= FWidgetControllerParams(PlayerController,MyPlayerState,ASC,AttributeSet);
+		MySpellMenuWidgetController->SetWidgetControllerParams(WcParams);
+		OutWidgetController=MySpellMenuWidgetController;
+	}
+}
+
 void UMyBPFuncLib::GetAllGameplayTags(FGameplayTagContainer& OutGameplayTags)
 {
 	FGameplayTagContainer AllGameplayTags;
@@ -48,6 +72,9 @@ void UMyBPFuncLib::InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,U
 	FGameplayEffectContextHandle GEContextHandle = MyAbilitySystemComponent->MakeEffectContext();
 	AActor* ASCAvatarActor=MyAbilitySystemComponent->GetAvatarActor();
 	GEContextHandle.AddInstigator(ASCAvatarActor,ASCAvatarActor);
+	
+	checkf(EnemyCharClassInfo.PrimaryAttributesEffect != nullptr,TEXT("PleaseFillOutCharacterClassInfo"));
+	
 	FGameplayEffectSpecHandle GESpecHandlePrimary=MyAbilitySystemComponent->MakeOutgoingSpec(EnemyCharClassInfo.PrimaryAttributesEffect,IN_CharacterLevel,GEContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*GESpecHandlePrimary.Data.Get());
 	
@@ -56,4 +83,14 @@ void UMyBPFuncLib::InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,U
 	
 	FGameplayEffectSpecHandle GESpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(MyGameMode->DA_MyEnemyCharacterClassInfo->VitalAttributesEffect,IN_CharacterLevel,GEContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*GESpecHandleVital.Data.Get());
+}
+
+int32 UMyBPFuncLib::GetXPRewardForCharacterClass(ECharacterClass IN_CharacterClass, int32 InLevel, UObject* InWorldContextObject)
+{
+	AMyGameMode* MyGameMode=Cast<AMyGameMode>(UGameplayStatics::GetGameMode(InWorldContextObject));
+	FEnemyCharClassInfo EnemyCharClassInfo = MyGameMode->DA_MyEnemyCharacterClassInfo->GetInfoForClass(IN_CharacterClass);
+	
+	checkf(EnemyCharClassInfo.XPReward.IsValid(),TEXT("PleaseFillOutCharacterClassInfo"));
+	
+	return EnemyCharClassInfo.XPReward.GetValueAtLevel(InLevel);
 }

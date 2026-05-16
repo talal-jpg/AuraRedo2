@@ -7,7 +7,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Actors/MyProjectile.h"
-#include "Character/MyCombatInterface.h"
+#include "Interfaces/MyCombatInterface.h"
 #include "Kismet/GameplayStatics.h"
 
 void UGA_Projectile::ActivateAbility(const FGameplayAbilitySpecHandle Handle,

@@ -2,15 +2,25 @@
 
 
 #include "AbilitySystem/MyAttributeSet.h"
+
+#include <string>
+
 #include "AbilitySystemBlueprintLibrary.h"
 #include "GameplayEffectExtension.h"
+#include "MyGameMode.h"
+#include "MyPlayerState.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
-#include "Character/MyCombatInterface.h"
+#include "AbilitySystem/Data/MyLevelUpInfo.h"
+#include "Interfaces/MyCombatInterface.h"
+#include "Character/MyEnemyChar.h"
 #include "GameFramework/Character.h"
+#include "GeometryCollection/GeometryCollectionComponent.h"
+#include "Interfaces/MyPlayerInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "PlayerInput/MyPlayerController.h"
+#include "StaticLib/MyBPFuncLib.h"
 
 UMyAttributeSet::UMyAttributeSet()
 {
@@ -67,6 +77,18 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 				{
 					CombatInterface->Die();
 				}
+				AMyEnemyChar* MyEnemyChar= Cast<AMyEnemyChar>(Props.TargetCharacter);
+				
+				if (!MyEnemyChar)return;
+				
+				int32 XPReward=UMyBPFuncLib::GetXPRewardForCharacterClass(MyEnemyChar->CharacterClass,MyEnemyChar->CharacterLevel,Props.TargetAvatarActor);
+				
+				// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,std::to_string(XPReward).c_str());
+				FGameplayEventData EventData;
+				EventData.EventTag=MyTags::Attribute_Meta_XP;
+				EventData.EventMagnitude=XPReward;
+				UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(Props.SourceAvatarActor,MyTags::Attribute_Meta_XP,EventData);
+				
 			}
 			else
 			{
@@ -79,6 +101,69 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 				{
 					MyPC->ShowDamageNumber(LocalIncomingDamage,Props.TargetCharacter);
 				}
+			}
+		}
+	}
+	
+	if (Data.EvaluatedData.Attribute == GetIncomingXPAttribute())
+	{
+		
+		// FString Str=std::to_string(Data.EvaluatedData.Magnitude).c_str();
+		
+		// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,Str);
+		// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,Str,true,true,FLinearColor::Black,30.f,FName("3"));
+		//TODO Getting IncomingXP From WaitingGA Now Update XP on PlayerState And LevelUp
+		//Make PlayerInterface add to xp ,get xp to be funcs in that not CombatIF
+		if (Props.SourceCharacter->Implements<UMyPlayerInterface>())
+		{
+			UMyLevelUpInfo* MyLevelUpInfo=Cast<ACharacter>(GetOwningAbilitySystemComponent()->GetAvatarActor())->GetPlayerState<AMyPlayerState>()->MyLevelUpInfo;
+			
+			checkf(MyLevelUpInfo,TEXT("PleaseSetLevelUpInfoOnPlayerStateSoThatItCanBePresentOnClientsAsWell"));
+			
+			int32 PreviousLevel=MyLevelUpInfo->GetLevelForXP(IMyPlayerInterface::Execute_GetXP(Props.SourceCharacter));
+			
+			IMyPlayerInterface::Execute_AddToXP(Props.SourceCharacter,Data.EvaluatedData.Magnitude);
+			
+			//TODO Now check if and how many level ups and execute logic
+			
+			int32 CurrentLevel=MyLevelUpInfo->GetLevelForXP(IMyPlayerInterface::Execute_GetXP(Props.SourceCharacter));
+			
+			int32 NumLevelUps= CurrentLevel-PreviousLevel;
+			
+			// FString Str2=std::to_string(NumLevelUps).c_str();
+			// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,Str2,true,true,FLinearColor::Black,30.f,FName("3"));
+			
+			if (NumLevelUps>0)
+			{
+				
+				// int32 NumLoops=0;
+				for (int32 Level=0; Level<NumLevelUps; Level++)
+				{
+					//TODO Get Attrib pnt and spell Pnt reward for level from DA_LevelUpInfo
+					
+					int32 AttributePoints,SpellPoints;
+					
+					int32 AttributePointsAccumulate=0;
+					int32 SpellPointsAccumulate=0;
+					int32 LevelToQuery=PreviousLevel+Level;
+					MyLevelUpInfo->GetPointsRewardForLevel(LevelToQuery,AttributePoints,SpellPoints);
+					
+					AttributePointsAccumulate+=AttributePoints;
+					SpellPointsAccumulate+=SpellPoints;
+					
+
+					// FString Str3=std::to_string(AttributePointsAccumulate).c_str();
+					// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,Str3,true,true,FLinearColor::Yellow,30.f,FName("4"));
+					
+					IMyPlayerInterface::Execute_AddToAttribPoints(Props.SourceCharacter,AttributePointsAccumulate);
+					IMyPlayerInterface::Execute_AddToSpellPoints(Props.SourceCharacter,SpellPointsAccumulate);
+					
+					// NumLoops++;
+					
+				}
+				// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,std::to_string(NumLoops).c_str(),true,true,FLinearColor::Red,30.f,FName("5"));
+				IMyPlayerInterface::Execute_AddToLevel(Props.SourceCharacter,NumLevelUps);
+				IMyPlayerInterface::Execute_LevelUp(Props.SourceCharacter);
 			}
 		}
 	}

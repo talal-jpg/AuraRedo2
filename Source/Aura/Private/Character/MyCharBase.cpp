@@ -5,6 +5,7 @@
 
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
+#include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -53,6 +54,7 @@ void AMyCharBase::GiveStartupAbilities()
 		if (MyGA)
 		{
 			FGameplayAbilitySpec GameplayAbilitySpec=MyAbilitySystemComponent->BuildAbilitySpecFromClass(AbilityClass);
+			
 			if (InputTag.IsValid())
 			{
 				GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(InputTag);
@@ -61,6 +63,7 @@ void AMyCharBase::GiveStartupAbilities()
 			{
 				GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(AbilityTag);
 			}
+			GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Equiped);
 			
 			MyAbilitySystemComponent->GiveAbility(GameplayAbilitySpec);
 		}
@@ -69,6 +72,16 @@ void AMyCharBase::GiveStartupAbilities()
 			UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid InputTag for Ability: ") + AbilityClass.Get()->GetName());
 		}
 	}
+}
+
+void AMyCharBase::GivePassiveStartupAbilities()
+{
+	for (auto Ability: PassiveStartupAbilities)
+	{
+		FGameplayAbilitySpec AbilitySpec = GetAbilitySystemComponent()->BuildAbilitySpecFromClass(Ability);
+		GetAbilitySystemComponent()->GiveAbilityAndActivateOnce(AbilitySpec);
+	}
+	
 }
 
 FVector AMyCharBase::GetCombatSocketLocation()

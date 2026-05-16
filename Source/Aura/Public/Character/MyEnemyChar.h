@@ -52,4 +52,10 @@ public:
 	
 	UPROPERTY(EditAnywhere,BlueprintReadOnly,Category="Combat")
 	float LifeSpan= 5.f;
+	
+	virtual int32 GetLevel() override;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadOnly)
+	int32 CharacterLevel;
+	
 };

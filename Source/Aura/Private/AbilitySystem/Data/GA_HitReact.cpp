@@ -13,7 +13,7 @@ void UGA_HitReact::ActivateAbility(const FGameplayAbilitySpecHandle Handle, cons
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 	if (UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this,MyTags::Event_HitReact))
 	{
-		UKismetSystemLibrary::PrintString(this,TEXT("HitReactFromC"));
+		// UKismetSystemLibrary::PrintString(this,TEXT("HitReactFromC"));
 		UAbilityTask_PlayMontageAndWait* AT_PlayeMontageAndWait=UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,FName("None"),HitReactMontage);
 		AT_PlayeMontageAndWait->OnCompleted.AddDynamic(this,&ThisClass::OnCompletedCallback);
 		AT_PlayeMontageAndWait->OnCancelled.AddDynamic(this,&ThisClass::OnCompletedCallback);

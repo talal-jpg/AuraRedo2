@@ -5,9 +5,10 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
-#include "MyCombatInterface.h"
+#include "Interfaces/MyCombatInterface.h"
 #include "MyCharBase.generated.h"
 
+enum class ECharacterClass : uint8;
 class UGameplayAbility;
 class UMyAttributeSet;
 class UMyAbilitySystemComponent;
@@ -34,6 +35,11 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<UMaterialInstance> WeaponDissolveMaterialInstance;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadOnly)
+	ECharacterClass CharacterClass;
+	
+	
 
 protected:
 	
@@ -46,12 +52,19 @@ protected:
 	UPROPERTY()
 	UMyAttributeSet* MyAttributeSet;
 	
+	
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	
 	UPROPERTY(EditAnywhere)
 	TArray<TSubclassOf<UGameplayAbility>> StartupAbilities;
 	
+	UPROPERTY(EditAnywhere)
+	TArray<TSubclassOf<UGameplayAbility>> PassiveStartupAbilities;
+	
 	virtual void GiveStartupAbilities();
+	
+	virtual void GivePassiveStartupAbilities();
+	
 	
 	virtual FVector GetCombatSocketLocation() override;
 	

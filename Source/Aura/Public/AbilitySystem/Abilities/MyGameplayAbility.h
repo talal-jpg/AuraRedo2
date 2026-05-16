@@ -15,11 +15,14 @@ class AURA_API UMyGameplayAbility : public UGameplayAbility
 	GENERATED_BODY()
 	
 public:
-	UPROPERTY(EditAnywhere, Category = "InputTag")
+	UPROPERTY(EditAnywhere, Category = "Tags")
 	FGameplayTag InputTag;
 	
-	UPROPERTY(EditAnywhere, Category = "InputTag")
+	UPROPERTY(EditAnywhere, Category = "Tags")
 	FGameplayTag AbilityTag;
+	
+	UPROPERTY(EditAnywhere, Category = "Tags")
+	FGameplayTag CooldownTag;
 	
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "Damage")
 	FScalableFloat Damage;

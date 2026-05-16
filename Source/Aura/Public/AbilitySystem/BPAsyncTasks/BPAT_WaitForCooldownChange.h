@@ -15,7 +15,10 @@ struct FGameplayTag;
  * 
  */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCooldownStartedDelegateSignature,float,RemainingTime);
-UCLASS()
+
+
+
+UCLASS(BlueprintType,meta= (ExposedAsyncProxy = "AsyncTask"))
 class AURA_API UBPAT_WaitForCooldownChange : public UBlueprintAsyncActionBase
 {
 	GENERATED_BODY()
@@ -29,6 +32,7 @@ public:
 	void OnCooldownStartedCallback(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& GESpec, FActiveGameplayEffectHandle ActiveGameplayEffectHandle);
 	
 	FGameplayTag CooldownTag;
+	FDelegateHandle ActiveGEAddedDelegateHandle;
 	
 	UPROPERTY()
 	UAbilitySystemComponent* ASC;
@@ -36,5 +40,6 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnCooldownStartedDelegateSignature OnCooldownStartedDelegate;
 	
+	UFUNCTION(BlueprintCallable)
 	void EndTask();
 };

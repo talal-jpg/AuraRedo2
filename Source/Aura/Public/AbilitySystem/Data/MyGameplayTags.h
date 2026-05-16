@@ -5,6 +5,7 @@
 namespace MyTags
 {
 	// InputTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_None)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_LMB)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_RMB)
 	// MessageTags
@@ -29,17 +30,29 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_TurnSpeed)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Secondary_AttackDamage)
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Attribute_Meta_XP)
+	
 	// AbilityTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_None)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_FireBolt)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Projectile)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_HitReact)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Electrocute)
+	
+	//AbilityStatuses
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Locked)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Eligible)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Unlocked)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Equiped)
+	// UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Equiped)
+	
+	
 	
 	// AbilityCooldownTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_None)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_FireBolt)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Projectile)
-	
-	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Electrocute)
 	
 	// EventTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_XPGained)

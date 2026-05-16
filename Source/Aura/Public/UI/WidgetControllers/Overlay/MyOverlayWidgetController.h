@@ -8,13 +8,17 @@
 #include "UI/WidgetControllers/MyWidgetController.h"
 #include "MyOverlayWidgetController.generated.h"
 
+class UMySpellMenuWidgetController;
 class UDA_MyAbilityInfo;
 struct FGameplayAbilitySpec;
 class UMyAttributeMenuWidgetController;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttribChangeDelegateSignature, float, NewVal);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEffectAppliedDelegateSignature,FPopupWidgetInfo , WidgetInfo);
-DECLARE_DELEGATE_OneParam(FForEachAbilityDelegateSignature,const FGameplayAbilitySpec&);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBroadcastAbilityInfoDelegateSignature, FAbilityInfo,AbilityInfo);
+
+//Going to need it later for level broadcast
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStatChangeDelegateSignature, int32, NewVal);
+
 /**
  * 
  */
@@ -39,6 +43,12 @@ public:
 	FOnAttribChangeDelegateSignature OnMaxManaChangeDelegate;
 	
 	UPROPERTY(BlueprintAssignable)
+	FOnAttribChangeDelegateSignature OnXPPercentChangeDelegate;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnStatChangeDelegateSignature OnLevelChangeDelegate;
+	
+	UPROPERTY(BlueprintAssignable)
 	FOnEffectAppliedDelegateSignature OnEffectAppliedBroadcastPopupWidgetInfoDelegate;
 	
 	UPROPERTY(EditAnywhere)
@@ -51,6 +61,9 @@ public:
 	UMyAttributeMenuWidgetController* AttributeMenuWidgetController=nullptr;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	UMySpellMenuWidgetController* SpellMenuWidgetController=nullptr;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	TSubclassOf<UMyUserWidget> AttributeMenuWidgetClass;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
@@ -59,9 +72,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	UDA_MyAbilityInfo* DA_AbilityInfo;
 	
-	UPROPERTY(BlueprintAssignable)
-	FBroadcastAbilityInfoDelegateSignature BroadcastAbilityInfoDelegate;
+	void OnAbiltiesGivenCallback();
 	
-	void BroadcastAbilityInfo();
-	
+	void OnXPChangedCallback(int32 NewXP);
 };

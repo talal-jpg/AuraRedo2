@@ -67,12 +67,17 @@ void AMyEnemyChar::UnHighlight()
 {
 	GetMesh()->SetCustomDepthStencilValue(0);
 	
-	UKismetSystemLibrary::PrintString(GetWorld(),TEXT("UnHighlighted"));
+	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("UnHighlighted"));
 }
 
 void AMyEnemyChar::Die()
 {
 	SetLifeSpan(LifeSpan);
 	Super::Die();
+}
+
+int32 AMyEnemyChar::GetLevel()
+{
+	return CharacterLevel;
 }
 
