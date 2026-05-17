@@ -9,6 +9,7 @@
 
 DECLARE_MULTICAST_DELEGATE(FOnAbilitiesGivenDelegateSignature)
 DECLARE_MULTICAST_DELEGATE_FourParams(FOnAbilityEquippedDelegateSiganature, FGameplayTag/*AbilityTag*/, FGameplayTag /*StatusTag*/,FGameplayTag /*InputTag*/,FGameplayTag /*PrevInputTag*/);
+DECLARE_DELEGATE_ThreeParams(FOnAbilityStatusChangedDelegateSignature,FGameplayTag,FGameplayTag,int32);
 
 /**
  * 
@@ -28,6 +29,7 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	// Delegates
 	FOnAbilitiesGivenDelegateSignature OnAbilitiesGivenDelegate;
 	FOnAbilityEquippedDelegateSiganature OnAbilityEquippedDelegate;
+	FOnAbilityStatusChangedDelegateSignature OnAbilityStatusChangedDelegate;
 	
 	// utilityFuncs
 	FGameplayTag GetStatusFromAbiltyTag(FGameplayTag AbilityTag);
@@ -35,6 +37,8 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	FGameplayTag GetAbilityTagFromSpec(const FGameplayAbilitySpec& AbilitySpec);
 	
 	FGameplayAbilitySpec* GetAbilitySpecFromTag(FGameplayTag AbilityTag);
+	
+	FGameplayAbilitySpec* GetAbilitySpecFromSlotTag(FGameplayTag InSlotTag);
 	
 	FGameplayTag GetInputTagFromSpec(const FGameplayAbilitySpec& AbilitySpec);
 	
@@ -60,9 +64,10 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	UFUNCTION(Server,Reliable)
 	void Server_SpendSpellPoint(FGameplayTag AbilityTag,FGameplayTag StatusTag);
 	
+	UFUNCTION(Client,Reliable)
+	void Client_UpdateAbilityStatus(FGameplayTag AbilityTag,FGameplayTag StatusTag,int32 AbilityLevel);
+	
 	UFUNCTION(Server,Reliable)
 	void Server_UpgradeAttribute(FGameplayTag AttribTag);
-	
-	
 	
 };

@@ -175,7 +175,6 @@ int32 AMyCharPlayer::GetSpellPoints_Implementation()
 
 void AMyCharPlayer::LevelUp_Implementation()
 {
-	//TODO Give New Abilities Niagara system etc. 
 	TArray<TSubclassOf<UGameplayAbility>> AbilitiesUnLocked;
 	
 	UMyLevelUpInfo* MyLevelUpInfo=GetPlayerState<AMyPlayerState>()->MyLevelUpInfo;
@@ -206,7 +205,7 @@ void AMyCharPlayer::LevelUp_Implementation()
 			{
 				GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(AbilityTag);
 			}
-			GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Unlocked);
+			GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Eligible);
 			
 			MyAbilitySystemComponent->GiveAbility(GameplayAbilitySpec);
 		}

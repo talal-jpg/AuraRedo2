@@ -4,8 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "Abilities/GameplayAbility.h"
 #include "Engine/DataAsset.h"
 #include "DA_MyAbilityInfo.generated.h"
+
+class UMyGameplayAbility;
 
 USTRUCT(BlueprintType)
 struct FAbilityInfo
@@ -27,6 +30,9 @@ struct FAbilityInfo
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	UTexture2D* Icon=nullptr;
 	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	TSubclassOf<UGameplayAbility> AbilityClass;
+	
 };
 
 /**
@@ -42,4 +48,6 @@ class AURA_API UDA_MyAbilityInfo : public UDataAsset
 	
 public:
 	FAbilityInfo GetAbilityInfoForTag(FGameplayTag AbilityTag);
+	
+	
 };

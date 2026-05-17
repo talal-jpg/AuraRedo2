@@ -4,9 +4,11 @@
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
+#include "MyGameMode.h"
 #include "MyPlayerState.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Character/MyCharPlayer.h"
 #include "Interfaces/MyPlayerInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -14,6 +16,7 @@
 UMyAbilitySystemComponent::UMyAbilitySystemComponent()
 {
 	SetIsReplicated(true);
+	
 	ReplicationMode=EGameplayEffectReplicationMode::Mixed;
 }
 
@@ -45,7 +48,7 @@ FGameplayTag UMyAbilitySystemComponent::GetStatusFromAbiltyTag(FGameplayTag Abil
 		UKismetSystemLibrary::PrintString(GetWorld(),TEXT("SpecNotfoundForTag") + AbilityTag.ToString());
 	}
 	//TODO why do we need to Deref here when Server_EquipAbility removing adding InputTag works fine without Deref
-	return FGameplayTag();
+	return MyTags::Ability_Status_Locked;
 }
 
 FGameplayTag UMyAbilitySystemComponent::GetAbilityTagFromSpec(const FGameplayAbilitySpec& AbilitySpec)
@@ -68,6 +71,22 @@ FGameplayAbilitySpec* UMyAbilitySystemComponent::GetAbilitySpecFromTag(FGameplay
 		for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags())
 		{
 			if (Tag.MatchesTag(AbilityTag))
+			{
+				return &AbilitySpec;
+			}
+		}
+	}
+	return nullptr;
+}
+
+FGameplayAbilitySpec* UMyAbilitySystemComponent::GetAbilitySpecFromSlotTag(FGameplayTag InSlotTag)
+{
+	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	for (FGameplayAbilitySpec& AbilitySpec:GetActivatableAbilities())
+	{
+		for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags())
+		{
+			if (Tag.MatchesTagExact(InSlotTag))
 			{
 				return &AbilitySpec;
 			}
@@ -140,21 +159,39 @@ void UMyAbilitySystemComponent::UpgradeAttribute(FGameplayTag AttribTag)
 	}
 }
 
+
 void UMyAbilitySystemComponent::Server_SpendSpellPoint_Implementation(FGameplayTag AbilityTag,FGameplayTag StatusTag)
 {
 	if (GetAvatarActor()->Implements<UMyPlayerInterface>())
 	{
 		IMyPlayerInterface::Execute_AddToSpellPoints(GetAvatarActor(),-1);
+		int32 SpellPoints=IMyPlayerInterface::Execute_GetSpellPoints(GetAvatarActor());
+		
+		UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("SpendSpellPoint:SpellPoints = %d for "),SpellPoints) + AbilityTag.ToString());
+		
 		FGameplayAbilitySpec* GASpec=GetAbilitySpecFromTag(AbilityTag);
+		// if (GASpec) dont need to check bcz can only press Spend point if found a valid Ability
+		
 		if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked) || StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped))
 		{
 			GASpec->Level+=1;
+			UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("LevelUp:NowLevel = %d for "),GASpec->Level) + AbilityTag.ToString());
 		}
 		else if(StatusTag.MatchesTagExact(MyTags::Ability_Status_Eligible))
 		{
-			
+			GASpec->GetDynamicSpecSourceTags().RemoveTag(StatusTag);
+			GASpec->GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Unlocked);
+			MarkAbilitySpecDirty(*GASpec);
+			StatusTag=MyTags::Ability_Status_Unlocked;
 		}
+		
+		Client_UpdateAbilityStatus(AbilityTag,StatusTag,GASpec->Level);
 	}
+}
+
+void UMyAbilitySystemComponent::Client_UpdateAbilityStatus_Implementation(FGameplayTag AbilityTag,FGameplayTag StatusTag,int32 AbilityLevel)
+{
+	OnAbilityStatusChangedDelegate.ExecuteIfBound(AbilityTag,StatusTag,AbilityLevel);
 	
 }
 
@@ -162,10 +199,17 @@ void UMyAbilitySystemComponent::Server_EquipAbility_Implementation(FGameplayTag 
 {
 	
 	FGameplayAbilitySpec* GASpec=GetAbilitySpecFromTag(AbilityTag);
-	// TODO Get Ability In the CurrentInputTag slot and Remove InputTag from it
-	// FGameplayTag CurrentInputTag=GASpec->GetDynamicSpecSourceTags().Filter(MyTags::Input_LMB.GetTag().GetSingleTagContainer()).First();
+	// Getting Ability In the NewInputTag slot and Remove InputTag from it
+	if (FGameplayAbilitySpec* NewInputGASpec=GetAbilitySpecFromSlotTag(NewInputTag))
+	{
+		NewInputGASpec->GetDynamicSpecSourceTags().RemoveTag(NewInputTag);
+		MarkAbilitySpecDirty(*NewInputGASpec);
+		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Replacing Ability: ") + NewInputGASpec->Ability->GetName());
+	}
+	
 	GASpec->GetDynamicSpecSourceTags().RemoveTag(CurrentInputTag);
 	GASpec->GetDynamicSpecSourceTags().AddTag(NewInputTag);
+	MarkAbilitySpecDirty(*GASpec);
 	Client_EquipAbility(AbilityTag,NewInputTag,GetStatusTagFromSpec(*GASpec),CurrentInputTag);
 }
 

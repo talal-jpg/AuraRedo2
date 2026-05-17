@@ -31,9 +31,62 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 			Info.AbilityStatus=StatusTag;
 			
 			BroadcastAbilityInfoDelegate.Broadcast(Info);
-			
 		}
 	);
+	
+	// AbilityStatusChanged  ,Get should enable buttons and broadcast that after
+	// SpellPointChangedDelegate
+	Cast<AMyPlayerState>(PlayerState)->OnSpellPointsChangedDelegate.AddLambda(
+		[this](int32 NewSpellPoints)
+		{
+			OnSpellPointsChangedDelegate.Broadcast(NewSpellPoints);
+			
+			//TODO When spell points change should enable or disable buttons again? get status , AbiltyTag from SelectedAbil
+			
+			// bool bEnableEquip=false;
+			// bool bEnableSpendPoint=false;
+			// FString Description;
+			//
+			// ShouldEnableButtons(AbilityTag,StatusTag,bEnableEquip,bEnableSpendPoint,Description);
+			// OnSpellGlobeClickedBroadCastShouldEnableDelegate.Broadcast(bEnableEquip,bEnableSpendPoint,Description);
+		}
+	);
+	
+	MyAbilitySystemComponent->OnAbilityStatusChangedDelegate.BindLambda(
+		[this](FGameplayTag AbilityTag,FGameplayTag StatusTag,int32 AbilityLevel)
+		{
+			bool bEnableEquip=false;
+			bool bEnableSpendPoint=false;
+			FString Description;
+			
+			ShouldEnableButtons(AbilityTag,StatusTag,bEnableEquip,bEnableSpendPoint,Description);
+			OnSpellGlobeClickedBroadCastShouldEnableDelegate.Broadcast(bEnableEquip,bEnableSpendPoint,Description);
+			
+		}
+		);
+	
+}
+
+void UMySpellMenuWidgetController::ShouldEnableButtons(FGameplayTag InAbilityTag, FGameplayTag StatusTag,bool& bEnableEquip, bool& bEnableSpendSpellPoints, FString& Description)
+{
+	SelectedAbility.AbilityTag=InAbilityTag;
+	SelectedAbility.StatusTag=StatusTag;
+	if (FGameplayAbilitySpec* GASpec =MyAbilitySystemComponent->GetAbilitySpecFromTag(InAbilityTag))
+	{
+		SelectedAbility.InputTag=MyAbilitySystemComponent->GetInputTagFromSpec(*GASpec);
+	}
+	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("StatusTag: ") + StatusTag.ToString());
+	
+	if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Eligible)|| StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked) || StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped))
+	{
+		bEnableSpendSpellPoints=true;
+	}
+	
+	if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped)|| StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked))
+	{
+		bEnableEquip=true;
+	}
+	//TODO Get and Fill Description from Ability Spec bcz mana cost cool down change with level
 }
 
 void UMySpellMenuWidgetController::BroadcastInitialValues()
@@ -45,37 +98,24 @@ void UMySpellMenuWidgetController::BroadcastInitialValues()
 		BroadcastAbilityInfo(MyAbilityInfo);
 	}
 	OnSpellGlobeClickedBroadCastShouldEnableDelegate.Broadcast(false,false,TEXT(""));
+	
+	OnSpellPointsChangedDelegate.Broadcast(Cast<AMyPlayerState>(PlayerState)->GetSpellPoints());
 }
 
 void UMySpellMenuWidgetController::SpellGlobeClicked(FGameplayTag InAbilityTag)
 {
+	FGameplayTag StatusTag=MyAbilitySystemComponent->GetStatusFromAbiltyTag(InAbilityTag);
 	//Should enable buttons?
 	if (!InAbilityTag.IsValid())
 	{
 		UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid Ability Tag"));
 		return;
 	}
-	FGameplayTag StatusTag=MyAbilitySystemComponent->GetStatusFromAbiltyTag(InAbilityTag);
+	bool bEnableEquip=false;
+	bool bEnableSpendPoint=false;
+	FString Description;
 	
-	SelectedAbility.AbilityTag=InAbilityTag;
-	SelectedAbility.StatusTag=StatusTag;
-	if (FGameplayAbilitySpec* GASpec =MyAbilitySystemComponent->GetAbilitySpecFromTag(InAbilityTag))
-	{
-		SelectedAbility.InputTag=MyAbilitySystemComponent->GetInputTagFromSpec(*GASpec);
-	}
-	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("StatusTag: ") + StatusTag.ToString());
-	
-	bool bEnableEquip= false;
-	bool bEnableSpendPoint= false;
-	if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Eligible)|| StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked) || StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped))
-	{
-		bEnableSpendPoint=true;
-	}
-	
-	if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped)|| StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked))
-	{
-		bEnableEquip=true;
-	}
+	ShouldEnableButtons(InAbilityTag,StatusTag,bEnableEquip,bEnableSpendPoint,Description);
 	
 	OnSpellGlobeClickedBroadCastShouldEnableDelegate.Broadcast(bEnableEquip,bEnableSpendPoint,InAbilityTag.ToString());
 }
@@ -89,6 +129,9 @@ void UMySpellMenuWidgetController::EquipButtonPressed()
 void UMySpellMenuWidgetController::SpendSpellPointButtonPressed()
 {
 	if(SelectedAbility.AbilityTag.MatchesTagExact(MyTags::Ability_None))return;
+	if(SelectedAbility.StatusTag.MatchesTagExact(MyTags::Ability_Status_Locked))return;
+	
+	MyAbilitySystemComponent->Server_SpendSpellPoint(SelectedAbility.AbilityTag,SelectedAbility.StatusTag);
 	
 	
 }

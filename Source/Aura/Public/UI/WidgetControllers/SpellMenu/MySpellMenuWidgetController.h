@@ -26,6 +26,8 @@ struct FSelectedAbility
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnSpellGlobeClickedBroadCastShouldEnableDelegateSignature, bool, bEnableEquip,bool , bEnableSpendSpellPoint, FString,SpellDescription);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpellGlobeDeselectDelegateSignature,FGameplayTag, AbilityTag);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSpellPointsChangedDelegateSignature,int32 ,NewSpellPoints);
+
 
 UCLASS(Blueprintable)
 class AURA_API UMySpellMenuWidgetController : public UMyWidgetController
@@ -56,6 +58,9 @@ class AURA_API UMySpellMenuWidgetController : public UMyWidgetController
 	UPROPERTY(BlueprintAssignable)
 	FSpellGlobeDeselectDelegateSignature SpellGlobeDeselectDelegate;
 	
+	UPROPERTY(BlueprintAssignable)
+	FOnSpellPointsChangedDelegateSignature OnSpellPointsChangedDelegate;
+	
 	virtual void BroadcastInitialValues() override;
 	
 	virtual void BindCallbacksToDependencies() override;
@@ -63,5 +68,6 @@ class AURA_API UMySpellMenuWidgetController : public UMyWidgetController
 	UPROPERTY(EditAnywhere)
 	UDA_MyAbilityInfo* MyAbilityInfo;
 	
+	void ShouldEnableButtons(FGameplayTag InAbilityTag,FGameplayTag StatusTag,bool& bEnableEquip,bool& bEnableSpendSpellPoints,FString& Description);
 	
 };

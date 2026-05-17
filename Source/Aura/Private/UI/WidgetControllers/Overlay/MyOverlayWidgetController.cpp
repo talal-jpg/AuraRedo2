@@ -124,8 +124,7 @@ void UMyOverlayWidgetController::OnAbiltiesGivenCallback()
 
 void UMyOverlayWidgetController::OnXPChangedCallback(int32 NewXP)
 {
-	const AMyGameMode* MyGameMode=Cast<AMyGameMode>(UGameplayStatics::GetGameMode(this));
-	//TODO GameMode Doesnt exist on server have to put LevelUpInfo on PlayerState
+	//GameMode Doesnt exist on server have to put LevelUpInfo on PlayerState
 	
 	UMyLevelUpInfo* MyLevelUpInfo=Cast<AMyPlayerState>(PlayerState)->MyLevelUpInfo;
 			

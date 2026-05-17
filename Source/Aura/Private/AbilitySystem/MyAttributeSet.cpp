@@ -112,7 +112,7 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 		
 		// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,Str);
 		// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,Str,true,true,FLinearColor::Black,30.f,FName("3"));
-		//TODO Getting IncomingXP From WaitingGA Now Update XP on PlayerState And LevelUp
+		//Getting IncomingXP From WaitingGA Now Update XP on PlayerState And LevelUp
 		//Make PlayerInterface add to xp ,get xp to be funcs in that not CombatIF
 		if (Props.SourceCharacter->Implements<UMyPlayerInterface>())
 		{
@@ -124,7 +124,7 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 			
 			IMyPlayerInterface::Execute_AddToXP(Props.SourceCharacter,Data.EvaluatedData.Magnitude);
 			
-			//TODO Now check if and how many level ups and execute logic
+			//Now check if and how many level ups and execute logic
 			
 			int32 CurrentLevel=MyLevelUpInfo->GetLevelForXP(IMyPlayerInterface::Execute_GetXP(Props.SourceCharacter));
 			
@@ -139,7 +139,7 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 				// int32 NumLoops=0;
 				for (int32 Level=0; Level<NumLevelUps; Level++)
 				{
-					//TODO Get Attrib pnt and spell Pnt reward for level from DA_LevelUpInfo
+					//Get Attrib pnt and spell Pnt reward for level from DA_LevelUpInfo
 					
 					int32 AttributePoints,SpellPoints;
 					
