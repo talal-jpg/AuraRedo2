@@ -126,8 +126,10 @@ void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
 	for (auto AbilitySpec:GetActivatableAbilities())
 	{
 		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag)){
+			// TryActivateAbility(AbilitySpec.Handle);
+			//Assuming the ability is active and the Ability is instanced per actor
 			AbilitySpecInputPressed(AbilitySpec);
-			TryActivateAbility(AbilitySpec.Handle);
+			InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed,AbilitySpec.Handle,AbilitySpec.GetPrimaryInstance()->GetCurrentActivationInfo().GetActivationPredictionKey());
 			//happens auto in AbilitySpecInputPressed
 			// if (AbilitySpec.IsActive())
 			// {
@@ -141,10 +143,32 @@ void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
 
 void UMyAbilitySystemComponent::AbilityInputHeld(FGameplayTag InputTag)
 {
+	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	for (auto AbilitySpec: GetActivatableAbilities())
+	{
+		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
+		{
+			AbilitySpecInputPressed(AbilitySpec);
+			if (!AbilitySpec.IsActive())
+			{
+				TryActivateAbility(AbilitySpec.Handle);
+			}
+		}
+	}
 }
 
 void UMyAbilitySystemComponent::AbilityInputReleased(FGameplayTag InputTag)
 {
+	// UKismetSystemLibrary::PrintString(this,TEXT("AbilityInputReleased") + InputTag.ToString());
+	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+	for (auto AbilitySpec: GetActivatableAbilities())
+	{
+		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
+		{
+			AbilitySpecInputReleased(AbilitySpec);
+			InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased,AbilitySpec.Handle,AbilitySpec.GetPrimaryInstance()->GetCurrentActivationInfo().GetActivationPredictionKey());
+		}
+	}
 }
 
 //To call UpgradeAttrib locally first just to check if attrib points are available a then only send server rpc

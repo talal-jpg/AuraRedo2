@@ -131,10 +131,15 @@ void AMyPlayerController::PressedFunc(FGameplayTag InputTag)
 void AMyPlayerController::HeldFunc(FGameplayTag InputTag)
 {
 	PressedTime+=GetWorld()->DeltaTimeSeconds;
+	UMyAbilitySystemComponent* MyASC=GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent;
+	MyASC->AbilityInputHeld(InputTag);
 }
 
 void AMyPlayerController::ReleasedFunc(FGameplayTag InputTag)
 {
+	UMyAbilitySystemComponent* MyASC=GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent;
+	MyASC->AbilityInputReleased(InputTag);
+	
 	if (InputTag == MyTags::Input_LMB)
 	{
 		SplineComp->ClearSplinePoints();

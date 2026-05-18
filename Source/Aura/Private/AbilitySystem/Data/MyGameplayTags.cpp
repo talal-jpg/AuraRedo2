@@ -62,6 +62,11 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")
 	UE_DEFINE_GAMEPLAY_TAG(Event_HitReact,"Event.HitReact")
 	UE_DEFINE_GAMEPLAY_TAG(Event_SpawnFireBall,"Event.SpawnFireBall")
+	UE_DEFINE_GAMEPLAY_TAG(Event_SpawnElectrocute,"Event.SpawnElectrocute")
+	
+	// GameplayCues
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_ElectrocuteBurst,"GameplayCue.ElectrocuteBurst")
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_ElectrocuteLooping,"GameplayCue.ElectrocuteLooping")
 	
 	//SetByCallerMagTag
 	UE_DEFINE_GAMEPLAY_TAG(SetDamageByCaller,"SetDamageByCaller")
