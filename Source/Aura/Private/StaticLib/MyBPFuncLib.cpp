@@ -85,6 +85,34 @@ void UMyBPFuncLib::InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,U
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*GESpecHandleVital.Data.Get());
 }
 
+void UMyBPFuncLib::SetIsCrit(FGameplayEffectContextHandle& GEContextHandle, bool bIsCrit)
+{
+	FHitResult NewHit = FHitResult();
+	NewHit.bStartPenetrating = true;
+	
+	GEContextHandle.AddHitResult(NewHit, true);
+}
+
+void UMyBPFuncLib::SetIsBlocked(FGameplayEffectContextHandle& GEContextHandle, bool bIsBlocked)
+{
+		FHitResult NewHit = FHitResult();
+		NewHit.bStartPenetrating = true;
+	
+		GEContextHandle.AddHitResult(NewHit, true);
+}
+
+bool UMyBPFuncLib::IsCrit(FGameplayEffectContextHandle& GEContextHandle,UObject* WorldContextObj)
+{
+	if (GEContextHandle.GetHitResult()==nullptr)return false;
+	return GEContextHandle.GetHitResult()->bBlockingHit;
+}
+
+bool UMyBPFuncLib::IsBlocked(FGameplayEffectContextHandle& GEContextHandle)
+{
+	if (GEContextHandle.GetHitResult()==nullptr)return false;
+	return GEContextHandle.GetHitResult()->bStartPenetrating;
+}
+
 int32 UMyBPFuncLib::GetXPRewardForCharacterClass(ECharacterClass IN_CharacterClass, int32 InLevel, UObject* InWorldContextObject)
 {
 	AMyGameMode* MyGameMode=Cast<AMyGameMode>(UGameplayStatics::GetGameMode(InWorldContextObject));

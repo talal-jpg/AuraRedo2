@@ -61,8 +61,12 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_SpawnElectrocute)
 	
 	// GameplayCues
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_FireballBurst)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_ElectrocuteBurst)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_ElectrocuteLooping)
+	
+	//StateTags
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Channeling)
 	
 	//SetByCallerMagTag
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetDamageByCaller)

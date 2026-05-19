@@ -71,7 +71,7 @@ public:
 	void ReleasedFunc(FGameplayTag InputTag);
 	
 	UFUNCTION(Client,Reliable)
-	void ShowDamageNumber(float InDamage,ACharacter* TargetCharacter);
+	void ShowDamageNumber(float InDamage,ACharacter* TargetCharacter,bool bIsCrit,bool bIsBlocked);
 	
 	private:
 	

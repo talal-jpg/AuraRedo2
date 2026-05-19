@@ -189,9 +189,10 @@ void UMyAbilitySystemComponent::Server_SpendSpellPoint_Implementation(FGameplayT
 	if (GetAvatarActor()->Implements<UMyPlayerInterface>())
 	{
 		IMyPlayerInterface::Execute_AddToSpellPoints(GetAvatarActor(),-1);
-		int32 SpellPoints=IMyPlayerInterface::Execute_GetSpellPoints(GetAvatarActor());
 		
-		UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("SpendSpellPoint:SpellPoints = %d for "),SpellPoints) + AbilityTag.ToString());
+		// int32 SpellPoints=IMyPlayerInterface::Execute_GetSpellPoints(GetAvatarActor());
+		//
+		// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("SpendSpellPoint:SpellPoints = %d for "),SpellPoints) + AbilityTag.ToString());
 		
 		FGameplayAbilitySpec* GASpec=GetAbilitySpecFromTag(AbilityTag);
 		// if (GASpec) dont need to check bcz can only press Spend point if found a valid Ability

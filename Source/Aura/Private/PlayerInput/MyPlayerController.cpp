@@ -80,6 +80,7 @@ void AMyPlayerController::BeginPlay()
 
 void AMyPlayerController::Move(const FInputActionValue& Value)
 {
+	if (GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent->HasMatchingGameplayTag(MyTags::State_Channeling))return;
 	const FVector2d InputVal= Value.Get<FVector2d>();
 	FRotationMatrix RotMat=FRotationMatrix(GetControlRotation());
 	FVector ForwardDir=RotMat.GetUnitAxis(EAxis::X);
@@ -160,7 +161,7 @@ void AMyPlayerController::ReleasedFunc(FGameplayTag InputTag)
 	}
 }
 
-void AMyPlayerController::ShowDamageNumber_Implementation(float InDamage,ACharacter* TargetCharacter)
+void AMyPlayerController::ShowDamageNumber_Implementation(float InDamage,ACharacter* TargetCharacter,bool bIsCrit,bool bIsBlocked)
 {
 	if (IsValid(TargetCharacter) && DamageTextWidgetComponentClass)
 	{
@@ -170,7 +171,7 @@ void AMyPlayerController::ShowDamageNumber_Implementation(float InDamage,ACharac
 		DamageTextWidgetComponent->AttachToComponent(TargetCharacter->GetRootComponent(),FAttachmentTransformRules::KeepRelativeTransform);
 		DamageTextWidgetComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 		
-		DamageTextWidgetComponent->SetDamageText(InDamage);
+		DamageTextWidgetComponent->SetDamageText(InDamage,bIsCrit,bIsBlocked);
 	}
 	
 }

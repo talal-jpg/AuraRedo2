@@ -97,9 +97,11 @@ void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& 
 			
 			if (Props.SourceCharacter != Props.TargetCharacter)
 			{
-				if (AMyPlayerController* MyPC=Cast<AMyPlayerController>(UGameplayStatics::GetPlayerController(Props.SourceCharacter,0)))
+				if (AMyPlayerController* MyPC=Cast<AMyPlayerController>(Props.SourceController))
 				{
-					MyPC->ShowDamageNumber(LocalIncomingDamage,Props.TargetCharacter);
+					bool bIsCrit=UMyBPFuncLib::IsCrit(Props.EffectContextHandle,this);
+					bool bIsBlocked= UMyBPFuncLib::IsBlocked(Props.EffectContextHandle);
+					MyPC->ShowDamageNumber(LocalIncomingDamage,Props.TargetCharacter,bIsCrit,bIsBlocked);
 				}
 			}
 		}

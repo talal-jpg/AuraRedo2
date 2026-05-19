@@ -46,4 +46,8 @@ public:
 	UPROPERTY(EditAnywhere)
 	UNiagaraSystem* BurstNiagaraSystem;
 	
+	//Keeping it on Projectile just to be garbage collected by ue gc
+	UPROPERTY()
+	TObjectPtr<AActor> HomingTargetActor;
+	
 };

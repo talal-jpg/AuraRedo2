@@ -7,8 +7,10 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Actors/MyProjectile.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 #include "Interfaces/MyCombatInterface.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 
 void UGA_Projectile::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
                                      const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
@@ -17,7 +19,7 @@ void UGA_Projectile::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 }
 
-void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent* ASC,FVector TargetLocation)
+void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent* ASC,FVector TargetLocation, AActor* HomingTarget)
 {
 	// AActor* AvatarActor= ActorInfo->AvatarActor.Get();
 	// UAbilitySystemComponent* ASC= ActorInfo->AbilitySystemComponent.Get();
@@ -30,8 +32,8 @@ void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent
 	SpawnXform.SetLocation(SpawnLocation);
 	FVector ToTarget=TargetLocation-SpawnLocation;
 	ToTarget.Normalize();
-	FRotator Rot=ToTarget.Rotation();
-	SpawnXform.SetRotation(Rot.Quaternion());
+	ToTarget.Z=0;
+	
 	
 	//GESpec
 	FGameplayEffectContextHandle GEContextHandle=ASC->MakeEffectContext();
@@ -43,8 +45,44 @@ void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent
 	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Damage: ") + FString::FromInt(Magnitude));
 	UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(GESpecHandle,MyTags::SetDamageByCaller,Magnitude);
 	
-	//SpawnProj
-	AMyProjectile* MyProjectile=GetWorld()->SpawnActorDeferred<AMyProjectile>(ProjectileClass,SpawnXform,nullptr);
-	MyProjectile->DamageEffectSpec=*GESpecHandle.Data.Get();
-	MyProjectile->FinishSpawning(SpawnXform);
+	FGameplayEffectContextHandle GEContextHandle2=ASC->MakeEffectContext();
+	
+	
+	ASC->ExecuteGameplayCue(MyTags::GameplayCue_FireballBurst,GEContextHandle2);
+	
+	for (int32 i=0;i<NumProjectiles;i++)
+	{
+		const float Step = AngleSpan / (NumProjectiles - 1);
+		float Angle = -AngleSpan * 0.5f + Step * i;
+		UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("Angle: %f"),Angle));
+		FVector RotatedToTarget=ToTarget.RotateAngleAxis(Angle,FVector::UpVector);
+		
+		// UKismetSystemLibrary::DrawDebugArrow(this,SpawnLocation,SpawnLocation+RotatedToTarget*1000,10,FLinearColor::Yellow,30,10*i);
+		
+		FRotator Rot=RotatedToTarget.Rotation();
+		SpawnXform.SetRotation(Rot.Quaternion());
+		//SpawnProj
+		AMyProjectile* MyProjectile=GetWorld()->SpawnActorDeferred<AMyProjectile>(ProjectileClass,SpawnXform,nullptr);
+		MyProjectile->ProjectileMovementComponent->bIsHomingProjectile=true;
+		MyProjectile->SetLifeSpan(5.f);
+		
+		//Homing Target Actor* Set here 
+		if (HomingTarget !=nullptr)
+		{
+			MyProjectile->HomingTargetActor=HomingTarget;
+			MyProjectile->ProjectileMovementComponent->HomingTargetComponent= HomingTarget->GetRootComponent();
+		}
+		else
+		{
+			USceneComponent* SceneComp=NewObject<USceneComponent>();
+			MyProjectile->ProjectileMovementComponent->HomingTargetComponent=SceneComp;
+		}
+		
+		MyProjectile->ProjectileMovementComponent->HomingAccelerationMagnitude= 2000;
+			
+		
+		MyProjectile->DamageEffectSpec=*GESpecHandle.Data.Get();
+		MyProjectile->FinishSpawning(SpawnXform);
+	}
+	
 }

@@ -21,12 +21,19 @@ class AURA_API UGA_Projectile : public UMyGameplayAbility
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UGameplayEffect> DamageEffectClass;
+
 	
 public:
 	
 	
 	UFUNCTION(BlueprintCallable)
-	void SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent* ASC,FVector TargetLocation);
+	void SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent* ASC,FVector TargetLocation, AActor* HomingTarget);
+	
+	UPROPERTY(EditAnywhere)
+	int32 NumProjectiles=3;
+	
+	UPROPERTY(EditAnywhere)
+	float AngleSpan=90;
 	
 	
 };

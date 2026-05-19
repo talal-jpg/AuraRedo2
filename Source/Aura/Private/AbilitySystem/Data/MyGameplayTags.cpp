@@ -65,8 +65,12 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_SpawnElectrocute,"Event.SpawnElectrocute")
 	
 	// GameplayCues
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_FireballBurst,"GameplayCue.FireballBurst")
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_ElectrocuteBurst,"GameplayCue.ElectrocuteBurst")
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_ElectrocuteLooping,"GameplayCue.ElectrocuteLooping")
+	
+	//StateTags
+	UE_DEFINE_GAMEPLAY_TAG(State_Channeling,"State.Channeling")
 	
 	//SetByCallerMagTag
 	UE_DEFINE_GAMEPLAY_TAG(SetDamageByCaller,"SetDamageByCaller")
