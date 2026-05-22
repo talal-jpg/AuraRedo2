@@ -113,20 +113,20 @@ void AMyCharPlayer::InitializeAttributes()
 	// InitPrimaryAttrs
 	FGameplayEffectContextHandle EffectContextHandle=MyAbilitySystemComponent->MakeEffectContext();
 	EffectContextHandle.AddInstigator(this,this);
-	FGameplayEffectSpecHandle SpecHandlePrimary=MyAbilitySystemComponent->MakeOutgoingSpec(PrimaryAttributesEffect,GetLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandlePrimary=MyAbilitySystemComponent->MakeOutgoingSpec(PrimaryAttributesEffect,GetLevel_Implementation(),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandlePrimary.Data.Get());
 	
 	//InitSecondaryAttrs
-	FGameplayEffectSpecHandle SpecHandleSecondary=MyAbilitySystemComponent->MakeOutgoingSpec(SecondaryAttributesEffect,GetLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandleSecondary=MyAbilitySystemComponent->MakeOutgoingSpec(SecondaryAttributesEffect,GetLevel_Implementation(),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleSecondary.Data.Get());
 	
 	//InitVitalAttrs
-	FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,GetLevel(),EffectContextHandle);
+	FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,GetLevel_Implementation(),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleVital.Data.Get());
 }
 
 
-int32 AMyCharPlayer::GetLevel()
+int32 AMyCharPlayer::GetLevel_Implementation()
 {
 	return GetPlayerState<AMyPlayerState>()->GetLevel();
 }
@@ -181,7 +181,7 @@ void AMyCharPlayer::LevelUp_Implementation()
 	checkf(MyLevelUpInfo,TEXT("PleaseSetLevelUpInfoOnPlayerStateSoThatItCanBePresentOnClientsAsWell"));
 	// UKismetSystemLibrary::PrintString(GetWorld(),std::to_string(GetLevel()).c_str());
 	// GetLevel -1 bcz will look in the levelUpInfo list 
-	MyLevelUpInfo->GetAbilitiesForLevel(GetLevel()-1,AbilitiesUnLocked);
+	MyLevelUpInfo->GetAbilitiesForLevel(GetLevel_Implementation()-1,AbilitiesUnLocked);
 	if (AbilitiesUnLocked.Num()==0)return;
 	
 	for (TSubclassOf<UGameplayAbility> AbilityClass : AbilitiesUnLocked)
@@ -215,6 +215,20 @@ void AMyCharPlayer::LevelUp_Implementation()
 		}
 	}
 
+}
+
+void AMyCharPlayer::SetLookAtTarget_Implementation(FVector TargetLocation)
+{
+}
+
+bool AMyCharPlayer::IsChanneling_Implementation()
+{
+	return bIsChanneling;
+}
+
+void AMyCharPlayer::SetChanneling_Implementation(bool InbIsChanneling)
+{
+	bIsChanneling=InbIsChanneling;
 }
 
 

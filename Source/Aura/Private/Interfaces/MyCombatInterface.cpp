@@ -5,15 +5,7 @@
 
 
 // Add default functionality here for any IMyCombatInterface functions that are not pure virtual.
-int32 IMyCombatInterface::GetLevel()
-{
-	return 0;
-}
 
-FVector IMyCombatInterface::GetCombatSocketLocation()
-{
-	return FVector::ZeroVector;
-}
 
 void IMyCombatInterface::Die()
 {

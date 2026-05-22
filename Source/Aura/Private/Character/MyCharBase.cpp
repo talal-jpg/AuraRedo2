@@ -84,7 +84,7 @@ void AMyCharBase::GivePassiveStartupAbilities()
 	
 }
 
-FVector AMyCharBase::GetCombatSocketLocation()
+FVector AMyCharBase::GetCombatSocketLocation_Implementation()
 {
 	return WeaponMesh->GetSocketLocation(FName("CombatSocket"));
 }

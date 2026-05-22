@@ -44,7 +44,13 @@ public:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UGameplayEffect> VitalAttributesEffect;
 	
-	virtual int32 GetLevel() override;
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	bool bIsChanneling=false;
+	
+	
+	//MyPlayerIF
+	
+	virtual int32 GetLevel_Implementation() override;
 	
 	virtual void GiveStartupAbilities() override;
 	
@@ -64,5 +70,13 @@ public:
 	
 	virtual void LevelUp_Implementation() override;
 	
+	
+	//MyCombatIF
+	
+	virtual void SetLookAtTarget_Implementation(FVector TargetLocation) override;
+	
+	virtual bool IsChanneling_Implementation() override;
+	
+	virtual void SetChanneling_Implementation(bool InbIsChanneling) override;
 	
 };

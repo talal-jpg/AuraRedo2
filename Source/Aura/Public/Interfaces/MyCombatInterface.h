@@ -7,7 +7,7 @@
 #include "MyCombatInterface.generated.h"
 
 // This class does not need to be modified.
-UINTERFACE()
+UINTERFACE(BlueprintType)
 class UMyCombatInterface : public UInterface
 {
 	GENERATED_BODY()
@@ -23,11 +23,21 @@ class AURA_API IMyCombatInterface
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 	
-	virtual int32 GetLevel();
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	int32 GetLevel();
 	
-	virtual FVector GetCombatSocketLocation();
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	FVector GetCombatSocketLocation();
+	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	void SetLookAtTarget(FVector TargetLocation);
 	
 	virtual void Die();
 	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	bool IsChanneling();
+	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	void SetChanneling(bool bIsChanneling);
 	
 };

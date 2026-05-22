@@ -76,7 +76,7 @@ void AMyEnemyChar::Die()
 	Super::Die();
 }
 
-int32 AMyEnemyChar::GetLevel()
+int32 AMyEnemyChar::GetLevel_Implementation()
 {
 	return CharacterLevel;
 }

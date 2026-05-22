@@ -24,8 +24,10 @@ void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent
 	// AActor* AvatarActor= ActorInfo->AvatarActor.Get();
 	// UAbilitySystemComponent* ASC= ActorInfo->AbilitySystemComponent.Get();
 	IMyCombatInterface* CombatInterface=Cast<IMyCombatInterface>(AvatarActor);
-	float Level=CombatInterface->GetLevel();
-	FVector SpawnLocation=CombatInterface->GetCombatSocketLocation();
+	if (!AvatarActor->Implements<UMyCombatInterface>())return;
+		
+	float Level=IMyCombatInterface::Execute_GetLevel(AvatarActor);
+	FVector SpawnLocation=IMyCombatInterface::Execute_GetCombatSocketLocation(AvatarActor);
 	
 	//SpawnXform
 	FTransform SpawnXform=FTransform();
@@ -78,7 +80,7 @@ void UGA_Projectile::SpawnProjectile(AActor* AvatarActor,UAbilitySystemComponent
 			MyProjectile->ProjectileMovementComponent->HomingTargetComponent=SceneComp;
 		}
 		
-		MyProjectile->ProjectileMovementComponent->HomingAccelerationMagnitude= 2000;
+		MyProjectile->ProjectileMovementComponent->HomingAccelerationMagnitude= 5000;
 			
 		
 		MyProjectile->DamageEffectSpec=*GESpecHandle.Data.Get();

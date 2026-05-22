@@ -66,7 +66,7 @@ protected:
 	virtual void GivePassiveStartupAbilities();
 	
 	
-	virtual FVector GetCombatSocketLocation() override;
+	virtual FVector GetCombatSocketLocation_Implementation() override;
 	
 	 virtual void Die() override;
 	
