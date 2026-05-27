@@ -14,12 +14,46 @@ class AURA_API AMyPointCollectionActor : public AActor
 public:
 	// Sets default values for this actor's properties
 	AMyPointCollectionActor();
+	
+	UPROPERTY(EditAnywhere)
+	USceneComponent* Point1;
+	UPROPERTY(EditAnywhere)
+	USceneComponent* Point2;
+	UPROPERTY(EditAnywhere)
+	USceneComponent* Point3;
+	UPROPERTY(EditAnywhere)
+	USceneComponent* Point4;
+	UPROPERTY(EditAnywhere)
+	USceneComponent* Point5;
+	UPROPERTY(EditAnywhere)
+	USceneComponent* Point6;
+	
+	UPROPERTY(EditDefaultsOnly, Category = Billboard)
+	UBillboardComponent* BillboardPoint1;
+	
+	UPROPERTY(EditDefaultsOnly, Category = Billboard)
+	UBillboardComponent* BillboardPoint2;
+	
+	UPROPERTY(EditDefaultsOnly, Category = Billboard)
+	UBillboardComponent* BillboardPoint3;
+	
+	UPROPERTY(EditDefaultsOnly, Category = Billboard)
+	UBillboardComponent* BillboardPoint4;
+	
+	UPROPERTY(EditDefaultsOnly, Category = Billboard)
+	UBillboardComponent* BillboardPoint5;
+	
+	UPROPERTY(EditDefaultsOnly, Category = Billboard)
+	UBillboardComponent* BillboardPoint6;
+	
+	
+	UPROPERTY(EditAnywhere)
+	TArray<USceneComponent*> Points;
+	
+	UFUNCTION(BlueprintCallable)
+	TArray<USceneComponent*> GetPoints();
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-public:
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	UFUNCTION(BlueprintCallable)
+	void RotatePoints(float RandZRot);
+	
 };

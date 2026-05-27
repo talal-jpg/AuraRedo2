@@ -45,6 +45,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Projectile,"Ability.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Electrocute,"Ability.Electrocute")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Shards,"Ability.Shards")
 	
 	//AbilityStatuses
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Locked,"Ability.Status.Locked")
@@ -57,6 +58,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_FireBolt,"Ability.Cooldown.FireBolt")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Projectile,"Ability.Cooldown.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Electrocute,"Ability.Cooldown.Electrocute")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Shards,"Ability.Cooldown.Shards")
 	
 	// EventTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")
@@ -68,6 +70,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_FireballBurst,"GameplayCue.FireballBurst")
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_ElectrocuteBurst,"GameplayCue.ElectrocuteBurst")
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_ElectrocuteLooping,"GameplayCue.ElectrocuteLooping")
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Shards,"GameplayCue.Shards")
 	
 	//StateTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Channeling,"State.Channeling")

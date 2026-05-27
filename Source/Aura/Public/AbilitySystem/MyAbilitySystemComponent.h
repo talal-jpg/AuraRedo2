@@ -44,9 +44,6 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	
 	FGameplayTag GetStatusTagFromSpec(const FGameplayAbilitySpec& AbilitySpec);
 	
-	
-	
-	
 	void AbilityInputPressed(FGameplayTag InputTag);
 	
 	void AbilityInputHeld(FGameplayTag InputTag);

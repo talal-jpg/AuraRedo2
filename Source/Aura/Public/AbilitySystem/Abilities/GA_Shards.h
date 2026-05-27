@@ -13,4 +13,10 @@ UCLASS()
 class AURA_API UGA_Shards : public UMyGameplayAbility
 {
 	GENERATED_BODY()
+	
+	
+	UFUNCTION(BlueprintCallable)
+	void GetAliveActorsWithinRadius(FVector Location,float Radius, UPARAM(ref)TArray<AActor*>& OutActors);
+	
+	
 };

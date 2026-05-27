@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "MyPlayerController.generated.h"
 
+class AMyTargetDecalActor;
 class UDamageTextWidgetComponent;
 struct FGameplayTag;
 class UMyInputConfig;
@@ -55,6 +56,8 @@ public:
 	USplineComponent* SplineComp;
 	
 	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AMyTargetDecalActor> TargetDecalActorClass;
 	
 	void CursorTrace();
 	
@@ -77,5 +80,17 @@ public:
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UDamageTextWidgetComponent> DamageTextWidgetComponentClass;
+	
+	
+	UPROPERTY(EditAnywhere)
+	AMyTargetDecalActor* TargetDecalActor;
+	
+	UFUNCTION(BlueprintCallable)
+	void ShowDamageCircle();
+	
+	UFUNCTION(BlueprintCallable)
+	void HideDamageCircle();
+	
+	void UpdateDamageCircle();
 	
 };

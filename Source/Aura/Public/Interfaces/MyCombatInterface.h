@@ -6,6 +6,7 @@
 #include "UObject/Interface.h"
 #include "MyCombatInterface.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDeathDelegateSignature, AActor*,DeadActor);
 // This class does not need to be modified.
 UINTERFACE(BlueprintType)
 class UMyCombatInterface : public UInterface
@@ -35,9 +36,14 @@ public:
 	virtual void Die();
 	
 	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	bool IsDead();
+	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
 	bool IsChanneling();
 	
 	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
 	void SetChanneling(bool bIsChanneling);
+	
+	virtual FOnDeathDelegateSignature& GetOnDeathDelegate() = 0;
 	
 };

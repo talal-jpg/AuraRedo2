@@ -68,10 +68,19 @@ protected:
 	
 	virtual FVector GetCombatSocketLocation_Implementation() override;
 	
-	 virtual void Die() override;
+	virtual void Die() override;
+	
+	virtual bool IsDead_Implementation() override{return bIsDead;};
+	
+	bool bIsDead=false;
+	
 	
 	UFUNCTION(NetMulticast,Reliable)
 	virtual void MulticastHandleDeath();
+	
+	FOnDeathDelegateSignature OnDeathDelegate;
+	
+	virtual FOnDeathDelegateSignature& GetOnDeathDelegate() override; 
 public:	
 
 };

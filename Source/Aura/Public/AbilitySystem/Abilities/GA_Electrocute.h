@@ -35,4 +35,10 @@ public:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	TArray<AActor*> AdditionalTargets;
 	
+	UFUNCTION(BlueprintImplementableEvent)
+	void FirstTargetDied(AActor* DeadActor);
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void AdditionalTargetDied(AActor* DeadActor);
+	
 };

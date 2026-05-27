@@ -93,6 +93,14 @@ void AMyCharBase::Die()
 {
 	WeaponMesh->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepWorld,true));
 	MulticastHandleDeath();
+	
+	//Do we need to set replicated?
+	bIsDead=true;
+}
+
+FOnDeathDelegateSignature& AMyCharBase::GetOnDeathDelegate()
+{
+	return OnDeathDelegate;
 }
 
 void AMyCharBase::MulticastHandleDeath_Implementation()
@@ -109,6 +117,7 @@ void AMyCharBase::MulticastHandleDeath_Implementation()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	
 	Dissolve();
+	OnDeathDelegate.Broadcast(this);
 }
 
 

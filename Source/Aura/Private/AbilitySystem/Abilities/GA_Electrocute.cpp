@@ -29,6 +29,11 @@ void UGA_Electrocute::TraceFirstTarget()
 			FirstHitActorLocation=HitResult.ImpactPoint;
 		}
 	}
+	if (!FirstHitActor->Implements<UMyCombatInterface>())return;
+	if (!Cast<IMyCombatInterface>(FirstHitActor)->GetOnDeathDelegate().IsAlreadyBound(this,&ThisClass::FirstTargetDied))
+	{
+		Cast<IMyCombatInterface>(FirstHitActor)->GetOnDeathDelegate().AddDynamic(this,&ThisClass::FirstTargetDied);
+	}
 }
 
 void UGA_Electrocute::AddAdditionalTargets()
@@ -54,9 +59,13 @@ void UGA_Electrocute::AddAdditionalTargets()
 	
 	for (FOverlapResult OverlapResult:OverlapResults)
 	{
-		if (OverlapResult.GetActor()->Implements<UMyCombatInterface>())
+		if (OverlapResult.GetActor()->Implements<UMyCombatInterface>() && !IMyCombatInterface::Execute_IsDead(OverlapResult.GetActor()))
 		{
 			AdditionalTargets.AddUnique(OverlapResult.GetActor());
+			if (!Cast<IMyCombatInterface>(OverlapResult.GetActor())->GetOnDeathDelegate().IsAlreadyBound(this,&ThisClass::AdditionalTargetDied))
+			{
+				Cast<IMyCombatInterface>(OverlapResult.GetActor())->GetOnDeathDelegate().AddDynamic(this,&ThisClass::AdditionalTargetDied);
+			}
 		}
 	}
 }

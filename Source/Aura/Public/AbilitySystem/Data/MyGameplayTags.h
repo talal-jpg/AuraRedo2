@@ -38,6 +38,7 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Projectile)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_HitReact)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Electrocute)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shards)
 	
 	//AbilityStatuses
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Locked)
@@ -53,6 +54,7 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_FireBolt)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Projectile)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Electrocute)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Shards)
 	
 	// EventTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_XPGained)
@@ -64,6 +66,7 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_FireballBurst)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_ElectrocuteBurst)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_ElectrocuteLooping)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Shards)
 	
 	//StateTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Channeling)

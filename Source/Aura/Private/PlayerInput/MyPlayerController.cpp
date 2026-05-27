@@ -13,6 +13,7 @@
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Actors/MyTargetDecalActor.h"
 #include "Components/SplineComponent.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/MyHighlightInterface.h"
@@ -35,6 +36,7 @@ void AMyPlayerController::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	AutoMove();
 	CursorTrace();
+	UpdateDamageCircle();
 }
 
 void AMyPlayerController::SetupInputComponent()
@@ -158,6 +160,30 @@ void AMyPlayerController::ReleasedFunc(FGameplayTag InputTag)
 			SplineComp->UpdateSpline();
 			bIsAutoRunning=true;
 		}
+	}
+}
+
+void AMyPlayerController::ShowDamageCircle()
+{
+	
+	FActorSpawnParameters SpawnParams;
+	
+	 TargetDecalActor= GetWorld()->SpawnActor<AMyTargetDecalActor>(TargetDecalActorClass,HitResult.ImpactPoint,FRotator(0,0,0),SpawnParams);
+}
+
+void AMyPlayerController::HideDamageCircle()
+{
+	if (IsValid(TargetDecalActor))
+	{
+		TargetDecalActor->Destroy();
+	}
+}
+
+void AMyPlayerController::UpdateDamageCircle()
+{
+	if (IsValid(TargetDecalActor))
+	{
+		TargetDecalActor->SetActorLocation(HitResult.ImpactPoint);
 	}
 }
 
