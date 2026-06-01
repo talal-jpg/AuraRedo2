@@ -24,6 +24,4 @@ class AURA_API UMVVM_LoadSlot : public UMVVMViewModelBase
 	UPROPERTY(BlueprintAssignable)
 	FSwitchWidgetDelegateSignature SwitchWidgetDelegate;
 	
-	
-	
 };

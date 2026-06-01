@@ -89,6 +89,16 @@ FVector AMyCharBase::GetCombatSocketLocation_Implementation()
 	return WeaponMesh->GetSocketLocation(FName("CombatSocket"));
 }
 
+bool AMyCharBase::IsShooting_Implementation()
+{
+	return bIsShooting;
+}
+
+void AMyCharBase::SetIsShooting_Implementation(bool InbIsShooting)
+{
+	bIsShooting=InbIsShooting;
+}
+
 void AMyCharBase::Die()
 {
 	WeaponMesh->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepWorld,true));

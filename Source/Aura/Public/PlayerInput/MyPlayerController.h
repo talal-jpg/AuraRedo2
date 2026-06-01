@@ -42,6 +42,10 @@ public:
 	void AutoMove();
 	
 	FHitResult HitResult;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector AimLocation;
+	
 	FVector CachedLocation;
 	
 	UPROPERTY(EditAnywhere)

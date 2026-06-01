@@ -9,6 +9,8 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Input_None,"Input.None")
 	UE_DEFINE_GAMEPLAY_TAG(Input_LMB,"Input.LMB")
 	UE_DEFINE_GAMEPLAY_TAG(Input_RMB,"Input.RMB")
+	UE_DEFINE_GAMEPLAY_TAG(Input_Space,"Input.Space")
+	
 	
 	// MessageTags
 	UE_DEFINE_GAMEPLAY_TAG(Message,"Message")
@@ -46,6 +48,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Electrocute,"Ability.Electrocute")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shards,"Ability.Shards")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Launch,"Ability.Launch")
 	
 	//AbilityStatuses
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Locked,"Ability.Status.Locked")

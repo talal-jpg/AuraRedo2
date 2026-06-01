@@ -44,6 +44,12 @@ public:
 	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
 	void SetChanneling(bool bIsChanneling);
 	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	bool IsShooting();
+	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	void SetIsShooting(bool bIsShooting);
+	
 	virtual FOnDeathDelegateSignature& GetOnDeathDelegate() = 0;
 	
 };

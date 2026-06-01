@@ -14,7 +14,9 @@
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Actors/MyTargetDecalActor.h"
+#include "Character/MyCharPlayer.h"
 #include "Components/SplineComponent.h"
+#include "Engine/SkeletalMeshSocket.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/MyHighlightInterface.h"
 #include "Kismet/GameplayStatics.h"
@@ -37,6 +39,8 @@ void AMyPlayerController::Tick(float DeltaTime)
 	AutoMove();
 	CursorTrace();
 	UpdateDamageCircle();
+	
+	// UKismetSystemLibrary::PrintString(GetWorld(),AimLocation.ToString());
 }
 
 void AMyPlayerController::SetupInputComponent()
@@ -108,9 +112,28 @@ void AMyPlayerController::AutoMove()
 
 void AMyPlayerController::CursorTrace()
 {
-	GetHitResultUnderCursor(ECC_Visibility,false,HitResult);
+	//TODO Fix TraceComplex?
+	GetHitResultUnderCursor(ECC_Visibility,true,HitResult);
+	
+	AimLocation=HitResult.ImpactPoint;
+	DrawDebugSphere(GetWorld(),HitResult.ImpactPoint,10,10,FColor::Red,false,0.1f);
+	
+	AMyCharBase* MyCharBase=Cast<AMyCharBase>(GetPawn());
+	
+	USkeletalMeshComponent* Skel=MyCharBase->GetMesh();
+	if (Skel)
+	{
+		FVector BoneLoc= Skel->GetBoneLocation(FName("LA_point_3"));
+		if (!BoneLoc.ContainsNaN())
+		{
+			DrawDebugLine(GetWorld(),BoneLoc,HitResult.ImpactPoint,FColor::Red,false,0.1f);
+		}
+		
+	}
+	
 	LastActor=ThisActor;
 	ThisActor=Cast<IMyHighlightInterface>(HitResult.GetActor());
+	
 	// if (!HitResult.bBlockingHit) return;
 	if (ThisActor)
 	{

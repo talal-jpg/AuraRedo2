@@ -66,7 +66,6 @@ protected:
 	virtual void GivePassiveStartupAbilities();
 	
 	
-	virtual FVector GetCombatSocketLocation_Implementation() override;
 	
 	virtual void Die() override;
 	
@@ -81,6 +80,17 @@ protected:
 	FOnDeathDelegateSignature OnDeathDelegate;
 	
 	virtual FOnDeathDelegateSignature& GetOnDeathDelegate() override; 
+	
+	//CombatIF
+	
+	UPROPERTY(BlueprintReadWrite)
+	bool bIsShooting=false;
+	
+	virtual FVector GetCombatSocketLocation_Implementation() override;
+	
+	virtual bool IsShooting_Implementation() override;
+	
+	virtual void SetIsShooting_Implementation(bool InbIsShooting) override;
 public:	
 
 };
