@@ -47,6 +47,9 @@ public:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	bool bIsChanneling=false;
 	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	bool bIsFlying= false;
+	
 	
 	//MyPlayerIF
 	
@@ -78,5 +81,9 @@ public:
 	virtual bool IsChanneling_Implementation() override;
 	
 	virtual void SetChanneling_Implementation(bool InbIsChanneling) override;
+	
+	virtual void SetIsFlying_Implementation(bool InbIsFlying) override;	
+	
+	virtual bool IsFlying_Implementation() override;
 	
 };

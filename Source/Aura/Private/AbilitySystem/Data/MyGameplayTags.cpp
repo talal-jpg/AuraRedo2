@@ -49,6 +49,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Electrocute,"Ability.Electrocute")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shards,"Ability.Shards")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Launch,"Ability.Launch")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_GunShoot,"Ability.GunShoot")
 	
 	//AbilityStatuses
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Locked,"Ability.Status.Locked")
@@ -62,6 +63,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Projectile,"Ability.Cooldown.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Electrocute,"Ability.Cooldown.Electrocute")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Shards,"Ability.Cooldown.Shards")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_GunShoot,"Ability.Cooldown.GunShoot")
 	
 	// EventTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")

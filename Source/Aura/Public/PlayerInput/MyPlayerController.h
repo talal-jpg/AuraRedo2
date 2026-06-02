@@ -43,9 +43,6 @@ public:
 	
 	FHitResult HitResult;
 	
-	UPROPERTY(BlueprintReadOnly)
-	FVector AimLocation;
-	
 	FVector CachedLocation;
 	
 	UPROPERTY(EditAnywhere)
@@ -54,20 +51,37 @@ public:
 	float PressedTime=0.f;
 	float PressedTimeThreshold=2.2f;
 	bool bIsAutoRunning=false;
-	bool bIsTargeting=false;
 	
 	UPROPERTY()
 	USplineComponent* SplineComp;
-	
-	
-	UPROPERTY(EditAnywhere)
-	TSubclassOf<AMyTargetDecalActor> TargetDecalActorClass;
 	
 	void CursorTrace();
 	
 	IMyHighlightInterface* ThisActor;
 	
 	IMyHighlightInterface* LastActor;
+	
+	//AutoMoveEnd
+	
+	
+	// AimLocation
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector AimLocation=FVector::ZeroVector;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector TargetLocation=FVector::ZeroVector;
+	
+	bool bIsTargeting=false;
+	
+	UPROPERTY(EditAnywhere ,Category = "Aim")
+	float ViewSpan= 270;
+	
+	void SetAimLocation();
+	
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AMyTargetDecalActor> TargetDecalActorClass;
 	
 	
 	UPROPERTY(EditAnywhere)

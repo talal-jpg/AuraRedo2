@@ -42,6 +42,7 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Electrocute)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shards)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Launch)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_GunShoot)
 	
 	//AbilityStatuses
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Status_Locked)
@@ -58,6 +59,7 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Projectile)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Electrocute)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Shards)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_GunShoot)
 	
 	// EventTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_XPGained)

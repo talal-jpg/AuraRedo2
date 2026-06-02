@@ -231,6 +231,16 @@ void AMyCharPlayer::SetChanneling_Implementation(bool InbIsChanneling)
 	bIsChanneling=InbIsChanneling;
 }
 
+void AMyCharPlayer::SetIsFlying_Implementation(bool InbIsFlying)
+{
+	bIsFlying=InbIsFlying;
+}
+
+bool AMyCharPlayer::IsFlying_Implementation()
+{
+	return bIsFlying;
+}
+
 
 
 

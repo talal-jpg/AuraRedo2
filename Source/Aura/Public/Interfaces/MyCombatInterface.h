@@ -48,6 +48,12 @@ public:
 	bool IsShooting();
 	
 	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	bool IsFlying();
+	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
+	void SetIsFlying(bool bIsFlying);
+	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
 	void SetIsShooting(bool bIsShooting);
 	
 	virtual FOnDeathDelegateSignature& GetOnDeathDelegate() = 0;
