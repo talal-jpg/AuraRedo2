@@ -43,6 +43,8 @@ void AMyPlayerController::Tick(float DeltaTime)
 	// CursorTrace();
 	
 	GetHitResultUnderCursor(ECC_Visibility,true,HitResult);
+	// GetPawn()->AddControllerYawInput(10);
+	
 	
 	UpdateDamageCircle();
 	SetAimLocation();
@@ -53,13 +55,15 @@ void AMyPlayerController::Tick(float DeltaTime)
 void AMyPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
-	
 	UEnhancedInputLocalPlayerSubsystem* EnhancedInputSubsystem=ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer());
 	
 	EnhancedInputSubsystem->AddMappingContext(IMC_PlayerInputMappingContext,0);
 	
 	UMyInputComponent* MyInputComp=Cast<UMyInputComponent>(InputComponent);
 	MyInputComp->BindAction(IA_Move,ETriggerEvent::Triggered,this,&AMyPlayerController::Move);
+	// MyInputComp->BindAction(IA_Rotate,ETriggerEvent::Triggered,this,&AMyPlayerController::Rotate);
+	MyInputComp->BindAction(IA_Q,ETriggerEvent::Triggered,this,&AMyPlayerController::RotateLeft);
+	MyInputComp->BindAction(IA_E,ETriggerEvent::Triggered,this,&AMyPlayerController::RotateRight);
 	
 	MyInputComp->BindAbilityAction(InputConfig,this,&AMyPlayerController::PressedFunc,&AMyPlayerController::HeldFunc,&AMyPlayerController::ReleasedFunc);
 }
@@ -141,18 +145,30 @@ void AMyPlayerController::SetAimLocation()
 
 		float DeltaYaw = FMath::FindDeltaAngleDegrees(PawnYaw, TargetYaw);
 		
+		// float YawExcess= DeltaYaw-ViewSpan*.5;
+		
+		// bShouldRotate= DeltaYaw < -ViewSpan*.5 || DeltaYaw > ViewSpan*.5 ;
+		
+		// UKismetSystemLibrary::PrintString(GetWorld(),bShouldRotate ? TEXT("Rotate") : TEXT("No Rotate"),true,true,FLinearColor::Red,20);
+		
+		
 		float ClampedYaw = FMath::Clamp(DeltaYaw, -ViewSpan*.5, ViewSpan*.5);
 		
 		FRotator NewRot(FromPawnDir.Rotation().Pitch, PawnYaw + ClampedYaw, FromPawnDir.Rotation().Roll);
 		
 		FVector ClampedDir = NewRot.Vector();
 		
-		UKismetSystemLibrary::DrawDebugArrow(this,PawnLoc,PawnLoc+ClampedDir*1000,10,FLinearColor::Yellow,.1f,10);
+		// UKismetSystemLibrary::DrawDebugArrow(this,PawnLoc,PawnLoc+ClampedDir*1000,10,FLinearColor::Yellow,.1f,10);
 		
 		FVector ClampedImpact = PawnLoc + ClampedDir * Distance;
 		
 		AimLocation=ClampedImpact;
-		ProjectWorldLocationToScreenWithDistance(ClampedImpact,TargetLocation);
+		// ProjectWorldLocationToScreenWithDistance(ClampedImpact,TargetLocation);
+		ProjectWorldLocationToScreen(ClampedImpact,TargetLocation);
+		
+		
+		// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("AimLocation: %s"),*AimLocation.ToString()),true,true,FLinearColor::Black,20);
+		// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("TargetLocation: %s"),*TargetLocation.ToString()),true,true,FLinearColor::Black,20);
 	}
 	
 }
@@ -161,11 +177,15 @@ void AMyPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 	FInputModeGameAndUI InputMode;
+	FInputModeGameOnly InputMode2;
 	InputMode.SetHideCursorDuringCapture(false);
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	
-	SetInputMode(InputMode);
-	bShowMouseCursor=true;
+	//Important fix
+	InputMode2.SetConsumeCaptureMouseDown(false);
+	
+	SetInputMode(InputMode2);
+	// bShowMouseCursor=true;
 	
 	AMyPlayerState* PS=GetPlayerState<AMyPlayerState>();
 	
@@ -199,6 +219,17 @@ void AMyPlayerController::Move(const FInputActionValue& Value)
 	GetCharacter()->AddMovementInput(ForwardDir,InputVal.X);
 	GetCharacter()->AddMovementInput(RightVector,InputVal.Y);
 }
+
+void AMyPlayerController::RotateLeft(const FInputActionValue& Value)
+{
+	GetPawn()->AddControllerYawInput(-1);
+}
+
+void AMyPlayerController::RotateRight(const FInputActionValue& Value)
+{
+	GetPawn()->AddControllerYawInput(1);
+}
+
 
 void AMyPlayerController::AutoMove()
 {

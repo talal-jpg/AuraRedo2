@@ -86,4 +86,41 @@ public:
 	
 	virtual bool IsFlying_Implementation() override;
 	
+	// AimRot&Location
+	UPROPERTY(BlueprintReadOnly)
+	FVector ForwardVecChest=FVector::ZeroVector;
+	
+	UPROPERTY(BlueprintReadOnly)
+	float YawDelta=0.f;
+	
+	void LerpChestRotToRot();
+	
+	void LerpFeetRotToRot();
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector VelocityCharSpace=FVector::ZeroVector;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector ControlRotForwardVec=FVector::ZeroVector;
+	
+	//FeetIK
+	UPROPERTY(BlueprintReadOnly)
+	bool bFootLock_Left=false;
+	UPROPERTY(BlueprintReadOnly)
+	bool bFootLock_Right=false;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector FootLockLoc_L=FVector::ZeroVector;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector FootLockLoc_R=FVector::ZeroVector;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector FootLockNormal_L=FVector::ZeroVector;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector FootLockNormal_R=FVector::ZeroVector;
+	
+	void SetFootLockLoc();
+	
 };

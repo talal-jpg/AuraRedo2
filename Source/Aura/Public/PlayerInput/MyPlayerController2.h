@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MyPlayerController.generated.h"
+#include "MyPlayerController2.generated.h"
 
 class AMyTargetDecalActor;
 class UDamageTextWidgetComponent;
@@ -18,12 +18,12 @@ class UInputAction;
  * 
  */
 UCLASS()
-class AURA_API AMyPlayerController : public APlayerController
+class AURA_API AMyPlayerController2 : public APlayerController
 {
 	GENERATED_BODY()
 	
 public:
-	AMyPlayerController();
+	AMyPlayerController2();
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupInputComponent() override;
 	virtual void BeginPlay() override;
@@ -45,28 +45,14 @@ public:
 	
 	void Move(const FInputActionValue& Value);
 	
-	void RotateLeft(const FInputActionValue& Value);
-	void RotateRight(const FInputActionValue& Value);
+	void Rotate(const FInputActionValue& Value);
 	
 
 	/**
 	 * AutoMove
 	 */
-	void AutoMove();
 	
 	FHitResult HitResult;
-	
-	FVector CachedLocation;
-	
-	UPROPERTY(EditAnywhere)
-	float DistThreshold=500.f;
-	float MovementSpeed=100.f;
-	float PressedTime=0.f;
-	float PressedTimeThreshold=2.2f;
-	bool bIsAutoRunning=false;
-	
-	UPROPERTY()
-	USplineComponent* SplineComp;
 	
 	void CursorTrace();
 	
@@ -77,20 +63,31 @@ public:
 	//AutoMoveEnd
 	
 	
-	// AimLocation
+	// AimRot&Location
+	UPROPERTY(BlueprintReadOnly)
+	FVector ControlRotForwardVec= GetControlRotation().Vector();
 	
 	UPROPERTY(BlueprintReadOnly)
-	FVector AimLocation=FVector::ZeroVector;
+	float YawDelta=0;
 	
 	UPROPERTY(BlueprintReadOnly)
-	FVector2D TargetLocation=FVector2D::ZeroVector;
+	FVector RotChest= GetControlRotation().Vector();
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector RotFeet= RotChest;
+	
+	void LerpChestRotToRot();
+	
+	void LerpFeetRotToRot();
+	
+	//World location where bullet would hit
+	UPROPERTY(BlueprintReadOnly)
+	FVector TargetLocation=FVector::ZeroVector;
 	
 	bool bIsTargeting=false;
 	
 	UPROPERTY(EditAnywhere ,Category = "Aim")
 	float ViewSpan=270; 
-	
-	void SetAimLocation();
 	
 	bool bShouldRotate=false;
 	
