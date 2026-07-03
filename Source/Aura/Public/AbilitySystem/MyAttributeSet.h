@@ -54,7 +54,7 @@ class AURA_API UMyAttributeSet : public UAttributeSet
 public:
 	UMyAttributeSet();
 	
-	virtual void PostGameplayEffectExecute(FGameplayEffectModCallbackData& Data) override;
+	virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
 	
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	
@@ -90,6 +90,7 @@ public:
 	UFUNCTION()
 	void OnRep_MaxMana(const FGameplayAttributeData& OldMaxMana);
 	
+	virtual void BeginPlay();
 	/**
 	 *Primary Attributes
 	 */
@@ -208,4 +209,5 @@ public:
 private:
 	
 	void SetEffectProperties(const FGameplayEffectModCallbackData& Data, FEffectProperties& Props);
+	
 };

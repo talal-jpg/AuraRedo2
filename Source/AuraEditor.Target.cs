@@ -8,8 +8,22 @@ public class AuraEditorTarget : TargetRules
 	public AuraEditorTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
-		DefaultBuildSettings = BuildSettingsVersion.V5;
+		DefaultBuildSettings = BuildSettingsVersion.V7;
 
-		ExtraModuleNames.AddRange( new string[] { "Aura" } );
+		ExtraModuleNames.AddRange(new string[] { "Aura" });
 	}
 }
+//
+// using UnrealBuildTool;
+// using System.Collections.Generic;
+//
+// public class AuraEditorTarget : TargetRules
+// {
+// 	public AuraEditorTarget(TargetInfo Target) : base(Target)
+// 	{
+// 		Type = TargetType.Editor;
+// 		DefaultBuildSettings = BuildSettingsVersion.V5;
+//
+// 		ExtraModuleNames.AddRange( new string[] { "Aura" } );
+// 	}
+// }

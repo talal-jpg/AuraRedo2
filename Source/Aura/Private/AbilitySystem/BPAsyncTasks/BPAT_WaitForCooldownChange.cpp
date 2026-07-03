@@ -46,7 +46,7 @@ void UBPAT_WaitForCooldownChange::EndTask()
 	MarkAsGarbage();
 }
 
-void UBPAT_WaitForCooldownChange::OnCooldownStartedCallback(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& GESpec,FActiveGameplayEffectHandle ActiveGameplayEffectHandle)
+void UBPAT_WaitForCooldownChange::OnCooldownStartedCallback(UAbilitySystemComponent* InASC, const FGameplayEffectSpec& GESpec,FActiveGameplayEffectHandle ActiveGameplayEffectHandle)
 {
 	FGameplayTagContainer GrantedTags;
 	GESpec.GetAllGrantedTags(GrantedTags);

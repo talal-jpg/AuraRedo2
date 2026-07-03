@@ -24,7 +24,7 @@ struct FEnemyCharClassInfo
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere)
-	ECharacterClass Class;
+	ECharacterClass Class=ECharacterClass::Warrior;
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UGameplayEffect> PrimaryAttributesEffect;

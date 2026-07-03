@@ -31,7 +31,7 @@ public:
 	FVector GetCombatSocketLocation();
 	
 	UFUNCTION(BlueprintNativeEvent,BlueprintCallable)
-	void SetLookAtTarget(FVector TargetLocation);
+	void SetLookAtTarget(FVector InTargetLocation);
 	
 	virtual void Die();
 	

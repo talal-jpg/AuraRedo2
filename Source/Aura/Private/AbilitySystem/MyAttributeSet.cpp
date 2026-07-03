@@ -43,7 +43,7 @@ UMyAttributeSet::UMyAttributeSet()
 	TagToAttributeMap.Add(MyTags::Attribute_Secondary_AttackDamage,GetAttackDamageAttribute());
 }
 
-void UMyAttributeSet::PostGameplayEffectExecute(FGameplayEffectModCallbackData& Data)
+void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
 	Super::PostGameplayEffectExecute(Data);
 	
@@ -225,6 +225,11 @@ void UMyAttributeSet::OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth
 void UMyAttributeSet::OnRep_MaxMana(const FGameplayAttributeData& OldMaxMana)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UMyAttributeSet,MaxMana,OldMaxMana);
+}
+
+void UMyAttributeSet::BeginPlay()
+{
+	UKismetSystemLibrary::PrintString(this,std::to_string(GetHealth()).c_str());
 }
 
 void UMyAttributeSet::OnRep_Strength(const FGameplayAttributeData& OldStrength)

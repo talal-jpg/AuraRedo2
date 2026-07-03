@@ -85,6 +85,17 @@ void UMyBPFuncLib::InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,U
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*GESpecHandleVital.Data.Get());
 }
 
+void UMyBPFuncLib::CancelAbilitiesWithTags(UAbilitySystemComponent* AbilitySystemComponent,const FGameplayTagContainer& WithTags)
+{
+	
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	AbilitySystemComponent->CancelAbilities(&WithTags, nullptr, nullptr);
+}
+
 void UMyBPFuncLib::SetIsCrit(FGameplayEffectContextHandle& GEContextHandle, bool bIsCrit)
 {
 	FHitResult NewHit = FHitResult();

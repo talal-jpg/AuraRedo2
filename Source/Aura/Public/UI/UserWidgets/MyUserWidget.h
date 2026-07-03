@@ -10,7 +10,7 @@ class UMyWidgetController;
 /**
  * 
  */
-UCLASS()
+UCLASS(BlueprintType,Blueprintable)
 class AURA_API UMyUserWidget : public UUserWidget
 {
 	GENERATED_BODY()

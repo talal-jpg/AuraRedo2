@@ -14,13 +14,13 @@ struct FLevelUpInfo
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere)
-	int32 NextLevelXP;
+	int32 NextLevelXP=0;
 	
 	UPROPERTY(EditAnywhere)
-	int32 AttributePointsReward;
+	int32 AttributePointsReward=0;
 	
 	UPROPERTY(EditAnywhere)
-	int32 SpellPointsReward;
+	int32 SpellPointsReward=0;
 	
 	UPROPERTY(EditAnywhere)
 	TArray<TSubclassOf<UGameplayAbility>> AbilitiesUnlocked;

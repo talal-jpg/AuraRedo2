@@ -122,9 +122,11 @@ FGameplayTag UMyAbilitySystemComponent::GetStatusTagFromSpec(const FGameplayAbil
 
 void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
 {
+	if (!bAbilitiesGiven)return;
 	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
-	for (auto AbilitySpec:GetActivatableAbilities())
+	for (FGameplayAbilitySpec& AbilitySpec:GetActivatableAbilities())
 	{
+		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("AbilityInputPressed") + InputTag.ToString());
 		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag)){
 			// TryActivateAbility(AbilitySpec.Handle);
 			//Assuming the ability is active and the Ability is instanced per actor
@@ -144,11 +146,11 @@ void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
 void UMyAbilitySystemComponent::AbilityInputHeld(FGameplayTag InputTag)
 {
 	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
-	for (auto AbilitySpec: GetActivatableAbilities())
+	for (FGameplayAbilitySpec& AbilitySpec: GetActivatableAbilities())
 	{
 		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 		{
-			AbilitySpecInputPressed(AbilitySpec);
+			// AbilitySpecInputPressed(AbilitySpec);
 			if (!AbilitySpec.IsActive())
 			{
 				TryActivateAbility(AbilitySpec.Handle);
@@ -161,7 +163,7 @@ void UMyAbilitySystemComponent::AbilityInputReleased(FGameplayTag InputTag)
 {
 	// UKismetSystemLibrary::PrintString(this,TEXT("AbilityInputReleased") + InputTag.ToString());
 	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
-	for (auto AbilitySpec: GetActivatableAbilities())
+	for (FGameplayAbilitySpec& AbilitySpec: GetActivatableAbilities())
 	{
 		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 		{

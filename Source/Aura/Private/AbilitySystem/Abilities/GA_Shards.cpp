@@ -3,6 +3,8 @@
 
 #include "AbilitySystem/Abilities/GA_Shards.h"
 
+#include "CollisionQueryParams.h"
+#include "Engine/OverlapResult.h"
 #include "Interfaces/MyCombatInterface.h"
 
 

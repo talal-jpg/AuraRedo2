@@ -76,7 +76,7 @@ public:
 	
 	//MyCombatIF
 	
-	virtual void SetLookAtTarget_Implementation(FVector TargetLocation) override;
+	virtual void SetLookAtTarget_Implementation(FVector InTargetLocation) override;
 	
 	virtual bool IsChanneling_Implementation() override;
 	
@@ -87,8 +87,13 @@ public:
 	virtual bool IsFlying_Implementation() override;
 	
 	// AimRot&Location
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadWrite)
 	FVector ForwardVecChest=FVector::ZeroVector;
+	
+	FHitResult HitResultLineTrace;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FVector TargetLocation=FVector::ZeroVector;
 	
 	UPROPERTY(BlueprintReadOnly)
 	float YawDelta=0.f;
@@ -100,8 +105,8 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	FVector VelocityCharSpace=FVector::ZeroVector;
 	
-	UPROPERTY(BlueprintReadOnly)
-	FVector ControlRotForwardVec=FVector::ZeroVector;
+	// UPROPERTY(BlueprintReadOnly)
+	// FVector ControlRotForwardVec=FVector::ZeroVector;
 	
 	//FeetIK
 	UPROPERTY(BlueprintReadOnly)

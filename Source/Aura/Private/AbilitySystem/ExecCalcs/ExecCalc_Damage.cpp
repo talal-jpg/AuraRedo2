@@ -60,6 +60,7 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 	
 	float Damage=Spec.GetSetByCallerMagnitude(MyTags::SetDamageByCaller);
 	
+	// Damage=100;
 	
 	// TODO best way to add tags to the target is to make a GameplayEffect from a static class and apply to target 
 	
@@ -90,10 +91,10 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 		UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Blocked"));
 	}
 	
-	Damage= bIsBlocked ? Damage* .5f : Damage;
-	Damage= bIsCrit ? Damage* 2.f : Damage;
+	// Damage= bIsBlocked ? Damage* .5f : Damage;
+	// Damage= bIsCrit ? Damage* 2.f : Damage;
 	
-	FGameplayModifierEvaluatedData EvaluatedData(DamageStatics().IncomingDamageProperty,EGameplayModOp::Additive,Damage);
+	FGameplayModifierEvaluatedData EvaluatedData(DamageStatics().IncomingDamageProperty,EGameplayModOp::Override,Damage);
 	OutExecutionOutput.AddOutputModifier(EvaluatedData);
 	
 }

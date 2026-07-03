@@ -3,8 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameFramework/PlayerController.h"
 #include "MyPlayerController2.generated.h"
 
+class UMyAbilitySystemComponent;
 class AMyTargetDecalActor;
 class UDamageTextWidgetComponent;
 struct FGameplayTag;
@@ -14,6 +16,7 @@ class IMyHighlightInterface;
 struct FInputActionValue;
 class UInputMappingContext;
 class UInputAction;
+struct FHitResult;
 /**
  * 
  */
@@ -28,6 +31,11 @@ public:
 	virtual void SetupInputComponent() override;
 	virtual void BeginPlay() override;
 	
+	UPROPERTY()
+	UMyAbilitySystemComponent* MyAbilitySystemComponent;
+	
+	UMyAbilitySystemComponent* GetMyASC();
+	
 	UPROPERTY(EditAnywhere)
 	UInputMappingContext* IMC_PlayerInputMappingContext;
 	
@@ -38,14 +46,23 @@ public:
 	UInputAction* IA_Rotate;
 	
 	UPROPERTY(EditAnywhere)
+	UInputAction* IA_Jump;
+	
+	UPROPERTY(EditAnywhere)
 	UInputAction* IA_Q;
 	
 	UPROPERTY(EditAnywhere)
 	UInputAction* IA_E;
 	
+	UPROPERTY(BlueprintReadOnly)
+	FVector2D FlyBoostingMoveInput=FVector2D::ZeroVector;
+	
 	void Move(const FInputActionValue& Value);
+	void MoveCompleted(const FInputActionValue& Value);
 	
 	void Rotate(const FInputActionValue& Value);
+	
+	void Jump(const FInputActionValue& Value);
 	
 
 	/**
@@ -53,6 +70,8 @@ public:
 	 */
 	
 	FHitResult HitResult;
+	
+	FHitResult HitResultLineTrace;
 	
 	void CursorTrace();
 	

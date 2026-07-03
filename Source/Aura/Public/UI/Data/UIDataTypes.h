@@ -14,7 +14,7 @@ struct FPopupWidgetInfo : public FTableRowBase
 	FGameplayTag MessageTag;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
-	UTexture2D* MessageImage;
+	UTexture2D* MessageImage= nullptr;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	FText Message;

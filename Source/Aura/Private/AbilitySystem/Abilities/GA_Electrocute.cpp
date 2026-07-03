@@ -5,6 +5,9 @@
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemGlobals.h"
+#include "CollisionQueryParams.h"
+#include "CollisionShape.h"
+#include "Engine/OverlapResult.h"
 #include "Interfaces/MyCombatInterface.h"
 #include "Kismet/KismetSystemLibrary.h"
 

@@ -11,6 +11,10 @@
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "AbilitySystem/Data/MyLevelUpInfo.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/Engine.h"
+#include "Engine/GameViewportClient.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "UI/MyHUD.h"
@@ -44,7 +48,9 @@ AMyCharPlayer::AMyCharPlayer()
 void AMyCharPlayer::BeginPlay()
 {
 	Super::BeginPlay();
+	// GetMesh()->SetWorldRotation(FRotator(0,0,0));
 	
+	// GetCharacterMovement()->NetworkSmoothingMode = ENetworkSmoothingMode::Disabled;
 	
 }
 
@@ -55,9 +61,71 @@ void AMyCharPlayer::Tick(float DeltaTime)
 	LerpChestRotToRot();
 	LerpFeetRotToRot();
 	
-	VelocityCharSpace=GetMesh()->GetComponentTransform().InverseTransformVector(GetMovementComponent()->Velocity);
-	ControlRotForwardVec= FVector(GetControlRotation().Vector().X,GetControlRotation().Vector().Y,0);
-	SetFootLockLoc();
+	VelocityCharSpace=(GetMesh()->GetComponentTransform().InverseTransformVector(GetMovementComponent()->Velocity)).GetSafeNormal();
+	// ControlRotForwardVec= FVector(GetControlRotation().Vector().X,GetControlRotation().Vector().Y,0);
+	// SetFootLockLoc();
+	
+	FVector DirFromCam;
+	FVector PosInWorld;
+	
+	FVector2D ViewportSize=FVector2D::ZeroVector;
+	
+	if (GEngine && GEngine->GameViewport)
+	{
+		 GEngine->GameViewport.Get()->GetViewportSize(ViewportSize);
+	}
+	
+	// const float OffsetInScreenY=-200;
+	const float OffsetInScreenY=0;
+	
+	//TODO if Sim Proxy Actor Loc Actor Rot line trace 
+	
+	// if (GetLocalRole()== ENetRole::ROLE_Authority || GetLocalRole()== ENetRole::ROLE_AutonomousProxy)
+	if (IsLocallyControlled())
+	{
+		
+		APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	
+		if (!PC)return;
+		PC->DeprojectScreenPositionToWorld(ViewportSize.X*.5f,ViewportSize.Y*.5f+OffsetInScreenY,PosInWorld,DirFromCam);
+	
+		FCollisionQueryParams CollisionQueryParams;
+		CollisionQueryParams.AddIgnoredActor(this);
+	
+		//1000 in front is too far TODO Fix
+		bool bHit=GetWorld()->LineTraceSingleByChannel(HitResultLineTrace,PosInWorld+DirFromCam*10,PosInWorld+DirFromCam*FLT_MAX,ECC_Visibility,CollisionQueryParams);
+	
+		if (bHit)
+		{
+			TargetLocation= HitResultLineTrace.ImpactPoint;
+		}
+		else
+		{
+			TargetLocation= PosInWorld+DirFromCam*1000;
+		}
+	}
+	else if (!IsLocallyControlled())
+	{
+		FCollisionQueryParams CollisionQueryParams;
+		CollisionQueryParams.AddIgnoredActor(this);
+		//Height of shoulder= 110
+		PosInWorld= GetActorLocation();
+		DirFromCam= GetActorRotation().Vector();
+	
+		//1000 in front is too far TODO Fix
+		bool bHit=GetWorld()->LineTraceSingleByChannel(HitResultLineTrace,PosInWorld+DirFromCam*10,PosInWorld+DirFromCam*FLT_MAX,ECC_Visibility,CollisionQueryParams);
+	
+		if (bHit)
+		{
+			TargetLocation= HitResultLineTrace.ImpactPoint;
+		}
+		else
+		{
+			TargetLocation= PosInWorld+DirFromCam*1000;
+		}
+	}
+	
+	UKismetSystemLibrary::DrawDebugSphere(GetWorld(),TargetLocation,100,12,FLinearColor::Yellow,false,0.1f);
 }
 
 void AMyCharPlayer::OnRep_PlayerState()
@@ -72,6 +140,7 @@ void AMyCharPlayer::OnRep_PlayerState()
 			{
 				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("OnRep_PlayerState"));
+				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
 				InitializeAttributes();
 				GiveStartupAbilities();
@@ -100,6 +169,7 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 			{
 				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
+				MyAttributeSet= MyPlayerState->MyAttributeSet;
 				InitializeAttributes();
 				GiveStartupAbilities();
 				GivePassiveStartupAbilities();
@@ -224,7 +294,7 @@ void AMyCharPlayer::LevelUp_Implementation()
 
 }
 
-void AMyCharPlayer::SetLookAtTarget_Implementation(FVector TargetLocation)
+void AMyCharPlayer::SetLookAtTarget_Implementation(FVector InTargetLocation)
 {
 }
 
@@ -248,28 +318,39 @@ bool AMyCharPlayer::IsFlying_Implementation()
 	return bIsFlying;
 }
 
-
 void AMyCharPlayer::LerpChestRotToRot()
 {
-	const float AmountToRotateEachTimerTick=.1f;
 	// RotChest= FMath::Lerp(RotChest,ForwardVecRigSpace,AmountToRotateEachTimerTick);
-	ForwardVecChest=FMath::Lerp(GetMesh()->GetComponentRotation().Vector(),GetControlRotation().Vector(),AmountToRotateEachTimerTick);
 }
 
 void AMyCharPlayer::LerpFeetRotToRot()
 {
-	const float AmountToRotateEachTimerTick=.05f;
+	if (GetAbilitySystemComponent() && GetAbilitySystemComponent()->HasMatchingGameplayTag(MyTags::State_Channeling))return;
+	const float AmountToRotateEachTimerTick=.2f;
 	// RotFeet= FMath::Lerp(RotFeet,GetControlRotation().Vector(),AmountToRotateEachTimerTick);
 	
-	FRotator ControlRot=GetControlRotation();
-	ControlRot.Pitch=0;
-	FRotator NewRot=FMath::Lerp(GetMesh()->GetComponentRotation(),ControlRot,AmountToRotateEachTimerTick);
-	YawDelta = FMath::FindDeltaAngleDegrees(NewRot.Yaw, ControlRot.Yaw);
+	// FRotator ControlRot=GetControlRotation();
+	FRotator CharRot= GetActorRotation();
+	// TODO if flying do not set pitch to 0 
+	CharRot.Pitch=0;
+	FRotator NewRot=FMath::Lerp(SceneComponentToRotateCharMesh->GetComponentRotation(),CharRot,AmountToRotateEachTimerTick);
+	YawDelta = FMath::FindDeltaAngleDegrees(NewRot.Yaw, CharRot.Yaw);
 	// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("YawDelta: %f"),YawDelta),true,true,FLinearColor::Red,1.f);
 	// FVector PawnLoc=GetPawn()->GetActorLocation();
 	// UKismetSystemLibrary::DrawDebugArrow(GetWorld(),PawnLoc,PawnLoc+NewRot.Vetor()*1000,10,FLinearColor::Yellow,.1f,10);
-	GetMesh()->SetWorldRotation(NewRot);
-	// GetPawn()->SetActorRotation(NewRot);
+	// GetMesh()->SetWorldRotation(NewRot);
+	SceneComponentToRotateCharMesh->SetWorldRotation(NewRot);
+	// SetActorRotation(NewRot);
+	const float AmountToRotateEachTimerTickChest=.08f;
+	ForwardVecChest=FMath::Lerp(ForwardVecChest,SceneComponentToRotateCharMesh->GetComponentRotation().Vector(),AmountToRotateEachTimerTickChest);
+	// if (GetLocalRole()==ROLE_Authority || GetLocalRole()==ROLE_AutonomousProxy)
+	// {
+	// 	UKismetSystemLibrary::DrawDebugLine(GetWorld(),GetActorLocation(),GetActorLocation()+ForwardVecChest*1000,FLinearColor::Red,true,10);
+	// }
+	if (GetLocalRole()==ROLE_SimulatedProxy)
+	{
+		UKismetSystemLibrary::DrawDebugLine(GetWorld(),GetActorLocation(),GetActorLocation()+ForwardVecChest*1000,FLinearColor::Red,true,10);
+	}
 }
 
 void AMyCharPlayer::SetFootLockLoc()

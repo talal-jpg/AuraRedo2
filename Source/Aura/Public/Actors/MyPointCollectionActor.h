@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "MyPointCollectionActor.generated.h"
 
+
+class UBillboardComponent;
 UCLASS()
 class AURA_API AMyPointCollectionActor : public AActor
 {

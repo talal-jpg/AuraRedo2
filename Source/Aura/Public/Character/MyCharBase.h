@@ -13,6 +13,7 @@ class UGameplayAbility;
 class UMyAttributeSet;
 class UMyAbilitySystemComponent;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMovementModeChangedDelegateSignature,EMovementMode,PrevMovementMode);
 UCLASS(Abstract)
 class AURA_API AMyCharBase : public ACharacter, public IAbilitySystemInterface , public IMyCombatInterface
 {
@@ -39,12 +40,22 @@ public:
 	UPROPERTY(EditAnywhere,BlueprintReadOnly)
 	ECharacterClass CharacterClass;
 	
+	UPROPERTY(BlueprintAssignable)
+	FOnMovementModeChangedDelegateSignature OnMovementModeChangedDelegate;
 	
+	UFUNCTION(BlueprintCallable)
+	UMyAttributeSet* GetMyAttributeSet();
 
 protected:
 	
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mesh)
+	// USkeletalMeshComponent* WeaponMesh;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mesh)
-	USkeletalMeshComponent* WeaponMesh;
+	USceneComponent* SceneComponentToRotateCharMesh;
+	
+	UPROPERTY(EditAnywhere)
+	UStaticMeshComponent* JetPackMeshComponent;
 	
 	UPROPERTY(BlueprintReadOnly)
 	UMyAbilitySystemComponent* MyAbilitySystemComponent;
@@ -65,14 +76,15 @@ protected:
 	
 	virtual void GivePassiveStartupAbilities();
 	
+	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
 	
+	//CombatIF
 	
 	virtual void Die() override;
 	
 	virtual bool IsDead_Implementation() override{return bIsDead;};
 	
 	bool bIsDead=false;
-	
 	
 	UFUNCTION(NetMulticast,Reliable)
 	virtual void MulticastHandleDeath();
@@ -81,16 +93,21 @@ protected:
 	
 	virtual FOnDeathDelegateSignature& GetOnDeathDelegate() override; 
 	
+	
 	//CombatIF
 	
 	UPROPERTY(BlueprintReadWrite)
 	bool bIsShooting=false;
 	
+	UFUNCTION(NetMulticast,Reliable)
+	void MultiCastSetIsShooting(bool InbIsShooting);
+	
+	virtual void SetIsShooting_Implementation(bool InbIsShooting) override;
+	
 	virtual FVector GetCombatSocketLocation_Implementation() override;
 	
 	virtual bool IsShooting_Implementation() override;
 	
-	virtual void SetIsShooting_Implementation(bool InbIsShooting) override;
 public:	
 
 };

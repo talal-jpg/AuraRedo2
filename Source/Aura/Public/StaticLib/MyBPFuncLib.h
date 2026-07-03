@@ -6,6 +6,7 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "MyBPFuncLib.generated.h"
 
+class UAbilitySystemComponent;
 struct FGameplayEffectContextHandle;
 class UMyAbilitySystemComponent;
 enum class ECharacterClass : uint8;
@@ -32,6 +33,9 @@ class AURA_API UMyBPFuncLib : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category = "MyBPFuncLib")
 	static void InitializeEnemyAttributes(ECharacterClass IN_CharacterClass,UMyAbilitySystemComponent* MyAbilitySystemComponent,float IN_CharacterLevel);
 
+	UFUNCTION(BlueprintCallable, Category="Ability System")
+	static void CancelAbilitiesWithTags(UAbilitySystemComponent* AbilitySystemComponent,const FGameplayTagContainer& WithTags);
+	
 	
 public:
 	static void SetIsCrit(FGameplayEffectContextHandle& GEContextHandle, bool bIsCrit);

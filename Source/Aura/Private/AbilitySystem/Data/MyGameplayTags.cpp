@@ -10,6 +10,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Input_LMB,"Input.LMB")
 	UE_DEFINE_GAMEPLAY_TAG(Input_RMB,"Input.RMB")
 	UE_DEFINE_GAMEPLAY_TAG(Input_Space,"Input.Space")
+	UE_DEFINE_GAMEPLAY_TAG(Input_Shift,"Input.Shift")
 	
 	
 	// MessageTags
@@ -43,6 +44,8 @@ namespace MyTags
 	// AbilityTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_None,"Ability.None")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_JumpHover,"Ability.JumpHover")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Boost,"Ability.Boost")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_FireBolt,"Ability.FireBolt")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Projectile,"Ability.Projectile")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_HitReact,"Ability.HitReact")
@@ -50,6 +53,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shards,"Ability.Shards")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Launch,"Ability.Launch")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_GunShoot,"Ability.GunShoot")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Roll,"Ability.Roll")
 	
 	//AbilityStatuses
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Status_Locked,"Ability.Status.Locked")
@@ -79,6 +83,8 @@ namespace MyTags
 	
 	//StateTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Channeling,"State.Channeling")
+	UE_DEFINE_GAMEPLAY_TAG(State_CancelWhileChanneling,"State.CancelWhileChanneling")
+	UE_DEFINE_GAMEPLAY_TAG(State_Boosting,"State.Boosting")
 	
 	//SetByCallerMagTag
 	UE_DEFINE_GAMEPLAY_TAG(SetDamageByCaller,"SetDamageByCaller")

@@ -22,13 +22,13 @@ struct FWidgetControllerParams
 	FWidgetControllerParams(APlayerController* PC,APlayerState* PS,UMyAbilitySystemComponent* ASC, UMyAttributeSet* AS):PlayerController(PC),PlayerState(PS),AbilitySystemComponent(ASC),AttributeSet(AS)
 	{};
 	UPROPERTY()
-	APlayerController* PlayerController;
+	APlayerController* PlayerController=nullptr;
 	UPROPERTY()
-	APlayerState* PlayerState;
+	APlayerState* PlayerState=nullptr;
 	UPROPERTY()
-	UMyAbilitySystemComponent* AbilitySystemComponent;
+	UMyAbilitySystemComponent* AbilitySystemComponent=nullptr;
 	UPROPERTY()
-	UMyAttributeSet* AttributeSet;
+	UMyAttributeSet* AttributeSet=nullptr;
 };
 /**
  * 

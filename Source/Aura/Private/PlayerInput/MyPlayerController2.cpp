@@ -10,6 +10,8 @@
 #include "MyPlayerState.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
 #include "VectorUtil.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
@@ -19,6 +21,9 @@
 #include "Components/SplineComponent.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PawnMovementComponent.h"
+#include "GeometryCollection/GeometryCollectionParticlesData.h"
 #include "Interfaces/MyHighlightInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -53,20 +58,19 @@ void AMyPlayerController2::Tick(float DeltaTime)
 	int32 ViewportSizeX,ViewportSizeY;
 	GetViewportSize(ViewportSizeX,ViewportSizeY);
 	
-	const float OffsetInScreenY=-200;
+	// const float OffsetInScreenY=-200;
+	const float OffsetInScreenY=0;
 	DeprojectScreenPositionToWorld(ViewportSizeX*.5f,ViewportSizeY*.5f+OffsetInScreenY,PosInWorld,DirFromCam);
 	
 	FCollisionQueryParams CollisionQueryParams;
 	CollisionQueryParams.AddIgnoredActor(GetPawn());
 	
-	FHitResult HitResult;
-	
 	//1000 in front is too far TODO Fix
-	bool bHit=GetWorld()->LineTraceSingleByChannel(HitResult,PosInWorld+DirFromCam*1000,PosInWorld+DirFromCam*FLT_MAX,ECC_Visibility,CollisionQueryParams);
+	bool bHit=GetWorld()->LineTraceSingleByChannel(HitResultLineTrace,PosInWorld+DirFromCam*10,PosInWorld+DirFromCam*FLT_MAX,ECC_Visibility,CollisionQueryParams);
 	
 	if (bHit)
 	{
-		TargetLocation= HitResult.ImpactPoint;
+		TargetLocation= HitResultLineTrace.ImpactPoint;
 	}
 	else
 	{
@@ -104,7 +108,9 @@ void AMyPlayerController2::SetupInputComponent()
 	
 	UMyInputComponent* MyInputComp=Cast<UMyInputComponent>(InputComponent);
 	MyInputComp->BindAction(IA_Move,ETriggerEvent::Triggered,this,&AMyPlayerController2::Move);
+	MyInputComp->BindAction(IA_Move,ETriggerEvent::Completed,this,&AMyPlayerController2::MoveCompleted);
 	MyInputComp->BindAction(IA_Rotate,ETriggerEvent::Triggered,this,&AMyPlayerController2::Rotate);
+	MyInputComp->BindAction(IA_Jump,ETriggerEvent::Triggered,this,&AMyPlayerController2::Jump);
 	
 	MyInputComp->BindAbilityAction(InputConfig,this,&AMyPlayerController2::PressedFunc,&AMyPlayerController2::HeldFunc,&AMyPlayerController2::ReleasedFunc);
 }
@@ -131,9 +137,9 @@ void AMyPlayerController2::BeginPlay()
 	// GetWorldTimerManager().SetTimer(TimerHandleChest,this,&AMyPlayerController2::LerpChestRotToRot,TickRateChestTimer,true);
 	
 	
-	FTimerHandle TimerHandleFeet;
-	float TickRateFeetTimer= .1f;
-	GetWorldTimerManager().SetTimer(TimerHandleFeet,this,&AMyPlayerController2::LerpFeetRotToRot,TickRateFeetTimer,true);
+	// FTimerHandle TimerHandleFeet;
+	// float TickRateFeetTimer= .1f;
+	// GetWorldTimerManager().SetTimer(TimerHandleFeet,this,&AMyPlayerController2::LerpFeetRotToRot,TickRateFeetTimer,true);
 	
 	
 	
@@ -152,18 +158,46 @@ void AMyPlayerController2::BeginPlay()
 	// MovementSpeed=PS->MyAttributeSet->GetMoveSpeed();
 }
 
+UMyAbilitySystemComponent* AMyPlayerController2::GetMyASC()
+{
+	if (MyAbilitySystemComponent)return MyAbilitySystemComponent;
+	AMyPlayerState* MyPlayerState=GetPlayerState<AMyPlayerState>();
+	if (!MyPlayerState)return nullptr;
+	UMyAbilitySystemComponent* MyASC=MyPlayerState->MyAbilitySystemComponent;
+	return MyASC;
+}
+
 void AMyPlayerController2::Move(const FInputActionValue& Value)
 {
-	if (GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent->HasMatchingGameplayTag(MyTags::State_Channeling))return;
+	if (!GetMyASC())return;
+	if (GetMyASC()->HasMatchingGameplayTag(MyTags::State_Channeling))return;
 	
 	const FVector2d InputVal= Value.Get<FVector2d>();
 	
-	FRotationMatrix RotMat=FRotationMatrix(FRotator(0,GetControlRotation().Yaw,GetControlRotation().Roll));
+	FRotationMatrix RotMat=FRotationMatrix(GetControlRotation());
+	EMovementMode MovementMode=GetCharacter()->GetCharacterMovement()->MovementMode;
 	
-	FVector ForwardDir=RotMat.GetUnitAxis(EAxis::X);
-	FVector RightVector=RotMat.GetUnitAxis(EAxis::Y);
-	GetCharacter()->AddMovementInput(ForwardDir,InputVal.X);
-	GetCharacter()->AddMovementInput(RightVector,InputVal.Y);
+	//if flying boosting use complete rotator 
+	if (MovementMode== EMovementMode::MOVE_Flying && GetMyASC()->HasMatchingGameplayTag(MyTags::State_Boosting) )
+	{
+		RotMat=FRotationMatrix(FRotator(GetControlRotation()));
+		FlyBoostingMoveInput= InputVal;
+	}
+	else 
+	{
+		//MightNot need to 0 out here
+		FlyBoostingMoveInput= FVector2d(0,0);
+		RotMat=FRotationMatrix(FRotator(0,GetControlRotation().Yaw,GetControlRotation().Roll));
+		FVector ForwardDir=RotMat.GetUnitAxis(EAxis::X);
+		FVector RightVector=RotMat.GetUnitAxis(EAxis::Y);
+		GetCharacter()->AddMovementInput(ForwardDir,InputVal.X);
+		GetCharacter()->AddMovementInput(RightVector,InputVal.Y);
+	}
+}
+
+void AMyPlayerController2::MoveCompleted(const FInputActionValue& Value)
+{
+		FlyBoostingMoveInput= FVector2d(0,0);
 }
 
 void AMyPlayerController2::Rotate(const FInputActionValue& Value)
@@ -171,6 +205,12 @@ void AMyPlayerController2::Rotate(const FInputActionValue& Value)
 	FVector2d Val=Value.Get<FVector2d>();
 	GetPawn()->AddControllerYawInput(Val.X);
 	GetPawn()->AddControllerPitchInput(Val.Y);
+}
+
+void AMyPlayerController2::Jump(const FInputActionValue& Value)
+{
+	Cast<AMyCharBase>(GetPawn())->Jump();
+	
 }
 
 void AMyPlayerController2::CursorTrace()
@@ -218,6 +258,7 @@ void AMyPlayerController2::LerpChestRotToRot()
 
 void AMyPlayerController2::LerpFeetRotToRot()
 {
+	if (GetMyASC()->HasMatchingGameplayTag(MyTags::State_Channeling))return;
 	const float AmountToRotateEachTimerTick=.05f;
 	// RotFeet= FMath::Lerp(RotFeet,GetControlRotation().Vector(),AmountToRotateEachTimerTick);
 	
@@ -225,7 +266,7 @@ void AMyPlayerController2::LerpFeetRotToRot()
 	ControlRot.Pitch=0;
 	FRotator NewRot=FMath::Lerp(GetCharacter()->GetMesh()->GetComponentRotation(),ControlRot,AmountToRotateEachTimerTick);
 	YawDelta = FMath::FindDeltaAngleDegrees(NewRot.Yaw, ControlRot.Yaw);
-	UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("YawDelta: %f"),YawDelta),true,true,FLinearColor::Red,1.f);
+	// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("YawDelta: %f"),YawDelta),true,true,FLinearColor::Red,1.f);
 	FVector PawnLoc=GetPawn()->GetActorLocation();
 	// UKismetSystemLibrary::DrawDebugArrow(GetWorld(),PawnLoc,PawnLoc+NewRot.Vetor()*1000,10,FLinearColor::Yellow,.1f,10);
 	GetCharacter()->GetMesh()->SetWorldRotation(NewRot);
@@ -234,22 +275,25 @@ void AMyPlayerController2::LerpFeetRotToRot()
 
 void AMyPlayerController2::PressedFunc(FGameplayTag InputTag)
 {
-	if (!bIsTargeting)return;
-	UMyAbilitySystemComponent* MyASC=GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent;
+	// if (!bIsTargeting)return;
+	
+	UMyAbilitySystemComponent* MyASC=GetMyASC();
+	if (MyASC==nullptr)return;
 	MyASC->AbilityInputPressed(InputTag);
 }
 
 void AMyPlayerController2::HeldFunc(FGameplayTag InputTag)
 {
-	UMyAbilitySystemComponent* MyASC=GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent;
+	UMyAbilitySystemComponent* MyASC=GetMyASC();
+	if (MyASC==nullptr)return;
 	MyASC->AbilityInputHeld(InputTag);
 }
 
 void AMyPlayerController2::ReleasedFunc(FGameplayTag InputTag)
 {
-	UMyAbilitySystemComponent* MyASC=GetPlayerState<AMyPlayerState>()->MyAbilitySystemComponent;
+	UMyAbilitySystemComponent* MyASC=GetMyASC();
+	if (MyASC==nullptr)return;
 	MyASC->AbilityInputReleased(InputTag);
-	
 }
 
 void AMyPlayerController2::ShowDamageCircle()

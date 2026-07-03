@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "MyHexPlatform.generated.h"
 
+class AMyHexPillar;
+
 struct FHexCoord
 {
 	int32 Q;
@@ -39,7 +41,19 @@ public:
 	int32 HexRadius=1;
 	
 	UPROPERTY(EditAnywhere)
-	TSubclassOf<AActor> HexagonPillarActorClass;
+	TSubclassOf<AMyHexPillar> HexagonPillarActorClass;
+	
+	UPROPERTY()
+	TMap<FIntVector,AMyHexPillar*> HexMap;
 	
 	
+	TArray<FIntVector> ConsumedTiles;
+	
+	TArray<FIntVector> GetNeighbors(const FIntVector& Hex);
+	
+	TArray<FIntVector> GenerateChain(int32 Length,FIntVector StartHex);
+	
+	void ActivateChain(const TArray<FIntVector>& Chain);
+	
+	void GenerateAndActivateChainFromRandomSelectedGrid();
 };

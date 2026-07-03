@@ -67,5 +67,6 @@ AMyPlayerState::AMyPlayerState()
 {
 	MyAbilitySystemComponent=CreateDefaultSubobject<UMyAbilitySystemComponent>(TEXT("MyAbilitySystemComponent"));
 	MyAttributeSet=CreateDefaultSubobject<UMyAttributeSet>(TEXT("MyAttributeSet"));
+	
 }
 
