@@ -5,6 +5,7 @@
 
 #include "TimerManager.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Sets default values
@@ -12,10 +13,22 @@ AMyHexPillar::AMyHexPillar()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	
+	bReplicates=true;
+	
 	StaticMeshComponent=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
 	SetRootComponent(StaticMeshComponent);
-	
-	
+}
+
+
+void AMyHexPillar::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AMyHexPillar,bActivated);
+}
+
+void AMyHexPillar::OnRep_Activated()
+{
+	ActivateAnimation();
 }
 
 // Called when the game starts or when spawned
@@ -47,15 +60,18 @@ void AMyHexPillar::ActivateAnimation()
 	
 	SkeletalMeshComponent->PlayAnimation(RbdAnimSeq,false);
 	
-	FTimerHandle TimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle,FTimerDelegate::CreateLambda(
-	[this]()
+	if (HasAuthority())
 	{
-		Destroy();
+		
+		FTimerHandle TimerHandle;
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle,FTimerDelegate::CreateLambda(
+		[this]()
+		{
+			Destroy();
+		}
+			)
+		,1,false,7);
 	}
-		)
-	,1,false,7);
-	
 	
 }
 

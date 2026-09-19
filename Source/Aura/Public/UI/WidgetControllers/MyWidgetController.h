@@ -33,7 +33,7 @@ struct FWidgetControllerParams
 /**
  * 
  */
-UCLASS()
+UCLASS(Blueprintable)
 class AURA_API UMyWidgetController : public UObject
 {
 	GENERATED_BODY()

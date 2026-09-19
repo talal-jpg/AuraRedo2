@@ -46,6 +46,7 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_JumpHover)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Boost)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_GunShoot)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Beam)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Roll)
 	
 	//AbilityStatuses
@@ -64,6 +65,10 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Electrocute)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Shards)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_GunShoot)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Beam)
+	
+	// AbilityActivationTags
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Activation_GunShoot)
 	
 	// EventTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_XPGained)
@@ -76,11 +81,18 @@ namespace MyTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_ElectrocuteBurst)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_ElectrocuteLooping)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Shards)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Beam)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_BeamCharge)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_GunShootLooping)
 	
 	//StateTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Channeling)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Boosting)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_CancelWhileChanneling)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Shooting)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_BlockTranslate)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_BlockRot)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_BlockChestRot)
 	
 	//SetByCallerMagTag
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetDamageByCaller)

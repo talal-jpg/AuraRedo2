@@ -53,6 +53,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shards,"Ability.Shards")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Launch,"Ability.Launch")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_GunShoot,"Ability.GunShoot")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Beam,"Ability.Beam")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Roll,"Ability.Roll")
 	
 	//AbilityStatuses
@@ -68,6 +69,10 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Electrocute,"Ability.Cooldown.Electrocute")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Shards,"Ability.Cooldown.Shards")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_GunShoot,"Ability.Cooldown.GunShoot")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Cooldown_Beam,"Ability.Cooldown.Beam")
+	
+	// AbilityActivationTags
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Activation_GunShoot,"Ability.Activation.GunShoot")
 	
 	// EventTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_XPGained,"Event.XPGained")
@@ -80,11 +85,19 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_ElectrocuteBurst,"GameplayCue.ElectrocuteBurst")
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_ElectrocuteLooping,"GameplayCue.ElectrocuteLooping")
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Shards,"GameplayCue.Shards")
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Beam,"GameplayCue.Beam")
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_BeamCharge,"GameplayCue.BeamCharge")
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_GunShootLooping,"GameplayCue.GunShootLooping")
+	
 	
 	//StateTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Channeling,"State.Channeling")
 	UE_DEFINE_GAMEPLAY_TAG(State_CancelWhileChanneling,"State.CancelWhileChanneling")
 	UE_DEFINE_GAMEPLAY_TAG(State_Boosting,"State.Boosting")
+	UE_DEFINE_GAMEPLAY_TAG(State_Shooting,"State.Shooting")
+	UE_DEFINE_GAMEPLAY_TAG(State_BlockTranslate,"State.BlockTranslate")
+	UE_DEFINE_GAMEPLAY_TAG(State_BlockRot,"State.BlockRot")
+	UE_DEFINE_GAMEPLAY_TAG(State_BlockChestRot,"State.BlockChestRot")
 	
 	//SetByCallerMagTag
 	UE_DEFINE_GAMEPLAY_TAG(SetDamageByCaller,"SetDamageByCaller")

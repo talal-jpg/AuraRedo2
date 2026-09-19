@@ -8,6 +8,7 @@
 #include "Interfaces/MyCombatInterface.h"
 #include "MyCharBase.generated.h"
 
+class USplineMeshComponent;
 enum class ECharacterClass : uint8;
 class UGameplayAbility;
 class UMyAttributeSet;
@@ -57,6 +58,9 @@ protected:
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* JetPackMeshComponent;
 	
+	UPROPERTY(EditAnywhere)
+	USplineMeshComponent* BeamSplineMeshComponent;
+	
 	UPROPERTY(BlueprintReadOnly)
 	UMyAbilitySystemComponent* MyAbilitySystemComponent;
 	
@@ -77,7 +81,7 @@ protected:
 	virtual void GivePassiveStartupAbilities();
 	
 	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
-	
+
 	//CombatIF
 	
 	virtual void Die() override;
@@ -96,17 +100,8 @@ protected:
 	
 	//CombatIF
 	
-	UPROPERTY(BlueprintReadWrite)
-	bool bIsShooting=false;
+	FVector GetCombatSocketLocation_Implementation();
 	
-	UFUNCTION(NetMulticast,Reliable)
-	void MultiCastSetIsShooting(bool InbIsShooting);
-	
-	virtual void SetIsShooting_Implementation(bool InbIsShooting) override;
-	
-	virtual FVector GetCombatSocketLocation_Implementation() override;
-	
-	virtual bool IsShooting_Implementation() override;
 	
 public:	
 

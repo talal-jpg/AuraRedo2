@@ -20,6 +20,18 @@ class AURA_API AMyCharPlayer : public AMyCharBase , public IMyPlayerInterface
 public:
 	// Sets default values for this character's properties
 	AMyCharPlayer();
+	
+	void RegisterToBoostingState();
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void InitJets();
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void StopJets();
+	
+	
+	UFUNCTION(BlueprintCallable,NetMulticast,Unreliable)
+	void Multicast_SetPhysicsState(float InPhysicsStateSetTimeStamp,float InPhysicsStateSetDuration, FName InPhysicsBoneName,FVector InPhysicsForceDir);
 
 protected:
 	// Called when the game starts or when spawned
@@ -85,6 +97,8 @@ public:
 	virtual void SetIsFlying_Implementation(bool InbIsFlying) override;	
 	
 	virtual bool IsFlying_Implementation() override;
+	
+	virtual void Die() override;
 	
 	// AimRot&Location
 	UPROPERTY(BlueprintReadWrite)

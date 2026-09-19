@@ -28,6 +28,9 @@ struct FAbilityInfo
 	FGameplayTag CooldownTag;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	FGameplayTag ActivationTag;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	UTexture2D* Icon=nullptr;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)

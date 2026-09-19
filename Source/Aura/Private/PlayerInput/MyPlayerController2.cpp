@@ -10,25 +10,20 @@
 #include "MyPlayerState.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
+#include "NetworkMessage.h"
 #include "NiagaraComponent.h"
-#include "NiagaraSystem.h"
-#include "VectorUtil.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Actors/MyTargetDecalActor.h"
 #include "Character/MyCharPlayer.h"
-#include "Components/SplineComponent.h"
-#include "Engine/SkeletalMeshSocket.h"
+#include "EOS/MainMenu.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/PawnMovementComponent.h"
 #include "GeometryCollection/GeometryCollectionParticlesData.h"
 #include "Interfaces/MyHighlightInterface.h"
 #include "Kismet/GameplayStatics.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "PlayerInput/MyInputComponent.h"
-#include "Tests/AutomationTestSettings.h"
 #include "UI/DamageTextWidgetComponent.h"
 
 
@@ -64,20 +59,26 @@ void AMyPlayerController2::Tick(float DeltaTime)
 	
 	FCollisionQueryParams CollisionQueryParams;
 	CollisionQueryParams.AddIgnoredActor(GetPawn());
+	CollisionQueryParams.bTraceComplex=true;
 	
+	if (!GetPawn())return;
 	//1000 in front is too far TODO Fix
-	bool bHit=GetWorld()->LineTraceSingleByChannel(HitResultLineTrace,PosInWorld+DirFromCam*10,PosInWorld+DirFromCam*FLT_MAX,ECC_Visibility,CollisionQueryParams);
+	// bool bHit=GetWorld()->LineTraceSingleByChannel(HitResultLineTrace,PosInWorld+DirFromCam*10,PosInWorld+DirFromCam*FLT_MAX,ECC_Visibility,CollisionQueryParams);
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(10.f);
+	bool bHit = GetWorld()->SweepSingleByChannel(HitResultLineTrace,PosInWorld+ DirFromCam * 10.f,PosInWorld+ DirFromCam * FLT_MAX,FQuat::Identity,ECC_Visibility,Sphere,CollisionQueryParams);
 	
 	if (bHit)
 	{
 		TargetLocation= HitResultLineTrace.ImpactPoint;
+		// UKismetSystemLibrary::PrintString(this,FString::Printf(TEXT("Hit: %s"),*HitResultLineTrace.GetActor()->GetName()),true,true,FLinearColor::Red,10.f);
 	}
 	else
 	{
 		TargetLocation= PosInWorld+DirFromCam*1000;
 	}
 	
-	UKismetSystemLibrary::DrawDebugSphere(GetWorld(),TargetLocation,100,12,FLinearColor::Yellow,false,0.1f);
+	UKismetSystemLibrary::DrawDebugArrow(GetWorld(),GetPawn()->GetActorLocation(),TargetLocation,10,FLinearColor::Yellow,0,02);
+	// UKismetSystemLibrary::DrawDebugSphere(GetWorld(),TargetLocation,100,12,FLinearColor::Yellow,false,0.1f);
 	
 	// ForwardVecRigSpace=Z = 0
 	// ForwardVecRigSpace=FRotationMatrix(FRotator(0,GetControlRotation().Yaw,GetControlRotation().Roll)).GetUnitAxis(EAxis::X); or that better ask GPT?
@@ -107,10 +108,14 @@ void AMyPlayerController2::SetupInputComponent()
 	EnhancedInputSubsystem->AddMappingContext(IMC_PlayerInputMappingContext,0);
 	
 	UMyInputComponent* MyInputComp=Cast<UMyInputComponent>(InputComponent);
+	//TODO Move From Triggered to Started??
 	MyInputComp->BindAction(IA_Move,ETriggerEvent::Triggered,this,&AMyPlayerController2::Move);
 	MyInputComp->BindAction(IA_Move,ETriggerEvent::Completed,this,&AMyPlayerController2::MoveCompleted);
 	MyInputComp->BindAction(IA_Rotate,ETriggerEvent::Triggered,this,&AMyPlayerController2::Rotate);
 	MyInputComp->BindAction(IA_Jump,ETriggerEvent::Triggered,this,&AMyPlayerController2::Jump);
+	MyInputComp->BindAction(IA_Q,ETriggerEvent::Started,this,&AMyPlayerController2::MenuButtonPressed,true);
+	MyInputComp->BindAction(IA_E,ETriggerEvent::Started,this,&AMyPlayerController2::MenuButtonPressed,false);
+	
 	
 	MyInputComp->BindAbilityAction(InputConfig,this,&AMyPlayerController2::PressedFunc,&AMyPlayerController2::HeldFunc,&AMyPlayerController2::ReleasedFunc);
 }
@@ -123,7 +128,7 @@ void AMyPlayerController2::BeginPlay()
 	InputMode.SetHideCursorDuringCapture(false);
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	
-	//Important fix
+	// };//Important fix
 	InputMode2.SetConsumeCaptureMouseDown(false);
 	
 	SetInputMode(InputMode2);
@@ -169,8 +174,8 @@ UMyAbilitySystemComponent* AMyPlayerController2::GetMyASC()
 
 void AMyPlayerController2::Move(const FInputActionValue& Value)
 {
-	if (!GetMyASC())return;
-	if (GetMyASC()->HasMatchingGameplayTag(MyTags::State_Channeling))return;
+	if (!GetMyASC() || !GetCharacter())return;
+	if (GetMyASC()->HasMatchingGameplayTag(MyTags::State_BlockTranslate))return;
 	
 	const FVector2d InputVal= Value.Get<FVector2d>();
 	
@@ -202,6 +207,7 @@ void AMyPlayerController2::MoveCompleted(const FInputActionValue& Value)
 
 void AMyPlayerController2::Rotate(const FInputActionValue& Value)
 {
+	if (!GetPawn())return;
 	FVector2d Val=Value.Get<FVector2d>();
 	GetPawn()->AddControllerYawInput(Val.X);
 	GetPawn()->AddControllerPitchInput(Val.Y);
@@ -211,6 +217,15 @@ void AMyPlayerController2::Jump(const FInputActionValue& Value)
 {
 	Cast<AMyCharBase>(GetPawn())->Jump();
 	
+}
+
+void AMyPlayerController2::MenuButtonPressed(bool bIsAttribMenuButton)
+{
+	OnMenuButtonPressedDelegate.Broadcast(bIsAttribMenuButton);
+}
+
+void AMyPlayerController2::SpellMenuButtonPressed(bool bIsAttribMenuButton)
+{
 }
 
 void AMyPlayerController2::CursorTrace()
@@ -276,8 +291,8 @@ void AMyPlayerController2::LerpFeetRotToRot()
 void AMyPlayerController2::PressedFunc(FGameplayTag InputTag)
 {
 	// if (!bIsTargeting)return;
-	
-	UMyAbilitySystemComponent* MyASC=GetMyASC();
+
+	UMyAbilitySystemComponent* MyASC = GetMyASC();
 	if (MyASC==nullptr)return;
 	MyASC->AbilityInputPressed(InputTag);
 }
@@ -319,6 +334,16 @@ void AMyPlayerController2::UpdateDamageCircle()
 		TargetDecalActor->SetActorLocation(HitResult.ImpactPoint);
 	}
 }
+
+void AMyPlayerController2::JoinSessionButtonWrapper()
+{
+	UE_LOG(LogTemp,Warning,TEXT("JoinSessionButtonWrapperCalled"));
+	if (MainMenu)
+	{
+		MainMenu->JoinButtonClicked();
+	}
+}
+
 
 void AMyPlayerController2::ShowDamageNumber_Implementation(float InDamage,ACharacter* TargetCharacter,bool bIsCrit,bool bIsBlocked)
 {

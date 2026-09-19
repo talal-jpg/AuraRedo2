@@ -13,4 +13,17 @@ UCLASS()
 class AURA_API UGA_Beam : public UMyGameplayAbility
 {
 	GENERATED_BODY()
+	// virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	//
+	// UPROPERTY(EditAnywhere)
+	// UAnimMontage* BeamAbilityMontageCharge;
+	//
+	// UPROPERTY(EditAnywhere)
+	// UAnimMontage* BeamAbilityMontageRelease;
+	//
+	// UFUNCTION()
+	// void OnInputReleasedCallback(float TimeHeld);
+	//
+	// UFUNCTION()
+	// void OnReleaseMontageCompleteCallback();
 };

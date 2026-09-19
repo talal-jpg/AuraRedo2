@@ -26,7 +26,6 @@ UBPAT_WaitForCooldownChange* UBPAT_WaitForCooldownChange::WaitForCooldownChange(
 
 void UBPAT_WaitForCooldownChange::EndTask()
 {
-	
 	if (!IsValid(ASC))return;
 	ASC->RegisterGameplayTagEvent(CooldownTag,EGameplayTagEventType::NewOrRemoved).RemoveAll(this);
 	// bool Removed=ASC->OnActiveGameplayEffectAddedDelegateToSelf.Remove(ActiveGEAddedDelegateHandle);

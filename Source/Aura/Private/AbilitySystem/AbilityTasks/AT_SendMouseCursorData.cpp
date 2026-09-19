@@ -3,6 +3,7 @@
 
 #include "AbilitySystem/AbilityTasks/AT_SendMouseCursorData.h"
 #include "AbilitySystemComponent.h"
+#include "Character/MyCharPlayer.h"
 #include "GameFramework/GameSession.h"
 #include "PlayerInput/MyPlayerController2.h"
 
@@ -19,6 +20,7 @@ void UAT_SendMouseCursorData::Activate()
 	{
 		FScopedPredictionWindow PredictionWindow= FScopedPredictionWindow(AbilitySystemComponent.Get());
 		AMyPlayerController2* PC=Cast<AMyPlayerController2>(GetAvatarActor()->GetInstigatorController());
+		// AMyCharPlayer* MyCharPlayer=Cast<AMyCharPlayer>(GetAvatarActor());
 		// if (!PC)return;
 		FHitResult HitResult = PC->HitResultLineTrace;
 		FGameplayAbilityTargetData_SingleTargetHit* TargetData_SingleHit=new FGameplayAbilityTargetData_SingleTargetHit();
@@ -26,6 +28,7 @@ void UAT_SendMouseCursorData::Activate()
 		FGameplayAbilityTargetDataHandle TargetDataHandle;
 		TargetDataHandle.Add(TargetData_SingleHit);
 		AbilitySystemComponent.Get()->ServerSetReplicatedTargetData(GetAbilitySpecHandle(),GetActivationPredictionKey(),TargetDataHandle,FGameplayTag(),AbilitySystemComponent->ScopedPredictionKey);
+		AbilitySystemComponent->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(),GetActivationPredictionKey());
 		
 		if (ShouldBroadcastAbilityTaskDelegates())
 		{

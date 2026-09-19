@@ -129,7 +129,7 @@ void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
 		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("AbilityInputPressed") + InputTag.ToString());
 		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag)){
 			// TryActivateAbility(AbilitySpec.Handle);
-			//Assuming the ability is active and the Ability is instanced per actor
+			//Assuming the ability is active and the Ability is instanced per actor , non instanced per actor will cause crash here
 			AbilitySpecInputPressed(AbilitySpec);
 			InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed,AbilitySpec.Handle,AbilitySpec.GetPrimaryInstance()->GetCurrentActivationInfo().GetActivationPredictionKey());
 			//happens auto in AbilitySpecInputPressed

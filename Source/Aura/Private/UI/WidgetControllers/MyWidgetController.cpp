@@ -31,6 +31,7 @@ void UMyWidgetController::BroadcastAbilityInfo(UDA_MyAbilityInfo* AbilityInfo)
 	ForEachAbilityDelegate.BindLambda(
 		[this, &AbilityInfo](const FGameplayAbilitySpec& AbilitySpec)
 		{
+			//TODO have activateable abilities here that do not have an ability tag alsso?
 			FAbilityInfo Info=AbilityInfo->GetAbilityInfoForTag(MyAbilitySystemComponent->GetAbilityTagFromSpec(AbilitySpec));
 			Info.InputTag= MyAbilitySystemComponent->GetInputTagFromSpec(AbilitySpec);
 			

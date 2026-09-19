@@ -19,6 +19,14 @@ public:
 
 	void ActivateAnimation();
 	
+	UPROPERTY(ReplicatedUsing=OnRep_Activated)
+	bool bActivated= false;
+	
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	UFUNCTION()
+	void OnRep_Activated();
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

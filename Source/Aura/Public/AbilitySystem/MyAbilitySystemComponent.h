@@ -8,7 +8,7 @@
 #include "MyAbilitySystemComponent.generated.h"
 
 DECLARE_MULTICAST_DELEGATE(FOnAbilitiesGivenDelegateSignature)
-DECLARE_MULTICAST_DELEGATE_FourParams(FOnAbilityEquippedDelegateSiganature, FGameplayTag/*AbilityTag*/, FGameplayTag /*StatusTag*/,FGameplayTag /*InputTag*/,FGameplayTag /*PrevInputTag*/);
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnAbilityEquippedDelegateSiganature, FGameplayTag/*AbilityTag*/, FGameplayTag /*InputTag*/,FGameplayTag /*StatusTag*/,FGameplayTag /*PrevInputTag*/);
 DECLARE_DELEGATE_ThreeParams(FOnAbilityStatusChangedDelegateSignature,FGameplayTag,FGameplayTag,int32);
 
 /**

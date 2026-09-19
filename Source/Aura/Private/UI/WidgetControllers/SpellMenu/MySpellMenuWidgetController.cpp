@@ -153,8 +153,13 @@ void UMySpellMenuWidgetController::EquippedRowPressed(FGameplayTag InInputTag)
 	if (!bWaitingForEquippedRowPress)return;
 	bWaitingForEquippedRowPress=false;
 	
+	
+	
+	
 	MyAbilitySystemComponent->Server_EquipAbility(SelectedAbility.AbilityTag,InInputTag,SelectedAbility.InputTag);
 	SpellGlobeDeselectDelegate.Broadcast(SelectedAbility.AbilityTag);
+	
+	
 	
 	//Empty SelectedAbility
 	SelectedAbility.AbilityTag=MyTags::Ability_None;

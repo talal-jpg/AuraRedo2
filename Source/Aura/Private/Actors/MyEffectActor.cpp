@@ -53,6 +53,7 @@ void AMyEffectActor::OnEndOverlap(AActor* OverlappingActor)
 		{
 			UAbilitySystemComponent* ActorAsASC=AbilitySystemIF->GetAbilitySystemComponent();
 			FActiveGameplayEffectHandle* GEHandle=ActiveGEHandles.Find(ActorAsASC);
+			if (!GEHandle)return;
 			ActorAsASC->RemoveActiveGameplayEffect(*GEHandle);
 			// check if need to loop over all TMap and remove all effects
 		}

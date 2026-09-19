@@ -23,35 +23,56 @@ void AMyHexPlatform::BeginPlay()
 	//Spawning 
 	FTransform Transform;
 	
-	TArray<FHexCoord> HexCoords=GenerateHexGrid(10);
+	TArray<FHexCoord> HexCoords=GenerateHexGrid();
 	
-	for (auto HexCoord:HexCoords)
+	//Destroy visualization pillaractors and empty HexMap
 	{
-		FVector2D Loc2d=HexToWorld(HexCoord.Q,HexCoord.R,HexRadius);
-		Transform.SetLocation(FVector(Loc2d.X,Loc2d.Y,0));
+		if (HexMap.Num() > 0)
+		{
+			for (auto Hex:HexMap)
+			{
+				Hex.Value->Destroy();
+			}
+		}
+		HexMap.Empty();
+	}
+	//Destroy visualization pillaractors and empty HexMap
+	//End
+	
+	if (HasAuthority())
+	{
+		//BeginSpawning and storing
+		{
+			for (auto HexCoord:HexCoords)
+			{
+				FVector2D Loc2d=HexToWorld(HexCoord.Q,HexCoord.R,HexRadius);
+				Transform.SetLocation(FVector(Loc2d.X,Loc2d.Y,0));
 		
-		AMyHexPillar* Spawned=GetWorld()->SpawnActor<AMyHexPillar>(HexagonPillarActorClass,Transform);
+				AMyHexPillar* Spawned=GetWorld()->SpawnActor<AMyHexPillar>(HexagonPillarActorClass,Transform);
 		
-		FIntVector Key(HexCoord.Q, HexCoord.R, HexCoord.S);
+				FIntVector Key(HexCoord.Q, HexCoord.R, HexCoord.S);
 
-		HexMap.Add(Key, Spawned);
+				HexMap.Add(Key, Spawned);
+			}
+			//EndSpawning
+			for (auto Hex:HexMap)
+			{
+				FIntVector Vec=Hex.Key;
+				// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("Hex: %d,%d,%d"),Vec.X,Vec.Y,Vec.Z));
+			}
+		}
+		//EndSpawning and storing
 	}
-	//EndSpawning
-	for (auto Hex:HexMap)
+	
+	if (HasAuthority())
 	{
-		FIntVector Vec=Hex.Key;
-		// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("Hex: %d,%d,%d"),Vec.X,Vec.Y,Vec.Z));
+		FTimerHandle TimerHandle;
+	
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle,this,&ThisClass::GenerateAndActivateChainFromRandomSelectedGrid,10,true,10);
 	}
-	
-	FTimerHandle TimerHandle;
-	
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle,this,&ThisClass::GenerateAndActivateChainFromRandomSelectedGrid,10,true,10);
-	
 }
 
-
-
-TArray<FHexCoord> AMyHexPlatform::GenerateHexGrid(int32 InGridSize)
+TArray<FHexCoord> AMyHexPlatform::GenerateHexGrid()
 {
 	TArray<FHexCoord> Hexes;
 
@@ -167,7 +188,6 @@ void AMyHexPlatform::ActivateChain(const TArray<FIntVector>& Chain)
 {
 	// for (const FIntVector& Coord : Chain)
 	// {
-	// 	//TODO Replace with my custom actor adding Activate RBD functionality
 	// 	if (AActor** ActorPtr =HexMap.Find(Coord))
 	// 	{
 	// 		// (*ActorPtr)->ActivateRBD();
@@ -187,6 +207,7 @@ void AMyHexPlatform::ActivateChain(const TArray<FIntVector>& Chain)
 						if (AMyHexPillar** MyHexPillarActorPtr =HexMap.Find(Chain[i]))
 						{
 							UKismetSystemLibrary::PrintString(GetWorld(),TEXT("DestroyingActor"));
+							(*MyHexPillarActorPtr)->bActivated=true;
 							(*MyHexPillarActorPtr)->ActivateAnimation();
 							HexMap.Remove(Chain[i]);
 						}
@@ -216,3 +237,30 @@ void AMyHexPlatform::GenerateAndActivateChainFromRandomSelectedGrid()
 	// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("Chain Activated Length: %d"),ChainLength));
 	
 }
+
+void AMyHexPlatform::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+		//BeginSpawning and storing
+		TArray<FHexCoord> HexCoords=GenerateHexGrid();
+		{
+			for (auto HexCoord:HexCoords)
+			{
+				FTransform PillarTransform;
+				FVector2D Loc2d=HexToWorld(HexCoord.Q,HexCoord.R,HexRadius);
+				PillarTransform.SetLocation(FVector(Loc2d.X,Loc2d.Y,0));
+		
+				AMyHexPillar* Spawned=GetWorld()->SpawnActor<AMyHexPillar>(HexagonPillarActorClass,PillarTransform);
+		
+				FIntVector Key(HexCoord.Q, HexCoord.R, HexCoord.S);
+
+				HexMap.Add(Key, Spawned);
+			}
+			//EndSpawning
+			for (auto Hex:HexMap)
+			{
+				FIntVector Vec=Hex.Key;
+				// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("Hex: %d,%d,%d"),Vec.X,Vec.Y,Vec.Z));
+			}
+		}
+	}

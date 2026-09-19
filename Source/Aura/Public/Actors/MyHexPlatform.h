@@ -30,7 +30,7 @@ protected:
 
 public:
 	
-	TArray<FHexCoord> GenerateHexGrid(int32 GridSize);
+	TArray<FHexCoord> GenerateHexGrid();
 	
 	FVector2D HexToWorld(int32 Q, int32 R, float HexRadius);
 	
@@ -56,4 +56,13 @@ public:
 	void ActivateChain(const TArray<FIntVector>& Chain);
 	
 	void GenerateAndActivateChainFromRandomSelectedGrid();
+	
+	//Preview Pillars
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<AMyHexPillar>> PreviewPillars;
+#endif
+	
+	virtual void OnConstruction(const FTransform& Transform) override;
+	
 };

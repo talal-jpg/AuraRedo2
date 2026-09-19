@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "MyPlayerController2.generated.h"
 
+class UMainMenu;
 class UMyAbilitySystemComponent;
 class AMyTargetDecalActor;
 class UDamageTextWidgetComponent;
@@ -20,6 +21,9 @@ struct FHitResult;
 /**
  * 
  */
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMenuButtonPressedDelegateSignature, bool, bIsAttribMenuButton);
+
 UCLASS()
 class AURA_API AMyPlayerController2 : public APlayerController
 {
@@ -64,6 +68,12 @@ public:
 	
 	void Jump(const FInputActionValue& Value);
 	
+	UPROPERTY(BlueprintAssignable)
+	FOnMenuButtonPressedDelegateSignature OnMenuButtonPressedDelegate;
+	
+	void MenuButtonPressed(bool bIsAttribMenuButton);
+	
+	void SpellMenuButtonPressed(bool bIsAttribMenuButton);
 
 	/**
 	 * AutoMove
@@ -144,5 +154,11 @@ public:
 	void HideDamageCircle();
 	
 	void UpdateDamageCircle();
+	
+	UFUNCTION(Exec)
+	void JoinSessionButtonWrapper();
+	
+	UPROPERTY(EditAnywhere)
+	UMainMenu* MainMenu;
 	
 };

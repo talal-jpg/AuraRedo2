@@ -3,9 +3,9 @@
 
 #include "Character/MyCharPlayer.h"
 
-#include <string>
 
 #include "AbilitySystemComponent.h"
+#include "MyAnimInstance.h"
 #include "MyPlayerState.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
@@ -13,7 +13,9 @@
 #include "AbilitySystem/Data/MyLevelUpInfo.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
+#include "EOS/MultiplayerSessionsSubsystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -43,18 +45,43 @@ AMyCharPlayer::AMyCharPlayer()
 	
 }
 
+void AMyCharPlayer::RegisterToBoostingState()
+{
+	MyAbilitySystemComponent->RegisterGameplayTagEvent(MyTags::State_Boosting,EGameplayTagEventType::NewOrRemoved).AddLambda(
+		[this](const FGameplayTag Tag,int32 Count)
+		{
+			if (Count>0)
+			{
+				InitJets();
+			}
+			else
+			{
+				StopJets();
+			}
+			
+		}
+	);
+}
 
 // Called when the game starts or when spawned
 void AMyCharPlayer::BeginPlay()
 {
 	Super::BeginPlay();
 	// GetMesh()->SetWorldRotation(FRotator(0,0,0));
+	auto MP=GetGameInstance()->GetSubsystem<UMultiplayerSessionsSubsystem>();
+	
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *MP->GetName());
+	MP->StartHeadlessLogic2();
+	
+	
+	
+	
 	
 	// GetCharacterMovement()->NetworkSmoothingMode = ENetworkSmoothingMode::Disabled;
 	
+// Called every frame
 }
 
-// Called every frame
 void AMyCharPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -93,15 +120,18 @@ void AMyCharPlayer::Tick(float DeltaTime)
 		CollisionQueryParams.AddIgnoredActor(this);
 	
 		//1000 in front is too far TODO Fix
-		bool bHit=GetWorld()->LineTraceSingleByChannel(HitResultLineTrace,PosInWorld+DirFromCam*10,PosInWorld+DirFromCam*FLT_MAX,ECC_Visibility,CollisionQueryParams);
-	
-		if (bHit)
+		// bool bHit=GetWorld()->LineTraceSingleByChannel(HitResultLineTrace,PosInWorld+DirFromCam*10,PosInWorld+DirFromCam*FLT_MAX,ECC_Visibility,CollisionQueryParams);
+		FCollisionShape Sphere = FCollisionShape::MakeSphere(800.f);
+		bool bHit = GetWorld()->SweepSingleByChannel(HitResultLineTrace,PosInWorld + DirFromCam * 10.f,PosInWorld + DirFromCam * FLT_MAX,FQuat::Identity,ECC_Visibility,Sphere,CollisionQueryParams);
+		//TODO hit trace and target location for arms and loc while flyboosting should be 2 different vars
+		
+		// if (bHit)
+		// {
+		// 	TargetLocation= HitResultLineTrace.ImpactPoint;
+		// }
+		// else
 		{
-			TargetLocation= HitResultLineTrace.ImpactPoint;
-		}
-		else
-		{
-			TargetLocation= PosInWorld+DirFromCam*1000;
+			TargetLocation= PosInWorld+DirFromCam*3000;
 		}
 	}
 	else if (!IsLocallyControlled())
@@ -125,7 +155,7 @@ void AMyCharPlayer::Tick(float DeltaTime)
 		}
 	}
 	
-	UKismetSystemLibrary::DrawDebugSphere(GetWorld(),TargetLocation,100,12,FLinearColor::Yellow,false,0.1f);
+	// UKismetSystemLibrary::DrawDebugSphere(GetWorld(),TargetLocation,100,12,FLinearColor::Yellow,false,0.1f);
 }
 
 void AMyCharPlayer::OnRep_PlayerState()
@@ -141,10 +171,14 @@ void AMyCharPlayer::OnRep_PlayerState()
 				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("OnRep_PlayerState"));
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
-				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
+				MyAttributeSet=MyPlayerState->MyAttributeSet;
+				// TODO check if Attributes and Abilities are only inited on the server and auto replicated to clients
 				InitializeAttributes();
 				GiveStartupAbilities();
 				GivePassiveStartupAbilities();
+				RegisterToBoostingState();
+				
+				Cast<UMyAnimInstance>(GetMesh()->GetAnimInstance())->InitializeASC(MyAbilitySystemComponent);
 			}
 		}
 	}
@@ -173,6 +207,9 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 				InitializeAttributes();
 				GiveStartupAbilities();
 				GivePassiveStartupAbilities();
+				RegisterToBoostingState();
+				
+				Cast<UMyAnimInstance>(GetMesh()->GetAnimInstance())->InitializeASC(MyAbilitySystemComponent);
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("PossessedBy"));
 			}
 		}
@@ -318,6 +355,13 @@ bool AMyCharPlayer::IsFlying_Implementation()
 	return bIsFlying;
 }
 
+void AMyCharPlayer::Die()
+{
+	//Intensionally not calling super here , because CharBase Holds Die Imple
+	//Super::Die();
+	
+}
+
 void AMyCharPlayer::LerpChestRotToRot()
 {
 	// RotChest= FMath::Lerp(RotChest,ForwardVecRigSpace,AmountToRotateEachTimerTick);
@@ -325,31 +369,29 @@ void AMyCharPlayer::LerpChestRotToRot()
 
 void AMyCharPlayer::LerpFeetRotToRot()
 {
+	if (!GetAbilitySystemComponent())return;
 	if (GetAbilitySystemComponent() && GetAbilitySystemComponent()->HasMatchingGameplayTag(MyTags::State_Channeling))return;
 	const float AmountToRotateEachTimerTick=.2f;
-	// RotFeet= FMath::Lerp(RotFeet,GetControlRotation().Vector(),AmountToRotateEachTimerTick);
-	
-	// FRotator ControlRot=GetControlRotation();
 	FRotator CharRot= GetActorRotation();
-	// TODO if flying do not set pitch to 0 
-	CharRot.Pitch=0;
+	if (!(GetAbilitySystemComponent()->HasMatchingGameplayTag(MyTags::State_Boosting)) || !(GetCharacterMovement()->MovementMode==MOVE_Flying))
+	{
+		CharRot.Pitch=0;
+	}
+	else
+	{
+		
+	}
+	const float AmountToRotateEachTimerTickChest=.04f;
+	if (!GetAbilitySystemComponent()->HasMatchingGameplayTag(MyTags::State_BlockChestRot))
+	{
+		ForwardVecChest=FMath::Lerp(ForwardVecChest,CharRot.Vector(),AmountToRotateEachTimerTickChest);
+	}
+	
 	FRotator NewRot=FMath::Lerp(SceneComponentToRotateCharMesh->GetComponentRotation(),CharRot,AmountToRotateEachTimerTick);
 	YawDelta = FMath::FindDeltaAngleDegrees(NewRot.Yaw, CharRot.Yaw);
-	// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("YawDelta: %f"),YawDelta),true,true,FLinearColor::Red,1.f);
-	// FVector PawnLoc=GetPawn()->GetActorLocation();
-	// UKismetSystemLibrary::DrawDebugArrow(GetWorld(),PawnLoc,PawnLoc+NewRot.Vetor()*1000,10,FLinearColor::Yellow,.1f,10);
-	// GetMesh()->SetWorldRotation(NewRot);
-	SceneComponentToRotateCharMesh->SetWorldRotation(NewRot);
-	// SetActorRotation(NewRot);
-	const float AmountToRotateEachTimerTickChest=.08f;
-	ForwardVecChest=FMath::Lerp(ForwardVecChest,SceneComponentToRotateCharMesh->GetComponentRotation().Vector(),AmountToRotateEachTimerTickChest);
-	// if (GetLocalRole()==ROLE_Authority || GetLocalRole()==ROLE_AutonomousProxy)
-	// {
-	// 	UKismetSystemLibrary::DrawDebugLine(GetWorld(),GetActorLocation(),GetActorLocation()+ForwardVecChest*1000,FLinearColor::Red,true,10);
-	// }
-	if (GetLocalRole()==ROLE_SimulatedProxy)
+	if (!GetAbilitySystemComponent()->HasMatchingGameplayTag(MyTags::State_BlockRot))
 	{
-		UKismetSystemLibrary::DrawDebugLine(GetWorld(),GetActorLocation(),GetActorLocation()+ForwardVecChest*1000,FLinearColor::Red,true,10);
+		SceneComponentToRotateCharMesh->SetWorldRotation(NewRot);
 	}
 }
 
@@ -412,10 +454,17 @@ void AMyCharPlayer::SetFootLockLoc()
 		
 		// UKismetSystemLibrary::DrawDebugLine(GetWorld(),FootLockLoc_L,FootLockLoc_L+FootLockNormal_L*1000,FLinearColor::Red,true,10);
 		// UKismetSystemLibrary::DrawDebugLine(GetWorld(),FootLockLoc_R,FootLockLoc_R+FootLockNormal_R*1000,FLinearColor::Red,true,10);
-		
-		
 	}
 	
 }
 
-
+void AMyCharPlayer::Multicast_SetPhysicsState_Implementation(float InPhysicsStateSetTimeStamp,float InPhysicsStateSetDuration, FName InPhysicsBoneName,FVector InPhysicsForceDir)
+{
+	UMyAnimInstance* MyAnimInstance=Cast<UMyAnimInstance>(GetMesh()->GetAnimInstance());
+	MyAnimInstance->PhysicsStateSetTimeStamp=InPhysicsStateSetTimeStamp;
+	MyAnimInstance->PhysicsStateSetDuration=InPhysicsStateSetDuration;
+	MyAnimInstance->bUpdateServerTime=true;
+	MyAnimInstance->PhysicsBoneName= InPhysicsBoneName;
+	MyAnimInstance->PhysicsForceDir=InPhysicsForceDir;
+	//TODO Bone name , Force dir , Force mult, 
+}

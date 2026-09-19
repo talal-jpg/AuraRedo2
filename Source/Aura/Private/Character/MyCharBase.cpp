@@ -8,6 +8,7 @@
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/SplineMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -25,6 +26,10 @@ AMyCharBase::AMyCharBase()
 	SceneComponentToRotateCharMesh->SetIsReplicated(false);
 	JetPackMeshComponent=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("JetPackMeshComponent"));
 	JetPackMeshComponent->SetupAttachment(GetMesh(),FName("JetPackSocket"));
+	BeamSplineMeshComponent= CreateDefaultSubobject<USplineMeshComponent>(TEXT("BeamSplineMeshComponent"));
+	BeamSplineMeshComponent->SetupAttachment(GetRootComponent());
+	// BeamSplineMeshComponent->AttachToComponent(GetMesh(),FAttachmentTransformRules::KeepRelativeTransform,FName("BeamSocket"));
+	
 	
 	
 	// Cast<UCharacterMovementComponent>(GetMovementComponent())->CachedProjectedNavMeshHitResult.
@@ -110,25 +115,10 @@ void AMyCharBase::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 Pr
 	OnMovementModeChangedDelegate.Broadcast(PrevMovementMode);
 }
 
-void AMyCharBase::MultiCastSetIsShooting_Implementation(bool InbIsShooting)
-{
-	bIsShooting=InbIsShooting;
-}
-
 FVector AMyCharBase::GetCombatSocketLocation_Implementation()
 {
 	// return WeaponMesh->GetSocketLocation(FName("CombatSocket"));
 	return FVector::ZeroVector;
-}
-
-bool AMyCharBase::IsShooting_Implementation()
-{
-	return bIsShooting;
-}
-
-void AMyCharBase::SetIsShooting_Implementation(bool InbIsShooting)
-{
-	MultiCastSetIsShooting(InbIsShooting);
 }
 
 void AMyCharBase::Die()

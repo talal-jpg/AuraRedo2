@@ -10,6 +10,7 @@
 #include "MyPlayerState.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
+#include "NiagaraDataChannel.h"
 #include "VectorUtil.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
@@ -248,7 +249,6 @@ void AMyPlayerController::AutoMove()
 
 void AMyPlayerController::CursorTrace()
 {
-	//TODO Fix TraceComplex?
 	//Do only in tick remove from here
 	GetHitResultUnderCursor(ECC_Visibility,true,HitResult);
 	
