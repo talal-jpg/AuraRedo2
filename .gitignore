@@ -12,4 +12,5 @@ Build/
 *.sdf
 *.VC.db
 *.VC.opendb
+Linux/
 *.DotSettings.user
