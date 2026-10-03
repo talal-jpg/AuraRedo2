@@ -14,9 +14,9 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 	MyAbilitySystemComponent->OnAbilityEquippedDelegate.AddLambda(
 		[this](FGameplayTag AbilityTag,FGameplayTag InputTag,FGameplayTag StatusTag,FGameplayTag PrevInputTag)
 	{
-			if (PrevInputTag.IsValid())//this means this ability was previously assigned to a slot hence broadcast an empty info for that slot
+			//this means this ability was previously assigned to a slot hence broadcast an empty info for that slot
+			if (PrevInputTag.IsValid() && !PrevInputTag.MatchesTagExact(MyTags::Input_None))
 			{
-				//Why is PrevInput not valid if I click on Equip again after the ability is already selected and once equip has been pressed already, should I just disable equip and delselect after AbilityRowPress??
 				FAbilityInfo LastSlotInfo;
 				LastSlotInfo.InputTag=PrevInputTag;
 				LastSlotInfo.CooldownTag=MyTags::Ability_Cooldown_None;
@@ -30,13 +30,12 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 			Info.InputTag=InputTag;
 			Info.AbilityStatus=StatusTag;
 			
-			bool bEnableEquip=false;
-			bool bEnableSpendPoint=false;
-			FString Description;
-			
-			ShouldEnableButtons(AbilityTag,StatusTag,bEnableEquip,bEnableSpendPoint,Description);
-			
-			OnSpellGlobeClickedBroadCastShouldEnableDelegate.Broadcast(bEnableEquip,bEnableSpendPoint,Description);
+			// Don't touch the buttons here: the globe was already deselected in EquippedRowPressed,
+			// only keep the status in sync if this ability happens to be selected
+			if (SelectedAbility.AbilityTag.MatchesTagExact(AbilityTag))
+			{
+				SelectedAbility.StatusTag=StatusTag;
+			}
 			
 			BroadcastAbilityInfoDelegate.Broadcast(Info);
 		}
@@ -66,6 +65,9 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 	MyAbilitySystemComponent->OnAbilityStatusChangedDelegate.BindLambda(
 		[this](FGameplayTag AbilityTag,FGameplayTag StatusTag,int32 AbilityLevel)
 		{
+			if (!SelectedAbility.AbilityTag.MatchesTagExact(AbilityTag))return;
+			SelectedAbility.StatusTag=StatusTag;
+			
 			bool bEnableEquip=false;
 			bool bEnableSpendPoint=false;
 			FString Description;
@@ -80,12 +82,6 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 
 void UMySpellMenuWidgetController::ShouldEnableButtons(FGameplayTag InAbilityTag, FGameplayTag StatusTag,bool& bEnableEquip, bool& bEnableSpendSpellPoints, FString& Description)
 {
-	SelectedAbility.AbilityTag=InAbilityTag;
-	SelectedAbility.StatusTag=StatusTag;
-	if (FGameplayAbilitySpec* GASpec =MyAbilitySystemComponent->GetAbilitySpecFromTag(InAbilityTag))
-	{
-		SelectedAbility.InputTag=MyAbilitySystemComponent->GetInputTagFromSpec(*GASpec);
-	}
 	// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("StatusTag: ") + StatusTag.ToString());
 	
 	if ((StatusTag.MatchesTagExact(MyTags::Ability_Status_Eligible)|| StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked) || StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped)) && Cast<AMyPlayerState>(PlayerState)->GetSpellPoints()>0)
@@ -115,13 +111,18 @@ void UMySpellMenuWidgetController::BroadcastInitialValues()
 
 void UMySpellMenuWidgetController::SpellGlobeClicked(FGameplayTag InAbilityTag)
 {
-	FGameplayTag StatusTag=MyAbilitySystemComponent->GetStatusFromAbiltyTag(InAbilityTag);
+	// Selecting a different globe cancels a pending Equip
+	bWaitingForEquippedRowPress=false;
 	//Should enable buttons?
 	if (!InAbilityTag.IsValid())
 	{
 		UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid Ability Tag"));
 		return;
 	}
+	FGameplayTag StatusTag=MyAbilitySystemComponent->GetStatusFromAbiltyTag(InAbilityTag);
+	SelectedAbility.AbilityTag=InAbilityTag;
+	SelectedAbility.StatusTag=StatusTag;
+	
 	bool bEnableEquip=false;
 	bool bEnableSpendPoint=false;
 	FString Description;
@@ -134,6 +135,7 @@ void UMySpellMenuWidgetController::SpellGlobeClicked(FGameplayTag InAbilityTag)
 void UMySpellMenuWidgetController::EquipButtonPressed()
 {
 	if(SelectedAbility.AbilityTag.MatchesTagExact(MyTags::Ability_None))return;
+	if(!SelectedAbility.StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked) && !SelectedAbility.StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped))return;
 	bWaitingForEquippedRowPress=true;
 }
 
@@ -153,9 +155,7 @@ void UMySpellMenuWidgetController::EquippedRowPressed(FGameplayTag InInputTag)
 	if (!bWaitingForEquippedRowPress)return;
 	bWaitingForEquippedRowPress=false;
 	
-	
-	
-	
+	// Server works out the current slot itself, the client's copy of the spec may not have replicated yet
 	MyAbilitySystemComponent->Server_EquipAbility(SelectedAbility.AbilityTag,InInputTag);
 	SpellGlobeDeselectDelegate.Broadcast(SelectedAbility.AbilityTag);
 	
@@ -163,7 +163,6 @@ void UMySpellMenuWidgetController::EquippedRowPressed(FGameplayTag InInputTag)
 	
 	//Empty SelectedAbility
 	SelectedAbility.AbilityTag=MyTags::Ability_None;
-	SelectedAbility.InputTag=MyTags::Input_None;
 	SelectedAbility.StatusTag=MyTags::Ability_Status_Unlocked;
 	OnSpellGlobeClickedBroadCastShouldEnableDelegate.Broadcast(false,false,TEXT(""));
 	

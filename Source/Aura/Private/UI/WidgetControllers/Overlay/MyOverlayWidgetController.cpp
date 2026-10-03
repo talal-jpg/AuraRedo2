@@ -93,9 +93,9 @@ void UMyOverlayWidgetController::BindCallbacksToDependencies()
 	MyAbilitySystemComponent->OnAbilityEquippedDelegate.AddLambda(
 		[this](FGameplayTag AbilityTag,FGameplayTag InputTag,FGameplayTag StatusTag,FGameplayTag PrevInputTag)
 	{
-			if (PrevInputTag.IsValid())//this means this ability was previously assigned to a slot hence broadcast an empty info for that slot
+			//this means this ability was previously assigned to a slot hence broadcast an empty info for that slot
+			if (PrevInputTag.IsValid() && !PrevInputTag.MatchesTagExact(MyTags::Input_None))
 			{
-				//Why is PrevInput not valid if I click on Equip again after the ability is already selected and once equip has been pressed already, should I just disable equip and delselect after AbilityRowPress??
 				FAbilityInfo LastSlotInfo;
 				LastSlotInfo.InputTag=PrevInputTag;
 				LastSlotInfo.CooldownTag=MyTags::Ability_Cooldown_None;

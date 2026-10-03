@@ -18,7 +18,6 @@ struct FSelectedAbility
 	GENERATED_BODY()
 	
 	FGameplayTag AbilityTag=MyTags::Ability_None;
-	FGameplayTag InputTag=MyTags::Input_None;
 	FGameplayTag StatusTag=MyTags::Ability_Status_Unlocked;
 	
 };
