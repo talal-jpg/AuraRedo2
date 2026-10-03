@@ -5,6 +5,7 @@
 
 #include <string>
 
+#include "Actors/MyHexBridgeSubsystem.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -92,21 +93,68 @@ void AMyHexPlatform::BeginPlay()
 	
 	if (HasAuthority())
 	{
-		// ---------------------------------------------------------------------
-		// Start chain activation timer
-		// ---------------------------------------------------------------------
+		// The bridge subsystem builds this platform's bridges from its untouched edges, then
+		// calls StartCollapsing().
+		UMyHexBridgeSubsystem* BridgeSubsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>();
 
-		FTimerHandle TimerHandle;
-		
-		GetWorld()->GetTimerManager().SetTimer(
-			TimerHandle,
-			this,
-			&ThisClass::GenerateAndActivateChainFromRandomSelectedGrid,
-			5.f,
-			true,
-			1.f
-		);
+		if (BridgeSubsystem)
+		{
+			BridgeSubsystem->RegisterPlatform(this);
+		}
+
+		if (!BridgeSubsystem || !bWaitForBridgesBeforeCollapsing)
+		{
+			StartCollapsing();
+		}
 	}
+}
+
+
+// =============================================================================
+// EndPlay
+// =============================================================================
+
+void AMyHexPlatform::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (UMyHexBridgeSubsystem* BridgeSubsystem = World->GetSubsystem<UMyHexBridgeSubsystem>())
+		{
+			BridgeSubsystem->UnregisterPlatform(this);
+		}
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
+
+
+// =============================================================================
+// Start Collapsing
+// =============================================================================
+
+void AMyHexPlatform::StartCollapsing()
+{
+	if (!HasAuthority() || bCollapseStarted)
+	{
+		return;
+	}
+
+	bCollapseStarted = true;
+
+	// ---------------------------------------------------------------------
+	// Start chain activation timer
+	// ---------------------------------------------------------------------
+
+	FTimerHandle TimerHandle;
+
+	GetWorld()->GetTimerManager().SetTimer(
+		TimerHandle,
+		this,
+		&ThisClass::GenerateAndActivateChainFromRandomSelectedGrid,
+		5.f,
+		true,
+		1.f
+	);
 }
 
 
@@ -913,6 +961,9 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord)
 
 	LocalActivatedTiles.Add(Coord);
 
+	// Bridges ending on this tile listen for this
+	OnHexTileActivated.Broadcast(this, Coord);
+
 	// -------------------------------------------------------------------------
 	// Spawn skeletal mesh at EXACT SAME TRANSFORM
 	// -------------------------------------------------------------------------
@@ -1138,6 +1189,14 @@ bool AMyHexPlatform::IsValidHex(
 ) const
 {
 	return HexMap.Contains(Coord);
+}
+
+bool AMyHexPlatform::IsTileCollapsed(
+	const FIntVector& Coord
+) const
+{
+	// ActivatedTiles is replicated, so a late-joining client knows before it plays the collapse
+	return LocalActivatedTiles.Contains(Coord) || ActivatedTiles.Contains(Coord);
 }
 
 

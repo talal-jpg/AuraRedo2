@@ -9,6 +9,10 @@
 
 
 struct FScalableFloat;
+class AMyHexPlatform;
+
+/** A tile started collapsing on this machine (server and clients). Coord is (Q, R, S). */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHexTileActivatedSignature, AMyHexPlatform* /*Platform*/, const FIntVector& /*Coord*/);
 
 USTRUCT()
 struct FHexCoord
@@ -32,10 +36,20 @@ class AURA_API AMyHexPlatform : public AActor
 	GENERATED_BODY()
 	
 	friend class AMyHexBridgeBuilder;
+	friend class UMyHexBridgeSubsystem;
 
 public:
 
 	AMyHexPlatform();
+
+	/** Broadcast on every machine when a tile starts collapsing (from ActivateHexLocal). */
+	FOnHexTileActivatedSignature OnHexTileActivated;
+
+	/** Starts the timer that collapses chains of tiles. Server only; does nothing after the first call. */
+	void StartCollapsing();
+
+	/** True once the tile has started collapsing, on this machine or on the server. */
+	bool IsTileCollapsed(const FIntVector& Coord) const;
 	
 	TArray<FIntVector> GetOriginalEdgeHexes() const;
 
@@ -45,6 +59,8 @@ public:
 protected:
 
 	virtual void BeginPlay() override;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 
@@ -121,6 +137,15 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Deletion")
 	float DeletionThreshold=-1;
+
+	/**
+	 * Wait for UMyHexBridgeSubsystem to build this platform's bridges before collapsing starts,
+	 * so the bridges are made from the untouched edges. Off = start collapsing in BeginPlay.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Bridges")
+	bool bWaitForBridgesBeforeCollapsing = true;
+
+	bool bCollapseStarted = false;
 
 	// -------------------------------------------------------------------------
 	// Runtime ISM bookkeeping
