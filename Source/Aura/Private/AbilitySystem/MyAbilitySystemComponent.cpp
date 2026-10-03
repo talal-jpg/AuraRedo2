@@ -55,7 +55,8 @@ FGameplayTag UMyAbilitySystemComponent::GetAbilityTagFromSpec(const FGameplayAbi
 {
 	for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags())
 	{
-		if (Tag.MatchesTagDepth(MyTags::Ability_None)> 0)
+		// Only direct children of "Ability" (Ability.FireBolt), not Ability.Status.X / Ability.Cooldown.X
+		if (Tag.RequestDirectParent().MatchesTagExact(FGameplayTag(MyTags::Ability_None).RequestDirectParent()))
 		{
 			return Tag;
 		}
@@ -70,7 +71,7 @@ FGameplayAbilitySpec* UMyAbilitySystemComponent::GetAbilitySpecFromTag(FGameplay
 	{
 		for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags())
 		{
-			if (Tag.MatchesTag(AbilityTag))
+			if (Tag.MatchesTagExact(AbilityTag))
 			{
 				return &AbilitySpec;
 			}
@@ -100,12 +101,29 @@ FGameplayTag UMyAbilitySystemComponent::GetInputTagFromSpec(const FGameplayAbili
 	FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
 	for (FGameplayTag Tag:AbilitySpec.GetDynamicSpecSourceTags())
 	{
-		if (Tag.MatchesTag(UGameplayTagsManager::Get().RequestGameplayTag(FName("Input"))))
+		if (Tag.MatchesTag(FGameplayTag(MyTags::Input_None).RequestDirectParent()))
 		{
 			return Tag;
 		}
 	}
 	return FGameplayTag();
+}
+
+void UMyAbilitySystemComponent::SetInputTagOnSpec(FGameplayAbilitySpec& AbilitySpec, FGameplayTag NewInputTag)
+{
+	FGameplayTagContainer& DynamicTags=AbilitySpec.GetDynamicSpecSourceTags();
+	// Remove all Input tags, not just the first, so a spec can never end up bound to two slots
+	FGameplayTagContainer InputTags=DynamicTags.Filter(FGameplayTagContainer(FGameplayTag(MyTags::Input_None).RequestDirectParent()));
+	DynamicTags.RemoveTags(InputTags);
+	DynamicTags.AddTag(NewInputTag);
+}
+
+void UMyAbilitySystemComponent::SetStatusTagOnSpec(FGameplayAbilitySpec& AbilitySpec, FGameplayTag NewStatusTag)
+{
+	FGameplayTagContainer& DynamicTags=AbilitySpec.GetDynamicSpecSourceTags();
+	FGameplayTagContainer StatusTags=DynamicTags.Filter(FGameplayTagContainer(FGameplayTag(MyTags::Ability_Status_Locked).RequestDirectParent()));
+	DynamicTags.RemoveTags(StatusTags);
+	DynamicTags.AddTag(NewStatusTag);
 }
 
 FGameplayTag UMyAbilitySystemComponent::GetStatusTagFromSpec(const FGameplayAbilitySpec& AbilitySpec)
@@ -131,7 +149,11 @@ void UMyAbilitySystemComponent::AbilityInputPressed(FGameplayTag InputTag)
 			// TryActivateAbility(AbilitySpec.Handle);
 			//Assuming the ability is active and the Ability is instanced per actor , non instanced per actor will cause crash here
 			AbilitySpecInputPressed(AbilitySpec);
-			InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed,AbilitySpec.Handle,AbilitySpec.GetPrimaryInstance()->GetCurrentActivationInfo().GetActivationPredictionKey());
+			// Only instanced-per-actor abilities have a primary instance; others would crash here
+			if (UGameplayAbility* PrimaryInstance=AbilitySpec.GetPrimaryInstance())
+			{
+				InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed,AbilitySpec.Handle,PrimaryInstance->GetCurrentActivationInfo().GetActivationPredictionKey());
+			}
 			//happens auto in AbilitySpecInputPressed
 			// if (AbilitySpec.IsActive())
 			// {
@@ -168,7 +190,10 @@ void UMyAbilitySystemComponent::AbilityInputReleased(FGameplayTag InputTag)
 		if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 		{
 			AbilitySpecInputReleased(AbilitySpec);
-			InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased,AbilitySpec.Handle,AbilitySpec.GetPrimaryInstance()->GetCurrentActivationInfo().GetActivationPredictionKey());
+			if (UGameplayAbility* PrimaryInstance=AbilitySpec.GetPrimaryInstance())
+			{
+				InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased,AbilitySpec.Handle,PrimaryInstance->GetCurrentActivationInfo().GetActivationPredictionKey());
+			}
 		}
 	}
 }
@@ -222,22 +247,49 @@ void UMyAbilitySystemComponent::Client_UpdateAbilityStatus_Implementation(FGamep
 	
 }
 
-void UMyAbilitySystemComponent::Server_EquipAbility_Implementation(FGameplayTag AbilityTag,FGameplayTag NewInputTag,FGameplayTag CurrentInputTag)
+void UMyAbilitySystemComponent::Server_EquipAbility_Implementation(FGameplayTag AbilityTag,FGameplayTag NewInputTag)
 {
+	// Server is the source of truth: never trust the client's idea of the current slot or status
+	if (!NewInputTag.MatchesTag(FGameplayTag(MyTags::Input_None).RequestDirectParent()) || NewInputTag.MatchesTagExact(MyTags::Input_None))return;
 	
 	FGameplayAbilitySpec* GASpec=GetAbilitySpecFromTag(AbilityTag);
-	// Getting Ability In the NewInputTag slot and Remove InputTag from it
-	if (FGameplayAbilitySpec* NewInputGASpec=GetAbilitySpecFromSlotTag(NewInputTag))
+	if (!GASpec)return;
+	
+	const FGameplayTag StatusTag=GetStatusTagFromSpec(*GASpec);
+	if (!StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked) && !StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped))return;
+	
+	const FGameplayTag PrevInputTag=GetInputTagFromSpec(*GASpec);
+	
+	if (!PrevInputTag.MatchesTagExact(NewInputTag))
 	{
-		NewInputGASpec->GetDynamicSpecSourceTags().RemoveTag(NewInputTag);
-		MarkAbilitySpecDirty(*NewInputGASpec);
-		// UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Replacing Ability: ") + NewInputGASpec->Ability->GetName());
+		// Unequip every other ability in the NewInputTag slot, they go back to Unlocked with no slot
+		FScopedAbilityListLock ScopedAbilityListLock= FScopedAbilityListLock(*this);
+		for (FGameplayAbilitySpec& OtherSpec:GetActivatableAbilities())
+		{
+			if (&OtherSpec==GASpec || !OtherSpec.GetDynamicSpecSourceTags().HasTagExact(NewInputTag))continue;
+			
+			// Cancel so a held ability doesn't get stuck waiting for an input release that will never arrive
+			if (OtherSpec.IsActive())
+			{
+				CancelAbilityHandle(OtherSpec.Handle);
+			}
+			SetInputTagOnSpec(OtherSpec,MyTags::Input_None);
+			SetStatusTagOnSpec(OtherSpec,MyTags::Ability_Status_Unlocked);
+			MarkAbilitySpecDirty(OtherSpec);
+			// Sent before the equipped ability's RPC (reliable RPCs stay ordered) so the slot is cleared then refilled
+			Client_EquipAbility(GetAbilityTagFromSpec(OtherSpec),MyTags::Input_None,MyTags::Ability_Status_Unlocked,NewInputTag);
+		}
+		
+		if (GASpec->IsActive())
+		{
+			CancelAbilityHandle(GASpec->Handle);
+		}
+		SetInputTagOnSpec(*GASpec,NewInputTag);
 	}
 	
-	GASpec->GetDynamicSpecSourceTags().RemoveTag(CurrentInputTag);
-	GASpec->GetDynamicSpecSourceTags().AddTag(NewInputTag);
+	SetStatusTagOnSpec(*GASpec,MyTags::Ability_Status_Equiped);
 	MarkAbilitySpecDirty(*GASpec);
-	Client_EquipAbility(AbilityTag,NewInputTag,GetStatusTagFromSpec(*GASpec),CurrentInputTag);
+	Client_EquipAbility(AbilityTag,NewInputTag,MyTags::Ability_Status_Equiped,PrevInputTag);
 }
 
 void UMyAbilitySystemComponent::Client_EquipAbility_Implementation(FGameplayTag AbilityTag,FGameplayTag InputTag, FGameplayTag StatusTag,FGameplayTag PrevInputTag)

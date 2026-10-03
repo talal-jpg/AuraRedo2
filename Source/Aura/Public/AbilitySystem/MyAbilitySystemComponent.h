@@ -44,6 +44,11 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	
 	FGameplayTag GetStatusTagFromSpec(const FGameplayAbilitySpec& AbilitySpec);
 	
+	// Removes every Input tag from the spec and leaves it with only NewInputTag
+	void SetInputTagOnSpec(FGameplayAbilitySpec& AbilitySpec,FGameplayTag NewInputTag);
+	
+	void SetStatusTagOnSpec(FGameplayAbilitySpec& AbilitySpec,FGameplayTag NewStatusTag);
+	
 	void AbilityInputPressed(FGameplayTag InputTag);
 	
 	void AbilityInputHeld(FGameplayTag InputTag);
@@ -53,7 +58,7 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	void UpgradeAttribute(FGameplayTag AttribTag);
 	
 	UFUNCTION(Server,Reliable)
-	void Server_EquipAbility(FGameplayTag AbilityTag,FGameplayTag NewInputTag,FGameplayTag CurrentInputTag);
+	void Server_EquipAbility(FGameplayTag AbilityTag,FGameplayTag NewInputTag);
 	
 	UFUNCTION(Client,Reliable)
 	void Client_EquipAbility(FGameplayTag AbilityTag,FGameplayTag InputTag, FGameplayTag StatusTag,FGameplayTag PrevInputTag);

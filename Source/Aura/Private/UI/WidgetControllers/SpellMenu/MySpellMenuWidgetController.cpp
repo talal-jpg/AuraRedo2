@@ -156,7 +156,7 @@ void UMySpellMenuWidgetController::EquippedRowPressed(FGameplayTag InInputTag)
 	
 	
 	
-	MyAbilitySystemComponent->Server_EquipAbility(SelectedAbility.AbilityTag,InInputTag,SelectedAbility.InputTag);
+	MyAbilitySystemComponent->Server_EquipAbility(SelectedAbility.AbilityTag,InInputTag);
 	SpellGlobeDeselectDelegate.Broadcast(SelectedAbility.AbilityTag);
 	
 	
