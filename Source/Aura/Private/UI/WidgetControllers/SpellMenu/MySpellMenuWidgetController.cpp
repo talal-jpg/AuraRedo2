@@ -11,7 +11,12 @@
 
 void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 {
-	MyAbilitySystemComponent->OnAbilityEquippedDelegate.AddLambda(
+	if (bCallbacksBound)return;
+	bCallbacksBound=true;
+	
+	// Weak lambdas: a new controller is created each time the spell menu opens, and the old one gets GC'd
+	// while the ASC / PlayerState still hold these bindings. A raw [this] lambda would then call into freed memory.
+	MyAbilitySystemComponent->OnAbilityEquippedDelegate.AddWeakLambda(this,
 		[this](FGameplayTag AbilityTag,FGameplayTag InputTag,FGameplayTag StatusTag,FGameplayTag PrevInputTag)
 	{
 			//this means this ability was previously assigned to a slot hence broadcast an empty info for that slot
@@ -26,6 +31,7 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 				BroadcastAbilityInfoDelegate.Broadcast(LastSlotInfo);
 				
 			}
+			if (!MyAbilityInfo)return;
 			FAbilityInfo Info= MyAbilityInfo->GetAbilityInfoForTag(AbilityTag);
 			Info.InputTag=InputTag;
 			Info.AbilityStatus=StatusTag;
@@ -43,7 +49,7 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 	
 	// AbilityStatusChanged  ,Get should enable buttons and broadcast that after
 	// SpellPointChangedDelegate
-	Cast<AMyPlayerState>(PlayerState)->OnSpellPointsChangedDelegate.AddLambda(
+	Cast<AMyPlayerState>(PlayerState)->OnSpellPointsChangedDelegate.AddWeakLambda(this,
 		[this](int32 NewSpellPoints)
 		{
 			OnSpellPointsChangedDelegate.Broadcast(NewSpellPoints);
@@ -62,7 +68,7 @@ void UMySpellMenuWidgetController::BindCallbacksToDependencies()
 		}
 	);
 	
-	MyAbilitySystemComponent->OnAbilityStatusChangedDelegate.BindLambda(
+	MyAbilitySystemComponent->OnAbilityStatusChangedDelegate.BindWeakLambda(this,
 		[this](FGameplayTag AbilityTag,FGameplayTag StatusTag,int32 AbilityLevel)
 		{
 			if (!SelectedAbility.AbilityTag.MatchesTagExact(AbilityTag))return;
@@ -99,6 +105,9 @@ void UMySpellMenuWidgetController::ShouldEnableButtons(FGameplayTag InAbilityTag
 void UMySpellMenuWidgetController::BroadcastInitialValues()
 {
 	Super::BroadcastInitialValues();
+	// Controller is reused across menu opens, so start every open with nothing selected
+	SelectedAbility=FSelectedAbility();
+	bWaitingForEquippedRowPress=false;
 	if (MyAbilitySystemComponent->bAbilitiesGiven)
 	{
 		checkf(MyAbilityInfo,TEXT("MyAbilityInfoOnSpellMenu is null"));

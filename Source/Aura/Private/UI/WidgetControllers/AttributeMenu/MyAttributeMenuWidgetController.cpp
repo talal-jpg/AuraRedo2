@@ -10,16 +10,20 @@
 
 void UMyAttributeMenuWidgetController::BindCallbacksToDependencies()
 {
+	if (bCallbacksBound)return;
+	bCallbacksBound=true;
+	
+	// Weak lambdas so a GC'd controller is skipped instead of being called through a dangling [this]
 	for (auto Pair:MyAttributeSet->TagToAttributeMap)
 	{
-		MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(Pair.Value).AddLambda(
+		MyAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(Pair.Value).AddWeakLambda(this,
 			[this, Pair](const FOnAttributeChangeData& Data)
 			{
 				OnAttributeValueChangeDelegate.Broadcast(Pair.Key,Data.NewValue);
 			}
 			);
 	}
-	Cast<AMyPlayerState>(PlayerState)->OnAttribPointsChangedDelegate.AddLambda(
+	Cast<AMyPlayerState>(PlayerState)->OnAttribPointsChangedDelegate.AddWeakLambda(this,
 		[this](int32 NewAttribPoints)
 		{
 			OnAttribPointsChangeDelegate.Broadcast(NewAttribPoints);

@@ -49,6 +49,9 @@ class AURA_API UMySpellMenuWidgetController : public UMyWidgetController
 	
 	bool bWaitingForEquippedRowPress=false;
 	
+	// The controller is cached and reused, but the menu widget calls BindCallbacksToDependencies every time it opens
+	bool bCallbacksBound=false;
+	
 	FSelectedAbility SelectedAbility;
 	
 	UPROPERTY(BlueprintAssignable)

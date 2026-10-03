@@ -18,25 +18,31 @@ class AMyPlayerState;
 
 void UMyBPFuncLib::GetAttributeMenuWidgetController(UMyOverlayWidgetController* OverlayWidgetController,UObject* WorldContextObject, UMyWidgetController*& OutWidgetController,APlayerController* PlayerController)
 {
+	checkf(OverlayWidgetController,TEXT("GetAttributeMenuWidgetController needs a valid OverlayWidgetController to cache the controller on"));
 	if (UMyAttributeMenuWidgetController* MenuWidgetController=OverlayWidgetController->AttributeMenuWidgetController)
 	{
 		OutWidgetController=MenuWidgetController;
 	}
 	else
 	{
-		OutWidgetController=NewObject<UMyAttributeMenuWidgetController>(WorldContextObject);
+		// Outer is the overlay controller (not the menu widget) so the cached controller lives as long as the HUD does
+		UMyAttributeMenuWidgetController* MyAttributeMenuWidgetController=NewObject<UMyAttributeMenuWidgetController>(OverlayWidgetController);
 		AMyPlayerState* MyPlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
 		UMyAbilitySystemComponent* ASC= MyPlayerState->MyAbilitySystemComponent;
 		UMyAttributeSet* AttributeSet=MyPlayerState->MyAttributeSet;
 		
 		FWidgetControllerParams WcParams= FWidgetControllerParams(PlayerController,MyPlayerState,ASC,AttributeSet);
-		OutWidgetController->SetWidgetControllerParams(WcParams);
+		MyAttributeMenuWidgetController->SetWidgetControllerParams(WcParams);
+		// Cache it so reopening the attribute menu reuses this controller instead of creating a new one each time
+		OverlayWidgetController->AttributeMenuWidgetController=MyAttributeMenuWidgetController;
+		OutWidgetController=MyAttributeMenuWidgetController;
 	}
 }
 
 void UMyBPFuncLib::GetSpellMenuWidgetController(UMyOverlayWidgetController* OverlayWidgetController,
 	UObject* WorldContextObject, UMyWidgetController*& OutWidgetController, APlayerController* PlayerController)
 {
+	checkf(OverlayWidgetController,TEXT("GetSpellMenuWidgetController needs a valid OverlayWidgetController to cache the controller on"));
 	if (UMySpellMenuWidgetController* MenuWidgetController=OverlayWidgetController->SpellMenuWidgetController)
 	{
 		OutWidgetController=MenuWidgetController;
@@ -46,12 +52,15 @@ void UMyBPFuncLib::GetSpellMenuWidgetController(UMyOverlayWidgetController* Over
 		AMyPlayerState* MyPlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
 		TSubclassOf<UMySpellMenuWidgetController> MySpellMenuWCClass=MyPlayerState->MySpellMenuWidgetControllerClass;
 		checkf(MySpellMenuWCClass,TEXT("PleaseSetSpellMenuWidgetControllerClassOnPlayerState"));
-		UMySpellMenuWidgetController* MySpellMenuWidgetController=NewObject<UMySpellMenuWidgetController>(WorldContextObject,MySpellMenuWCClass);
+		// Outer is the overlay controller (not the menu widget) so the cached controller lives as long as the HUD does
+		UMySpellMenuWidgetController* MySpellMenuWidgetController=NewObject<UMySpellMenuWidgetController>(OverlayWidgetController,MySpellMenuWCClass);
 		UMyAbilitySystemComponent* ASC= MyPlayerState->MyAbilitySystemComponent;
 		UMyAttributeSet* AttributeSet=MyPlayerState->MyAttributeSet;
 		
 		FWidgetControllerParams WcParams= FWidgetControllerParams(PlayerController,MyPlayerState,ASC,AttributeSet);
 		MySpellMenuWidgetController->SetWidgetControllerParams(WcParams);
+		// Cache it so reopening the spell menu reuses this controller instead of creating a new one each time
+		OverlayWidgetController->SpellMenuWidgetController=MySpellMenuWidgetController;
 		OutWidgetController=MySpellMenuWidgetController;
 	}
 }

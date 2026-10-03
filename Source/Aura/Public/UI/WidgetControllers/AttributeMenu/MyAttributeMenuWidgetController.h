@@ -29,6 +29,9 @@ private:
 	
 	virtual void BroadcastInitialValues() override;
 	
+	// The controller is cached and reused, but the menu widget calls BindCallbacksToDependencies every time it opens
+	bool bCallbacksBound=false;
+	
 	public:
 	
 	UFUNCTION(BlueprintCallable)
