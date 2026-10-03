@@ -30,6 +30,8 @@ UCLASS()
 class AURA_API AMyHexPlatform : public AActor
 {
 	GENERATED_BODY()
+	
+	friend class AMyHexBridgeBuilder;
 
 public:
 
@@ -37,6 +39,9 @@ public:
 	
 	TArray<FIntVector> GetOriginalEdgeHexes() const;
 
+	TMap<int32, TArray<FIntVector>> GetEdgeInstances() const;
+	
+	TMap<int32, TArray<FIntVector>> EdgeInstances;
 protected:
 
 	virtual void BeginPlay() override;
@@ -93,6 +98,17 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Deletion")
 	float DistRangeMaxToStopDeletion=0.f;
+	
+	
+	UPROPERTY(EditAnywhere, Category="Hex Platform|Deletion", meta=(ClampMin="0.1"))
+	float NoiseFrequency = 3.f;    // spikes around the edge, roughly 3x this
+
+	UPROPERTY(EditAnywhere, Category="Hex Platform|Deletion", meta=(ClampMin="0.0", ClampMax="0.6"))
+	float NoiseStrength = 0.3f;    // how far the edge moves in/out, fraction of its radius
+
+	UPROPERTY(EditAnywhere, Category="Hex Platform|Deletion", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float DetailStrength = 0.3f;   // extra fine jaggedness, 0 = off
+	
 	
 	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Deletion")
 	// FRuntimeFloatCurve NoiseCurve;

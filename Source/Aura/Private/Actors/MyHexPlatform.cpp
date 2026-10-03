@@ -102,7 +102,7 @@ void AMyHexPlatform::BeginPlay()
 			TimerHandle,
 			this,
 			&ThisClass::GenerateAndActivateChainFromRandomSelectedGrid,
-			1.f,
+			5.f,
 			true,
 			1.f
 		);
@@ -134,6 +134,165 @@ void AMyHexPlatform::OnConstruction(
 // =============================================================================
 // Build Grid
 // =============================================================================
+
+// void AMyHexPlatform::BuildHexGrid()
+// {
+// 	if (!HexPillarsISM)
+// 	{
+// 		return;
+// 	}
+//
+// 	// -------------------------------------------------------------------------
+// 	// Clear old instances
+// 	// -------------------------------------------------------------------------
+//
+// 	HexPillarsISM->ClearInstances();
+//
+// 	HexMap.Empty();
+// 	InstanceToHex.Empty();
+//
+//
+// 	// -------------------------------------------------------------------------
+// 	// Set static mesh
+// 	// -------------------------------------------------------------------------
+//
+// 	if (!HexPillarStaticMesh)
+// 	{
+// 		return;
+// 	}
+//
+// 	HexPillarsISM->SetStaticMesh(
+// 		HexPillarStaticMesh
+// 	);
+//
+//
+// 	// -------------------------------------------------------------------------
+// 	// Generate grid
+// 	// -------------------------------------------------------------------------
+//
+// 	const TArray<FHexCoord> HexCoords = GenerateHexGrid();
+//
+// 	
+// 	for (const FHexCoord& HexCoord : HexCoords)
+// 	{
+// 		
+// 		{}
+// 		// calc dist from center
+// 		const int32 DistanceFromCenter = FMath::Max3(FMath::Abs(HexCoord.Q),FMath::Abs(HexCoord.R),FMath::Abs(HexCoord.S));
+//
+// 		// Normalize 0 to1 
+// 		const float Distance01 =static_cast<float>(DistanceFromCenter) /static_cast<float>(GridSize);
+// 		
+// 		const double BOH_NoiseScale = 0.2;
+//
+// 		float NoiseBOH = FMath::PerlinNoise3D(
+// 			FVector3d(
+// 				HexCoord.Q * BOH_NoiseScale,
+// 				HexCoord.R * BOH_NoiseScale,
+// 				HexCoord.S * BOH_NoiseScale
+// 			)
+// 		);
+// 		
+// 		NoiseBOH= (NoiseBOH+1.f)* 0.5f;
+//
+// 		// calc scale 
+// 		const float Scale = FMath::Lerp(
+// 			GridSize*VerticalScaling* NoiseBOH,   // center
+// 			0.4f,   // edge
+// 			Distance01
+// 		);
+// 		
+// 		
+// 		// calc offset in z due to scale 
+// 		float ZOffsetDueToScale= GridSize-Scale;
+// 		
+// 		// Mult by instanced geo size
+// 		ZOffsetDueToScale*= 1000.f;
+// 		
+// 		const FVector2D Loc2d = HexToWorld(
+// 			HexCoord.Q,
+// 			HexCoord.R,
+// 			HexRadius
+// 		);
+//
+// 		FTransform InstanceTransform;
+//
+// 		InstanceTransform.SetLocation(
+// 			FVector(
+// 				Loc2d.X,
+// 				Loc2d.Y,
+// 				//TODO Add slight randomness to z Loc
+// 				0.f
+// 			)
+// 		);
+// 		
+// 		float InstanceRadius=HexRadius/100;
+// 		InstanceTransform.SetScale3D(
+// 			FVector(
+// 				InstanceRadius,
+// 				InstanceRadius,
+// 				Scale
+// 			)
+// 		);
+//
+// 		const FIntVector Coord(
+// 			HexCoord.Q,
+// 			HexCoord.R,
+// 			HexCoord.S
+// 		);
+//
+// 			float noise=FMath::PerlinNoise2D((Loc2d*NoiseScale)+NoiseOffset);
+// 			
+// 			float Dist= NoiseCurve? NoiseCurve->GetFloatValue(Distance01) : Distance01;
+// 			// float Dist= NoiseCurve.GetValueAtLevel(Distance01);
+// 			noise= FMath::Max(1-Distance01,noise);
+// 			
+// 			FVector2D InputRange=FVector2D(0,1);
+// 			FVector2D OutputRange=FVector2D(0,1);
+// 			Dist=FMath::GetMappedRangeValueClamped(InputRange,OutputRange,Dist);
+// 			
+// 			noise= noise+Dist;
+// 		
+// 		int32 InstanceIndex=INDEX_NONE;
+// 		
+// 		if (noise>DeletionThreshold)
+// 		{
+// 			 InstanceIndex= AddHexInstance(Coord,InstanceTransform);
+// 		}
+// 		
+//
+// 		if (InstanceIndex != INDEX_NONE)
+// 		{
+// 			HexPillarsISM->SetCustomDataValue(InstanceIndex,0,Dist,true);
+// 			
+// 			HexMap.Add(
+// 				Coord,
+// 				InstanceIndex
+// 			);
+//
+// 			InstanceToHex.Add(
+// 				InstanceIndex,
+// 				Coord
+// 			);
+// 		}
+// 	}
+// }
+// Complete replacement for AMyHexPlatform::BuildHexGrid()
+//
+// How the outline works
+// ---------------------
+// Every hex is measured as a fraction of the platform radius (Radius01) and compared with an edge
+// radius that depends only on its DIRECTION from the centre (noise sampled on a circle, so it loops
+// seamlessly and does not change with GridSize). NoiseCurve turns that relative distance into a
+// 0..1 falloff, and hexes at or below DeletionThreshold are not created.
+//
+//   DeletionThreshold  overall size. 0.5 puts the outline at roughly 3/4 of the platform radius
+//                      with the current curve; higher = smaller.
+//   NoiseStrength      max distance the edge moves in/out, as a fraction of its radius. Keep it
+//                      <= ~0.35 at threshold 0.5, or spikes hit the edge of the grid and get cut flat.
+//   NoiseFrequency     number of spikes around the edge (about 3x this value).
+//   DetailStrength     finer jaggedness layered on top (0 = smooth lobes only).
+//   NoiseOffset        seed. The same offset gives the same silhouette at any GridSize.
 
 void AMyHexPlatform::BuildHexGrid()
 {
@@ -167,23 +326,96 @@ void AMyHexPlatform::BuildHexGrid()
 
 
 	// -------------------------------------------------------------------------
-	// Generate grid
+	// Values that are the same for every hex
 	// -------------------------------------------------------------------------
 
 	const TArray<FHexCoord> HexCoords = GenerateHexGrid();
 
-	
+	// Avoids a divide by zero when GridSize is 0
+	const int32 SafeGridSize = FMath::Max(1, GridSize);
+	const float GridSizeF = static_cast<float>(SafeGridSize);
+
+	// Radius of the largest circle that fits inside the hex-shaped grid (corner distance * cos 30 deg).
+	// Radius01 == 1 means "touching the middle of the grid's flat edge", so the outline is always
+	// measured against the grid it has to fit in, whatever GridSize is.
+	const float PlatformRadius = FMath::Max(
+		static_cast<float>(HexToWorld(SafeGridSize, 0, HexRadius).Size()) * 0.8660254f,
+		1.e-4f
+	);
+
+	// PerlinNoise2D usually stays within about +-0.6, so stretch it. Together with the clamp below
+	// this makes NoiseStrength the real maximum edge displacement.
+	constexpr float PerlinGain = 2.f;
+
+	// TODO Make tweakable Prop
+	constexpr double BOH_NoiseScale = 0.2;
+
+	const float InstanceRadius = HexRadius / 100;
+
+
+	// -------------------------------------------------------------------------
+	// Generate grid
+	// -------------------------------------------------------------------------
+
 	for (const FHexCoord& HexCoord : HexCoords)
 	{
-		
-		// calc dist from center
-		const int32 DistanceFromCenter = FMath::Max3(FMath::Abs(HexCoord.Q),FMath::Abs(HexCoord.R),FMath::Abs(HexCoord.S));
+		const FVector2D Loc2d = HexToWorld(
+			HexCoord.Q,
+			HexCoord.R,
+			HexRadius
+		);
 
-		// Normalize 0 to1 
-		const float Distance01 =static_cast<float>(DistanceFromCenter) /static_cast<float>(GridSize);
-		
-		//TODO Make tweakable Prop
-		const double BOH_NoiseScale = 0.2;
+		// Hex-ring distance from the centre, 0..1 (only used for pillar height below)
+		const int32 DistanceFromCenter = FMath::Max3(
+			FMath::Abs(HexCoord.Q),
+			FMath::Abs(HexCoord.R),
+			FMath::Abs(HexCoord.S)
+		);
+
+		const float Distance01 = static_cast<float>(DistanceFromCenter) / GridSizeF;
+
+
+		// ---------------------------------------------------------------------
+		// Outline: does this hex exist?
+		// ---------------------------------------------------------------------
+
+		// Straight-line distance from the centre as a fraction of the platform radius
+		const float Radius01 = static_cast<float>(Loc2d.Size()) / PlatformRadius;
+
+		// Edge noise depends only on the direction from the centre
+		const FVector2D Dir = Loc2d.GetSafeNormal();
+
+		const float Broad = FMath::PerlinNoise2D(Dir * NoiseFrequency + NoiseOffset);
+		const float Detail = FMath::PerlinNoise2D(Dir * (NoiseFrequency * 2.7f) + NoiseOffset);
+
+		const float EdgeNoise = FMath::Clamp(
+			(Broad + Detail * DetailStrength) * PerlinGain,
+			-1.f,
+			1.f
+		);
+
+		// Where the outline sits in this direction: 1 +/- NoiseStrength
+		const float EdgeRadius = FMath::Max(0.1f, 1.f + EdgeNoise * NoiseStrength);
+
+		// Distance measured relative to this direction's outline
+		const float Local01 = Radius01 / EdgeRadius;
+
+		// 1 at the centre, falling towards 0 at the outline (fallback without a curve is linear)
+		const float Falloff = FMath::Clamp(
+			NoiseCurve ? NoiseCurve->GetFloatValue(Local01) : 1.f - Local01,
+			0.f,
+			1.f
+		);
+
+		if (Falloff <= DeletionThreshold)
+		{
+			continue;
+		}
+
+
+		// ---------------------------------------------------------------------
+		// Pillar height (same as before)
+		// ---------------------------------------------------------------------
 
 		float NoiseBOH = FMath::PerlinNoise3D(
 			FVector3d(
@@ -192,28 +424,19 @@ void AMyHexPlatform::BuildHexGrid()
 				HexCoord.S * BOH_NoiseScale
 			)
 		);
-		
-		NoiseBOH= (NoiseBOH+1.f)* 0.5f;
 
-		// calc scale 
+		NoiseBOH = (NoiseBOH + 1.f) * 0.5f;
+
 		const float Scale = FMath::Lerp(
-			GridSize*VerticalScaling* NoiseBOH,   // center
-			0.4f,   // edge
+			GridSize * VerticalScaling * NoiseBOH,   // center
+			0.4f,                                    // edge
 			Distance01
 		);
-		
-		
-		// calc offset in z due to scale 
-		float ZOffsetDueToScale= GridSize-Scale;
-		
-		// Mult by instanced geo size
-		ZOffsetDueToScale*= 1000.f;
-		
-		const FVector2D Loc2d = HexToWorld(
-			HexCoord.Q,
-			HexCoord.R,
-			HexRadius
-		);
+
+
+		// ---------------------------------------------------------------------
+		// Create the instance
+		// ---------------------------------------------------------------------
 
 		FTransform InstanceTransform;
 
@@ -225,8 +448,7 @@ void AMyHexPlatform::BuildHexGrid()
 				0.f
 			)
 		);
-		
-		float InstanceRadius=HexRadius/100;
+
 		InstanceTransform.SetScale3D(
 			FVector(
 				InstanceRadius,
@@ -241,43 +463,28 @@ void AMyHexPlatform::BuildHexGrid()
 			HexCoord.S
 		);
 
-		float noise=FMath::PerlinNoise2D((Loc2d*NoiseScale)+NoiseOffset);
-		
-		float Dist= NoiseCurve? NoiseCurve->GetFloatValue(Distance01) : Distance01;
-		// float Dist= NoiseCurve.GetValueAtLevel(Distance01);
-		noise= FMath::Max(1-Distance01,noise);
-		
-		FVector2D InputRange=FVector2D(0,1);
-		FVector2D OutputRange=FVector2D(0,1);
-		Dist=FMath::GetMappedRangeValueClamped(InputRange,OutputRange,Dist);
-		
-		noise= noise+Dist;
-		
-		int32 InstanceIndex=INDEX_NONE;
-		
-		if (noise>DeletionThreshold)
-		{
-			 InstanceIndex= AddHexInstance(Coord,InstanceTransform);
-		}
-		
+		const int32 InstanceIndex = AddHexInstance(Coord, InstanceTransform);
 
-		if (InstanceIndex != INDEX_NONE)
+		if (InstanceIndex == INDEX_NONE)
 		{
-			HexPillarsISM->SetCustomDataValue(InstanceIndex,0,Dist,true);
-			
-			HexMap.Add(
-				Coord,
-				InstanceIndex
-			);
-
-			InstanceToHex.Add(
-				InstanceIndex,
-				Coord
-			);
+			continue;
 		}
+
+		HexPillarsISM->SetCustomDataValue(InstanceIndex, 0, Falloff, true);
+
+		HexMap.Add(
+			Coord,
+			InstanceIndex
+		);
+
+		InstanceToHex.Add(
+			InstanceIndex,
+			Coord
+		);
 	}
+	 EdgeInstances= GetEdgeInstances();
+	
 }
-
 
 // =============================================================================
 // Generate Hex Grid
@@ -970,4 +1177,52 @@ TArray<FIntVector> AMyHexPlatform::GetOriginalEdgeHexes() const
 	}
 
 	return EdgeHexes;
+}
+
+
+// GetEdgeInstancesAfterDeletion
+
+TMap<int32, TArray<FIntVector>> AMyHexPlatform::GetEdgeInstances() const
+{
+	TMap<int32, TArray<FIntVector>> OutEdgeInstances;
+
+	static const FIntVector Directions[6] =
+	{
+		FIntVector( 1,  0, -1),
+		FIntVector( 1, -1,  0),
+		FIntVector( 0, -1,  1),
+		FIntVector(-1,  0,  1),
+		FIntVector(-1,  1,  0),
+		FIntVector( 0,  1, -1)
+	};
+
+	for (const auto& Pair : HexMap)
+	{
+		const FIntVector& Coord = Pair.Key;
+		const int32 InstanceIndex = Pair.Value;
+
+		TArray<FIntVector> MissingNeighbors;
+
+		for (const FIntVector& Direction : Directions)
+		{
+			const FIntVector Neighbor = Coord + Direction;
+
+			// Neighbor does not currently exist.
+			if (!HexMap.Contains(Neighbor))
+			{
+				MissingNeighbors.Add(Neighbor);
+			}
+		}
+
+		// Only store instances that have at least one missing neighbor.
+		if (MissingNeighbors.Num() > 0)
+		{
+			OutEdgeInstances.Add(
+				InstanceIndex,
+				MoveTemp(MissingNeighbors)
+			);
+		}
+	}
+
+	return OutEdgeInstances;
 }
