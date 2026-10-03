@@ -211,34 +211,37 @@ void UMyAbilitySystemComponent::UpgradeAttribute(FGameplayTag AttribTag)
 }
 
 
-void UMyAbilitySystemComponent::Server_SpendSpellPoint_Implementation(FGameplayTag AbilityTag,FGameplayTag StatusTag)
+void UMyAbilitySystemComponent::Server_SpendSpellPoint_Implementation(FGameplayTag AbilityTag)
 {
-	if (GetAvatarActor()->Implements<UMyPlayerInterface>())
+	// Server is the source of truth: validate everything before taking the point
+	if (!GetAvatarActor()->Implements<UMyPlayerInterface>())return;
+	if (IMyPlayerInterface::Execute_GetSpellPoints(GetAvatarActor())<=0)return;
+	
+	FGameplayAbilitySpec* GASpec=GetAbilitySpecFromTag(AbilityTag);
+	if (!GASpec)return;
+	
+	// Read the status from the server spec, never from the client
+	FGameplayTag StatusTag=GetStatusTagFromSpec(*GASpec);
+	if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked) || StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped))
 	{
-		IMyPlayerInterface::Execute_AddToSpellPoints(GetAvatarActor(),-1);
-		
-		// int32 SpellPoints=IMyPlayerInterface::Execute_GetSpellPoints(GetAvatarActor());
-		//
-		// UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("SpendSpellPoint:SpellPoints = %d for "),SpellPoints) + AbilityTag.ToString());
-		
-		FGameplayAbilitySpec* GASpec=GetAbilitySpecFromTag(AbilityTag);
-		// if (GASpec) dont need to check bcz can only press Spend point if found a valid Ability
-		
-		if (StatusTag.MatchesTagExact(MyTags::Ability_Status_Unlocked) || StatusTag.MatchesTagExact(MyTags::Ability_Status_Equiped))
-		{
-			GASpec->Level+=1;
-			UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("LevelUp:NowLevel = %d for "),GASpec->Level) + AbilityTag.ToString());
-		}
-		else if(StatusTag.MatchesTagExact(MyTags::Ability_Status_Eligible))
-		{
-			GASpec->GetDynamicSpecSourceTags().RemoveTag(StatusTag);
-			GASpec->GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Unlocked);
-			MarkAbilitySpecDirty(*GASpec);
-			StatusTag=MyTags::Ability_Status_Unlocked;
-		}
-		
-		Client_UpdateAbilityStatus(AbilityTag,StatusTag,GASpec->Level);
+		GASpec->Level+=1;
+		MarkAbilitySpecDirty(*GASpec);
+		UKismetSystemLibrary::PrintString(GetWorld(),FString::Printf(TEXT("LevelUp:NowLevel = %d for "),GASpec->Level) + AbilityTag.ToString());
 	}
+	else if(StatusTag.MatchesTagExact(MyTags::Ability_Status_Eligible))
+	{
+		SetStatusTagOnSpec(*GASpec,MyTags::Ability_Status_Unlocked);
+		MarkAbilitySpecDirty(*GASpec);
+		StatusTag=MyTags::Ability_Status_Unlocked;
+	}
+	else
+	{
+		// Locked (or no status): nothing to spend the point on
+		return;
+	}
+	
+	IMyPlayerInterface::Execute_AddToSpellPoints(GetAvatarActor(),-1);
+	Client_UpdateAbilityStatus(AbilityTag,StatusTag,GASpec->Level);
 }
 
 void UMyAbilitySystemComponent::Client_UpdateAbilityStatus_Implementation(FGameplayTag AbilityTag,FGameplayTag StatusTag,int32 AbilityLevel)

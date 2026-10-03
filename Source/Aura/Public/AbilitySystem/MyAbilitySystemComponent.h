@@ -64,7 +64,7 @@ class AURA_API UMyAbilitySystemComponent : public UAbilitySystemComponent
 	void Client_EquipAbility(FGameplayTag AbilityTag,FGameplayTag InputTag, FGameplayTag StatusTag,FGameplayTag PrevInputTag);
 	
 	UFUNCTION(Server,Reliable)
-	void Server_SpendSpellPoint(FGameplayTag AbilityTag,FGameplayTag StatusTag);
+	void Server_SpendSpellPoint(FGameplayTag AbilityTag);
 	
 	UFUNCTION(Client,Reliable)
 	void Client_UpdateAbilityStatus(FGameplayTag AbilityTag,FGameplayTag StatusTag,int32 AbilityLevel);

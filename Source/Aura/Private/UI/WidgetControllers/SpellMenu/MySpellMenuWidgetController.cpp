@@ -155,7 +155,7 @@ void UMySpellMenuWidgetController::SpendSpellPointButtonPressed()
 	
 	if (Cast<AMyPlayerState>(PlayerState)->GetSpellPoints()>0)
 	{
-		MyAbilitySystemComponent->Server_SpendSpellPoint(SelectedAbility.AbilityTag,SelectedAbility.StatusTag);
+		MyAbilitySystemComponent->Server_SpendSpellPoint(SelectedAbility.AbilityTag);
 	}
 }
 
