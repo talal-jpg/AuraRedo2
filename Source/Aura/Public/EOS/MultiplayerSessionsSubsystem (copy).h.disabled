@@ -7,7 +7,6 @@
 
 #include "Engine/World.h"
 #include "Interfaces/OnlineSessionInterface.h"
-#include "EOS/MultiplayerSessionTypes.h"
 #include "MultiplayerSessionsSubsystem.generated.h"
 
 //
@@ -18,16 +17,6 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FMultiplayerOnFindSessionsComplete, const T
 DECLARE_MULTICAST_DELEGATE_OneParam(FMultiplayerOnJoinSessionComplete, EOnJoinSessionCompleteResult::Type Result);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMultiplayerOnDestroySessionComplete, bool, bWasSuccessful);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMultiplayerOnStartSessionComplete, bool, bWasSuccessful);
-
-//
-// New delegates for MainMenu2 (privacy / join-code / Steam-invite / browse-filter flow).
-// SessionsFound carries a plain USTRUCT array the same way FindSessionsComplete carries
-// FOnlineSessionSearchResult, so it stays a non-dynamic multicast delegate (AddUObject /
-// RemoveAll), not a dynamic one.
-//
-DECLARE_MULTICAST_DELEGATE_TwoParams(FMultiplayerOnSessionsFound, const TArray<FAuraSessionInfo>& SessionInfos, bool bWasSuccessful);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMultiplayerOnInviteAccepted, bool, bWasSuccessful);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMultiplayerOnSessionError, const FString&, Message);
 
 /**
  * 
@@ -40,7 +29,7 @@ class AURA_API UMultiplayerSessionsSubsystem : public UGameInstanceSubsystem
 	UMultiplayerSessionsSubsystem();
 	
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
-	virtual void Deinitialize() override;
+	
 	
 	
 
@@ -59,19 +48,6 @@ class AURA_API UMultiplayerSessionsSubsystem : public UGameInstanceSubsystem
 	void LeaveSession();
 
 	//
-	// MainMenu2 API - additive. Every signature above is untouched, so UMainMenu and
-	// AMyPlayerController2::JoinSessionButtonWrapper keep working exactly as they do today.
-	//
-	void CreateSessionWithSettings(const FAuraHostSettings& HostSettings);
-	void FindSessionsFiltered(const FAuraSessionFilter& Filter);
-	void JoinSessionByCode(const FString& JoinCode);
-	void JoinCachedSession(int32 ResultIndex);
-	bool ShowSteamInviteUI();
-	FString GetCurrentJoinCode() const;
-	bool IsSearchInProgress() const;
-	static FString GenerateJoinCode();
-
-	//
 	// Our own custom delegates for the Menu class to bind callbacks to
 	//
 	FMultiplayerOnCreateSessionComplete MultiplayerOnCreateSessionComplete;
@@ -79,10 +55,6 @@ class AURA_API UMultiplayerSessionsSubsystem : public UGameInstanceSubsystem
 	FMultiplayerOnJoinSessionComplete MultiplayerOnJoinSessionComplete;
 	FMultiplayerOnDestroySessionComplete MultiplayerOnDestroySessionComplete;
 	FMultiplayerOnStartSessionComplete MultiplayerOnStartSessionComplete;
-
-	FMultiplayerOnSessionsFound MultiplayerOnSessionsFound;
-	FMultiplayerOnInviteAccepted MultiplayerOnInviteAccepted;
-	FMultiplayerOnSessionError MultiplayerOnSessionError;
 	
 	//My
 	void StartHeadlessLogic(UWorld* InWorld, const UWorld::InitializationValues IVS);
@@ -104,10 +76,7 @@ protected:
 	void OnFindSessionsCompleteForHeadless(const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessful);
 	
 	void OnJoinSessionCompleteForHeadlesss(EOnJoinSessionCompleteResult::Type Result);
-
-	// Fired by the Online Session Interface when a Steam overlay invite - or a cold-start
-	// invite, re-ticked once this delegate is bound - is accepted.
-	void OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult);
+	
 	
 
 private:
@@ -129,24 +98,9 @@ private:
 	FDelegateHandle DestroySessionCompleteDelegateHandle;
 	FOnStartSessionCompleteDelegate StartSessionCompleteDelegate;
 	FDelegateHandle StartSessionCompleteDelegateHandle;
-	FDelegateHandle InviteAcceptedDelegateHandle;
 
 	bool bCreateSessionOnDestroy{ false };
 	int32 LastNumPublicConnections;
 	FString LastMatchType;
-
-	//
-	// MainMenu2 state
-	//
-	bool bRecreateWithHostSettings{ false };
-	FAuraHostSettings PendingHostSettings;
-
-	bool bSearchInProgress{ false };
-	bool bPendingCodeJoin{ false };
-	FAuraSessionFilter CurrentSessionFilter;
-	TArray<FOnlineSessionSearchResult> CachedResults;
-	FString CurrentJoinCode;
-
-	static int32 GetPingCapForDistance(EAuraSearchDistance Distance);
 	
 };
