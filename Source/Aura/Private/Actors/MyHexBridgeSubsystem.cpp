@@ -16,7 +16,9 @@
 DEFINE_LOG_CATEGORY_STATIC(LogHexBridgeSubsystem, Log, All);
 
 
-namespace
+// Named, not anonymous: Unreal's unity build compiles this file together with MyHexBridgeBuilder.cpp,
+// which defines the same names in its own anonymous namespace.
+namespace HexBridgeSubsystemTrace
 {
 	// Same trace layout as AMyHexBridgeBuilder.
 
@@ -442,8 +444,8 @@ bool UMyHexBridgeSubsystem::TraceReaches(const FEdgeWorld& From, const FEdgeWorl
 {
 	UWorld* World = GetWorld();
 
-	const FVector Start = From.Mid + From.Normal * BridgeTraceStartOffset - From.Up * BridgeTraceDepth;
-	const FVector End = To.Mid - To.Normal * BridgeTraceOvershoot - To.Up * BridgeTraceDepth;
+	const FVector Start = From.Mid + From.Normal * HexBridgeSubsystemTrace::BridgeTraceStartOffset - From.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
+	const FVector End = To.Mid - To.Normal * HexBridgeSubsystemTrace::BridgeTraceOvershoot - To.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
 
 	// The source platform is deliberately NOT ignored, so an edge whose line would pass back
 	// through its own tiles is rejected
@@ -457,7 +459,7 @@ bool UMyHexBridgeSubsystem::TraceReaches(const FEdgeWorld& From, const FEdgeWorl
 		// The first thing the line meets must be the target platform, at the target tile's side.
 		// Anything else (a third platform, the source platform, another part of the target's
 		// outline) means the two edges can't see each other.
-		const FVector Expected = To.Mid - To.Up * BridgeTraceDepth;
+		const FVector Expected = To.Mid - To.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
 
 		bReaches = Hit.GetActor() == &Target
 			&& FVector::DistSquared(Hit.ImpactPoint, Expected) <= FMath::Square(Target.HexRadius * 0.6f);

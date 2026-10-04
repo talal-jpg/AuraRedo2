@@ -18,6 +18,7 @@ class UEditableTextBox;
 class UTextBlock;
 class UMultiplayerSessionsSubsystem;
 class USessionEntry2;
+class UMaterialInstanceDynamic;
 
 /**
  * Host/Join menu with privacy modes, join codes, Steam invites and a filtered
@@ -39,7 +40,33 @@ public:
 
 protected:
 	virtual bool Initialize() override;
+	virtual void NativeConstruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 	virtual void NativeDestruct() override;
+
+	//
+	// Graffiti hover juice. Every button whose overlay contains an Image named "Graffiti_*"
+	// pops, tilts and wobbles on hover, squashes on press, and drives the image's
+	// "Hovered" material parameter (M_UI_Button) smoothly instead of snapping.
+	//
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu|Graffiti")
+	float GraffitiHoverScale = 1.08f;
+
+	// Extra scale velocity added the moment the cursor enters, for the overshoot "pop".
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu|Graffiti")
+	float GraffitiHoverKick = 2.5f;
+
+	// Max resting tilt (degrees) so the buttons look hand-placed.
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu|Graffiti")
+	float GraffitiRestTilt = 3.f;
+
+	// Wobble amplitude (degrees) while hovered.
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu|Graffiti")
+	float GraffitiWobble = 2.2f;
+
+	// Label colour on top of the neon fill while hovered.
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu|Graffiti")
+	FLinearColor GraffitiHoverTextColor = FLinearColor(0.02f, 0.02f, 0.03f, 1.f);
 
 	//
 	// Subsystem callbacks
@@ -192,6 +219,31 @@ private:
 
 	FAuraHostSettings PendingHostSettings;
 	bool bAwaitingCodeJoin{ false };
+
+	//
+	// Graffiti hover state
+	//
+	struct FGraffitiButtonFX
+	{
+		TWeakObjectPtr<UButton> Button;
+		TWeakObjectPtr<UWidget> Container;
+		TWeakObjectPtr<UTextBlock> Label;
+		TWeakObjectPtr<UMaterialInstanceDynamic> Material;
+		FLinearColor RestTextColor = FLinearColor::White;
+		float Hover = 0.f;
+		float Press = 0.f;
+		float Scale = 1.f;
+		float ScaleVelocity = 0.f;
+		float RestAngle = 0.f;
+		float Seed = 0.f;
+		bool bWasHovered = false;
+	};
+
+	TArray<FGraffitiButtonFX> GraffitiButtons;
+	float GraffitiTime = 0.f;
+
+	void SetupGraffitiButtons();
+	void TickGraffitiButtons(float DeltaTime);
 
 	int32 NumPublicConnections{ 4 };
 	FString MatchType{ TEXT("FreeForAll") };

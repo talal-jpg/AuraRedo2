@@ -9,6 +9,9 @@
 #include "Components/TextBlock.h"
 #include "Components/WidgetSwitcher.h"
 #include "Components/PanelWidget.h"
+#include "Components/Image.h"
+#include "Blueprint/WidgetTree.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "OnlineSessionSettings.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSubsystemUtils.h"
@@ -95,8 +98,24 @@ bool UMainMenu2::Initialize()
 	return true;
 }
 
+void UMainMenu2::NativeConstruct()
+{
+	Super::NativeConstruct();
+
+	SetupGraffitiButtons();
+}
+
+void UMainMenu2::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	TickGraffitiButtons(InDeltaTime);
+}
+
 void UMainMenu2::NativeDestruct()
 {
+	GraffitiButtons.Reset();
+
 	if (MultiplayerSessionsSubsystem)
 	{
 		MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.RemoveDynamic(this, &ThisClass::OnCreateSession);
@@ -109,6 +128,129 @@ void UMainMenu2::NativeDestruct()
 	}
 
 	Super::NativeDestruct();
+}
+
+//
+// Graffiti hover juice
+//
+
+void UMainMenu2::SetupGraffitiButtons()
+{
+	GraffitiButtons.Reset();
+
+	if (!WidgetTree)
+	{
+		return;
+	}
+
+	int32 Index = 0;
+	WidgetTree->ForEachWidget([this, &Index](UWidget* Widget)
+	{
+		UButton* Button = Cast<UButton>(Widget);
+		UPanelWidget* Container = Button ? Button->GetParent() : nullptr;
+		if (!Container)
+		{
+			return;
+		}
+
+		FGraffitiButtonFX FX;
+		for (int32 ChildIndex = 0; ChildIndex < Container->GetChildrenCount(); ++ChildIndex)
+		{
+			UWidget* Child = Container->GetChildAt(ChildIndex);
+			if (UImage* Image = Cast<UImage>(Child))
+			{
+				if (Image->GetName().StartsWith(TEXT("Graffiti_")))
+				{
+					FX.Material = Image->GetDynamicMaterial();
+				}
+			}
+			else if (UTextBlock* Text = Cast<UTextBlock>(Child))
+			{
+				FX.Label = Text;
+			}
+		}
+
+		// Only buttons that were given a graffiti backing image take part
+		if (!FX.Material.IsValid())
+		{
+			return;
+		}
+
+		FX.Button = Button;
+		FX.Container = Container;
+		FX.Seed = Index * 1.37f;
+		// Deterministic "hand placed" tilt, alternating left/right
+		FX.RestAngle = FMath::Sin(Index * 2.3f + 0.7f) * GraffitiRestTilt;
+		Container->SetRenderTransformAngle(FX.RestAngle);
+
+		GraffitiButtons.Add(FX);
+		++Index;
+	});
+}
+
+void UMainMenu2::TickGraffitiButtons(float DeltaTime)
+{
+	if (GraffitiButtons.Num() == 0)
+	{
+		return;
+	}
+
+	// Keep the spring stable on hitches
+	const float Dt = FMath::Min(DeltaTime, 1.f / 30.f);
+	GraffitiTime += Dt;
+
+	for (FGraffitiButtonFX& FX : GraffitiButtons)
+	{
+		UButton* Button = FX.Button.Get();
+		UWidget* Container = FX.Container.Get();
+		if (!Button || !Container)
+		{
+			continue;
+		}
+
+		const bool bHovered = Button->IsHovered() && Button->GetIsEnabled();
+		const bool bPressed = Button->IsPressed();
+
+		FX.Hover = FMath::FInterpTo(FX.Hover, bHovered ? 1.f : 0.f, Dt, 12.f);
+		FX.Press = FMath::FInterpTo(FX.Press, bPressed ? 1.f : 0.f, Dt, 30.f);
+
+		// Kick the spring the moment the cursor arrives so the button overshoots and settles
+		if (bHovered && !FX.bWasHovered)
+		{
+			FX.ScaleVelocity += GraffitiHoverKick;
+		}
+		FX.bWasHovered = bHovered;
+
+		// Damped spring towards the target scale
+		const float TargetScale = 1.f + (GraffitiHoverScale - 1.f) * FX.Hover - 0.07f * FX.Press;
+		const float Accel = (TargetScale - FX.Scale) * 260.f - FX.ScaleVelocity * 14.f;
+		FX.ScaleVelocity += Accel * Dt;
+		FX.Scale += FX.ScaleVelocity * Dt;
+
+		// Hovered: lean into a wobble with a little spray-can jitter. Pressed: squash down.
+		const float Wobble = FMath::Sin(GraffitiTime * 10.f + FX.Seed) * GraffitiWobble;
+		const float Angle = FMath::Lerp(FX.RestAngle, Wobble - 1.5f, FX.Hover);
+		const FVector2D Jitter(
+			FMath::PerlinNoise1D(GraffitiTime * 14.f + FX.Seed),
+			FMath::PerlinNoise1D(GraffitiTime * 14.f + FX.Seed + 31.7f));
+		const FVector2D Translation = FVector2D(10.f, -4.f) * FX.Hover + Jitter * 2.5f * FX.Hover + FVector2D(0.f, 3.f) * FX.Press;
+		const FVector2D Scale(FX.Scale * (1.f + 0.04f * FX.Press), FX.Scale * (1.f - 0.07f * FX.Press));
+		const FVector2D Shear(-8.f * FX.Hover, 0.f);
+
+		Container->SetRenderTransform(FWidgetTransform(Translation, Scale, Shear, Angle));
+
+		if (UMaterialInstanceDynamic* Material = FX.Material.Get())
+		{
+			Material->SetScalarParameterValue(TEXT("Hovered"), FX.Hover);
+		}
+
+		if (UTextBlock* Label = FX.Label.Get())
+		{
+			// Dark ink on the neon fill, with the drop shadow flipping to white
+			Label->SetColorAndOpacity(FSlateColor(FMath::Lerp(FX.RestTextColor, GraffitiHoverTextColor, FX.Hover)));
+			Label->SetShadowColorAndOpacity(FMath::Lerp(FLinearColor::Black, FLinearColor::White, FX.Hover));
+		}
+	}
 }
 
 //
