@@ -2091,7 +2091,6 @@ struct UMyHexBridgeSubsystem::FPlanner
 	 */
 	bool CurvedTraces(const FCand& C, const FOption& O)
 	{
-		using namespace HexBridgeSubsystemTrace;
 
 		const FEdgeWorld& EA = EdgeA(C, O);
 		const FEdgeWorld& EB = EdgeB(C, O);
@@ -2100,17 +2099,17 @@ struct UMyHexBridgeSubsystem::FPlanner
 
 		const FVector DirA(O.DirA.X, O.DirA.Y, 0.0);
 		const FVector DirB(O.DirB.X, O.DirB.Y, 0.0);
-		const FVector Down = EA.Up * BridgeTraceDepth;
+		const FVector Down = EA.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
 
 		TArray<FVector, TInlineAllocator<MaxTraceSegmentsPlusOne>> Line;
-		Line.Add(EA.Mid + DirA * BridgeTraceStartOffset - Down);
+		Line.Add(EA.Mid + DirA * HexBridgeSubsystemTrace::BridgeTraceStartOffset - Down);
 
 		for (int32 Index = 1; Index < N; ++Index)
 		{
 			Line.Add(Points[Index] - Down);
 		}
 
-		Line.Add(EB.Mid - DirB * BridgeTraceOvershoot - EB.Up * BridgeTraceDepth);
+		Line.Add(EB.Mid - DirB * HexBridgeSubsystemTrace::BridgeTraceOvershoot - EB.Up * HexBridgeSubsystemTrace::BridgeTraceDepth);
 
 		FHitResult Hit;
 
@@ -2129,7 +2128,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 			return false;
 		}
 
-		bHit = LineHits(Line[1], EA.Mid - DirA * BridgeTraceOvershoot - Down, Hit);
+		bHit = LineHits(Line[1], EA.Mid - DirA * HexBridgeSubsystemTrace::BridgeTraceOvershoot - Down, Hit);
 		return HitReaches(Hit, bHit, C.A, EA);
 	}
 
