@@ -117,7 +117,7 @@ void AMyHexPathSpawner::CheckPlayers()
 		const APlayerController* PlayerController = It->Get();
 		const APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
 
-		if (Pawn && FVector::DistSquared2D(Pawn->GetActorLocation(), PathEnd) <= FMath::Square(ExtendDistance))
+		if (Pawn && FVector::DistSquared2D(Pawn->GetActorLocation(), PathEnd) <= FMath::Square(ExtendDistance * GetLayoutScale()))
 		{
 			// One segment per check; if the player is still close, the next check adds another
 			ExtendPath();
@@ -148,7 +148,8 @@ void AMyHexPathSpawner::ExtendPath()
 	FVector Current = PathSpline->GetLocationAtSplinePoint(FirstIndex, ESplineCoordinateSpace::World);
 
 	const int32 NumPoints = FMath::Max(PointsPerSegment, 1);
-	const float Step = SegmentLength / NumPoints;
+	const float Scale = GetLayoutScale();
+	const float Step = SegmentLength * Scale / NumPoints;
 
 
 	// -------------------------------------------------------------------------
@@ -158,14 +159,14 @@ void AMyHexPathSpawner::ExtendPath()
 	for (int32 Index = 0; Index < NumPoints; ++Index)
 	{
 		// Heading for this step, sampled half way along it
-		const float Yaw = StartYaw + SampleNoise((TravelledDistance + Step * 0.5f) * YawNoiseFrequency + NoiseSeed) * MaxYawDeviation;
+		const float Yaw = StartYaw + SampleNoise((TravelledDistance + Step * 0.5f) / Scale * YawNoiseFrequency + NoiseSeed) * MaxYawDeviation;
 
 		TravelledDistance += Step;
 
 		FVector Next = Current + FRotator(0.f, Yaw, 0.f).Vector() * Step;
 
 		// Height follows its own noise (offset seed), around the start height
-		Next.Z = StartZ + SampleNoise(TravelledDistance * HeightNoiseFrequency + NoiseSeed + 101.7f) * HeightNoiseAmplitude;
+		Next.Z = StartZ + SampleNoise(TravelledDistance / Scale * HeightNoiseFrequency + NoiseSeed + 101.7f) * HeightNoiseAmplitude;
 
 		PathSpline->AddSplinePoint(Next, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
 
@@ -214,6 +215,7 @@ void AMyHexPathSpawner::ExtendPath()
 		return;
 	}
 
+	Segment->SetHexRadius(HexRadius);
 	Segment->SetPathDistances(
 		PathSpline->GetDistanceAlongSplineAtSplinePoint(FirstIndex),
 		PathSpline->GetDistanceAlongSplineAtSplinePoint(LastIndex)
@@ -234,6 +236,8 @@ void AMyHexPathSpawner::DestroyPassedSegments()
 		return;
 	}
 
+	const float BehindDistance = DestroySegmentsBehindDistance * GetLayoutScale();
+
 	const UMyHexBridgeSubsystem* Subsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>();
 	float LeadDistance = 0.f;
 
@@ -245,7 +249,7 @@ void AMyHexPathSpawner::DestroyPassedSegments()
 	// Segments are in path order, so stop at the first one that isn't far enough behind.
 	// Safe for the platforms: PCG doesn't delete the actors it spawned when its component is torn down.
 	while (Segments.Num() > 0
-		&& (!IsValid(Segments[0]) || Segments[0]->GetPathEndDistance() < LeadDistance - DestroySegmentsBehindDistance))
+		&& (!IsValid(Segments[0]) || Segments[0]->GetPathEndDistance() < LeadDistance - BehindDistance))
 	{
 		if (IsValid(Segments[0]))
 		{

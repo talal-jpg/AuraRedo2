@@ -72,6 +72,12 @@ public:
 	/** Server. False once MaxPlatformCullsPerFrame platforms have been culled this frame. */
 	bool TryConsumeCullBudget();
 
+	/**
+	 * Platform HexRadius / 100 (the largest registered so far, 1 before any). The planner's horizontal
+	 * lengths (Hex Bridges settings and planner constants, tuned for HexRadius 100) are multiplied by it.
+	 */
+	float GetLengthScale() const { return LengthScale > 0.f ? LengthScale : 1.f; }
+
 protected:
 
 	virtual bool DoesSupportWorldType(const EWorldType::Type WorldType) const override;
@@ -287,6 +293,9 @@ private:
 	/** Largest footprint and pair reach registered so far, so a small platform still finds a large one. */
 	float MaxFootprint = 0.f;
 	float MaxReach = 0.f;
+
+	/** See GetLengthScale. 0 until a platform registers. */
+	float LengthScale = 0.f;
 
 	/** The untagged-platform chain fallback has been reported. */
 	bool bWarnedChainFallback = false;

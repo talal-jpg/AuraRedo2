@@ -7,6 +7,8 @@
 
 #include "Actors/MyHexBridge.h"
 #include "Actors/MyHexBridgeSubsystem.h"
+#include "Animation/AnimSequence.h"
+#include "Curves/CurveFloat.h"
 #include "CollisionQueryParams.h"
 #include "Components/SplineComponent.h"
 #include "Engine/World.h"
@@ -402,7 +404,7 @@ void AMyHexPlatform::ResolvePathDistance(const USplineComponent& Spline)
 	}
 
 	bPathResolved = true;
-	bOnPath = FVector::Dist2D(Spline.GetLocationAtSplineInputKey(Key, ESplineCoordinateSpace::World), Center) <= MaxPathOffset;
+	bOnPath = FVector::Dist2D(Spline.GetLocationAtSplineInputKey(Key, ESplineCoordinateSpace::World), Center) <= MaxPathOffset * HexRadius / 100.f;
 
 	// Position of the platform's far edge along the path
 	PathFrontDistance = Spline.GetDistanceAlongSplineAtSplineInputKey(Key) + FootprintRadius;

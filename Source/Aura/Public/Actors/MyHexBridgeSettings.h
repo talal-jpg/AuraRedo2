@@ -14,6 +14,11 @@ class AMyHexBridge;
  *
  * A subsystem has no per-level properties, so these live in Project Settings > Game > Hex Bridges
  * and are saved to DefaultGame.ini.
+ *
+ * Lengths are for platforms of HexRadius 100. MaxEdgeGap, MaxBridgeLength, LoopMaxLength,
+ * IsletMaxLength, RouteMaxLength and MaxSplineDistanceJump are multiplied by HexRadius / 100 when the
+ * platforms are bigger (UMyHexBridgeSubsystem::GetLengthScale). Heights, clearances and separations
+ * are not: the deck and the player keep their size.
  */
 UCLASS(Config = Game, DefaultConfig, meta = (DisplayName = "Hex Bridges"))
 class AURA_API UMyHexBridgeSettings : public UDeveloperSettings

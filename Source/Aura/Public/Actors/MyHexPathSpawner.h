@@ -40,6 +40,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Hex Path")
 	const TArray<AMyHexPathSegment*>& GetSegments() const { return ToRawPtrTArrayUnsafe(Segments); }
 
+	/** HexRadius / 100: how much bigger than the original layout everything horizontal is. */
+	UFUNCTION(BlueprintPure, Category = "Hex Path|Scale")
+	float GetLayoutScale() const { return HexRadius / 100.f; }
+
 protected:
 
 	virtual void BeginPlay() override;
@@ -59,7 +63,24 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path")
 	TSubclassOf<AMyHexPathSegment> SegmentClass;
 
-	/** Length of one extension, in cm. */
+	// -------------------------------------------------------------------------
+	// Scale
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Hex radius (cm) of every platform along this path. The one knob for platform size: the layout was
+	 * built for 100, and every horizontal distance scales with HexRadius / 100 (GetLayoutScale):
+	 * - here: SegmentLength, ExtendDistance, DestroySegmentsBehindDistance, and the noise frequencies
+	 *   (so the path bends the same relative to the platforms),
+	 * - the PCG graph: lays platforms out on a copy of the path shrunk by HexRadius / 100, scales the
+	 *   result back up and gives HexRadius to the platforms (see AMyHexPathSegment),
+	 * - the bridges: UMyHexBridgeSubsystem scales its lengths by the platforms' HexRadius / 100.
+	 * Heights (upper chain, height noise, pillar heights) are not scaled.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Scale", meta = (ClampMin = "10.0"))
+	float HexRadius = 100.f;
+
+	/** Length of one extension, in cm (for HexRadius 100). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path", meta = (ClampMin = "100.0"))
 	float SegmentLength = 10000.f;
 
@@ -71,7 +92,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path", meta = (ClampMin = "0"))
 	int32 InitialSegments = 2;
 
-	/** Extend when any player's pawn is within this distance (cm, horizontal) of the end of the path. */
+	/** Extend when any player's pawn is within this distance (cm, horizontal, for HexRadius 100) of the end of the path. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path", meta = (ClampMin = "0.0"))
 	float ExtendDistance = 15000.f;
 
@@ -88,7 +109,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Noise", meta = (ClampMin = "0.0", ClampMax = "180.0"))
 	float MaxYawDeviation = 60.f;
 
-	/** How quickly the heading changes: noise cycles per cm travelled. 0.0001 = a slow bend every ~100 m. */
+	/** How quickly the heading changes: noise cycles per cm travelled (for HexRadius 100). 0.0001 = a slow bend every ~100 m. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Noise", meta = (ClampMin = "0.0"))
 	float YawNoiseFrequency = 0.0001f;
 
@@ -104,7 +125,7 @@ protected:
 	float NoiseSeed = 17.31f;
 
 	/**
-	 * Destroy a segment actor once its end is this far (cm, along the path) behind the lead player.
+	 * Destroy a segment actor once its end is this far (cm along the path, for HexRadius 100) behind the lead player.
 	 * Only the server-side segment goes; its platforms cull themselves (AMyHexPlatform CullBehindDistance).
 	 * 0 = keep every segment.
 	 */

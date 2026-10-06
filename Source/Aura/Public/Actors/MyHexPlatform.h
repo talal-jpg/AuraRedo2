@@ -220,7 +220,7 @@ protected:
 	float CullBehindDistance = 20000.f;
 
 	/**
-	 * A platform whose centre is within this horizontal distance (cm) of the path spline is judged by
+	 * A platform whose centre is within this horizontal distance (cm, for HexRadius 100; scaled by HexRadius / 100) of the path spline is judged by
 	 * distance along the path. Further away (or with no path in the level) it is culled only after the
 	 * lead has reached it and moved CullBehindDistance away.
 	 */

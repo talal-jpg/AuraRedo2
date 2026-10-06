@@ -51,6 +51,10 @@ namespace HexBridgeSubsystemTrace
 
 namespace HexBridgePlan
 {
+	// Lengths below (cm) are tuned for platforms of HexRadius 100. FPlanner multiplies the horizontal ones
+	// by UMyHexBridgeSubsystem::GetLengthScale() (HexRadius / ReferenceHexRadius); heights and deck clearances stay.
+	constexpr double ReferenceHexRadius = 100.0;
+
 	constexpr double Inf = TNumericLimits<double>::Max();
 	constexpr double Sqrt3Half = 0.8660254037844386;
 
@@ -695,6 +699,49 @@ struct UMyHexBridgeSubsystem::FPlanner
 	double TanCurve = 0.0;
 	bool bCurved = true;
 
+	/**
+	 * Horizontal lengths, scaled by Sub.GetLengthScale() (HexRadius / 100). These shadow the
+	 * HexBridgePlan constants and the length settings of the same names, which are tuned for HexRadius 100.
+	 * Heights, slopes, deck clearances and separations are not scaled: the deck and the player keep their size.
+	 */
+	double LengthScale = 1.0;
+
+	// Settings
+	double MaxBridgeLength = 0.0;
+	double LoopMaxLength = 0.0;
+	double IsletMaxLength = 0.0;
+	double RouteMaxLength = 0.0;
+	double MaxEdgeGap = 0.0;
+	double MaxSplineDistanceJump = 0.0;
+
+	// Deck shape and end rules
+	double MinOptionLength = 0.0;
+	double MinCurvedLength = 0.0;
+	double MinTurnRadius = 0.0;
+	double MaxLateralDeviation = 0.0;
+	double StraightLateralTol = 0.0;
+	double CoarseStep = 0.0;
+	double TraceSegmentLength = 0.0;
+	double FanDistance = 0.0;
+	double SharedTrim = 0.0;
+	double SharedEndTolerance = 0.0;
+	double OwnSkip = 0.0;
+	double CurvedOwnSkip = 0.0;
+
+	// Passes
+	double IsletThroughLength = 0.0;
+	double SpineMaxGap = 0.0;
+	double LoopShortLength = 0.0;
+	double LoopLongLength = 0.0;
+	double DeadEndMaxLength = 0.0;
+	double RouteCutRadius = 0.0;
+	double CutNearNew = 0.0;
+	double BypassMaxSpan = 0.0;
+	double BypassMinRadius = 0.0;
+	double BypassNewCost = 0.0;
+	double CutRadius = 0.0;
+	double CutMaxLength = 0.0;
+
 	FRules Strict;
 	FRules SpineRules;
 	FRules Relaxed;
@@ -724,6 +771,42 @@ struct UMyHexBridgeSubsystem::FPlanner
 		TanMax = FMath::Tan(FMath::DegreesToRadians(static_cast<double>(Settings.MaxSlopeDegrees)));
 		TanCurve = FMath::Tan(FMath::DegreesToRadians(FMath::Max(0.0, Settings.MaxSlopeDegrees - CurveSlopeMarginDegrees)));
 		bCurved = Settings.bCurvedBridges;
+
+		LengthScale = Sub.GetLengthScale();
+		const double L = LengthScale;
+
+		MaxBridgeLength = L * Settings.MaxBridgeLength;
+		LoopMaxLength = L * Settings.LoopMaxLength;
+		IsletMaxLength = L * Settings.IsletMaxLength;
+		RouteMaxLength = L * Settings.RouteMaxLength;
+		MaxEdgeGap = L * Settings.MaxEdgeGap;
+		MaxSplineDistanceJump = L * Settings.MaxSplineDistanceJump;
+
+		MinOptionLength = L * HexBridgePlan::MinOptionLength;
+		MinCurvedLength = L * HexBridgePlan::MinCurvedLength;
+		MinTurnRadius = L * HexBridgePlan::MinTurnRadius;
+		MaxLateralDeviation = L * HexBridgePlan::MaxLateralDeviation;
+		StraightLateralTol = L * HexBridgePlan::StraightLateralTol;
+		CoarseStep = L * HexBridgePlan::CoarseStep;
+		TraceSegmentLength = L * HexBridgePlan::TraceSegmentLength;
+		FanDistance = L * HexBridgePlan::FanDistance;
+		SharedTrim = L * HexBridgePlan::SharedTrim;
+		SharedEndTolerance = L * HexBridgePlan::SharedEndTolerance;
+		OwnSkip = L * HexBridgePlan::OwnSkip;
+		CurvedOwnSkip = L * HexBridgePlan::CurvedOwnSkip;
+
+		IsletThroughLength = L * HexBridgePlan::IsletThroughLength;
+		SpineMaxGap = L * HexBridgePlan::SpineMaxGap;
+		LoopShortLength = L * HexBridgePlan::LoopShortLength;
+		LoopLongLength = L * HexBridgePlan::LoopLongLength;
+		DeadEndMaxLength = L * HexBridgePlan::DeadEndMaxLength;
+		RouteCutRadius = L * HexBridgePlan::RouteCutRadius;
+		CutNearNew = L * HexBridgePlan::CutNearNew;
+		BypassMaxSpan = L * HexBridgePlan::BypassMaxSpan;
+		BypassMinRadius = L * HexBridgePlan::BypassMinRadius;
+		BypassNewCost = L * HexBridgePlan::BypassNewCost;
+		CutRadius = L * HexBridgePlan::CutRadius;
+		CutMaxLength = L * HexBridgePlan::CutMaxLength;
 
 		SpineRules.ExtraDegree = SpineExtraDegree;
 
@@ -791,7 +874,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 		const FPlatformEntry& EA = E(A);
 		const FPlatformEntry& EB = E(B);
 		const double Old = Settings.NeighborRadiusMultiplier * FMath::Max(EA.GridSize * EA.HexRadius, EB.GridSize * EB.HexRadius);
-		return HexBridgePlan::Dist2D(EA.Location, EB.Location) <= FMath::Max(Old, static_cast<double>(EA.Footprint + EB.Footprint + Settings.MaxEdgeGap));
+		return HexBridgePlan::Dist2D(EA.Location, EB.Location) <= FMath::Max(Old, static_cast<double>(EA.Footprint + EB.Footprint + MaxEdgeGap));
 	}
 
 	bool IsTileLive(int32 P, int32 TileIndex) const
@@ -1391,7 +1474,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 			const bool bAFirst = E(A).Serial > E(B).Serial;
 			FCand Cand;
 
-			if (MakeCandidate(bAFirst ? A : B, bAFirst ? B : A, /*bWide=*/false, Settings.MaxBridgeLength, Cand))
+			if (MakeCandidate(bAFirst ? A : B, bAFirst ? B : A, /*bWide=*/false, MaxBridgeLength, Cand))
 			{
 				Result = Cands.Add(MoveTemp(Cand));
 			}
@@ -2238,15 +2321,15 @@ struct UMyHexBridgeSubsystem::FPlanner
 			return true;
 		}
 
-		if (O.L3 <= Settings.IsletMaxLength)
+		if (O.L3 <= IsletMaxLength)
 		{
 			return true;
 		}
 
-		return O.L3 <= HexBridgePlan::IsletThroughLength && IsThrough(C, O);
+		return O.L3 <= IsletThroughLength && IsThrough(C, O);
 	}
 
-	static double LoopStretchOf(double Length)
+	double LoopStretchOf(double Length) const
 	{
 		using namespace HexBridgePlan;
 
@@ -2256,7 +2339,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 
 	bool JumpOk(const FCand& C) const
 	{
-		return Settings.MaxSplineDistanceJump <= 0.f || C.Jump <= Settings.MaxSplineDistanceJump;
+		return MaxSplineDistanceJump <= 0.f || C.Jump <= MaxSplineDistanceJump;
 	}
 
 	/**
@@ -2272,7 +2355,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 
 		for (const int32 P : { C.A, C.B })
 		{
-			if (E(P).bIslet && O.L3 > Settings.IsletMaxLength && !(bAnyIslet && Plats[P].Ends.Num() <= 1) && !IsThrough(C, O))
+			if (E(P).bIslet && O.L3 > IsletMaxLength && !(bAnyIslet && Plats[P].Ends.Num() <= 1) && !IsThrough(C, O))
 			{
 				return false;
 			}
@@ -2283,7 +2366,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 
 	bool BranchOptionOk(const FCand& C, FOption& O) const
 	{
-		return OptionalLengthOk(C, O, HexBridgePlan::CutMaxLength) && LensOk(C, O);
+		return OptionalLengthOk(C, O, CutMaxLength) && LensOk(C, O);
 	}
 
 
@@ -2804,7 +2887,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 						const bool bAFirst = E(A).Serial > E(B).Serial;
 						FCand Cand;
 
-						if (!Seen.Contains(Key) && MakeCandidate(bAFirst ? A : B, bAFirst ? B : A, /*bWide=*/false, Settings.MaxBridgeLength, Cand))
+						if (!Seen.Contains(Key) && MakeCandidate(bAFirst ? A : B, bAFirst ? B : A, /*bWide=*/false, MaxBridgeLength, Cand))
 						{
 							Seen.Add(Key);
 							Cands.Add(MoveTemp(Cand));
@@ -3483,7 +3566,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 				continue;
 			}
 
-			TryBuild(Ci, EBridgePass::Loop, Optional, [this, Ci](int32 Oi) { return WantedLink(Ci, Oi, Settings.LoopMaxLength, 0.0); });
+			TryBuild(Ci, EBridgePass::Loop, Optional, [this, Ci](int32 Oi) { return WantedLink(Ci, Oi, LoopMaxLength, 0.0); });
 		}
 	}
 
@@ -3546,7 +3629,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 					continue;
 				}
 
-				if (TryBuild(Ci, EBridgePass::Leaf, Optional, [this, Ci](int32 Oi) { return WantedLink(Ci, Oi, HexBridgePlan::DeadEndMaxLength, HexBridgePlan::DeadEndStretch); }) != INDEX_NONE)
+				if (TryBuild(Ci, EBridgePass::Leaf, Optional, [this, Ci](int32 Oi) { return WantedLink(Ci, Oi, DeadEndMaxLength, HexBridgePlan::DeadEndStretch); }) != INDEX_NONE)
 				{
 					break;
 				}
@@ -3563,7 +3646,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 	{
 		using namespace HexBridgePlan;
 
-		const double LengthCap = Settings.RouteMaxLength;
+		const double LengthCap = RouteMaxLength;
 
 		for (const uint8 Chain : NewChains())
 		{
@@ -3699,7 +3782,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 	{
 		using namespace HexBridgePlan;
 
-		const double LengthCap = Settings.RouteMaxLength;
+		const double LengthCap = RouteMaxLength;
 
 		for (const uint8 Chain : NewChains())
 		{
@@ -4266,7 +4349,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 
 			FCand Wide;
 
-			if (MakeCandidate(Cands[Ci].A, Cands[Ci].B, /*bWide=*/true, Settings.MaxBridgeLength, Wide))
+			if (MakeCandidate(Cands[Ci].A, Cands[Ci].B, /*bWide=*/true, MaxBridgeLength, Wide))
 			{
 				const int32 Wi = Cands.Add(MoveTemp(Wide));
 				const int32 RecordIndex = TryBuild(Wi, EBridgePass::Fallback, FallbackRules, [](int32) { return true; }, /*MaxAlt=*/0.0);
@@ -4864,7 +4947,7 @@ void UMyHexBridgeSubsystem::InitPlatformEntry(AMyHexPlatform& Platform, FPlatfor
 	}
 	else
 	{
-		Entry.Kind = (!bHasPath || Dist2D(PathPoint, Entry.Location) <= CentreMaxOffset) ? EPlatformKind::Centre : EPlatformKind::Side;
+		Entry.Kind = (!bHasPath || Dist2D(PathPoint, Entry.Location) <= CentreMaxOffset * Platform.HexRadius / ReferenceHexRadius) ? EPlatformKind::Centre : EPlatformKind::Side;
 	}
 
 	// Chain, from the tag PCG gives the platform (read now, not in BeginPlay: tags may come later)
@@ -5026,8 +5109,11 @@ void UMyHexBridgeSubsystem::ProcessPendingPlatforms()
 		FPlatformEntry& Entry = Platforms.Add(Key);
 		InitPlatformEntry(*Platform, Entry);
 
+		// The largest platform scale seen so far, so every batch plans with the same lengths
+		LengthScale = FMath::Max(LengthScale, Platform->HexRadius / static_cast<float>(HexBridgePlan::ReferenceHexRadius));
+
 		MaxFootprint = FMath::Max(MaxFootprint, Entry.Footprint);
-		MaxReach = FMath::Max3(MaxReach, Settings.NeighborRadiusMultiplier * Entry.GridSize * Entry.HexRadius, 2.f * MaxFootprint + Settings.MaxEdgeGap);
+		MaxReach = FMath::Max3(MaxReach, Settings.NeighborRadiusMultiplier * Entry.GridSize * Entry.HexRadius, 2.f * MaxFootprint + Settings.MaxEdgeGap * GetLengthScale());
 
 		BatchKeys.Add(Key);
 	}
