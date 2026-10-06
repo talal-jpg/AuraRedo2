@@ -3,6 +3,7 @@
 
 #include "Actors/MyHexPathSpawner.h"
 
+#include "Actors/MyHexBridgeSubsystem.h"
 #include "Actors/MyHexPathSegment.h"
 #include "Components/SplineComponent.h"
 #include "DrawDebugHelpers.h"
@@ -50,6 +51,13 @@ void AMyHexPathSpawner::BeginPlay()
 	// The path starts with a single point at the actor
 	PathSpline->ClearSplinePoints(/*bUpdateSpline=*/false);
 	PathSpline->AddSplinePoint(GetActorLocation(), ESplineCoordinateSpace::World, /*bUpdateSpline=*/true);
+	NextSegmentIndex = 0;
+
+	// Platforms measure "left behind" along this spline
+	if (UMyHexBridgeSubsystem* Subsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>())
+	{
+		Subsystem->RegisterPathSpline(PathSpline);
+	}
 
 	for (int32 Index = 0; Index < InitialSegments; ++Index)
 	{
@@ -67,11 +75,34 @@ void AMyHexPathSpawner::BeginPlay()
 
 
 // =============================================================================
+// EndPlay
+// =============================================================================
+
+void AMyHexPathSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (HasAuthority())
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UMyHexBridgeSubsystem* Subsystem = World->GetSubsystem<UMyHexBridgeSubsystem>())
+			{
+				Subsystem->UnregisterPathSpline(PathSpline);
+			}
+		}
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
+
+
+// =============================================================================
 // Player check
 // =============================================================================
 
 void AMyHexPathSpawner::CheckPlayers()
 {
+	DestroyPassedSegments();
+
 	const int32 LastIndex = PathSpline->GetNumberOfSplinePoints() - 1;
 
 	if (LastIndex < 0)
@@ -183,8 +214,46 @@ void AMyHexPathSpawner::ExtendPath()
 		return;
 	}
 
-	Segment->InitSegment(Segments.Num(), Points, Tangents);
+	Segment->SetPathDistances(
+		PathSpline->GetDistanceAlongSplineAtSplinePoint(FirstIndex),
+		PathSpline->GetDistanceAlongSplineAtSplinePoint(LastIndex)
+	);
+	Segment->InitSegment(NextSegmentIndex++, Points, Tangents);
 	Segments.Add(Segment);
+}
+
+
+// =============================================================================
+// Destroy passed segments
+// =============================================================================
+
+void AMyHexPathSpawner::DestroyPassedSegments()
+{
+	if (DestroySegmentsBehindDistance <= 0.f)
+	{
+		return;
+	}
+
+	const UMyHexBridgeSubsystem* Subsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>();
+	float LeadDistance = 0.f;
+
+	if (!Subsystem || Subsystem->GetPathSpline() != PathSpline.Get() || !Subsystem->GetLeadPathDistance(LeadDistance))
+	{
+		return;
+	}
+
+	// Segments are in path order, so stop at the first one that isn't far enough behind.
+	// Safe for the platforms: PCG doesn't delete the actors it spawned when its component is torn down.
+	while (Segments.Num() > 0
+		&& (!IsValid(Segments[0]) || Segments[0]->GetPathEndDistance() < LeadDistance - DestroySegmentsBehindDistance))
+	{
+		if (IsValid(Segments[0]))
+		{
+			Segments[0]->Destroy();
+		}
+
+		Segments.RemoveAt(0);
+	}
 }
 
 

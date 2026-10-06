@@ -7,6 +7,7 @@
 #include "AbilitySystemComponent.h"
 #include "MyAnimInstance.h"
 #include "MyPlayerState.h"
+#include "Actors/MyHexPlatform.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
@@ -188,6 +189,25 @@ void AMyCharPlayer::OnRep_PlayerState()
 		if (AMyHUD* MyHUD = PC->GetHUD<AMyHUD>())
 		{
 			MyHUD->InitOverlay();
+		}
+	}
+}
+
+void AMyCharPlayer::BaseChange()
+{
+	Super::BaseChange();
+
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	// Bridges and jumps (no base) keep the last platform
+	if (AMyHexPlatform* Platform = Cast<AMyHexPlatform>(APawn::GetMovementBaseActor(this)))
+	{
+		if (AMyPlayerState* MyPlayerState = GetPlayerState<AMyPlayerState>())
+		{
+			MyPlayerState->SetCurrentPlatform(Platform);
 		}
 	}
 }

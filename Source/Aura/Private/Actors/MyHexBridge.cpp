@@ -19,6 +19,9 @@ AMyHexBridge::AMyHexBridge()
 
 	bReplicates = true;
 
+	// Same as AMyHexPlatform: every machine keeps every bridge, so none hangs without its platforms
+	bAlwaysRelevant = true;
+
 	// Bridges are placed in world space, so the actor transform never needs to move after spawning
 	SetReplicateMovement(false);
 
@@ -55,10 +58,12 @@ void AMyHexBridge::OnRep_Ends()
 // Init (server)
 // =============================================================================
 
-void AMyHexBridge::InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridgeEnd& InEnd)
+void AMyHexBridge::InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridgeEnd& InEnd, const FVector& InStartTangent, const FVector& InEndTangent)
 {
 	Ends.Start = InStart;
 	Ends.End = InEnd;
+	Ends.StartTangent = InStartTangent;
+	Ends.EndTangent = InEndTangent;
 }
 
 
@@ -69,6 +74,13 @@ void AMyHexBridge::InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridge
 void AMyHexBridge::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// An end platform was culled between the bridge being planned and spawned
+	if (HasAuthority() && (!IsValid(Ends.Start.Platform) || !IsValid(Ends.End.Platform)))
+	{
+		Destroy();
+		return;
+	}
 
 	// On the server Ends was set before FinishSpawning. On a client the initial replicated
 	// properties are applied before BeginPlay, so the points are already there too.
@@ -89,6 +101,8 @@ void AMyHexBridge::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		if (IsValid(Platform))
 		{
 			Platform->OnHexTileActivated.RemoveAll(this);
+			Platform->OnEndPlay.RemoveDynamic(this, &ThisClass::HandleEndPlatformEndPlay);
+			Platform->UnregisterBridge(this);
 		}
 	}
 
@@ -110,8 +124,18 @@ void AMyHexBridge::ApplyEnds()
 	// Replaces the two default points a spline starts with
 	BridgeSpline->SetSplinePoints(
 		{ Ends.Start.Location, Ends.End.Location },
-		ESplineCoordinateSpace::World
+		ESplineCoordinateSpace::World,
+		/*bUpdateSpline=*/false
 	);
+
+	// A curved deck: the server's tangents, applied verbatim so every machine gets the same curve
+	if (!Ends.StartTangent.IsNearlyZero() || !Ends.EndTangent.IsNearlyZero())
+	{
+		BridgeSpline->SetTangentsAtSplinePoint(0, Ends.StartTangent, Ends.StartTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+		BridgeSpline->SetTangentsAtSplinePoint(1, Ends.EndTangent, Ends.EndTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+	}
+
+	BridgeSpline->UpdateSpline();
 }
 
 
@@ -130,6 +154,12 @@ void AMyHexBridge::BindToPlatforms()
 
 		Platform->OnHexTileActivated.RemoveAll(this);
 		Platform->OnHexTileActivated.AddUObject(this, &ThisClass::OnPlatformTileActivated);
+
+		if (HasAuthority())
+		{
+			Platform->OnEndPlay.AddUniqueDynamic(this, &ThisClass::HandleEndPlatformEndPlay);
+			Platform->RegisterBridge(this);
+		}
 	}
 
 	// A client that joins late, or a platform that arrives after the bridge, may already have
@@ -152,6 +182,16 @@ void AMyHexBridge::OnPlatformTileActivated(AMyHexPlatform* Platform, const FIntV
 	if (bIsStart || bIsEnd)
 	{
 		NotifyEndTileCollapsed(Platform, Tile);
+	}
+}
+
+void AMyHexBridge::HandleEndPlatformEndPlay(AActor* Actor, EEndPlayReason::Type EndPlayReason)
+{
+	// Ignore PIE stop, quit and level travel: everything goes then anyway
+	if (HasAuthority() && !IsActorBeingDestroyed()
+		&& (EndPlayReason == EEndPlayReason::Destroyed || EndPlayReason == EEndPlayReason::RemovedFromWorld))
+	{
+		Destroy();
 	}
 }
 

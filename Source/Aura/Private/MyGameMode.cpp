@@ -3,7 +3,15 @@
 
 #include "MyGameMode.h"
 
+#include "MyGameState.h"
 #include "EOS/MultiplayerSessionsSubsystem.h"
+
+
+AMyGameMode::AMyGameMode()
+{
+	// Ranks players by how far along the path they are
+	GameStateClass = AMyGameState::StaticClass();
+}
 
 
 void AMyGameMode::PostLogin(APlayerController* NewPlayer)

@@ -5,8 +5,14 @@
 
 #include <string>
 
+#include "Actors/MyHexBridge.h"
 #include "Actors/MyHexBridgeSubsystem.h"
+#include "CollisionQueryParams.h"
+#include "Components/SplineComponent.h"
 #include "Engine/World.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "TimerManager.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -22,6 +28,11 @@ AMyHexPlatform::AMyHexPlatform()
 	PrimaryActorTick.bCanEverTick = false;
 
 	bReplicates = true;
+
+	// The server spawns platforms far ahead of the players (the path extends hundreds of metres
+	// ahead). With the default 150 m net cull distance clients only had the platforms near them,
+	// and lost and re-received them as they moved. Every machine keeps the same set instead.
+	bAlwaysRelevant = true;
 
 	// -------------------------------------------------------------------------
 	// ISM
@@ -60,6 +71,21 @@ void AMyHexPlatform::GetLifetimeReplicatedProps(
 		AMyHexPlatform,
 		ActivatedTiles
 	);
+
+	// Grid shape. Set once when the server spawns the platform (PCG property overrides) and never
+	// changed, so it only goes in the first bunch. The engine applies it before the client's
+	// BeginPlay, which is where the client builds its grid.
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, HexPillarStaticMesh, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, GridSize, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, HexRadius, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, VerticalScaling, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, NoiseOffset, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, NoiseFrequency, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, NoiseStrength, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, DetailStrength, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, NoiseCurve, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, DeletionThreshold, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, SplineDistance, COND_InitialOnly);
 }
 
 
@@ -71,14 +97,23 @@ void AMyHexPlatform::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// The grid itself is NOT replicated.
+	// The grid itself is NOT replicated, every machine builds it here.
 	//
-	// Every machine already constructed the exact same static grid
-	// in OnConstruction().
+	// On a client OnConstruction() ran with the class defaults, before the replicated shape
+	// (GridSize, NoiseOffset, ... set by PCG on the server) arrived. Those are applied before
+	// BeginPlay, so this rebuild matches the server's grid.
 	//
-	// Only activation state is replicated.
+	// Only the shape and the activation state are replicated.
 	
 	BuildHexGrid();
+
+	// Tiles that collapsed before this client received the platform (late join) came with the
+	// initial properties; OnRep_ActivatedTiles skipped them because the grid wasn't built yet.
+	// They fell long ago on the server, so remove them without replaying the fall.
+	if (!HasAuthority())
+	{
+		ApplyActivatedTiles(/*bPlayEffect=*/false);
+	}
 	UKismetSystemLibrary::PrintString(
 		this,
 		TEXT("BEGIN PLAY: HexMap=%d | ISM=%d"),
@@ -93,8 +128,11 @@ void AMyHexPlatform::BeginPlay()
 	
 	if (HasAuthority())
 	{
-		// The bridge subsystem builds this platform's bridges from its untouched edges, then
-		// calls StartCollapsing().
+		// Measured from the full grid, before any tile collapses
+		FootprintRadius = ComputeFootprintRadius();
+
+		// The bridge subsystem builds this platform's bridges from its untouched edges, then calls
+		// NotifyBridgesReady(). Collapsing waits for that and for the lead player to land.
 		UMyHexBridgeSubsystem* BridgeSubsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>();
 
 		if (BridgeSubsystem)
@@ -104,7 +142,21 @@ void AMyHexPlatform::BeginPlay()
 
 		if (!BridgeSubsystem || !bWaitForBridgesBeforeCollapsing)
 		{
-			StartCollapsing();
+			NotifyBridgesReady();
+		}
+
+		if (bCollapseOnlyWhenLeadLands || bAutoDestroyWhenLeftBehind)
+		{
+			const float Interval = FMath::Max(LeadCheckInterval, 0.02f);
+
+			GetWorldTimerManager().SetTimer(
+				LeadCheckTimerHandle,
+				this,
+				&ThisClass::UpdateLeadState,
+				Interval,
+				true,
+				FMath::FRandRange(0.01f, Interval)
+			);
 		}
 	}
 }
@@ -118,12 +170,16 @@ void AMyHexPlatform::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (UWorld* World = GetWorld())
 	{
+		// Lead check, collapse chain, per-tile and pillar timers. AActor::EndPlay doesn't clear them.
+		World->GetTimerManager().ClearAllTimersForObject(this);
+
 		if (UMyHexBridgeSubsystem* BridgeSubsystem = World->GetSubsystem<UMyHexBridgeSubsystem>())
 		{
 			BridgeSubsystem->UnregisterPlatform(this);
 		}
 	}
 
+	// Broadcasts OnEndPlay, which makes the bridges ending on this platform destroy themselves
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -145,16 +201,296 @@ void AMyHexPlatform::StartCollapsing()
 	// Start chain activation timer
 	// ---------------------------------------------------------------------
 
-	FTimerHandle TimerHandle;
-
 	GetWorld()->GetTimerManager().SetTimer(
-		TimerHandle,
+		CollapseTimerHandle,
 		this,
 		&ThisClass::GenerateAndActivateChainFromRandomSelectedGrid,
 		5.f,
 		true,
-		1.f
+		.5f
 	);
+}
+
+
+// =============================================================================
+// Collapse gate (server)
+// =============================================================================
+
+void AMyHexPlatform::NotifyBridgesReady()
+{
+	if (!HasAuthority() || bBridgesReady)
+	{
+		return;
+	}
+
+	bBridgesReady = true;
+	TryStartCollapsing();
+}
+
+void AMyHexPlatform::NotifyLeadLanded()
+{
+	if (!HasAuthority() || bLeadLanded)
+	{
+		return;
+	}
+
+	bLeadLanded = true;
+	TryStartCollapsing();
+}
+
+void AMyHexPlatform::TryStartCollapsing()
+{
+	// Bridges first (they are built from the untouched edges), then the lead player
+	if (bBridgesReady && (bLeadLanded || !bCollapseOnlyWhenLeadLands))
+	{
+		StartCollapsing();
+	}
+}
+
+
+// =============================================================================
+// Lead player and culling (server)
+// =============================================================================
+
+void AMyHexPlatform::UpdateLeadState()
+{
+	UMyHexBridgeSubsystem* Subsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>();
+	APawn* Lead = Subsystem ? Subsystem->GetLeadPawn() : nullptr;
+
+	// No lead (not spawned yet, dead, respawning): nothing lands and nothing is culled
+	if (!IsValid(Lead))
+	{
+		return;
+	}
+
+	const double Gap = FMath::Max(0.0, FVector::Dist2D(Lead->GetActorLocation(), GetActorLocation()) - FootprintRadius);
+	const bool bLeadOn = IsPawnOnPlatform(Lead, Gap);
+
+	if (bLeadOn || Gap <= 0.0)
+	{
+		bLeadReached = true;
+	}
+
+	if (bLeadOn)
+	{
+		NotifyLeadLanded();
+	}
+
+	if (bAutoDestroyWhenLeftBehind
+		&& !bLeadOn
+		&& IsLeftBehind(*Subsystem, Gap)
+		&& !(bKeepWhileAnyPlayerIsOnIt && IsAnyPlayerOnPlatform())
+		&& Subsystem->TryConsumeCullBudget())
+	{
+		// Server only; destruction replicates. EndPlay clears timers and unregisters, and the
+		// bridges ending here destroy themselves.
+		Destroy();
+		return;
+	}
+
+	// Nothing left to watch for
+	if (!bAutoDestroyWhenLeftBehind && (bCollapseStarted || !bCollapseOnlyWhenLeadLands))
+	{
+		GetWorldTimerManager().ClearTimer(LeadCheckTimerHandle);
+	}
+}
+
+bool AMyHexPlatform::IsPawnOnPlatform(const APawn* Pawn, double Gap) const
+{
+	// Standing on the ISM, or on a collapsing pillar (both owned by this actor). A bridge resolves
+	// to AMyHexBridge, so standing on a bridge doesn't count.
+	if (APawn::GetMovementBaseActor(Pawn) == this)
+	{
+		return true;
+	}
+
+	// Not over this platform at all
+	if (Gap > 0.0)
+	{
+		return false;
+	}
+
+	// Walking on something else (a bridge, another platform)
+	const ACharacter* Character = Cast<ACharacter>(Pawn);
+	const UCharacterMovementComponent* Movement = Character ? Character->GetCharacterMovement() : nullptr;
+
+	if (Movement && Movement->IsMovingOnGround())
+	{
+		return false;
+	}
+
+	if (LandingTolerance <= 0.f)
+	{
+		return false;
+	}
+
+	// Airborne (jumping between checks) or not a Character: counts if this platform is just below
+	const FVector Start = Pawn->GetActorLocation();
+	const FVector End = Start - FVector(0.0, 0.0, Pawn->GetSimpleCollisionHalfHeight() + LandingTolerance);
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(HexPlatformLeadTrace), false, Pawn);
+	FHitResult Hit;
+
+	return GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params)
+		&& Hit.GetActor() == this;
+}
+
+bool AMyHexPlatform::IsLeftBehind(const UMyHexBridgeSubsystem& Subsystem, double Gap)
+{
+	// Never anything physically near the lead
+	if (Gap <= CullBehindDistance)
+	{
+		return false;
+	}
+
+	const USplineComponent* Spline = Subsystem.GetPathSpline();
+
+	// No path in this level: only once the lead has been here and moved away
+	if (!Spline)
+	{
+		return bLeadReached;
+	}
+
+	ResolvePathDistance(*Spline);
+
+	// Still at the growing end of the path: wait until the path has moved past it
+	if (!bPathResolved)
+	{
+		return false;
+	}
+
+	// Too far from the path to measure along it
+	if (!bOnPath)
+	{
+		return bLeadReached;
+	}
+
+	// Measured along the path, so platforms ahead of the lead are never culled
+	float LeadDistance = 0.f;
+	return Subsystem.GetLeadPathDistance(LeadDistance)
+		&& PathFrontDistance < LeadDistance - CullBehindDistance;
+}
+
+void AMyHexPlatform::ResolvePathDistance(const USplineComponent& Spline)
+{
+	if (&Spline != ResolvedPathSpline.Get())
+	{
+		ResolvedPathSpline = &Spline;
+		bPathResolved = false;
+		bOnPath = false;
+	}
+
+	if (bPathResolved)
+	{
+		return;
+	}
+
+	const int32 NumPoints = Spline.GetNumberOfSplinePoints();
+
+	if (NumPoints < 2)
+	{
+		return;
+	}
+
+	const FVector Center = GetActorLocation();
+	const float Key = Spline.FindInputKeyClosestToWorldLocation(Center);
+
+	// At or past the current end: the distance isn't final yet, retry after the path grows
+	if (Key >= NumPoints - 1 - KINDA_SMALL_NUMBER)
+	{
+		return;
+	}
+
+	bPathResolved = true;
+	bOnPath = FVector::Dist2D(Spline.GetLocationAtSplineInputKey(Key, ESplineCoordinateSpace::World), Center) <= MaxPathOffset;
+
+	// Position of the platform's far edge along the path
+	PathFrontDistance = Spline.GetDistanceAlongSplineAtSplineInputKey(Key) + FootprintRadius;
+}
+
+bool AMyHexPlatform::IsAnyPlayerOnPlatform() const
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		const APlayerController* PlayerController = It->Get();
+		const APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+
+		if (!Pawn)
+		{
+			continue;
+		}
+
+		const AActor* Base = APawn::GetMovementBaseActor(Pawn);
+
+		if (Base == this)
+		{
+			return true;
+		}
+
+		// On a bridge that ends on this platform
+		if (const AMyHexBridge* Bridge = Cast<AMyHexBridge>(Base))
+		{
+			const FMyHexBridgeEnds& Ends = Bridge->GetEnds();
+
+			if (Ends.Start.Platform == this || Ends.End.Platform == this)
+			{
+				return true;
+			}
+		}
+
+		const FVector PawnLocation(Pawn->GetActorLocation().X, Pawn->GetActorLocation().Y, 0.0);
+
+		// Above it (jumping, falling)
+		if (FVector::Dist2D(PawnLocation, GetActorLocation()) <= FootprintRadius)
+		{
+			return true;
+		}
+
+		// Over a bridge that ends here. A jumping or hovering player has no movement base.
+		for (const TWeakObjectPtr<AMyHexBridge>& WeakBridge : Bridges)
+		{
+			const AMyHexBridge* Bridge = WeakBridge.Get();
+
+			if (!Bridge)
+			{
+				continue;
+			}
+
+			const FVector& Start = Bridge->GetEnds().Start.Location;
+			const FVector& End = Bridge->GetEnds().End.Location;
+
+			if (FMath::PointDistToSegment(PawnLocation, FVector(Start.X, Start.Y, 0.0), FVector(End.X, End.Y, 0.0)) <= BridgeKeepDistance)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void AMyHexPlatform::RegisterBridge(AMyHexBridge* Bridge)
+{
+	Bridges.RemoveAll([](const TWeakObjectPtr<AMyHexBridge>& WeakBridge) { return !WeakBridge.IsValid(); });
+	Bridges.AddUnique(Bridge);
+}
+
+void AMyHexPlatform::UnregisterBridge(AMyHexBridge* Bridge)
+{
+	Bridges.Remove(Bridge);
+}
+
+float AMyHexPlatform::ComputeFootprintRadius() const
+{
+	// Tiles are laid out around the actor origin (HexToWorld in local space)
+	double MaxRadius = 0.0;
+
+	for (const TPair<FIntVector, int32>& Pair : HexMap)
+	{
+		MaxRadius = FMath::Max(MaxRadius, static_cast<double>(HexToWorld(Pair.Key.X, Pair.Key.Y, HexRadius).Size()));
+	}
+
+	return static_cast<float>((MaxRadius + HexRadius) * GetActorScale3D().GetAbsMax());
 }
 
 
@@ -710,6 +1046,13 @@ void AMyHexPlatform::GenerateAndActivateChainFromRandomSelectedGrid()
 		return;
 	}
 
+	// Every tile is gone: stop the chain timer
+	if (HexMap.Num() == 0)
+	{
+		GetWorldTimerManager().ClearTimer(CollapseTimerHandle);
+		return;
+	}
+
 
 	TArray<FIntVector> Keys;
 
@@ -883,6 +1226,18 @@ void AMyHexPlatform::ActivateHex(
 
 void AMyHexPlatform::OnRep_ActivatedTiles()
 {
+	// The initial bunch arrives before BeginPlay builds the grid with the replicated shape.
+	// BeginPlay applies these tiles itself.
+	if (!HasActorBegunPlay())
+	{
+		return;
+	}
+
+	ApplyActivatedTiles(/*bPlayEffect=*/true);
+}
+
+void AMyHexPlatform::ApplyActivatedTiles(bool bPlayEffect)
+{
 	// The client receives the complete/current ActivatedTiles array.
 	//
 	// Find anything that this machine hasn't visually activated yet.
@@ -891,7 +1246,7 @@ void AMyHexPlatform::OnRep_ActivatedTiles()
 	{
 		if (!LocalActivatedTiles.Contains(Coord))
 		{
-			ActivateHexLocal(Coord);
+			ActivateHexLocal(Coord, bPlayEffect);
 		}
 	}
 }
@@ -901,7 +1256,7 @@ void AMyHexPlatform::OnRep_ActivatedTiles()
 // Activate Hex Locally
 // =============================================================================
 
-void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord)
+void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 {
 	if (LocalActivatedTiles.Contains(Coord))
 	{
@@ -963,6 +1318,11 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord)
 
 	// Bridges ending on this tile listen for this
 	OnHexTileActivated.Broadcast(this, Coord);
+
+	if (!bPlayEffect)
+	{
+		return;
+	}
 
 	// -------------------------------------------------------------------------
 	// Spawn skeletal mesh at EXACT SAME TRANSFORM

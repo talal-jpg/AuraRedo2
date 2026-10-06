@@ -34,6 +34,20 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Hex Path")
 	int32 GetSegmentIndex() const { return SegmentIndex; }
 
+	/** Distances along the spawner's PathSpline where this segment starts and ends. Set by the spawner. */
+	void SetPathDistances(float InStartDistance, float InEndDistance) { PathStartDistance = InStartDistance; PathEndDistance = InEndDistance; }
+
+	/**
+	 * Distance along the spawner's PathSpline where this segment starts. SegmentSpline has the same
+	 * points and tangents as that part of the path, so a distance along SegmentSpline plus this is the
+	 * distance along the whole path (what the PCG graph writes to AMyHexPlatform::SplineDistance).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Hex Path")
+	float GetPathStartDistance() const { return PathStartDistance; }
+
+	UFUNCTION(BlueprintPure, Category = "Hex Path")
+	float GetPathEndDistance() const { return PathEndDistance; }
+
 	UFUNCTION(BlueprintPure, Category = "Hex Path")
 	USplineComponent* GetSegmentSpline() const { return SegmentSpline; }
 
@@ -52,4 +66,10 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path")
 	int32 SegmentIndex = INDEX_NONE;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path")
+	float PathStartDistance = 0.f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path")
+	float PathEndDistance = 0.f;
 };

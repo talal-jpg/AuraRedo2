@@ -5,7 +5,10 @@
 
 #include <string>
 
+#include "MyGameState.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
+#include "Actors/MyHexPlatform.h"
+#include "Engine/World.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -17,6 +20,32 @@ void AMyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME_CONDITION_NOTIFY(AMyPlayerState,Level,COND_None,REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(AMyPlayerState,AttributePoints,COND_None,REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(AMyPlayerState,SpellPoints,COND_None,REPNOTIFY_Always);
+	DOREPLIFETIME(AMyPlayerState,CurrentPlatform);
+	DOREPLIFETIME(AMyPlayerState,PlatformSplineDistance);
+}
+
+void AMyPlayerState::SetCurrentPlatform(AMyHexPlatform* Platform)
+{
+	if (!HasAuthority() || !Platform || Platform == CurrentPlatform)
+	{
+		return;
+	}
+	
+	CurrentPlatform = Platform;
+	
+	if (!Platform->HasSplineDistance())
+	{
+		// Keep the last known distance; the PCG graph didn't set this platform's SplineDistance
+		UE_LOG(LogTemp, Warning, TEXT("%s has no SplineDistance, %s keeps its rank"), *Platform->GetName(), *GetPlayerName());
+		return;
+	}
+	
+	PlatformSplineDistance = Platform->GetSplineDistance();
+	
+	if (AMyGameState* MyGameState = GetWorld()->GetGameState<AMyGameState>())
+	{
+		MyGameState->UpdatePlayerRanking();
+	}
 }
 
 void AMyPlayerState::AddToXP(int32 InXP)

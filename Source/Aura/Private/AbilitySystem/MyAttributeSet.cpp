@@ -20,6 +20,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "PlayerInput/MyPlayerController.h"
+#include "PlayerInput/MyPlayerController2.h"
 #include "StaticLib/MyBPFuncLib.h"
 
 UMyAttributeSet::UMyAttributeSet()
@@ -101,7 +102,28 @@ void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 				{
 					bool bIsCrit=UMyBPFuncLib::IsCrit(Props.EffectContextHandle,this);
 					bool bIsBlocked= UMyBPFuncLib::IsBlocked(Props.EffectContextHandle);
-					MyPC->ShowDamageNumber(LocalIncomingDamage,Props.TargetCharacter,bIsCrit,bIsBlocked);
+					if (MyPC->bUseNiagaraDamageNumbers)
+					{
+						MyPC->ShowDamageNumber_2(LocalIncomingDamage,Props.TargetCharacter,bIsCrit,bIsBlocked);
+					}
+					else
+					{
+						MyPC->ShowDamageNumber(LocalIncomingDamage,Props.TargetCharacter,bIsCrit,bIsBlocked);
+					}
+				}
+				// The mech game (MechMania) runs on MyPlayerController2
+				else if (AMyPlayerController2* MyPC2=Cast<AMyPlayerController2>(Props.SourceController))
+				{
+					bool bIsCrit=UMyBPFuncLib::IsCrit(Props.EffectContextHandle,this);
+					bool bIsBlocked= UMyBPFuncLib::IsBlocked(Props.EffectContextHandle);
+					if (MyPC2->bUseNiagaraDamageNumbers)
+					{
+						MyPC2->ShowDamageNumber_2(LocalIncomingDamage,Props.TargetCharacter,bIsCrit,bIsBlocked);
+					}
+					else
+					{
+						MyPC2->ShowDamageNumber(LocalIncomingDamage,Props.TargetCharacter,bIsCrit,bIsBlocked);
+					}
 				}
 			}
 		}

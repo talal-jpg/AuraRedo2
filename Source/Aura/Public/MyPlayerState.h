@@ -7,6 +7,7 @@
 #include "MyPlayerState.generated.h"
 
 class UMySpellMenuWidgetController;
+class AMyHexPlatform;
 class UMyLevelUpInfo;
 class UMyAttributeSet;
 class UMyAbilitySystemComponent;
@@ -63,7 +64,25 @@ public:
 	
 	void AddToSpellPoints(int32 InSpellPoints);
 	
+	/** Server. The pawn landed on Platform; re-ranks the players in AMyGameState when it is a new one. */
+	void SetCurrentPlatform(AMyHexPlatform* Platform);
+	
+	AMyHexPlatform* GetCurrentPlatform() const { return CurrentPlatform; }
+	
+	/** Path distance of the platform this player last landed on. -1 until it lands on one that has it. */
+	UFUNCTION(BlueprintPure, Category = "Player Ranking")
+	float GetPlatformSplineDistance() const { return PlatformSplineDistance; }
+	
+	bool HasPlatformSplineDistance() const { return PlatformSplineDistance >= 0.f; }
+	
 	private:
+	
+	/** Last platform the pawn landed on (kept while on bridges or in the air). Null once destroyed. */
+	UPROPERTY(Replicated)
+	TObjectPtr<AMyHexPlatform> CurrentPlatform;
+	
+	UPROPERTY(Replicated)
+	float PlatformSplineDistance = -1.f;
 	
 	
 	UPROPERTY(ReplicatedUsing=OnRep_XP)

@@ -44,6 +44,8 @@ protected:
 
 	virtual void BeginPlay() override;
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 	/** The whole path so far. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Path")
 	TObjectPtr<USplineComponent> PathSpline;
@@ -101,6 +103,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Noise")
 	float NoiseSeed = 17.31f;
 
+	/**
+	 * Destroy a segment actor once its end is this far (cm, along the path) behind the lead player.
+	 * Only the server-side segment goes; its platforms cull themselves (AMyHexPlatform CullBehindDistance).
+	 * 0 = keep every segment.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path", meta = (ClampMin = "0.0"))
+	float DestroySegmentsBehindDistance = 30000.f;
+
 	/** Draw the path as it grows. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Debug")
 	bool bDrawDebug = false;
@@ -108,6 +118,9 @@ protected:
 private:
 
 	void CheckPlayers();
+
+	/** Destroys segments that are DestroySegmentsBehindDistance behind the lead along the path. */
+	void DestroyPassedSegments();
 
 	/** Noise in roughly -1..1, stretched because Perlin noise rarely gets past +-0.6. */
 	float SampleNoise(float Value) const;
@@ -123,4 +136,7 @@ private:
 	double StartZ = 0.0;
 
 	FTimerHandle CheckTimerHandle;
+
+	/** Keeps PCG seeds unique after old segments are removed from Segments. */
+	int32 NextSegmentIndex = 0;
 };

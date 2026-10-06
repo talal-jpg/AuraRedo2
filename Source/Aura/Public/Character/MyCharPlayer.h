@@ -44,6 +44,9 @@ public:
 	virtual void OnRep_PlayerState() override;
 	virtual void PossessedBy(AController* NewController) override;
 	
+	/** Server: landing on a hex platform updates the player ranking (AMyPlayerState::SetCurrentPlatform). */
+	virtual void BaseChange() override;
+	
 	
 	void InitializeAttributes();
 	

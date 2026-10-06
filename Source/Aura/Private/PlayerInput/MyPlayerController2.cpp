@@ -12,11 +12,16 @@
 #include "NavigationSystem.h"
 #include "NetworkMessage.h"
 #include "NiagaraComponent.h"
+#include "NiagaraDataChannel.h"
+#include "NiagaraDataChannelAccessor.h"
+#include "NiagaraDataChannelFunctionLibrary.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Actors/MyTargetDecalActor.h"
 #include "Character/MyCharPlayer.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Components/CapsuleComponent.h"
 #include "EOS/MainMenu.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -25,6 +30,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "PlayerInput/MyInputComponent.h"
 #include "UI/DamageTextWidgetComponent.h"
+#include "UObject/ConstructorHelpers.h"
 
 
 class UEnhancedPlayerInput;
@@ -33,6 +39,9 @@ class UEnhancedInputLocalPlayerSubsystem;
 AMyPlayerController2::AMyPlayerController2()
 {
 	// FInputModeGameOnly InputMode;
+	
+	static ConstructorHelpers::FObjectFinder<UNiagaraDataChannelAsset> DamageNumberNDC(TEXT("/Game/Level/UI/FloatingText/NiagaraDamageNumbers/NDC_DamageNumbers.NDC_DamageNumbers"));
+	DamageNumberDataChannel=DamageNumberNDC.Object;
 }
 
 void AMyPlayerController2::Tick(float DeltaTime)
@@ -358,6 +367,43 @@ void AMyPlayerController2::ShowDamageNumber_Implementation(float InDamage,AChara
 		DamageTextWidgetComponent->SetDamageText(InDamage,bIsCrit,bIsBlocked);
 	}
 	
+}
+
+void AMyPlayerController2::ShowDamageNumber_2_Implementation(float InDamage,ACharacter* TargetCharacter,bool bIsCrit,bool bIsBlocked)
+{
+	if (!IsValid(TargetCharacter) || !DamageNumberDataChannel) return;
+	
+	FVector Location=TargetCharacter->GetActorLocation();
+	if (const UCapsuleComponent* Capsule=TargetCharacter->GetCapsuleComponent())
+	{
+		Location.Z+=Capsule->GetScaledCapsuleHalfHeight();
+	}
+	Location.Z+=DamageNumberHeightOffset;
+	
+	// Alpha carries the size scale, NS_DamageNumbers splits it back out
+	FLinearColor Color= bIsBlocked ? BlockedDamageColor : (bIsCrit ? CritDamageColor : NormalDamageColor);
+	Color.A= bIsCrit ? DamageNumberSize*CritDamageScale : DamageNumberSize;
+	
+	// GameplayBurst channels only accept the access context path, the legacy SearchParams write is rejected
+	FNDCAccessContextInst& AccessContext=UNiagaraDataChannelLibrary::GetUsableAccessContextFromNDC(DamageNumberDataChannel);
+	if (FNDCAccessContext* Context=AccessContext.Get<FNDCAccessContext>())
+	{
+		Context->Location=Location;
+		Context->bOverrideLocation=true;
+	}
+	UNiagaraDataChannelWriter* Writer=UNiagaraDataChannelLibrary::WriteToNiagaraDataChannel_WithContext(this,DamageNumberDataChannel,AccessContext,1,false,true,true,TEXT("ShowDamageNumber_2"));
+	if (!Writer) return;
+	
+	// How far the local camera is from the number, NS_DamageNumbers grows the sprites with it
+	const FVector ViewLocation= PlayerCameraManager ? PlayerCameraManager->GetCameraLocation() : (GetPawn() ? GetPawn()->GetActorLocation() : Location);
+	
+	// Variable names must match NDC_DamageNumbers
+	Writer->WritePosition(TEXT("Location"),0,Location);
+	Writer->WriteFloat(TEXT("DamageAmount"),0,FMath::RoundToFloat(InDamage));
+	Writer->WriteBool(TEXT("IsCritical"),0,bIsCrit);
+	Writer->WriteBool(TEXT("IsBlocked"),0,bIsBlocked);
+	Writer->WriteFloat(TEXT("Distance"),0,FVector::Dist(ViewLocation,Location));
+	Writer->WriteLinearColor(TEXT("Color"),0,Color);
 }
 
 

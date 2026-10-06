@@ -19,6 +19,8 @@ class AURA_API AMyGameMode : public AGameModeBase
 	GENERATED_BODY()
 	
 public:
+	AMyGameMode();
+	
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	
 	UPROPERTY(EditAnywhere)

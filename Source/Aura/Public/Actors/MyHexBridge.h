@@ -39,6 +39,16 @@ struct FMyHexBridgeEnds
 
 	UPROPERTY(BlueprintReadOnly, Category = "Hex Bridge")
 	FMyHexBridgeEnd End;
+
+	/**
+	 * World-space spline tangents at Start and End (UE convention: the derivative with respect to the
+	 * input key between the two points). Both zero = a straight bridge.
+	 */
+	UPROPERTY()
+	FVector StartTangent = FVector::ZeroVector;
+
+	UPROPERTY()
+	FVector EndTangent = FVector::ZeroVector;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
@@ -67,8 +77,8 @@ public:
 
 	AMyHexBridge();
 
-	/** Server only, between SpawnActorDeferred and FinishSpawning. */
-	void InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridgeEnd& InEnd);
+	/** Server only, between SpawnActorDeferred and FinishSpawning. Zero tangents = straight. */
+	void InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridgeEnd& InEnd, const FVector& InStartTangent = FVector::ZeroVector, const FVector& InEndTangent = FVector::ZeroVector);
 
 	UFUNCTION(BlueprintPure, Category = "Hex Bridge")
 	const FMyHexBridgeEnds& GetEnds() const { return Ends; }
@@ -123,7 +133,7 @@ private:
 	UFUNCTION()
 	void OnRep_Ends();
 
-	/** Puts the spline on the two end points. */
+	/** Puts the spline on the two end points, with the custom tangents when there are any. */
 	void ApplyEnds();
 
 	/**
@@ -133,6 +143,10 @@ private:
 	void BindToPlatforms();
 
 	void OnPlatformTileActivated(AMyHexPlatform* Platform, const FIntVector& Tile);
+
+	/** Server. An end platform was destroyed (culled) or streamed out: the bridge goes with it. */
+	UFUNCTION()
+	void HandleEndPlatformEndPlay(AActor* Actor, EEndPlayReason::Type EndPlayReason);
 
 	void NotifyEndTileCollapsed(AMyHexPlatform* Platform, const FIntVector& Tile);
 
