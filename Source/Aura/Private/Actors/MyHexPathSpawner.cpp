@@ -215,7 +215,8 @@ void AMyHexPathSpawner::ExtendPath()
 		return;
 	}
 
-	Segment->SetHexRadius(HexRadius);
+	// Layout space is scaled around the start of the path, so it is the path grown at HexRadius 100
+	Segment->SetLayout(HexRadius, FVector(GetActorLocation().X, GetActorLocation().Y, 0.0));
 	Segment->SetPathDistances(
 		PathSpline->GetDistanceAlongSplineAtSplinePoint(FirstIndex),
 		PathSpline->GetDistanceAlongSplineAtSplinePoint(LastIndex)

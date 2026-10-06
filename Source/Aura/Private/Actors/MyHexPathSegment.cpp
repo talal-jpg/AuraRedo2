@@ -32,12 +32,16 @@ AMyHexPathSegment::AMyHexPathSegment()
 // Init
 // =============================================================================
 
-void AMyHexPathSegment::SetHexRadius(float InHexRadius)
+void AMyHexPathSegment::SetLayout(float InHexRadius, const FVector& InLayoutOrigin)
 {
 	HexRadius = InHexRadius;
 	LayoutScale = FMath::Max(InHexRadius / 100.f, KINDA_SMALL_NUMBER);
 	LayoutUpScale = FVector(LayoutScale, LayoutScale, 1.f);
 	LayoutDownScale = FVector(1.f / LayoutScale, 1.f / LayoutScale, 1.f);
+
+	// Scaling around the origin: O + (P - O) * Scale = P * Scale + (O - O * Scale). Z stays (its scale is 1).
+	LayoutUpOffset = InLayoutOrigin - InLayoutOrigin * LayoutUpScale;
+	LayoutDownOffset = InLayoutOrigin - InLayoutOrigin * LayoutDownScale;
 }
 
 void AMyHexPathSegment::InitSegment(int32 InSegmentIndex, const TArray<FVector>& Points, const TArray<FVector>& Tangents)
@@ -52,7 +56,7 @@ void AMyHexPathSegment::InitSegment(int32 InSegmentIndex, const TArray<FVector>&
 
 	for (const FVector& Point : Points)
 	{
-		LayoutPoints.Add(Point * LayoutDownScale);
+		LayoutPoints.Add(Point * LayoutDownScale + LayoutDownOffset);
 	}
 
 	SegmentSpline->SetSplinePoints(LayoutPoints, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);

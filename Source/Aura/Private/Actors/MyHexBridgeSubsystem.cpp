@@ -38,6 +38,9 @@ namespace HexBridgeSubsystemTrace
 	constexpr float BridgeTraceStartOffset = 5.f;
 
 	// ...and ends this far inside the target tile so it is guaranteed to hit it.
+	// Both are for HexRadius 100 and are multiplied by GetLengthScale(): the pillar mesh (its side
+	// sits 3 cm inside the grid's half spacing, and its top edge is bevelled) scales with HexRadius.
+	// The depth is vertical and does not scale.
 	constexpr float BridgeTraceOvershoot = 10.f;
 
 	// The first hit must be within this many HexRadius of the target side.
@@ -2102,14 +2105,14 @@ struct UMyHexBridgeSubsystem::FPlanner
 		const FVector Down = EA.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
 
 		TArray<FVector, TInlineAllocator<MaxTraceSegmentsPlusOne>> Line;
-		Line.Add(EA.Mid + DirA * HexBridgeSubsystemTrace::BridgeTraceStartOffset - Down);
+		Line.Add(EA.Mid + DirA * (HexBridgeSubsystemTrace::BridgeTraceStartOffset * LengthScale) - Down);
 
 		for (int32 Index = 1; Index < N; ++Index)
 		{
 			Line.Add(Points[Index] - Down);
 		}
 
-		Line.Add(EB.Mid - DirB * HexBridgeSubsystemTrace::BridgeTraceOvershoot - EB.Up * HexBridgeSubsystemTrace::BridgeTraceDepth);
+		Line.Add(EB.Mid - DirB * (HexBridgeSubsystemTrace::BridgeTraceOvershoot * LengthScale) - EB.Up * HexBridgeSubsystemTrace::BridgeTraceDepth);
 
 		FHitResult Hit;
 
@@ -2128,7 +2131,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 			return false;
 		}
 
-		bHit = LineHits(Line[1], EA.Mid - DirA * HexBridgeSubsystemTrace::BridgeTraceOvershoot - Down, Hit);
+		bHit = LineHits(Line[1], EA.Mid - DirA * (HexBridgeSubsystemTrace::BridgeTraceOvershoot * LengthScale) - Down, Hit);
 		return HitReaches(Hit, bHit, C.A, EA);
 	}
 
@@ -5188,8 +5191,9 @@ bool UMyHexBridgeSubsystem::TraceReaches(const FEdgeWorld& From, const FEdgeWorl
 {
 	UWorld* World = GetWorld();
 
-	const FVector Start = From.Mid + From.Normal * HexBridgeSubsystemTrace::BridgeTraceStartOffset - From.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
-	const FVector End = To.Mid - To.Normal * HexBridgeSubsystemTrace::BridgeTraceOvershoot - To.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
+	const float Scale = GetLengthScale();
+	const FVector Start = From.Mid + From.Normal * (HexBridgeSubsystemTrace::BridgeTraceStartOffset * Scale) - From.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
+	const FVector End = To.Mid - To.Normal * (HexBridgeSubsystemTrace::BridgeTraceOvershoot * Scale) - To.Up * HexBridgeSubsystemTrace::BridgeTraceDepth;
 
 	// The source platform is deliberately NOT ignored, so an edge whose line would pass back
 	// through its own tiles is rejected

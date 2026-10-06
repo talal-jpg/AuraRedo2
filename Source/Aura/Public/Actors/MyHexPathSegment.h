@@ -20,10 +20,12 @@ class USplineComponent;
  * returns SegmentSpline.
  *
  * Layout space: the PCG graph was tuned for platforms of HexRadius 100. For bigger platforms
- * SegmentSpline holds the path shrunk horizontally by LayoutScale (X and Y divided by it, around the
- * world origin; heights unchanged), so the graph lays platforms out exactly as at HexRadius 100. It
- * then maps the results back to the world (positions times LayoutUpScale) and shrinks the obstacles
- * it reads from the world (positions and scales times LayoutDownScale). At HexRadius 100 both are 1.
+ * SegmentSpline holds the path shrunk horizontally by LayoutScale around the path's start (X and Y
+ * only; heights unchanged). That is exactly the path the spawner grows at HexRadius 100, so the graph
+ * lays platforms out exactly as at HexRadius 100, random choices included. It then maps the results
+ * back to the world (position * LayoutUpScale + LayoutUpOffset) and shrinks the obstacles it reads
+ * from the world (position * LayoutDownScale + LayoutDownOffset, scale * LayoutDownScale).
+ * At HexRadius 100 all of this is the identity.
  */
 UCLASS(Blueprintable)
 class AURA_API AMyHexPathSegment : public AActor
@@ -57,8 +59,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Hex Path")
 	USplineComponent* GetSegmentSpline() const { return SegmentSpline; }
 
-	/** Set by the spawner before InitSegment: the platforms' HexRadius. LayoutScale = HexRadius / 100. */
-	void SetHexRadius(float InHexRadius);
+	/**
+	 * Set by the spawner before InitSegment: the platforms' HexRadius (LayoutScale = HexRadius / 100)
+	 * and the point layout space is scaled around (the start of the path).
+	 */
+	void SetLayout(float InHexRadius, const FVector& InLayoutOrigin);
 
 protected:
 
@@ -94,13 +99,21 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path|Scale")
 	float LayoutScale = 1.f;
 
-	/** (LayoutScale, LayoutScale, 1): layout space to world. */
+	/** (LayoutScale, LayoutScale, 1). */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path|Scale")
 	FVector LayoutUpScale = FVector::OneVector;
 
-	/** (1 / LayoutScale, 1 / LayoutScale, 1): world to layout space. */
+	/** Layout space to world: world = layout * LayoutUpScale + LayoutUpOffset. */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path|Scale")
+	FVector LayoutUpOffset = FVector::ZeroVector;
+
+	/** (1 / LayoutScale, 1 / LayoutScale, 1). */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path|Scale")
 	FVector LayoutDownScale = FVector::OneVector;
+
+	/** World to layout space: layout = world * LayoutDownScale + LayoutDownOffset. */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path|Scale")
+	FVector LayoutDownOffset = FVector::ZeroVector;
 
 	/** PathStartDistance / LayoutScale, the segment start in layout-space distance along the path. */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path|Scale")
