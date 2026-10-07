@@ -56,6 +56,10 @@ public:
 	 */
 	float GetActivatedSplineDistance() const { return ActivatedSplineDistance; }
 
+	/** Platform SplineDistance of the top-ranked player. -1 until someone lands on a platform that has one. */
+	UFUNCTION(BlueprintPure, Category = "Player Ranking")
+	float GetLeadSplineDistance() const;
+
 	const TArray<TObjectPtr<AMyPlayerState>>& GetRankedPlayerStates() const { return PlayerRanking.PlayerStates; }
 
 	/** Every player at the greatest distance (several when they are on the same platform). */

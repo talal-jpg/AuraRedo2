@@ -204,14 +204,54 @@ void AMyHexPlatform::StartCollapsing()
 	// Start chain activation timer
 	// ---------------------------------------------------------------------
 
-	GetWorld()->GetTimerManager().SetTimer(
+	// A small platform goes in one chain (GenerateAndActivateChainFromRandomSelectedGrid takes every
+	// tile when ChainLength or fewer are left), so it waits longer before that
+	const float FirstDelay = HexMap.Num() <= SmallPlatformMaxTiles ? SmallPlatformFirstCollapseDelay : FirstCollapseDelay;
+
+	ScheduleNextCollapseChain(FirstDelay);
+}
+
+void AMyHexPlatform::ScheduleNextCollapseChain(float Delay)
+{
+	GetWorldTimerManager().SetTimer(
 		CollapseTimerHandle,
 		this,
-		&ThisClass::GenerateAndActivateChainFromRandomSelectedGrid,
-		5.f,
-		true,
-		.5f
+		&ThisClass::CollapseNextChain,
+		FMath::Max(Delay, 0.01f), // a rate <= 0 would clear the timer instead
+		false
 	);
+}
+
+void AMyHexPlatform::CollapseNextChain()
+{
+	GenerateAndActivateChainFromRandomSelectedGrid();
+
+	// Stop once every tile is gone. Tiles of the last chains are removed over the next second or so,
+	// so it keeps ticking (and finding nothing to reserve) until then.
+	if (HexMap.Num() > 0)
+	{
+		ScheduleNextCollapseChain(GetCollapseInterval());
+	}
+}
+
+float AMyHexPlatform::GetCollapseInterval() const
+{
+	const AMyGameState* MyGameState = GetWorld()->GetGameState<AMyGameState>();
+	const float LeadDistance = MyGameState ? MyGameState->GetLeadSplineDistance() : -1.f;
+
+	// Nothing to measure against
+	if (!HasSplineDistance() || LeadDistance < 0.f)
+	{
+		return CollapseIntervalAtLead;
+	}
+
+	// SplineDistance grows with HexRadius (PCG works in radius-100 layout space and scales it up)
+	const float FalloffDistance = FMath::Max(CollapseFalloffDistance * HexRadius / 100.f, 1.f);
+
+	// Ahead of the lead (activated before the old leader left) counts as at the lead
+	const float Behind = FMath::Max(LeadDistance - SplineDistance, 0.f);
+
+	return FMath::Lerp(CollapseIntervalAtLead, CollapseIntervalFarBehind, FMath::Min(Behind / FalloffDistance, 1.f));
 }
 
 

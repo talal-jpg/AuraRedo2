@@ -121,6 +121,15 @@ void AMyGameState::ActivatePlatformsUpTo(float LeadDistance)
 	}
 }
 
+float AMyGameState::GetLeadSplineDistance() const
+{
+	const AMyPlayerState* Lead = PlayerRanking.NumLeaders > 0 && PlayerRanking.PlayerStates.Num() > 0
+		? PlayerRanking.PlayerStates[0].Get()
+		: nullptr;
+
+	return Lead ? Lead->GetPlatformSplineDistance() : -1.f;
+}
+
 TArray<AMyPlayerState*> AMyGameState::GetLeadingPlayerStates() const
 {
 	TArray<AMyPlayerState*> Leaders;
