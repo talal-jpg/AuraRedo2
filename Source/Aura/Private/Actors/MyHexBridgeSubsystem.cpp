@@ -16,6 +16,8 @@
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "MyGameState.h"
+#include "MyPlayerState.h"
 #include "TimerManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHexBridgeSubsystem, Log, All);
@@ -4746,19 +4748,22 @@ APawn* UMyHexBridgeSubsystem::SelectLeadPawn() const
 		return nullptr;
 	}
 
-	// For now: the first player on the server (the listen-server host). Iterate rather than use
-	// GetFirstPlayerController(), whose first entry can be a stale weak pointer.
-	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
-	{
-		if (const APlayerController* PlayerController = It->Get())
-		{
-			APawn* Pawn = PlayerController->GetPawn();
+	// The top of AMyGameState's ranking (furthest platform SplineDistance). Nobody has landed yet: no lead.
+	const AMyGameState* MyGameState = World->GetGameState<AMyGameState>();
+	const TArray<AMyPlayerState*> Leaders = MyGameState ? MyGameState->GetLeadingPlayerStates() : TArray<AMyPlayerState*>();
 
-			// Dead / respawning / spectating: no lead this frame
-			return IsValid(Pawn) ? Pawn : nullptr;
+	// Several leaders on the same platform: the first one alive
+	for (const AMyPlayerState* Leader : Leaders)
+	{
+		APawn* Pawn = Leader ? Leader->GetPawn() : nullptr;
+
+		if (IsValid(Pawn))
+		{
+			return Pawn;
 		}
 	}
 
+	// Dead / respawning / spectating: no lead this frame
 	return nullptr;
 }
 

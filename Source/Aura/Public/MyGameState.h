@@ -42,8 +42,23 @@ public:
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
 
-	/** Server. Re-sorts the players by platform distance and works out who is leading. */
+	/**
+	 * Server. Called when a player lands on a new platform (and on join / leave): re-sorts the players
+	 * by platform distance, works out who is leading, then activates every platform whose
+	 * SplineDistance is <= the lead's.
+	 */
 	void UpdatePlayerRanking();
+
+	/**
+	 * Server. Furthest SplineDistance the lead has reached so far; platforms at or below it are
+	 * activated. -1 until someone lands on a platform. Never goes down, so a leader leaving doesn't
+	 * un-activate anything.
+	 */
+	float GetActivatedSplineDistance() const { return ActivatedSplineDistance; }
+
+	/** Platform SplineDistance of the top-ranked player. -1 until someone lands on a platform that has one. */
+	UFUNCTION(BlueprintPure, Category = "Player Ranking")
+	float GetLeadSplineDistance() const;
 
 	const TArray<TObjectPtr<AMyPlayerState>>& GetRankedPlayerStates() const { return PlayerRanking.PlayerStates; }
 
@@ -72,4 +87,11 @@ protected:
 
 	UFUNCTION()
 	void OnRep_PlayerRanking();
+
+private:
+
+	/** Server. Activates (AMyHexPlatform::NotifyLeadLanded) every platform with SplineDistance <= LeadDistance. */
+	void ActivatePlatformsUpTo(float LeadDistance);
+
+	float ActivatedSplineDistance = -1.f;
 };

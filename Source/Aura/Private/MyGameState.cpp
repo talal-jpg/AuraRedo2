@@ -3,7 +3,9 @@
 
 #include "MyGameState.h"
 
+#include "EngineUtils.h"
 #include "MyPlayerState.h"
+#include "Actors/MyHexPlatform.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
@@ -71,6 +73,13 @@ void AMyGameState::UpdatePlayerRanking()
 		}
 	}
 
+	// The lead can move to a further platform without the order changing, so this runs before the
+	// "nothing changed" early out below
+	if (NumLeaders > 0)
+	{
+		ActivatePlatformsUpTo(Ranked[0]->GetPlatformSplineDistance());
+	}
+
 	if (Ranked == PlayerRanking.PlayerStates && NumLeaders == PlayerRanking.NumLeaders)
 	{
 		return;
@@ -87,6 +96,38 @@ void AMyGameState::UpdatePlayerRanking()
 	UKismetSystemLibrary::PrintString(GetWorld(), TEXT("NumLeaders: ") + FString::FromInt(NumLeaders));
 	
 	OnPlayerRankingChanged.Broadcast();
+}
+
+void AMyGameState::ActivatePlatformsUpTo(float LeadDistance)
+{
+	// Already activated everything up to here
+	if (LeadDistance <= ActivatedSplineDistance)
+	{
+		return;
+	}
+
+	ActivatedSplineDistance = LeadDistance;
+
+	// Platforms spawned later check GetActivatedSplineDistance() themselves once their bridges are ready
+	for (TActorIterator<AMyHexPlatform> It(GetWorld()); It; ++It)
+	{
+		AMyHexPlatform* Platform = *It;
+
+		if (IsValid(Platform) && Platform->HasSplineDistance() && Platform->GetSplineDistance() <= LeadDistance)
+		{
+			// Latched; collapsing starts once the platform's bridges are built
+			Platform->NotifyLeadLanded();
+		}
+	}
+}
+
+float AMyGameState::GetLeadSplineDistance() const
+{
+	const AMyPlayerState* Lead = PlayerRanking.NumLeaders > 0 && PlayerRanking.PlayerStates.Num() > 0
+		? PlayerRanking.PlayerStates[0].Get()
+		: nullptr;
+
+	return Lead ? Lead->GetPlatformSplineDistance() : -1.f;
 }
 
 TArray<AMyPlayerState*> AMyGameState::GetLeadingPlayerStates() const

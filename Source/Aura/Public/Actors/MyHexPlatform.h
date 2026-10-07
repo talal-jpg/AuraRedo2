@@ -59,7 +59,10 @@ public:
 	/** Server. Called by UMyHexBridgeSubsystem once this platform's bridges are built from its untouched edges. */
 	void NotifyBridgesReady();
 
-	/** Server. The lead player is on this platform. Latched, so it may arrive before the bridges are ready. */
+	/**
+	 * Server. The lead has reached this platform: AMyGameState calls it on every platform whose
+	 * SplineDistance is <= the lead's. Latched, so it may arrive before the bridges are ready.
+	 */
 	void NotifyLeadLanded();
 
 	/** Server. Bridges that end on this platform register so a player over them keeps it alive. */
@@ -187,12 +190,47 @@ protected:
 
 
 	// -------------------------------------------------------------------------
+	// Collapse timing (server only)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Seconds between collapse chains while this platform is at the lead player's distance
+	 * (AMyGameState ranking). Also used when this platform or the lead has no SplineDistance.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.05"))
+	float CollapseIntervalAtLead = 5.f;
+
+	/** Seconds between collapse chains once this platform is CollapseFalloffDistance or more behind the lead. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.05"))
+	float CollapseIntervalFarBehind = 1.5f;
+
+	/**
+	 * Path distance behind the lead (cm, for HexRadius 100; scaled by HexRadius / 100) over which the
+	 * interval goes from CollapseIntervalAtLead down to CollapseIntervalFarBehind. Re-checked before every chain.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "1.0"))
+	float CollapseFalloffDistance = 10000.f;
+
+	/** Seconds from the start of collapsing to the first chain. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.0"))
+	float FirstCollapseDelay = 0.5f;
+
+	/** Platforms with this many tiles or fewer wait SmallPlatformFirstCollapseDelay instead (their first chain takes every tile). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0"))
+	int32 SmallPlatformMaxTiles = 15;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.0"))
+	float SmallPlatformFirstCollapseDelay = 20.f;
+
+
+	// -------------------------------------------------------------------------
 	// Lead player (server only)
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Collapse starts only once the lead player (UMyHexBridgeSubsystem::GetLeadPawn) is on this
-	 * platform and its bridges are built. Off = collapse as soon as the bridges are built.
+	 * Collapse starts only once the lead player's platform distance (AMyGameState ranking) reaches
+	 * this platform's SplineDistance and its bridges are built. Off = collapse as soon as the bridges
+	 * are built.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Lead")
 	bool bCollapseOnlyWhenLeadLands = true;
@@ -398,6 +436,15 @@ private:
 
 	/** Starts collapsing once the bridges are ready and (if required) the lead has landed. */
 	void TryStartCollapsing();
+
+	/** One-shot CollapseTimerHandle, re-armed after every chain so the interval follows the lead's distance. */
+	void ScheduleNextCollapseChain(float Delay);
+
+	/** CollapseTimerHandle callback: one chain, then the next one is scheduled until every tile is gone. */
+	void CollapseNextChain();
+
+	/** CollapseIntervalAtLead .. CollapseIntervalFarBehind by how far this platform is behind the lead. */
+	float GetCollapseInterval() const;
 
 	/** Looping timer: detects the lead landing on this platform and culls it once it is left behind. */
 	void UpdateLeadState();

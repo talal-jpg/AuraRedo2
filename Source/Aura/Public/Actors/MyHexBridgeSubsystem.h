@@ -55,8 +55,8 @@ public:
 	void UnregisterPlatform(AMyHexPlatform* Platform);
 
 	/**
-	 * The player whose landing starts platforms collapsing and whose progress decides what is left
-	 * behind. Server only (nullptr on clients). Cached per frame; the rule is SelectLeadPawn().
+	 * The top-ranked player in AMyGameState (furthest platform SplineDistance), whose progress decides
+	 * what is left behind. Server only (nullptr on clients). Cached per frame; the rule is SelectLeadPawn().
 	 */
 	UFUNCTION(BlueprintPure, Category = "Hex Platforms")
 	APawn* GetLeadPawn() const;
