@@ -59,7 +59,10 @@ public:
 	/** Server. Called by UMyHexBridgeSubsystem once this platform's bridges are built from its untouched edges. */
 	void NotifyBridgesReady();
 
-	/** Server. The lead player is on this platform. Latched, so it may arrive before the bridges are ready. */
+	/**
+	 * Server. The lead has reached this platform: AMyGameState calls it on every platform whose
+	 * SplineDistance is <= the lead's. Latched, so it may arrive before the bridges are ready.
+	 */
 	void NotifyLeadLanded();
 
 	/** Server. Bridges that end on this platform register so a player over them keeps it alive. */
@@ -191,8 +194,9 @@ protected:
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Collapse starts only once the lead player (UMyHexBridgeSubsystem::GetLeadPawn) is on this
-	 * platform and its bridges are built. Off = collapse as soon as the bridges are built.
+	 * Collapse starts only once the lead player's platform distance (AMyGameState ranking) reaches
+	 * this platform's SplineDistance and its bridges are built. Off = collapse as soon as the bridges
+	 * are built.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Lead")
 	bool bCollapseOnlyWhenLeadLands = true;

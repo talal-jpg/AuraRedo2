@@ -7,6 +7,7 @@
 
 #include "Actors/MyHexBridge.h"
 #include "Actors/MyHexBridgeSubsystem.h"
+#include "MyGameState.h"
 #include "Animation/AnimSequence.h"
 #include "Curves/CurveFloat.h"
 #include "CollisionQueryParams.h"
@@ -242,6 +243,17 @@ void AMyHexPlatform::NotifyLeadLanded()
 
 void AMyHexPlatform::TryStartCollapsing()
 {
+	// Spawned (or given its SplineDistance) after the lead already got this far along the path
+	if (!bLeadLanded && HasSplineDistance())
+	{
+		const AMyGameState* MyGameState = GetWorld()->GetGameState<AMyGameState>();
+
+		if (MyGameState && SplineDistance <= MyGameState->GetActivatedSplineDistance())
+		{
+			bLeadLanded = true;
+		}
+	}
+
 	// Bridges first (they are built from the untouched edges), then the lead player
 	if (bBridgesReady && (bLeadLanded || !bCollapseOnlyWhenLeadLands))
 	{
@@ -273,7 +285,9 @@ void AMyHexPlatform::UpdateLeadState()
 		bLeadReached = true;
 	}
 
-	if (bLeadOn)
+	// Platforms with a SplineDistance are activated by AMyGameState when the lead's distance passes
+	// theirs. One the PCG graph gave no distance falls back to the lead standing on it.
+	if (bLeadOn && !HasSplineDistance())
 	{
 		NotifyLeadLanded();
 	}
@@ -291,7 +305,7 @@ void AMyHexPlatform::UpdateLeadState()
 	}
 
 	// Nothing left to watch for
-	if (!bAutoDestroyWhenLeftBehind && (bCollapseStarted || !bCollapseOnlyWhenLeadLands))
+	if (!bAutoDestroyWhenLeftBehind && (bCollapseStarted || !bCollapseOnlyWhenLeadLands || HasSplineDistance()))
 	{
 		GetWorldTimerManager().ClearTimer(LeadCheckTimerHandle);
 	}
