@@ -1073,7 +1073,7 @@ void UGA_GrappleSwing2::TrySearchAndAttach()
 
 	FGS2AnchorCandidate Candidate;
 	if (!FindAnchor(Candidate))return;
-	if (!CommitAbilityCheck(CurrentSpecHandle,CurrentActorInfo,CurrentActivationInfo))return;
+	if (!CommitCheck(CurrentSpecHandle,CurrentActorInfo,CurrentActivationInfo))return;
 
 	GetWorld()->GetTimerManager().ClearTimer(SearchTimerHandle);
 
