@@ -358,9 +358,10 @@ struct AURA_API FGrappleSwing2Tuning
 	UPROPERTY(EditDefaultsOnly, Category = "Ending")
 	float MaxSwingDuration=20.f;
 
-	// Object types for anchors and every in-swing trace. Static geometry only, moving pieces make client and server disagree.
+	// Object types for anchors and every in-swing trace. WorldDynamic is in because the hex platforms keep the default
+	// BlockAllDynamic profile. Keep things that move off these types, or client and server disagree on the rope.
 	UPROPERTY(EditDefaultsOnly, Category = "Ending")
-	TArray<TEnumAsByte<ECollisionChannel>> RopeObjectTypes={ECC_WorldStatic};
+	TArray<TEnumAsByte<ECollisionChannel>> RopeObjectTypes={ECC_WorldStatic,ECC_WorldDynamic};
 };
 
 /**
