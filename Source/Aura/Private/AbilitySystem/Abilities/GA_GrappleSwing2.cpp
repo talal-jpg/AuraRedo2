@@ -156,6 +156,12 @@ bool FRootMotionSource_GrappleSwing2::UpdateStateFrom(const FRootMotionSource* S
 	const FRootMotionSource_GrappleSwing2* Other=static_cast<const FRootMotionSource_GrappleSwing2*>(SourceToTakeStateFrom);
 	Phase=Other->Phase;
 	AccumulateMode=Phase==EGS2Phase::Travel ? ERootMotionAccumulateMode::Additive : ERootMotionAccumulateMode::Override;
+	if (Phase==EGS2Phase::Travel)
+	{
+		// A Travel source outputs nothing. If the server dropped the hook after this copy attached, CleanUp would add
+		// the swing output left here by the last move back as an additive
+		RootMotionParams.Clear();
+	}
 	bTaut=Other->bTaut;
 	bPrevJump=Other->bPrevJump;
 	EndReason=Other->EndReason;
@@ -236,6 +242,19 @@ void FRootMotionSource_GrappleSwing2::PrepareRootMotion(float SimulationTime, fl
 	FVector V;
 	if (Phase==EGS2Phase::Travel)
 	{
+		// Ended before the hook arrived (cancel, death, failed activation): drop the hook and leave the velocity alone.
+		// A tap always asks for TravelTime+MinSwingTimeAfterAttach or later, so it still gets its short swing.
+		// Phase stays Travel, so corrections keep deriving Additive.
+		if (EndTime>=0.f && EndTime<TravelTime-1.e-4f && T0>=EndTime-1.e-4f)
+		{
+			EndReason=EGS2EndReason::Forced;
+			AccumulateMode=ERootMotionAccumulateMode::Additive;
+			bPrevJump=Ctx.bJump;
+			// Duration<0, so only this flag ends it
+			Status.SetFlag(ERootMotionSourceStatusFlags::Finished);
+			SetTime(T1);
+			return;
+		}
 		if (SimulationTime<=0.f || T1<TravelTime-1.e-4f)
 		{
 			AccumulateMode=ERootMotionAccumulateMode::Additive;
@@ -1086,6 +1105,11 @@ bool UGA_GrappleSwing2::EvaluateHit(const FHitResult& Hit, bool bCrosshair, bool
 	FHitResult LOSHit;
 	if (TraceStatic(RopeStart,A-RopeDir*Swing.AnchorLOSInset,LOSHit))return Reject(FString::Printf(TEXT("rope line of sight blocked by %s"),*GetNameSafe(LOSHit.GetActor())));
 
+	// The server's check: the anchor sits on geometry the static traces can see
+	if (N.IsNearlyZero())return Reject(TEXT("no surface normal"));
+	FHitResult SurfaceHit;
+	if (!TraceStatic(A,A-N*(AnchorSurfaceOffset+ServerLOSAnchorSlack),SurfaceHit))return Reject(TEXT("no simple collision under the anchor (the server would reject it)"));
+
 	// The bottom of the arc has to fit above the floor under the anchor
 	float FloorHeight=0.f;
 	const bool bHasFloor=TraceFloor(A,FloorHeight);
@@ -1267,6 +1291,14 @@ void UGA_GrappleSwing2::StartSwing(const FGameplayAbilityTargetData_GrappleSwing
 		CueParams.EffectCauser=Character;
 		CueParams.Instigator=Character;
 		K2_AddGameplayCueWithParams(RopeCueTag,CueParams,true);
+		// The cue replicates with the ASC's owner (the PlayerState, which updates rarely by default), not the Character
+		if (HasAuthority(&CurrentActivationInfo))
+		{
+			if (AActor* AscOwner=GetOwningActorFromActorInfo())
+			{
+				AscOwner->ForceNetUpdate();
+			}
+		}
 	}
 }
 
@@ -1356,6 +1388,9 @@ void UGA_GrappleSwing2::ServerReject()
 void UGA_GrappleSwing2::OnServerRejected()
 {
 	if (!IsActive())return;
+	// A tap: InputReleased already ran for this activation. Any other release while active ends the ability or moves it
+	// to Releasing, so the state alone says the button went up (not every controller sets the spec's InputPressed).
+	const bool bButtonUp=State==EGS2AbilityState::Releasing;
 	if (UCharacterMovementComponent* MoveComp=GetSwingMovement())
 	{
 		if (RootMotionSourceID!=GrappleSwing2::InvalidSourceID)
@@ -1368,6 +1403,11 @@ void UGA_GrappleSwing2::OnServerRejected()
 	RemoveCuePredicted();
 	// Stays active until the button goes up; the predicted cooldown rolls back with its key
 	State=EGS2AbilityState::Rejected;
+	if (bButtonUp)
+	{
+		// No InputReleased will come to end it
+		EndLocal();
+	}
 }
 
 void UGA_GrappleSwing2::OnServerReleasePayload()
@@ -1382,7 +1422,13 @@ void UGA_GrappleSwing2::OnServerReleasePayload()
 	if (!Src || Src->SwingId!=(uint16)FMath::RoundToInt(Payload.Y))return;
 
 	const float ClientEndTime=Payload.X/1000.f;
-	const float EndTime=FMath::Clamp(ClientEndTime,Src->GetTime(),Src->GetTime()+MaxReleaseLead);
+	float EndTime=FMath::Clamp(ClientEndTime,Src->GetTime(),Src->GetTime()+MaxReleaseLead);
+	if (Src->Phase==EGS2Phase::Travel && ClientEndTime<Src->TravelTime-1.e-4f)
+	{
+		// The client dropped the hook before it arrived. Late hook data can start this clock at TravelTime, where the
+		// clamp would turn the drop into an attach and an immediate finish.
+		EndTime=FMath::Min(EndTime,Src->TravelTime-2.e-4f);
+	}
 	const EGS2EndKind Kind=FMath::RoundToInt(Payload.Z)==(int32)EGS2EndKind::Forced ? EGS2EndKind::Forced : EGS2EndKind::Release;
 	// Earliest valid request wins
 	if (Src->EndTime>=0.f && Src->EndTime<=EndTime)return;
@@ -1508,6 +1554,11 @@ void UGA_GrappleSwing2::Poll()
 		if (bAuthority)
 		{
 			Character->ForceNetUpdate();
+			// The rope cue is removed below or in EndAbility this frame, and replicates with the ASC's owner
+			if (AActor* AscOwner=GetOwningActorFromActorInfo())
+			{
+				AscOwner->ForceNetUpdate();
+			}
 		}
 
 		if (!bLocal)
@@ -1528,6 +1579,12 @@ void UGA_GrappleSwing2::Poll()
 			case EGS2EndReason::Landed:
 			case EGS2EndReason::JumpReleased:
 			case EGS2EndReason::Timeout:
+				if (State==EGS2AbilityState::Releasing)
+				{
+					// The button is already up, and InputReleased won't run again for this activation
+					EndLocal();
+					return;
+				}
 				// No re-fire until the button goes up (or the character walks off a ledge after landing)
 				RemoveCuePredicted();
 				State=EGS2AbilityState::Spent;
@@ -1596,7 +1653,9 @@ void UGA_GrappleSwing2::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 		FRootMotionSource_GrappleSwing2* Src=FindSource(Holder);
 		if (Src && Src->Phase!=EGS2Phase::Done && !Src->Status.HasFlag(ERootMotionSourceStatusFlags::Finished))
 		{
-			RequestEnd(*Src,Src->GetTime(),bWasCancelled ? EGS2EndKind::Forced : EGS2EndKind::Release);
+			// During the hook flight, end before the attach move (late hook data can start the clock at TravelTime)
+			const float EndTime=Src->Phase==EGS2Phase::Travel ? FMath::Min(Src->GetTime(),Src->TravelTime-2.e-4f) : Src->GetTime();
+			RequestEnd(*Src,EndTime,bWasCancelled ? EGS2EndKind::Forced : EGS2EndKind::Release);
 		}
 	}
 
@@ -1633,6 +1692,16 @@ void UGA_GrappleSwing2::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 		{
 			FScopedPredictionWindow ScopedPrediction(ASC,true);
 			K2_RemoveGameplayCue(RopeCueTag);
+		}
+	}
+
+	if (RopeCueTag.IsValid() && HasAuthority(&ActivationInfo))
+	{
+		// Super removes the rope cue, which replicates with the ASC's owner. A remote client's end usually arrives with
+		// the finishing move, before Poll can flush the removal.
+		if (AActor* AscOwner=ActorInfo ? ActorInfo->OwnerActor.Get() : nullptr)
+		{
+			AscOwner->ForceNetUpdate();
 		}
 	}
 
