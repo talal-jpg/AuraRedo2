@@ -6,6 +6,7 @@
 #include "AbilitySystemComponent.h"
 #include "CollisionQueryParams.h"
 #include "DrawDebugHelpers.h"
+#include "Engine/Engine.h"
 #include "NativeGameplayTags.h"
 #include "TimerManager.h"
 #include "Components/CapsuleComponent.h"
@@ -20,6 +21,18 @@
 // Names differ from v1's: a unity build can put both .cpp files in one translation unit
 UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_GS2_Ability,"Ability.GrappleSwing2")
 UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_GS2_RopeCue,"GameplayCue.GrappleRope")
+
+DEFINE_LOG_CATEGORY_STATIC(LogGrappleSwing2,Log,All);
+
+// bDrawDebug search diagnostics: to the log and the screen
+static void GS2DebugMessage(const FString& Message)
+{
+	UE_LOG(LogGrappleSwing2,Warning,TEXT("%s"),*Message);
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1,5.f,FColor::Orange,Message);
+	}
+}
 
 namespace GrappleSwing2
 {
@@ -892,6 +905,7 @@ void UGA_GrappleSwing2::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		// Decided at activation, so waiting for the apex before the next web still counts as a chain
 		PendingChainCount=bInChainWindow && bLastDetachWasRelease ? (uint8)FMath::Min<int32>(LastChainCount+1,Swing.MaxChainStacks) : 0;
 
+		bDebugLogSearch=bDrawDebug;
 		TrySearchAndAttach();
 		if (IsActive() && State==EGS2AbilityState::Searching)
 		{
@@ -914,7 +928,14 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 	ACharacter* Character=GetSwingCharacter();
 	UCharacterMovementComponent* MoveComp=GetSwingMovement();
 	APlayerController* PC=Character ? Cast<APlayerController>(Character->GetController()) : nullptr;
-	if (!PC || !MoveComp)return false;
+	if (!PC || !MoveComp)
+	{
+		if (bDebugLogSearch)
+		{
+			GS2DebugMessage(TEXT("GrappleSwing2 search skipped: no PlayerController or movement component"));
+		}
+		return false;
+	}
 
 	FGS2SearchCtx Ctx;
 	FRotator ViewRot;
@@ -927,7 +948,14 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 	const float G=-MoveComp->GetGravityZ();
 
 	// Auto-chain: wait for the apex so the next web does not drag the release vault down
-	if (bIsAutoChainActivation && (V|Ctx.Up)>ChainAttachMaxRiseSpeed)return false;
+	if (bIsAutoChainActivation && (V|Ctx.Up)>ChainAttachMaxRiseSpeed)
+	{
+		if (bDebugLogSearch)
+		{
+			GS2DebugMessage(FString::Printf(TEXT("GrappleSwing2 search waiting for the apex (rising %.0f > %.0f)"),(float)(V|Ctx.Up),ChainAttachMaxRiseSpeed));
+		}
+		return false;
+	}
 
 	// Where the character will be when the hook arrives
 	const float TravelGuess=FMath::Clamp(IdealRopeLength/FMath::Max(HookSpeed,1.f),MinHookTravelTime,MaxHookTravelTime);
@@ -945,13 +973,24 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 
 	FGS2AnchorCandidate Crosshair;
 	FGS2AnchorCandidate Best;
+	int32 NumMisses=0;
 
 	auto TryRay=[&](const FVector& Start, const FVector& Dir, bool bCrosshair, bool bFanRay)
 	{
 		FHitResult Hit;
-		if (!World->LineTraceSingleByChannel(Hit,Start,Start+Dir*MaxGrappleDistance,GrappleTraceChannel,QueryParams))return;
+		const bool bHit=World->LineTraceSingleByChannel(Hit,Start,Start+Dir*MaxGrappleDistance,GrappleTraceChannel,QueryParams);
 		FGS2AnchorCandidate Candidate;
-		if (!EvaluateHit(Hit,bCrosshair,bFanRay,Ctx,Candidate))return;
+		const bool bValid=bHit && EvaluateHit(Hit,bCrosshair,bFanRay,Ctx,Candidate);
+		if (bDrawDebug)
+		{
+			DrawDebugLine(World,Start,bHit ? Hit.ImpactPoint : Start+Dir*MaxGrappleDistance,bValid ? FColor::Green : (bHit ? FColor::Red : FColor(128,128,128)),false,0.5f,0,1.f);
+		}
+		if (!bHit)
+		{
+			++NumMisses;
+			return;
+		}
+		if (!bValid)return;
 		if (bCrosshair)
 		{
 			Crosshair=Candidate;
@@ -1004,6 +1043,12 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 		}
 	}
 
+	if (bDebugLogSearch)
+	{
+		GS2DebugMessage(FString::Printf(TEXT("GrappleSwing2 search: %s, %d rays hit nothing within %.0f"),
+			Best.bValid ? *FString::Printf(TEXT("anchor at %s"),*Best.Anchor.ToString()) : TEXT("no valid anchor"),NumMisses,MaxGrappleDistance));
+		bDebugLogSearch=false;
+	}
 	if (!Best.bValid)return false;
 	OutBest=Crosshair.bValid && Crosshair.Score>=Best.Score-CrosshairStickiness ? Crosshair : Best;
 	return true;
@@ -1013,29 +1058,42 @@ bool UGA_GrappleSwing2::EvaluateHit(const FHitResult& Hit, bool bCrosshair, bool
 {
 	// Only geometry the rope traces can see, so the swing agrees with the search
 	const UPrimitiveComponent* HitComponent=Hit.GetComponent();
-	if (!HitComponent || !IsRopeObjectType(HitComponent->GetCollisionObjectType()))return false;
-	if (Hit.GetActor() && Hit.GetActor()->IsA<APawn>())return false;
+	auto Reject=[&](const FString& Why)
+	{
+		if (bDebugLogSearch)
+		{
+			GS2DebugMessage(FString::Printf(TEXT("GrappleSwing2 reject: %s | hit %s (%s, object type %s)"),*Why,*GetNameSafe(Hit.GetActor()),
+				*GetNameSafe(HitComponent),HitComponent ? *UEnum::GetValueAsString(HitComponent->GetCollisionObjectType()) : TEXT("none")));
+		}
+		return false;
+	};
+	if (!HitComponent || !IsRopeObjectType(HitComponent->GetCollisionObjectType()))return Reject(TEXT("object type not in RopeObjectTypes"));
+	if (Hit.GetActor() && Hit.GetActor()->IsA<APawn>())return Reject(TEXT("hit a pawn"));
 
 	const FVector& Up=Ctx.Up;
 	const FVector N=Hit.ImpactNormal.GetSafeNormal();
 	const FVector A=Hit.ImpactPoint+N*AnchorSurfaceOffset;
 
 	const float Dist=FVector::Dist(Ctx.AttachPos,A);
-	if (Dist<Swing.MinRopeLength+100.f || Dist>MaxGrappleDistance)return false;
+	if (Dist<Swing.MinRopeLength+100.f || Dist>MaxGrappleDistance)return Reject(FString::Printf(TEXT("distance %.0f outside [%.0f, %.0f]"),Dist,Swing.MinRopeLength+100.f,MaxGrappleDistance));
 
 	const float Height=(A-Ctx.AttachPos)|Up;
-	if (Height<MinAnchorHeight)return false;
+	if (Height<MinAnchorHeight)return Reject(FString::Printf(TEXT("height %.0f above the attach point, below MinAnchorHeight %.0f"),Height,MinAnchorHeight));
 
 	// Rope line of sight from where it leaves the capsule
 	const FVector RopeStart=Ctx.Pos+Up*Ctx.HalfHeight*Swing.RopeAttachHeightFrac;
 	const FVector RopeDir=(A-RopeStart).GetSafeNormal();
 	FHitResult LOSHit;
-	if (TraceStatic(RopeStart,A-RopeDir*Swing.AnchorLOSInset,LOSHit))return false;
+	if (TraceStatic(RopeStart,A-RopeDir*Swing.AnchorLOSInset,LOSHit))return Reject(FString::Printf(TEXT("rope line of sight blocked by %s"),*GetNameSafe(LOSHit.GetActor())));
 
 	// The bottom of the arc has to fit above the floor under the anchor
 	float FloorHeight=0.f;
 	const bool bHasFloor=TraceFloor(A,FloorHeight);
-	if (bHasFloor && (A|Up)-FloorHeight-Ctx.HalfHeight-Swing.GroundClearance<Swing.MinRopeLength)return false;
+	if (bHasFloor && (A|Up)-FloorHeight-Ctx.HalfHeight-Swing.GroundClearance<Swing.MinRopeLength)
+	{
+		return Reject(FString::Printf(TEXT("anchor %.0f above the floor under it, needs %.0f (MinRopeLength+HalfHeight+GroundClearance)"),
+			(float)(A|Up)-FloorHeight,Swing.MinRopeLength+Ctx.HalfHeight+Swing.GroundClearance));
+	}
 
 	// Scores
 	const FVector ToAnchorFromView=(A-Ctx.ViewLoc).GetSafeNormal();
@@ -1073,7 +1131,14 @@ void UGA_GrappleSwing2::TrySearchAndAttach()
 
 	FGS2AnchorCandidate Candidate;
 	if (!FindAnchor(Candidate))return;
-	if (!CommitCheck(CurrentSpecHandle,CurrentActorInfo,CurrentActivationInfo))return;
+	if (!CommitCheck(CurrentSpecHandle,CurrentActorInfo,CurrentActivationInfo))
+	{
+		if (bDrawDebug)
+		{
+			GS2DebugMessage(TEXT("GrappleSwing2: anchor found but CommitCheck failed (cost or cooldown)"));
+		}
+		return;
+	}
 
 	GetWorld()->GetTimerManager().ClearTimer(SearchTimerHandle);
 

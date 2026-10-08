@@ -776,6 +776,9 @@ private:
 	// The source has shown up in the movement component at least once since StartSwing
 	bool bSourceSeen=false;
 
+	// bDrawDebug: log why the first search of each activation found no anchor
+	mutable bool bDebugLogSearch=false;
+
 	double SwingStartWorldTime=0.0;
 
 	double LastDetachWorldTime=-1000.0;
