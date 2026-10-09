@@ -865,6 +865,13 @@ bool UGA_GrappleSwing2::CanActivateAbility(const FGameplayAbilitySpecHandle Hand
 {
 	// Re-fire gate after an external end while the button was held, cleared when the button goes up
 	if (bBlockUntilRelease)return false;
+	// Airborne only: Falling means in the air and not hovering (GA_JumpHover uses MOVE_Flying).
+	// Owning client only: the server can still be a move behind the client's jump, and failing there would cancel it.
+	if (ActorInfo && ActorInfo->IsLocallyControlled())
+	{
+		const UCharacterMovementComponent* MoveComp=Cast<UCharacterMovementComponent>(ActorInfo->MovementComponent.Get());
+		if (!MoveComp || !MoveComp->IsFalling())return false;
+	}
 	return Super::CanActivateAbility(Handle,ActorInfo,SourceTags,TargetTags,OptionalRelevantTags);
 }
 
