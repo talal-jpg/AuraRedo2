@@ -72,6 +72,7 @@ void UMyAnimInstance::NativeUninitializeAnimation()
 	if (ASC)
 	{
 		ASC->RegisterGameplayTagEvent(MyTags::State_Shooting,EGameplayTagEventType::NewOrRemoved).RemoveAll(this);
+		ASC->RegisterGameplayTagEvent(MyTags::Event_Swing,EGameplayTagEventType::NewOrRemoved).RemoveAll(this);
 	}
 	if (MyCharPlayer)
 	{
@@ -138,6 +139,11 @@ void UMyAnimInstance::BoostingTagCountChangeCallback(FGameplayTag Tag, int32 Tag
 	}
 }
 
+void UMyAnimInstance::SwingTagCountChangeCallback(FGameplayTag Tag, int32 TagCount)
+{
+	bIsSwinging=TagCount>0;
+}
+
 void UMyAnimInstance::InitializeASC(UAbilitySystemComponent* InASC)
 {
 	if (!InASC || ASC == InASC)
@@ -152,6 +158,10 @@ void UMyAnimInstance::InitializeASC(UAbilitySystemComponent* InASC)
 	BeamTagCountChangeDelegateHandle =ASC->RegisterGameplayTagEvent(MyTags::Ability_Beam,EGameplayTagEventType::NewOrRemoved).AddUObject(this,&UMyAnimInstance::BeamTagCountChangeCallback);
 	
 	BoostingTagCountChangeDelegateHandle= ASC->RegisterGameplayTagEvent(MyTags::State_Boosting,EGameplayTagEventType::NewOrRemoved).AddUObject(this,&UMyAnimInstance::BoostingTagCountChangeCallback);
+	
+	SwingTagCountChangeDelegateHandle= ASC->RegisterGameplayTagEvent(MyTags::Event_Swing,EGameplayTagEventType::NewOrRemoved).AddUObject(this,&UMyAnimInstance::SwingTagCountChangeCallback);
+	// The tag may already be on when the ASC arrives (late join, respawn)
+	bIsSwinging=ASC->HasMatchingGameplayTag(MyTags::Event_Swing);
 	
 }
 				

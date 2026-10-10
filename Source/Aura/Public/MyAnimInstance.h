@@ -28,6 +28,7 @@ class AURA_API UMyAnimInstance : public UAnimInstance
 	FDelegateHandle ShootingTagCountChangeDelegateHandle;
 	FDelegateHandle BeamTagCountChangeDelegateHandle;
 	FDelegateHandle BoostingTagCountChangeDelegateHandle;
+	FDelegateHandle SwingTagCountChangeDelegateHandle;
 
 	UPROPERTY()
 	TObjectPtr<UAbilitySystemComponent> ASC;
@@ -105,8 +106,12 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsFlying=false;
 	
+	UPROPERTY(BlueprintReadOnly)
+	bool bIsSwinging=false;
+	
 	void ShootingTagCountChangeCallback(FGameplayTag Tag,int32 TagCount);
 	void BeamTagCountChangeCallback(FGameplayTag Tag,int32 TagCount);
 	void BoostingTagCountChangeCallback(FGameplayTag Tag,int32 TagCount);
+	void SwingTagCountChangeCallback(FGameplayTag Tag,int32 TagCount);
 	
 };

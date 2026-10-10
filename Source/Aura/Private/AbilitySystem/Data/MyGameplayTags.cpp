@@ -79,6 +79,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_HitReact,"Event.HitReact")
 	UE_DEFINE_GAMEPLAY_TAG(Event_SpawnFireBall,"Event.SpawnFireBall")
 	UE_DEFINE_GAMEPLAY_TAG(Event_SpawnElectrocute,"Event.SpawnElectrocute")
+	UE_DEFINE_GAMEPLAY_TAG(Event_Swing,"Event.Swing")
 	
 	// GameplayCues
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_FireballBurst,"GameplayCue.FireballBurst")
