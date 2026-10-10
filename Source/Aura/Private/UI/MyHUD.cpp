@@ -6,6 +6,7 @@
 #include "MyPlayerState.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
+#include "Blueprint/GameViewportSubsystem.h"
 #include "Blueprint/UserWidget.h"
 #include "PlayerInput/MyPlayerController.h"
 #include "UI/UserWidgets/MyHexMinimapWidget.h"
@@ -49,14 +50,19 @@ void AMyHUD::InitOverlay()
 		{
 			MinimapWidget = CreateWidget<UMyHexMinimapWidget>(PlayerController, MinimapWidgetClass);
 
-			if (MinimapWidget)
+			UGameViewportSubsystem* ViewportSubsystem = UGameViewportSubsystem::Get();
+
+			if (MinimapWidget && ViewportSubsystem)
 			{
-				MinimapWidget->AddToViewport(1);
-				// SetPositionInViewport resets the anchors to the top-left, so the anchors go after it
-				MinimapWidget->SetPositionInViewport(FVector2D(-MinimapCornerOffset.X, MinimapCornerOffset.Y), /*bRemoveDPIScale=*/false);
-				MinimapWidget->SetAnchorsInViewport(FAnchors(1.f, 0.f));
-				MinimapWidget->SetAlignmentInViewport(FVector2D(1.f, 0.f));
-				MinimapWidget->SetDesiredSizeInViewport(FVector2D(MinimapWidget->MinimapSize));
+				// One slot for everything: SetPositionInViewport and SetDesiredSizeInViewport both reset
+				// the anchors to the top-left corner
+				FGameViewportWidgetSlot Slot;
+				Slot.Anchors = FAnchors(1.f, 0.f);
+				Slot.Alignment = FVector2D(1.f, 0.f);
+				Slot.Offsets = FMargin(-MinimapCornerOffset.X, MinimapCornerOffset.Y, MinimapWidget->MinimapSize, MinimapWidget->MinimapSize);
+				Slot.ZOrder = 1;
+
+				ViewportSubsystem->AddWidget(MinimapWidget, Slot);
 			}
 		}
 	}
