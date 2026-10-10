@@ -876,6 +876,33 @@ bool UGA_GrappleSwing2::GetGrappleSwing2State(const ACharacter* Character, FVect
 	return false;
 }
 
+bool UGA_GrappleSwing2::GetGrappleSwing2Phase(const ACharacter* Character, float& OutPhase)
+{
+	OutPhase=0.f;
+	const UCharacterMovementComponent* MoveComp=Character ? Character->GetCharacterMovement() : nullptr;
+	if (!MoveComp || !MoveComp->UpdatedComponent)return false;
+	for (const TSharedPtr<FRootMotionSource>& Source:MoveComp->CurrentRootMotion.RootMotionSources)
+	{
+		if (Source.IsValid() && Source->GetScriptStruct()==FRootMotionSource_GrappleSwing2::StaticStruct())
+		{
+			const FRootMotionSource_GrappleSwing2* Swing=static_cast<const FRootMotionSource_GrappleSwing2*>(Source.Get());
+			if (Swing->Phase!=EGS2Phase::Swing)continue;
+			const FVector Up=-MoveComp->GetGravityDirection();
+			const FVector R=MoveComp->UpdatedComponent->GetComponentLocation()-Swing->Anchor;
+			FVector Forward=GrappleSwing2::Proj(Swing->PreferredSwingDir,Up).GetSafeNormal();
+			if (Forward.IsNearlyZero())
+			{
+				Forward=GrappleSwing2::Proj(MoveComp->Velocity,Up).GetSafeNormal();
+			}
+			// Signed angle from straight down, positive once past the anchor
+			const float Angle=FMath::RadiansToDegrees(FMath::Atan2((float)(R|Forward),(float)-(R|Up)));
+			OutPhase=FMath::Clamp(Angle/90.f,-1.f,1.f);
+			return true;
+		}
+	}
+	return false;
+}
+
 bool UGA_GrappleSwing2::IsRopeObjectType(ECollisionChannel Channel) const
 {
 	for (const TEnumAsByte<ECollisionChannel>& Type:Swing.RopeObjectTypes)
