@@ -23,8 +23,16 @@ public:
 	UFUNCTION(BlueprintCallable,BlueprintAuthorityOnly,Category="Beam|HitImpact")
 	void PlayBeamHitImpact(ACharacter* HitCharacter);
 	
-	// Runs on the hit player's machine (AMyPlayerController2::Client_PlayBeamHitImpact calls it on this class's CDO)
+	// Runs on the hit player's machine (AMyPlayerController2::Client_PlayBeamImpact calls it on this class's CDO)
 	void PlayBeamHitImpactLocal(APlayerController* HitPC) const;
+	
+	// Plays the caster's impact frames post process and CastCameraShake on the casting player's own screen (no FOV change).
+	// Call it where the beam lands, from the server or from the caster's own machine: a locally controlled caster plays it directly, otherwise the server sends it
+	UFUNCTION(BlueprintCallable,Category="Beam|CastImpact")
+	void PlayBeamCastImpact(ACharacter* CasterCharacter);
+	
+	// Runs on the caster's machine
+	void PlayBeamCastImpactLocal(APlayerController* CasterPC) const;
 	
 	// Impact frames material (M_PP_ImpactFrames). Gets ImpactTime (world time of the hit) and Duration, and plays its own sequence from the Time node
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|HitImpact")
@@ -47,6 +55,23 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|HitImpact")
 	float HitCameraShakeScale=1.f;
+	
+	// Caster's impact frames material (M_PP_CastFrames), driven by ImpactTime and Duration like the hit one
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact")
+	TObjectPtr<UMaterialInterface> CastPostProcessMaterial;
+	
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact",meta=(ClampMin="0.05"))
+	float CastImpactDuration=0.9f;
+	
+	// A beam that keeps landing only starts a new caster impact this long after the last one started (never sooner than CastImpactDuration)
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact")
+	float CastImpactMinInterval=1.5f;
+	
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact")
+	TSubclassOf<UCameraShakeBase> CastCameraShake;
+	
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact")
+	float CastCameraShakeScale=1.f;
 	
 	// virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	//

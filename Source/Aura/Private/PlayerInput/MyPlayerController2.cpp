@@ -414,10 +414,12 @@ void AMyPlayerController2::ShowDamageNumber_2_Implementation(float InDamage,ACha
 
 
 
-void AMyPlayerController2::Client_PlayBeamHitImpact_Implementation(TSubclassOf<UGA_Beam> BeamClass)
+void AMyPlayerController2::Client_PlayBeamImpact_Implementation(TSubclassOf<UGA_Beam> BeamClass,bool bCaster)
 {
 	if (!BeamClass) return;
-	BeamClass->GetDefaultObject<UGA_Beam>()->PlayBeamHitImpactLocal(this);
+	const UGA_Beam* Beam=BeamClass->GetDefaultObject<UGA_Beam>();
+	if (bCaster) Beam->PlayBeamCastImpactLocal(this);
+	else Beam->PlayBeamHitImpactLocal(this);
 }
 
 void AMyPlayerController2::StartHitImpact(UMaterialInterface* Material,float Duration,float FOVOffset)

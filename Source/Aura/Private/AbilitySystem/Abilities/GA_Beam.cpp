@@ -19,7 +19,7 @@ void UGA_Beam::PlayBeamHitImpact(ACharacter* HitCharacter)
 		const float Now=HitCharacter->GetWorld()->GetTimeSeconds();
 		if (Now-HitPC->LastHitImpactSentTime<FMath::Max(HitImpactMinInterval,HitImpactDuration)) return;
 		HitPC->LastHitImpactSentTime=Now;
-		HitPC->Client_PlayBeamHitImpact(GetClass());
+		HitPC->Client_PlayBeamImpact(GetClass(),false);
 	}
 	else if (APlayerController* OtherPC=Cast<APlayerController>(HitCharacter->GetController()))
 	{
@@ -43,6 +43,44 @@ void UGA_Beam::PlayBeamHitImpactLocal(APlayerController* HitPC) const
 	if (HitCameraShake && MyPC->PlayerCameraManager)
 	{
 		MyPC->PlayerCameraManager->StartCameraShake(HitCameraShake,HitCameraShakeScale);
+	}
+}
+
+void UGA_Beam::PlayBeamCastImpact(ACharacter* CasterCharacter)
+{
+	if (!CasterCharacter) return;
+	AMyPlayerController2* CasterPC=Cast<AMyPlayerController2>(CasterCharacter->GetController());
+	if (!CasterPC) return;
+	
+	// Caster on this machine (client, or the listen server host): play it here, no RPC needed
+	if (CasterPC->IsLocalController())
+	{
+		PlayBeamCastImpactLocal(CasterPC);
+		return;
+	}
+	
+	// Remote caster: only the server can reach their screen
+	if (!CasterCharacter->HasAuthority()) return;
+	const float Now=CasterCharacter->GetWorld()->GetTimeSeconds();
+	if (Now-CasterPC->LastCastImpactSentTime<FMath::Max(CastImpactMinInterval,CastImpactDuration)) return;
+	CasterPC->LastCastImpactSentTime=Now;
+	CasterPC->Client_PlayBeamImpact(GetClass(),true);
+}
+
+void UGA_Beam::PlayBeamCastImpactLocal(APlayerController* CasterPC) const
+{
+	AMyPlayerController2* MyPC=Cast<AMyPlayerController2>(CasterPC);
+	if (!MyPC || !MyPC->IsLocalController()) return;
+	
+	const float Now=MyPC->GetWorld()->GetTimeSeconds();
+	if (Now-MyPC->LastCastImpactStartTime<FMath::Max(CastImpactMinInterval,CastImpactDuration)) return;
+	MyPC->LastCastImpactStartTime=Now;
+	
+	MyPC->StartHitImpact(CastPostProcessMaterial,CastImpactDuration,0.f);
+	
+	if (CastCameraShake && MyPC->PlayerCameraManager)
+	{
+		MyPC->PlayerCameraManager->StartCameraShake(CastCameraShake,CastCameraShakeScale);
 	}
 }
 

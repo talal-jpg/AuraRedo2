@@ -55,7 +55,12 @@ if (t < 0.0 || t >= 1.0) return Scene;
 float2 UV = GetViewportUV(Parameters);
 float2 ViewSize = View.ViewSizeAndInvSize.xy;
 float Aspect = ViewSize.x / max(ViewSize.y, 1.0);
+// Output height for line anti-aliasing (the material is also compiled for debug view shaders, which have no PostProcessOutput)
+#if POST_PROCESS_MATERIAL
 float OutH = PostProcessOutput_ViewportSize.y;
+#else
+float OutH = View.ViewSizeAndInvSize.y;
+#endif
 
 // Phase 0: zoom blur toward Center, noise jittered so it reads as one smooth smear
 if (t < 0.12)
@@ -72,7 +77,7 @@ if (t < 0.12)
 
 // Character silhouette (custom depth) and its outline
 float M = (CD.r < 1000000.0 && CD.r <= SD.r + 2.0) ? 1.0 : 0.0;
-float OutlinePx = max(1.0, round(2.0 * ViewSize.y / 1080.0));
+float OutlinePx = max(1.0, round(3.0 * ViewSize.y / 1080.0));
 float Edge = 0;
 Edge = max(Edge, abs(M - F.Mask(Parameters, float2( OutlinePx, 0))));
 Edge = max(Edge, abs(M - F.Mask(Parameters, float2(-OutlinePx, 0))));
@@ -101,7 +106,7 @@ float Frame = PhaseIndex * 64.0 + min(floor((t - PhaseStart) / PhaseLen * Drawin
 // Ink frame: superellipse in viewport UV so it reaches all four edges
 float2 Q = abs(UV - 0.5) * 2.0;
 float Box = pow(pow(Q.x, 4.0) + pow(Q.y, 4.0), 0.25);
-float Vig = saturate((Box - 0.80) / 0.20);
+float Vig = saturate((Box - 0.88) / 0.12);
 
 // Thick black wedges (panel 2). Toward the border they widen until they merge into the solid frame
 float Lines = 0;
@@ -111,14 +116,14 @@ for (int L = 0; L < 2; L++)
 	float N = floor(max(LineCount, 8.0) * (L == 0 ? 1.0 : 0.41));
 	float AAw = N / (3.14159265 * max(R, 0.001) * OutH);
 	float Seed = floor(A * N) + Frame * 91.7 + L * 13.3;
-	float Width = lerp(0.06, 0.75, F.Hash(Seed));
-	float Start = lerp(0.10, 0.55, F.Hash(Seed + 7.1));
+	float Width = lerp(0.05, 0.6, F.Hash(Seed));
+	float Start = lerp(0.25, 0.70, F.Hash(Seed + 7.1));
 	float Jitter = (F.Hash(Seed + 3.7) - 0.5) * 0.6;
 	float InCell = abs(frac(A * N) - 0.5 - Jitter * (1.0 - Width) * 0.5) * 2.0;
 	// wedge: thin where the line starts, widest at the screen edge
 	float Taper = saturate((R - Start) / 0.6);
 	Lines = max(Lines, F.Line(InCell, Width * Taper, AAw));
-	Border = max(Border, F.Line(InCell, Width * Taper * step(Start, R) + 0.5 * Vig * Vig, AAw) * step(0.0001, Vig));
+	Border = max(Border, F.Line(InCell, Width * Taper * step(Start, R) + 0.35 * Vig * Vig, AAw) * step(0.0001, Vig));
 }
 Border = max(Border, step(0.985, Box));
 
@@ -159,7 +164,7 @@ else if (t < 0.78)
 	float SJitter = (F.Hash(SSeed + 3.7) - 0.5) * 0.6;
 	float SInCell = abs(frac(A * NS) - 0.5 - SJitter * (1.0 - SWidth) * 0.5) * 2.0;
 	float STaper = saturate((R - SStart) / 0.4);
-	float Keep = step(F.Hash(SSeed + 11.3), 0.35);
+	float Keep = step(F.Hash(SSeed + 11.3), 0.5);
 	float Sparse = F.Line(SInCell, SWidth * STaper, SAAw) * Keep * (1.0 - M);
 	Col = 1.0 - max(max(Edge, Ink), Sparse);
 }

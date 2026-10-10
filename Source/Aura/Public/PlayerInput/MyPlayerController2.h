@@ -151,9 +151,9 @@ public:
 	UPROPERTY(EditAnywhere,Category="DamageNumbers")
 	bool bUseNiagaraDamageNumbers=true;
 	
-	// Sent by UGA_Beam::PlayBeamHitImpact to the player the beam hit, settings come from BeamClass's defaults
+	// Sent by UGA_Beam to the player the beam hit (bCaster false) or to the player who cast it (bCaster true), settings come from BeamClass's defaults
 	UFUNCTION(Client,Reliable)
-	void Client_PlayBeamHitImpact(TSubclassOf<UGA_Beam> BeamClass);
+	void Client_PlayBeamImpact(TSubclassOf<UGA_Beam> BeamClass,bool bCaster);
 	
 	// Puts an instance of Material on the pawn's camera with ImpactTime=now and Duration, and kicks the FOV by FOVOffset easing back over Duration
 	void StartHitImpact(UMaterialInterface* Material,float Duration,float FOVOffset);
@@ -161,6 +161,8 @@ public:
 	// Client side: when the last impact started playing. Server side: when the last impact RPC was sent to this player
 	float LastHitImpactStartTime=-1000.f;
 	float LastHitImpactSentTime=-1000.f;
+	float LastCastImpactStartTime=-1000.f;
+	float LastCastImpactSentTime=-1000.f;
 	
 	private:
 	
