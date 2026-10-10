@@ -7,6 +7,7 @@
 
 #include "Engine/World.h"
 #include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSessionSettings.h"
 #include "EOS/MultiplayerSessionTypes.h"
 #include "MultiplayerSessionsSubsystem.generated.h"
 
