@@ -1032,8 +1032,8 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 	Ctx.AttachPos=Ctx.Pos+V*TravelGuess-Ctx.Up*0.5f*G*TravelGuess*TravelGuess;
 	const FVector VH=GrappleSwing2::Proj(V,Ctx.Up);
 	const FVector ViewH=GrappleSwing2::Proj(Ctx.ViewDir,Ctx.Up).GetSafeNormal();
-	// Search along where the character looks, even when moving the other way (velocity only when looking straight up or down)
-	Ctx.MoveDirH=!ViewH.IsNearlyZero() ? ViewH : VH.GetSafeNormal();
+	// Search along the motion when moving fast, along the view when slow or when looking against the motion
+	Ctx.MoveDirH=VH.Size()>400.f && (VH|ViewH)>=0.f ? VH.GetSafeNormal() : ViewH;
 	if (Ctx.MoveDirH.IsNearlyZero())
 	{
 		Ctx.MoveDirH=Character->GetActorForwardVector();
