@@ -198,6 +198,14 @@ struct AURA_API FGrappleSwing2Tuning
 	UPROPERTY(EditDefaultsOnly, Category = "Attach")
 	float AttachAimBias=0.25f;
 
+	// Web shot while looking against the motion: share of the speed heading away from the view that a taut start keeps, turned along the view (0 stops it, 1 keeps all of it)
+	UPROPERTY(EditDefaultsOnly, Category = "Attach")
+	float AgainstMotionSpeedScale=0.4f;
+
+	// Web shot while looking against the motion: speed away from the view that the web stops completely, a slower drift is stopped in proportion
+	UPROPERTY(EditDefaultsOnly, Category = "Attach")
+	float AgainstMotionFullStopSpeed=1000.f;
+
 	// Rising towards the anchor faster than this when the hook attaches starts the rope slack
 	UPROPERTY(EditDefaultsOnly, Category = "Attach")
 	float AttachSlackInwardSpeed=700.f;
@@ -403,6 +411,10 @@ struct AURA_API FGameplayAbilityTargetData_GrappleSwing2 : public FGameplayAbili
 	UPROPERTY()
 	uint8 ChainCount=0;
 
+	// Horizontal view direction when fired while looking against the horizontal motion, zero otherwise
+	UPROPERTY()
+	FVector AgainstMotionDir=FVector::ZeroVector;
+
 	virtual UScriptStruct* GetScriptStruct() const override { return FGameplayAbilityTargetData_GrappleSwing2::StaticStruct(); }
 	virtual bool HasOrigin() const override { return true; }
 	virtual FTransform GetOrigin() const override { return FTransform(StartLocation); }
@@ -458,6 +470,8 @@ struct AURA_API FRootMotionSource_GrappleSwing2 : public FRootMotionSource
 	FVector PreferredSwingDir=FVector::ZeroVector;
 
 	uint8 ChainCount=0;
+
+	FVector AgainstMotionDir=FVector::ZeroVector;
 
 	// State, serialized and copied in UpdateStateFrom
 

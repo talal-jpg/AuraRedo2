@@ -103,6 +103,7 @@ bool FGameplayAbilityTargetData_GrappleSwing2::NetSerialize(FArchive& Ar, UPacka
 	Ar << FloorHeight;
 	Ar << bHasFloor;
 	Ar << ChainCount;
+	Ar << AgainstMotionDir;
 	bOutSuccess=true;
 	return true;
 }
@@ -321,34 +322,77 @@ FVector FRootMotionSource_GrappleSwing2::AttachRedirect(const FVector& InVelocit
 
 	RopeLength=InitialRopeLength=FMath::Max(P.MinRopeLength,D);
 
-	const float Vr=InVelocity|N;
-	const FVector Vt=InVelocity-N*Vr;
-	FVector V;
-	if (Vr<-P.AttachSlackInwardSpeed && (InVelocity|Up)>0.f)
+	// Keep the tangential speed and a fraction of the radial kinetic energy, redirected along the arc
+	auto ArcStart=[&](const FVector& Vel, FVector& OutDir)->float
 	{
-		// Flying up at the anchor: the rope starts slack and catches later
-		V=InVelocity;
-		bTaut=false;
-	}
-	else
-	{
-		// Keep the tangential speed and a fraction of the radial kinetic energy, redirected along the arc
-		const float K=Vr>0.f ? P.AttachOutwardRetention : P.AttachInwardRetention;
-		const float Speed=FMath::Sqrt(Vt.SizeSquared()+K*Vr*Vr);
+		const float VelR=Vel|N;
+		const FVector VelT=Vel-N*VelR;
+		const float K=VelR>0.f ? P.AttachOutwardRetention : P.AttachInwardRetention;
 		FVector Aim=GrappleSwing2::Proj(PreferredSwingDir,N).GetSafeNormal();
 		if (Aim.IsNearlyZero())
 		{
 			Aim=GrappleSwing2::Proj(-Up,N).GetSafeNormal();
 		}
-		const float VtSize=Vt.Size();
-		const FVector MDir=VtSize>50.f ? Vt/VtSize : Aim;
-		FVector Dir=(MDir*(1.f-P.AttachAimBias)+Aim*P.AttachAimBias).GetSafeNormal();
-		if (Dir.IsNearlyZero())
+		const float VtSize=VelT.Size();
+		const FVector MDir=VtSize>50.f ? VelT/VtSize : Aim;
+		OutDir=(MDir*(1.f-P.AttachAimBias)+Aim*P.AttachAimBias).GetSafeNormal();
+		if (OutDir.IsNearlyZero())
 		{
-			Dir=MDir;
+			OutDir=MDir;
 		}
-		V=Dir*FMath::Max(Speed,P.AttachMinSwingSpeed);
-		bTaut=true;
+		return FMath::Sqrt(VelT.SizeSquared()+K*VelR*VelR);
+	};
+
+	// Shot while looking against the motion: the web stops the speed heading away from the view (a slow drift only partly)
+	FVector In=InVelocity;
+	const float Away=-(float)(InVelocity|AgainstMotionDir);
+	FVector OldDir=FVector::ZeroVector;
+	float OldSpeed=0.f;
+	if (Away>0.f)
+	{
+		In+=AgainstMotionDir*(Away*FMath::Min(Away/FMath::Max(P.AgainstMotionFullStopSpeed,1.f),1.f));
+		OldSpeed=ArcStart(InVelocity,OldDir);
+	}
+
+	const float Vr=In|N;
+	FVector V;
+	if (Vr<-P.AttachSlackInwardSpeed && (In|Up)>0.f)
+	{
+		// Flying up at the anchor: the rope starts slack and catches later
+		V=In;
+		bTaut=false;
+	}
+	else
+	{
+		FVector Dir;
+		float Speed;
+		if (Away>0.f)
+		{
+			// A share of the speed away from the view turns along it. A start that already went this way keeps its speed
+			Speed=ArcStart(InVelocity+AgainstMotionDir*(Away*(1.f+P.AgainstMotionSpeedScale)),Dir);
+			Speed=FMath::Lerp(Speed,FMath::Max(Speed,OldSpeed),FMath::Clamp((float)(Dir|OldDir),0.f,1.f));
+		}
+		else
+		{
+			Speed=ArcStart(In,Dir);
+		}
+		if (Away>10.f && (In|Up)>0.f && Vr<0.f && (Dir|AgainstMotionDir)<-0.2f)
+		{
+			// Rising at the anchor with the arc still starting clearly away from the view: start slack, the rope catches on the way
+			V=In;
+			bTaut=false;
+		}
+		else
+		{
+			V=Dir*FMath::Max(Speed,P.AttachMinSwingSpeed);
+			bTaut=true;
+		}
+	}
+	if (Away>0.f)
+	{
+		// Never faster than the start without the turn
+		const bool bOldSlack=(float)(InVelocity|N)<-P.AttachSlackInwardSpeed && (InVelocity|Up)>0.f;
+		V=V.GetClampedToMaxSize(bOldSlack ? (float)InVelocity.Size() : FMath::Max(OldSpeed,P.AttachMinSwingSpeed));
 	}
 
 	V*=1.f+FMath::Min<int32>(ChainCount,P.MaxChainStacks)*P.ChainSpeedBonus;
@@ -1195,6 +1239,17 @@ void UGA_GrappleSwing2::TrySearchAndAttach()
 			Data.PreferredSwingDir=GrappleSwing2::Proj(ViewRot.Vector(),Up).GetSafeNormal();
 		}
 	}
+	if (APlayerController* PC=Cast<APlayerController>(Character->GetController()))
+	{
+		FVector ViewLoc;
+		FRotator ViewRot;
+		PC->GetPlayerViewPoint(ViewLoc,ViewRot);
+		const FVector ViewH=GrappleSwing2::Proj(ViewRot.Vector(),Up).GetSafeNormal();
+		if ((GrappleSwing2::Proj(MoveComp->Velocity,Up)|ViewH)<0.f)
+		{
+			Data.AgainstMotionDir=ViewH;
+		}
+	}
 	Data.TravelTime=FMath::Clamp((float)FVector::Dist(Data.Anchor,Data.StartLocation)/FMath::Max(HookSpeed,1.f),MinHookTravelTime,MaxHookTravelTime);
 	Data.FloorHeight=Candidate.FloorHeight;
 	Data.bHasFloor=Candidate.bHasFloor ? 1 : 0;
@@ -1247,6 +1302,7 @@ void UGA_GrappleSwing2::StartSwing(const FGameplayAbilityTargetData_GrappleSwing
 	Src->FloorHeight=Data.FloorHeight;
 	Src->bHasFloorBelowAnchor=Data.bHasFloor!=0;
 	Src->ChainCount=Data.ChainCount;
+	Src->AgainstMotionDir=GrappleSwing2::Proj(Data.AgainstMotionDir,-MoveComp->GetGravityDirection()).GetSafeNormal();
 	Src->Phase=EGS2Phase::Travel;
 	Src->AccumulateMode=ERootMotionAccumulateMode::Additive;
 
@@ -1347,7 +1403,7 @@ bool UGA_GrappleSwing2::ServerValidate(const FGameplayAbilityTargetData_GrappleS
 	UCharacterMovementComponent* MoveComp=GetSwingMovement();
 	if (!Character || !MoveComp)return false;
 	if (Data.SwingId==LastAcceptedSwingId)return false;
-	if (Data.Anchor.ContainsNaN() || Data.StartLocation.ContainsNaN() || Data.AnchorNormal.ContainsNaN() || Data.PreferredSwingDir.ContainsNaN())return false;
+	if (Data.Anchor.ContainsNaN() || Data.StartLocation.ContainsNaN() || Data.AnchorNormal.ContainsNaN() || Data.PreferredSwingDir.ContainsNaN() || Data.AgainstMotionDir.ContainsNaN())return false;
 
 	const FVector Up=-MoveComp->GetGravityDirection();
 	const float HalfHeight=Character->GetCapsuleComponent() ? Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 88.f;
