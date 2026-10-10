@@ -42,6 +42,7 @@ class AURA_API AMyHexPlatform : public AActor
 	
 	friend class AMyHexBridgeBuilder;
 	friend class UMyHexBridgeSubsystem;
+	friend class UMyHexMinimapSubsystem;
 
 public:
 

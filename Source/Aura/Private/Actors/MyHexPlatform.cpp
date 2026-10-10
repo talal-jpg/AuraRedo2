@@ -7,6 +7,7 @@
 
 #include "Actors/MyHexBridge.h"
 #include "Actors/MyHexBridgeSubsystem.h"
+#include "Actors/MyHexMinimapSubsystem.h"
 #include "MyGameState.h"
 #include "Animation/AnimSequence.h"
 #include "Curves/CurveFloat.h"
@@ -117,6 +118,12 @@ void AMyHexPlatform::BeginPlay()
 	{
 		ApplyActivatedTiles(/*bPlayEffect=*/false);
 	}
+
+	// Draws the live tiles on the minimap and follows their collapse (not on a dedicated server)
+	if (UMyHexMinimapSubsystem* Minimap = GetWorld()->GetSubsystem<UMyHexMinimapSubsystem>())
+	{
+		Minimap->RegisterPlatform(this);
+	}
 	UKismetSystemLibrary::PrintString(
 		this,
 		TEXT("BEGIN PLAY: HexMap=%d | ISM=%d"),
@@ -179,6 +186,11 @@ void AMyHexPlatform::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		if (UMyHexBridgeSubsystem* BridgeSubsystem = World->GetSubsystem<UMyHexBridgeSubsystem>())
 		{
 			BridgeSubsystem->UnregisterPlatform(this);
+		}
+
+		if (UMyHexMinimapSubsystem* Minimap = World->GetSubsystem<UMyHexMinimapSubsystem>())
+		{
+			Minimap->UnregisterPlatform(this);
 		}
 	}
 

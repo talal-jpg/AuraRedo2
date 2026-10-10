@@ -3,6 +3,7 @@
 
 #include "Actors/MyHexBridge.h"
 
+#include "Actors/MyHexMinimapSubsystem.h"
 #include "Actors/MyHexPlatform.h"
 #include "Components/SplineComponent.h"
 #include "Net/UnrealNetwork.h"
@@ -106,6 +107,14 @@ void AMyHexBridge::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		}
 	}
 
+	if (UWorld* World = GetWorld())
+	{
+		if (UMyHexMinimapSubsystem* Minimap = World->GetSubsystem<UMyHexMinimapSubsystem>())
+		{
+			Minimap->UnregisterBridge(this);
+		}
+	}
+
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -136,6 +145,15 @@ void AMyHexBridge::ApplyEnds()
 	}
 
 	BridgeSpline->UpdateSpline();
+
+	// Draws (or redraws) the deck on the minimap
+	if (UWorld* World = GetWorld())
+	{
+		if (UMyHexMinimapSubsystem* Minimap = World->GetSubsystem<UMyHexMinimapSubsystem>())
+		{
+			Minimap->RegisterBridge(this);
+		}
+	}
 }
 
 

@@ -8,9 +8,15 @@
 #include "AbilitySystem/MyAttributeSet.h"
 #include "Blueprint/UserWidget.h"
 #include "PlayerInput/MyPlayerController.h"
+#include "UI/UserWidgets/MyHexMinimapWidget.h"
 #include "UI/UserWidgets/MyUserWidget.h"
 #include "UI/WidgetControllers/MyWidgetController.h"
 #include "UI/WidgetControllers/Overlay/MyOverlayWidgetController.h"
+
+AMyHUD::AMyHUD()
+{
+	MinimapWidgetClass = UMyHexMinimapWidget::StaticClass();
+}
 
 void AMyHUD::InitOverlay()
 {
@@ -38,5 +44,19 @@ void AMyHUD::InitOverlay()
 		OverlayWidget->AddToViewport();
 		OverlayWidgetController->BindCallbacksToDependencies();
 		OverlayWidgetController->BroadcastInitialValues();
+
+		if (MinimapWidgetClass && !MinimapWidget)
+		{
+			MinimapWidget = CreateWidget<UMyHexMinimapWidget>(PlayerController, MinimapWidgetClass);
+
+			if (MinimapWidget)
+			{
+				MinimapWidget->AddToViewport(1);
+				MinimapWidget->SetAnchorsInViewport(FAnchors(1.f, 0.f));
+				MinimapWidget->SetAlignmentInViewport(FVector2D(1.f, 0.f));
+				MinimapWidget->SetPositionInViewport(FVector2D(-MinimapCornerOffset.X, MinimapCornerOffset.Y), /*bRemoveDPIScale=*/false);
+				MinimapWidget->SetDesiredSizeInViewport(FVector2D(MinimapWidget->MinimapSize));
+			}
+		}
 	}
 }
