@@ -158,7 +158,9 @@ public:
 	// Puts an instance of Material on the pawn's camera with ImpactTime=now and Duration, and kicks the FOV by FOVOffset easing back over Duration
 	void StartHitImpact(UMaterialInterface* Material,float Duration,float FOVOffset);
 	
+	// Client side: when the last impact started playing. Server side: when the last impact RPC was sent to this player
 	float LastHitImpactStartTime=-1000.f;
+	float LastHitImpactSentTime=-1000.f;
 	
 	private:
 	
@@ -177,7 +179,8 @@ public:
 	
 	float HitImpactFOVOffset=0.f;
 	float HitImpactDuration=0.f;
-	float HitImpactElapsed=0.f;
+	// World time of the hit, the same clock as the material's Time node, so pausing holds both
+	double HitImpactStartWorldTime=0.0;
 	// FOV currently added to the camera, removed again before applying the next frame's offset so other FOV changes are kept
 	float HitImpactAppliedFOV=0.f;
 	bool bHitImpactActive=false;

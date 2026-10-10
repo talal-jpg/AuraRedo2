@@ -24,6 +24,7 @@
 #include "Camera/CameraComponent.h"
 #include "EngineUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Components/SplineMeshComponent.h"
 #include "AbilitySystem/Abilities/GA_Beam.h"
 #include "Components/CapsuleComponent.h"
 #include "EOS/MainMenu.h"
@@ -429,14 +430,14 @@ void AMyPlayerController2::StartHitImpact(UMaterialInterface* Material,float Dur
 	HitImpactCamera=Camera;
 	HitImpactFOVOffset=FOVOffset;
 	HitImpactDuration=FMath::Max(Duration,0.05f);
-	HitImpactElapsed=0.f;
+	HitImpactStartWorldTime=GetWorld()->GetTimeSeconds();
 	bHitImpactActive=true;
 	
 	if (Material)
 	{
 		// The material runs the whole sequence itself from (Time-ImpactTime)/Duration, this side only sets when it started
 		HitImpactMID=UMaterialInstanceDynamic::Create(Material,this);
-		HitImpactMID->SetScalarParameterValue(TEXT("ImpactTime"),GetWorld()->GetTimeSeconds());
+		HitImpactMID->SetScalarParameterValue(TEXT("ImpactTime"),HitImpactStartWorldTime);
 		HitImpactMID->SetScalarParameterValue(TEXT("Duration"),HitImpactDuration);
 		Camera->PostProcessSettings.AddBlendable(HitImpactMID,1.f);
 		
@@ -447,7 +448,9 @@ void AMyPlayerController2::StartHitImpact(UMaterialInterface* Material,float Dur
 			It->GetComponents<UMeshComponent>(Meshes);
 			for (UMeshComponent* Mesh:Meshes)
 			{
-				if (Mesh->IsVisible() && !Mesh->bRenderCustomDepth)
+				// Body meshes only, not world space widgets (health bars, debug widgets) or the beam spline mesh
+				const bool bBodyMesh=Mesh->IsA<USkeletalMeshComponent>() || (Mesh->IsA<UStaticMeshComponent>() && !Mesh->IsA<USplineMeshComponent>());
+				if (bBodyMesh && Mesh->IsVisible() && !Mesh->bRenderCustomDepth)
 				{
 					Mesh->SetRenderCustomDepth(true);
 					HitImpactCustomDepthMeshes.Add(Mesh);
@@ -467,15 +470,16 @@ void AMyPlayerController2::TickHitImpact(float DeltaTime)
 		return;
 	}
 	
-	HitImpactElapsed+=DeltaTime;
-	if (HitImpactElapsed>=HitImpactDuration)
+	// Same clock as the material (View.GameTime), so a pause freezes both instead of the effect timing out mid sequence
+	const float Elapsed=GetWorld()->GetTimeSeconds()-HitImpactStartWorldTime;
+	if (Elapsed>=HitImpactDuration)
 	{
 		StopHitImpact();
 		return;
 	}
 	
 	// FOV kick: full on impact, eases out
-	const float Alpha=FMath::Square(1.f-HitImpactElapsed/HitImpactDuration);
+	const float Alpha=FMath::Square(1.f-Elapsed/HitImpactDuration);
 	const float NewFOV=HitImpactFOVOffset*Alpha;
 	HitImpactCamera->SetFieldOfView(HitImpactCamera->FieldOfView-HitImpactAppliedFOV+NewFOV);
 	HitImpactAppliedFOV=NewFOV;

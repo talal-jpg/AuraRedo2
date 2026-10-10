@@ -15,6 +15,10 @@ void UGA_Beam::PlayBeamHitImpact(ACharacter* HitCharacter)
 	// Same route as damage numbers: the server tells the hit player's own controller, which plays the effect on that machine
 	if (AMyPlayerController2* HitPC=Cast<AMyPlayerController2>(HitCharacter->GetController()))
 	{
+		// A continuous beam calls this every frame: only send the reliable RPC once the last impact is over
+		const float Now=HitCharacter->GetWorld()->GetTimeSeconds();
+		if (Now-HitPC->LastHitImpactSentTime<FMath::Max(HitImpactMinInterval,HitImpactDuration)) return;
+		HitPC->LastHitImpactSentTime=Now;
 		HitPC->Client_PlayBeamHitImpact(GetClass());
 	}
 	else if (APlayerController* OtherPC=Cast<APlayerController>(HitCharacter->GetController()))
