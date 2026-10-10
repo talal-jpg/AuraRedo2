@@ -1,3 +1,44 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "AbilitySystem/Abilities/GA_Beam.h"
+
+#include "Camera/CameraShakeBase.h"
+#include "Camera/PlayerCameraManager.h"
+#include "GameFramework/Character.h"
+#include "PlayerInput/MyPlayerController2.h"
+
+void UGA_Beam::PlayBeamHitImpact(ACharacter* HitCharacter)
+{
+	if (!HitCharacter || !HitCharacter->HasAuthority()) return;
+	
+	// Same route as damage numbers: the server tells the hit player's own controller, which plays the effect on that machine
+	if (AMyPlayerController2* HitPC=Cast<AMyPlayerController2>(HitCharacter->GetController()))
+	{
+		HitPC->Client_PlayBeamHitImpact(GetClass());
+	}
+	else if (APlayerController* OtherPC=Cast<APlayerController>(HitCharacter->GetController()))
+	{
+		// Not the mech controller, only the shake has a built in client RPC
+		if (HitCameraShake) OtherPC->ClientStartCameraShake(HitCameraShake,HitCameraShakeScale);
+	}
+}
+
+void UGA_Beam::PlayBeamHitImpactLocal(APlayerController* HitPC) const
+{
+	AMyPlayerController2* MyPC=Cast<AMyPlayerController2>(HitPC);
+	if (!MyPC || !MyPC->IsLocalController()) return;
+	
+	MyPC->StartHitImpactBlend(HitPostProcessMaterial,HitPostProcessWeight,HitFOVOffset,HitImpactDuration);
+	
+	const float Now=MyPC->GetWorld()->GetTimeSeconds();
+	if (HitCameraShake && MyPC->PlayerCameraManager && Now-MyPC->LastHitCameraShakeTime>=HitCameraShakeMinInterval)
+	{
+		MyPC->LastHitCameraShakeTime=Now;
+		MyPC->PlayerCameraManager->StartCameraShake(HitCameraShake,HitCameraShakeScale);
+	}
+}
+
 // // Fill out your copyright notice in the Description page of Project Settings.
 //
 //

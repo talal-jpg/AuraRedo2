@@ -21,6 +21,8 @@
 #include "Actors/MyTargetDecalActor.h"
 #include "Character/MyCharPlayer.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraComponent.h"
+#include "AbilitySystem/Abilities/GA_Beam.h"
 #include "Components/CapsuleComponent.h"
 #include "EOS/MainMenu.h"
 #include "GameFramework/Character.h"
@@ -47,6 +49,7 @@ AMyPlayerController2::AMyPlayerController2()
 void AMyPlayerController2::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	TickHitImpactBlend(DeltaTime);
 	// AutoMove();
 	// CursorTrace();
 	
@@ -407,3 +410,75 @@ void AMyPlayerController2::ShowDamageNumber_2_Implementation(float InDamage,ACha
 }
 
 
+
+void AMyPlayerController2::Client_PlayBeamHitImpact_Implementation(TSubclassOf<UGA_Beam> BeamClass)
+{
+	if (!BeamClass) return;
+	BeamClass->GetDefaultObject<UGA_Beam>()->PlayBeamHitImpactLocal(this);
+}
+
+void AMyPlayerController2::StartHitImpactBlend(UMaterialInterface* Material,float Weight,float FOVOffset,float Duration)
+{
+	UCameraComponent* Camera=GetPawn()?GetPawn()->FindComponentByClass<UCameraComponent>():nullptr;
+	if (!Camera) return;
+	
+	// Different camera or material than the running blend: clean that one up first
+	if (bHitImpactActive && (Camera!=HitImpactCamera || Material!=HitImpactMaterial))
+	{
+		StopHitImpactBlend();
+	}
+	
+	HitImpactCamera=Camera;
+	HitImpactMaterial=Material;
+	HitImpactWeight=Weight;
+	HitImpactFOVOffset=FOVOffset;
+	HitImpactDuration=FMath::Max(Duration,0.01f);
+	HitImpactElapsed=0.f;
+	bHitImpactActive=true;
+	TickHitImpactBlend(0.f);
+}
+
+void AMyPlayerController2::TickHitImpactBlend(float DeltaTime)
+{
+	if (!bHitImpactActive) return;
+	if (!IsValid(HitImpactCamera))
+	{
+		StopHitImpactBlend();
+		return;
+	}
+	
+	HitImpactElapsed+=DeltaTime;
+	if (HitImpactElapsed>=HitImpactDuration)
+	{
+		StopHitImpactBlend();
+		return;
+	}
+	
+	// Full strength on impact, eases out to nothing
+	const float Alpha=FMath::Square(1.f-HitImpactElapsed/HitImpactDuration);
+	
+	const float NewFOV=HitImpactFOVOffset*Alpha;
+	HitImpactCamera->SetFieldOfView(HitImpactCamera->FieldOfView-HitImpactAppliedFOV+NewFOV);
+	HitImpactAppliedFOV=NewFOV;
+	
+	if (HitImpactMaterial)
+	{
+		HitImpactCamera->PostProcessSettings.AddBlendable(HitImpactMaterial,HitImpactWeight*Alpha);
+	}
+}
+
+void AMyPlayerController2::StopHitImpactBlend()
+{
+	if (IsValid(HitImpactCamera))
+	{
+		HitImpactCamera->SetFieldOfView(HitImpactCamera->FieldOfView-HitImpactAppliedFOV);
+		if (HitImpactMaterial)
+		{
+			HitImpactCamera->PostProcessSettings.RemoveBlendable(HitImpactMaterial);
+		}
+	}
+	HitImpactAppliedFOV=0.f;
+	HitImpactCamera=nullptr;
+	HitImpactMaterial=nullptr;
+	bHitImpactActive=false;
+}

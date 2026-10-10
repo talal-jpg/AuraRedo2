@@ -7,6 +7,9 @@
 #include "MyPlayerController2.generated.h"
 
 class UMainMenu;
+class UGA_Beam;
+class UMaterialInterface;
+class UCameraComponent;
 class UMyAbilitySystemComponent;
 class AMyTargetDecalActor;
 class UDamageTextWidgetComponent;
@@ -147,7 +150,33 @@ public:
 	UPROPERTY(EditAnywhere,Category="DamageNumbers")
 	bool bUseNiagaraDamageNumbers=true;
 	
+	// Sent by UGA_Beam::PlayBeamHitImpact to the player the beam hit, settings come from BeamClass's defaults
+	UFUNCTION(Client,Reliable)
+	void Client_PlayBeamHitImpact(TSubclassOf<UGA_Beam> BeamClass);
+	
+	// Blends Material onto the pawn's camera and offsets its FOV, both fade to nothing over Duration. A new hit restarts the fade
+	void StartHitImpactBlend(UMaterialInterface* Material,float Weight,float FOVOffset,float Duration);
+	
+	float LastHitCameraShakeTime=-1000.f;
+	
 	private:
+	
+	void TickHitImpactBlend(float DeltaTime);
+	void StopHitImpactBlend();
+	
+	UPROPERTY()
+	TObjectPtr<UCameraComponent> HitImpactCamera;
+	
+	UPROPERTY()
+	TObjectPtr<UMaterialInterface> HitImpactMaterial;
+	
+	float HitImpactWeight=0.f;
+	float HitImpactFOVOffset=0.f;
+	float HitImpactDuration=0.f;
+	float HitImpactElapsed=0.f;
+	// FOV currently added to the camera, removed again before applying the next frame's offset so other FOV changes are kept
+	float HitImpactAppliedFOV=0.f;
+	bool bHitImpactActive=false;
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UDamageTextWidgetComponent> DamageTextWidgetComponentClass;
