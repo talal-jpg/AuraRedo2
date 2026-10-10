@@ -43,6 +43,7 @@ mindmap
         TrySearchAndAttach
           CommitCheck then CommitAbility
           Target data to server
+          View sent when looking against the motion
           Prediction window
         StartSwing
           Builds root motion source
@@ -83,6 +84,7 @@ mindmap
       PrepareRootMotion per move
         Read input and jump, saved move in replays
         AttachRedirect at attach
+          Turns toward the view when shot against the motion
         ApplyShortfall collision response
         EvaluateEnds
         GroundRopeLimit
@@ -195,7 +197,7 @@ flowchart TD
     I -- no --> K[EndAbility, gate re-fire]
     H -- anchor --> L{CommitCheck}
     L -- fail --> I
-    L -- ok --> M[build target data]
+    L -- ok --> M[build target data, with the view if looking against the motion]
     M --> N[prediction window]
     N --> O[send target data to server, remote client only]
     O --> P{CommitAbility}
@@ -221,7 +223,7 @@ flowchart TD
    - the rope line from the capsule to the anchor is blocked;
    - there is no surface under the anchor along its normal (the same check the server does);
    - the floor under the anchor is too close for the arc to fit: the anchor has to be at least `MinRopeLength + HalfHeight + GroundClearance` above it (608 with an 88 cm capsule half height).
-6. Survivors are scored: aim (0 for fan rays), height, ahead of travel, elevation near `IdealElevationDeg`, rope length near `IdealRopeLength`, underside surfaces (1 for a ceiling, -1 for a floor, 0.5 for walls and slopes), each times its `ScoreWeight*`, plus `CrosshairBonus` for the crosshair hit.
+6. Survivors are scored: aim (0 for fan rays), height, ahead along the same direction as the fan, elevation near `IdealElevationDeg`, rope length near `IdealRopeLength`, underside surfaces (1 for a ceiling, -1 for a floor, 0.5 for walls and slopes), each times its `ScoreWeight*`, plus `CrosshairBonus` for the crosshair hit.
 7. The best one wins, except the crosshair anchor wins if it is within `CrosshairStickiness` of the best.
 
 ### 4.3 Network sequence (remote client)
@@ -343,7 +345,7 @@ If the source never shows up, `Poll` waits `SourceAppearTimeout` (1 s) before tr
 | Same simulation on both machines | Source built only from target data plus shared tuning; input and jump read from the replayed saved move during client replays |
 | Same attach and release move | Server source clock starts at `ClientStartTime`; release sent as a source time (`GameCustom1` payload) |
 | Corrections | `MatchesAndHasSameState` returns false, so a correction always replays from the server's state; `UpdateStateFrom` copies the state and keeps the earliest release; `Matches` ignores `AccumulateMode`, which switches from Additive to Override at attach |
-| Cheating or bad data | `ServerValidate`: start location near the server's, range, height, line of sight, anchor on real geometry, floor agrees; rejection via `GenericSignalFromServer` |
+| Cheating or bad data | `ServerValidate`: start location near the server's, range, height, line of sight, anchor on real geometry, floor agrees, no NaN; rejection via `GenericSignalFromServer`. `AgainstMotionDir` is flattened and normalized on both machines, and in the air the turned attach is never faster than the plain one |
 | Rope visual | Looping GameplayCue, predicted on the owner, replicated through the ASC owner (`ForceNetUpdate` on add and remove) |
 | Late hook data | Server aligns its clock within the hook flight; an `EndAbility` during the flight stays a drop on the server too, never an attach and immediate finish |
 
@@ -412,4 +414,5 @@ Shift is shared with `GA_Boost`. Boost's `CanActivateAbility` refuses while Fall
 - The ability copies `Swing` (the tuning) into a shared read-only snapshot on its first activation and reuses it, so tuning changes made at runtime on a live instance are not picked up. Class Defaults edits are fine.
 - Simulated proxies do not run the swing simulation; they show the replicated movement and the rope cue.
 - The search needs a PlayerController, so an AI-controlled character never finds an anchor.
-- Not yet play-tested in a real client/server session (only in the editor).
+- Fired while looking against the motion, a short press while rising fast backward at a low hook can pull less than a plain attach, and a tap during a slow backward drift keeps some of that drift.
+- Not yet play-tested in a real client/server session (only in the editor). The look-against-the-motion attach is checked only in simulation so far.
