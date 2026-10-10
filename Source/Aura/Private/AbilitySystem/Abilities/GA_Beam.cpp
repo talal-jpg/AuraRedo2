@@ -29,12 +29,15 @@ void UGA_Beam::PlayBeamHitImpactLocal(APlayerController* HitPC) const
 	AMyPlayerController2* MyPC=Cast<AMyPlayerController2>(HitPC);
 	if (!MyPC || !MyPC->IsLocalController()) return;
 	
-	MyPC->StartHitImpactBlend(HitPostProcessMaterial,HitPostProcessWeight,HitFOVOffset,HitImpactDuration);
-	
+	// A continuous beam hits every frame, only start a new impact once the last one is over
 	const float Now=MyPC->GetWorld()->GetTimeSeconds();
-	if (HitCameraShake && MyPC->PlayerCameraManager && Now-MyPC->LastHitCameraShakeTime>=HitCameraShakeMinInterval)
+	if (Now-MyPC->LastHitImpactStartTime<FMath::Max(HitImpactMinInterval,HitImpactDuration)) return;
+	MyPC->LastHitImpactStartTime=Now;
+	
+	MyPC->StartHitImpact(HitPostProcessMaterial,HitImpactDuration,HitFOVOffset);
+	
+	if (HitCameraShake && MyPC->PlayerCameraManager)
 	{
-		MyPC->LastHitCameraShakeTime=Now;
 		MyPC->PlayerCameraManager->StartCameraShake(HitCameraShake,HitCameraShakeScale);
 	}
 }

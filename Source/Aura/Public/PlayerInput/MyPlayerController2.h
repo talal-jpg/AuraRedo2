@@ -10,6 +10,7 @@ class UMainMenu;
 class UGA_Beam;
 class UMaterialInterface;
 class UCameraComponent;
+class UMaterialInstanceDynamic;
 class UMyAbilitySystemComponent;
 class AMyTargetDecalActor;
 class UDamageTextWidgetComponent;
@@ -154,23 +155,26 @@ public:
 	UFUNCTION(Client,Reliable)
 	void Client_PlayBeamHitImpact(TSubclassOf<UGA_Beam> BeamClass);
 	
-	// Blends Material onto the pawn's camera and offsets its FOV, both fade to nothing over Duration. A new hit restarts the fade
-	void StartHitImpactBlend(UMaterialInterface* Material,float Weight,float FOVOffset,float Duration);
+	// Puts an instance of Material on the pawn's camera with ImpactTime=now and Duration, and kicks the FOV by FOVOffset easing back over Duration
+	void StartHitImpact(UMaterialInterface* Material,float Duration,float FOVOffset);
 	
-	float LastHitCameraShakeTime=-1000.f;
+	float LastHitImpactStartTime=-1000.f;
 	
 	private:
 	
-	void TickHitImpactBlend(float DeltaTime);
-	void StopHitImpactBlend();
+	void TickHitImpact(float DeltaTime);
+	void StopHitImpact();
 	
 	UPROPERTY()
 	TObjectPtr<UCameraComponent> HitImpactCamera;
 	
 	UPROPERTY()
-	TObjectPtr<UMaterialInterface> HitImpactMaterial;
+	TObjectPtr<UMaterialInstanceDynamic> HitImpactMID;
 	
-	float HitImpactWeight=0.f;
+	// Character meshes we turned custom depth on for, so the material can mask characters out. Turned back off in StopHitImpact
+	UPROPERTY()
+	TArray<TObjectPtr<UPrimitiveComponent>> HitImpactCustomDepthMeshes;
+	
 	float HitImpactFOVOffset=0.f;
 	float HitImpactDuration=0.f;
 	float HitImpactElapsed=0.f;

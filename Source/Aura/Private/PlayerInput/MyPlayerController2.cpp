@@ -22,6 +22,8 @@
 #include "Character/MyCharPlayer.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Camera/CameraComponent.h"
+#include "EngineUtils.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "AbilitySystem/Abilities/GA_Beam.h"
 #include "Components/CapsuleComponent.h"
 #include "EOS/MainMenu.h"
@@ -49,7 +51,7 @@ AMyPlayerController2::AMyPlayerController2()
 void AMyPlayerController2::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	TickHitImpactBlend(DeltaTime);
+	TickHitImpact(DeltaTime);
 	// AutoMove();
 	// CursorTrace();
 	
@@ -417,68 +419,85 @@ void AMyPlayerController2::Client_PlayBeamHitImpact_Implementation(TSubclassOf<U
 	BeamClass->GetDefaultObject<UGA_Beam>()->PlayBeamHitImpactLocal(this);
 }
 
-void AMyPlayerController2::StartHitImpactBlend(UMaterialInterface* Material,float Weight,float FOVOffset,float Duration)
+void AMyPlayerController2::StartHitImpact(UMaterialInterface* Material,float Duration,float FOVOffset)
 {
 	UCameraComponent* Camera=GetPawn()?GetPawn()->FindComponentByClass<UCameraComponent>():nullptr;
 	if (!Camera) return;
 	
-	// Different camera or material than the running blend: clean that one up first
-	if (bHitImpactActive && (Camera!=HitImpactCamera || Material!=HitImpactMaterial))
-	{
-		StopHitImpactBlend();
-	}
+	if (bHitImpactActive) StopHitImpact();
 	
 	HitImpactCamera=Camera;
-	HitImpactMaterial=Material;
-	HitImpactWeight=Weight;
 	HitImpactFOVOffset=FOVOffset;
-	HitImpactDuration=FMath::Max(Duration,0.01f);
+	HitImpactDuration=FMath::Max(Duration,0.05f);
 	HitImpactElapsed=0.f;
 	bHitImpactActive=true;
-	TickHitImpactBlend(0.f);
+	
+	if (Material)
+	{
+		// The material runs the whole sequence itself from (Time-ImpactTime)/Duration, this side only sets when it started
+		HitImpactMID=UMaterialInstanceDynamic::Create(Material,this);
+		HitImpactMID->SetScalarParameterValue(TEXT("ImpactTime"),GetWorld()->GetTimeSeconds());
+		HitImpactMID->SetScalarParameterValue(TEXT("Duration"),HitImpactDuration);
+		Camera->PostProcessSettings.AddBlendable(HitImpactMID,1.f);
+		
+		// Characters go white in the impact frames, the material finds them through custom depth
+		for (TActorIterator<ACharacter> It(GetWorld());It;++It)
+		{
+			TArray<UMeshComponent*> Meshes;
+			It->GetComponents<UMeshComponent>(Meshes);
+			for (UMeshComponent* Mesh:Meshes)
+			{
+				if (Mesh->IsVisible() && !Mesh->bRenderCustomDepth)
+				{
+					Mesh->SetRenderCustomDepth(true);
+					HitImpactCustomDepthMeshes.Add(Mesh);
+				}
+			}
+		}
+	}
+	TickHitImpact(0.f);
 }
 
-void AMyPlayerController2::TickHitImpactBlend(float DeltaTime)
+void AMyPlayerController2::TickHitImpact(float DeltaTime)
 {
 	if (!bHitImpactActive) return;
 	if (!IsValid(HitImpactCamera))
 	{
-		StopHitImpactBlend();
+		StopHitImpact();
 		return;
 	}
 	
 	HitImpactElapsed+=DeltaTime;
 	if (HitImpactElapsed>=HitImpactDuration)
 	{
-		StopHitImpactBlend();
+		StopHitImpact();
 		return;
 	}
 	
-	// Full strength on impact, eases out to nothing
+	// FOV kick: full on impact, eases out
 	const float Alpha=FMath::Square(1.f-HitImpactElapsed/HitImpactDuration);
-	
 	const float NewFOV=HitImpactFOVOffset*Alpha;
 	HitImpactCamera->SetFieldOfView(HitImpactCamera->FieldOfView-HitImpactAppliedFOV+NewFOV);
 	HitImpactAppliedFOV=NewFOV;
-	
-	if (HitImpactMaterial)
-	{
-		HitImpactCamera->PostProcessSettings.AddBlendable(HitImpactMaterial,HitImpactWeight*Alpha);
-	}
 }
 
-void AMyPlayerController2::StopHitImpactBlend()
+void AMyPlayerController2::StopHitImpact()
 {
 	if (IsValid(HitImpactCamera))
 	{
 		HitImpactCamera->SetFieldOfView(HitImpactCamera->FieldOfView-HitImpactAppliedFOV);
-		if (HitImpactMaterial)
+		if (HitImpactMID)
 		{
-			HitImpactCamera->PostProcessSettings.RemoveBlendable(HitImpactMaterial);
+			HitImpactCamera->PostProcessSettings.RemoveBlendable(HitImpactMID);
 		}
 	}
+	for (UPrimitiveComponent* Mesh:HitImpactCustomDepthMeshes)
+	{
+		if (IsValid(Mesh)) Mesh->SetRenderCustomDepth(false);
+	}
+	HitImpactCustomDepthMeshes.Reset();
 	HitImpactAppliedFOV=0.f;
 	HitImpactCamera=nullptr;
-	HitImpactMaterial=nullptr;
+	HitImpactMID=nullptr;
 	bHitImpactActive=false;
 }
