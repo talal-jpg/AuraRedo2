@@ -52,9 +52,10 @@ void AMyHUD::InitOverlay()
 			if (MinimapWidget)
 			{
 				MinimapWidget->AddToViewport(1);
+				// SetPositionInViewport resets the anchors to the top-left, so the anchors go after it
+				MinimapWidget->SetPositionInViewport(FVector2D(-MinimapCornerOffset.X, MinimapCornerOffset.Y), /*bRemoveDPIScale=*/false);
 				MinimapWidget->SetAnchorsInViewport(FAnchors(1.f, 0.f));
 				MinimapWidget->SetAlignmentInViewport(FVector2D(1.f, 0.f));
-				MinimapWidget->SetPositionInViewport(FVector2D(-MinimapCornerOffset.X, MinimapCornerOffset.Y), /*bRemoveDPIScale=*/false);
 				MinimapWidget->SetDesiredSizeInViewport(FVector2D(MinimapWidget->MinimapSize));
 			}
 		}
