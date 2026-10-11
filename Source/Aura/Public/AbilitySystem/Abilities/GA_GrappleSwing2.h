@@ -725,6 +725,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Grapple")
 	static bool GetGrappleSwing2State(const ACharacter* Character, FVector& OutAnchor, float& OutRopeLength, bool& bOutTaut);
 
+	// Where the character is in the arc while the rope is attached, from the angle to the anchor along the hook direction:
+	// -1 is 90 degrees back on the side it hooked from, 0 is straight below the anchor, 1 is 90 degrees past it.
+	// Works on the owner and the server, like GetGrappleSwing2State
+	UFUNCTION(BlueprintPure, Category = "Grapple")
+	static bool GetGrappleSwing2Phase(const ACharacter* Character, float& OutPhase);
+
 	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 
 	virtual void InputReleased(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) override;
