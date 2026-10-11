@@ -51,6 +51,42 @@ namespace GrappleSwing2
 		return FVector::VectorPlaneProject(V,N);
 	}
 
+	// A hook closer to straight below than this still takes this much arc to reach the bottom from -1
+	const float MinHookArcAngleDeg=10.f;
+
+	// Horizontal direction the arc angle is measured along: the motion, or the hook direction when barely moving sideways
+	static FVector ArcForward(const FVector& V, const FVector& HookDir, const FVector& Up)
+	{
+		const FVector Hook=Proj(HookDir,Up).GetSafeNormal();
+		const FVector Forward=(Proj(V,Up)+Hook*50.f).GetSafeNormal();
+		return Forward.IsNearlyZero() ? Hook : Forward;
+	}
+
+	// Signed angle from straight below the anchor in the vertical plane along Forward: negative while heading toward the
+	// bottom, positive once past it. Passes 0 smoothly even when steering moves the arc off the anchor's vertical
+	static float ArcAngleDeg(const FVector& R, const FVector& Forward, const FVector& Up)
+	{
+		return FMath::RadiansToDegrees(FMath::Atan2((float)(R|Forward),(float)-(R|Up)));
+	}
+
+	// Angle from straight down where the auto release is expected to let go: the arc end angle, or earlier where the
+	// tangential speed falls to the stall speed climbing at the rising gravity. Converges on the real one as it nears
+	static float PredictReleaseAngleDeg(const FGrappleSwing2Tuning& P, float PeakTangentSpeed, const FVector& R, const FVector& V, const FVector& Up, float G)
+	{
+		const float MaxDeg=FMath::Clamp(P.AutoReleaseAngleDeg,1.f,179.f);
+		const float D=R.Size();
+		if (!P.bAutoReleaseAtArcEnd || D<1.f)return MaxDeg;
+		const FVector N=R/D;
+		const float CosNow=FMath::Clamp(-(float)(N|Up),-1.f,1.f);
+		const float Vt=Proj(V,N).Size();
+		const float VStall=FMath::Max(P.AutoReleaseStallSpeed,P.AutoReleasePeakFraction*PeakTangentSpeed);
+		if (Vt<=VStall)return FMath::Min(FMath::RadiansToDegrees(FMath::Acos(CosNow)),MaxDeg);
+		// Vt^2-VStall^2 = 2*g*D*(cos now - cos release)
+		const float CosStall=CosNow-(Vt*Vt-VStall*VStall)/(2.f*FMath::Max(G*P.GravityScaleAscending,1.f)*D);
+		if (CosStall<=FMath::Cos(FMath::DegreesToRadians(MaxDeg)))return MaxDeg;
+		return FMath::RadiansToDegrees(FMath::Acos(CosStall));
+	}
+
 	// During a client replay PrepMoveFor runs before MoveAutonomous sets Acceleration, so the live value belongs to
 	// the previous move. Read the replayed saved move instead.
 	static FVector ReadMoveAccel(const UCharacterMovementComponent& Move)
@@ -169,6 +205,7 @@ bool FRootMotionSource_GrappleSwing2::UpdateStateFrom(const FRootMotionSource* S
 	RopeLength=Other->RopeLength;
 	InitialRopeLength=Other->InitialRopeLength;
 	AttachTime=Other->AttachTime;
+	AttachArcAngle=Other->AttachArcAngle;
 	LastDt=Other->LastDt;
 	LOSBlockedTime=Other->LOSBlockedTime;
 	PeakTangentSpeed=Other->PeakTangentSpeed;
@@ -241,6 +278,7 @@ void FRootMotionSource_GrappleSwing2::PrepareRootMotion(float SimulationTime, fl
 
 	// (1) Travel: the hook is in flight, zero additive so normal walking/falling runs
 	FVector V;
+	bool bAttachMove=false;
 	if (Phase==EGS2Phase::Travel)
 	{
 		// Ended before the hook arrived (cancel, death, failed activation): drop the hook and leave the velocity alone.
@@ -266,6 +304,7 @@ void FRootMotionSource_GrappleSwing2::PrepareRootMotion(float SimulationTime, fl
 		Phase=EGS2Phase::Swing;
 		AccumulateMode=ERootMotionAccumulateMode::Override;
 		AttachTime=T1;
+		bAttachMove=true;
 		// The only read of the movement component's velocity: the momentum the character had when the hook attached
 		V=AttachRedirect(MoveComponent.Velocity,Ctx);
 		bPrevJump=Ctx.bJump;
@@ -309,6 +348,11 @@ void FRootMotionSource_GrappleSwing2::PrepareRootMotion(float SimulationTime, fl
 	LastStartLocation=Ctx.X0;
 	ExpectedLocation=X;
 	LastDt=Dt;
+	if (bAttachMove)
+	{
+		// Measured where the move ends, which is what the first read after the catch sees, so that read is -1
+		AttachArcAngle=GrappleSwing2::ArcAngleDeg(X-Anchor,GrappleSwing2::ArcForward(V,PreferredSwingDir,Ctx.Up),Ctx.Up);
+	}
 	SetTime(T1);
 }
 
@@ -779,6 +823,7 @@ bool FRootMotionSource_GrappleSwing2::NetSerialize(FArchive& Ar, UPackageMap* Ma
 	Ar << RopeLength;
 	Ar << InitialRopeLength;
 	Ar << AttachTime;
+	Ar << AttachArcAngle;
 	Ar << LastDt;
 	Ar << LOSBlockedTime;
 	Ar << PeakTangentSpeed;
@@ -881,24 +926,49 @@ bool UGA_GrappleSwing2::GetGrappleSwing2Phase(const ACharacter* Character, float
 	OutPhase=0.f;
 	const UCharacterMovementComponent* MoveComp=Character ? Character->GetCharacterMovement() : nullptr;
 	if (!MoveComp || !MoveComp->UpdatedComponent)return false;
+	bool bHookFlying=false;
 	for (const TSharedPtr<FRootMotionSource>& Source:MoveComp->CurrentRootMotion.RootMotionSources)
 	{
-		if (Source.IsValid() && Source->GetScriptStruct()==FRootMotionSource_GrappleSwing2::StaticStruct())
+		if (!Source.IsValid() || Source->GetScriptStruct()!=FRootMotionSource_GrappleSwing2::StaticStruct())continue;
+		const FRootMotionSource_GrappleSwing2* Swing=static_cast<const FRootMotionSource_GrappleSwing2*>(Source.Get());
+		if (Swing->Phase==EGS2Phase::Travel)
 		{
-			const FRootMotionSource_GrappleSwing2* Swing=static_cast<const FRootMotionSource_GrappleSwing2*>(Source.Get());
-			if (Swing->Phase!=EGS2Phase::Swing)continue;
-			const FVector Up=-MoveComp->GetGravityDirection();
-			const FVector R=MoveComp->UpdatedComponent->GetComponentLocation()-Swing->Anchor;
-			FVector Forward=GrappleSwing2::Proj(Swing->PreferredSwingDir,Up).GetSafeNormal();
-			if (Forward.IsNearlyZero())
-			{
-				Forward=GrappleSwing2::Proj(MoveComp->Velocity,Up).GetSafeNormal();
-			}
-			// Signed angle from straight down, positive once past the anchor
-			const float Angle=FMath::RadiansToDegrees(FMath::Atan2((float)(R|Forward),(float)-(R|Up)));
-			OutPhase=FMath::Clamp(Angle/90.f,-1.f,1.f);
-			return true;
+			bHookFlying=true;
 		}
+		if (Swing->Phase!=EGS2Phase::Swing)continue;
+
+		// Always set on the owner and the server, the defaults only guard a source without it
+		static const FGrappleSwing2Tuning DefaultTuning;
+		const FGrappleSwing2Tuning& P=Swing->Tuning.IsValid() ? *Swing->Tuning : DefaultTuning;
+		const FVector Up=-MoveComp->GetGravityDirection();
+		const FVector R=MoveComp->UpdatedComponent->GetComponentLocation()-Swing->Anchor;
+		const FVector& V=Swing->SwingVelocity;
+		const FVector Forward=GrappleSwing2::ArcForward(V,Swing->PreferredSwingDir,Up);
+		const float Angle=GrappleSwing2::ArcAngleDeg(R,Forward,Up);
+		if (Angle<=0.f)
+		{
+			// Hook side: -1 where the rope caught, 0 straight below
+			OutPhase=Angle/FMath::Max(-Swing->AttachArcAngle,GrappleSwing2::MinHookArcAngleDeg);
+		}
+		else
+		{
+			// Release side: +1 where the full angle from straight down reaches the release angle. With the arc's sideways
+			// offset from the anchor, that point sits this far along the motion
+			const float ReleaseRad=FMath::DegreesToRadians(GrappleSwing2::PredictReleaseAngleDeg(P,Swing->PeakTangentSpeed,R,V,Up,-MoveComp->GetGravityZ()));
+			const float D=R.Size();
+			const float Side=R|(Up^Forward);
+			const float AlongRel=FMath::Sqrt(FMath::Max(FMath::Square(D*FMath::Sin(ReleaseRad))-Side*Side,0.f));
+			const float ReleaseArcDeg=FMath::RadiansToDegrees(FMath::Atan2(AlongRel,D*FMath::Cos(ReleaseRad)));
+			OutPhase=Angle/FMath::Max(ReleaseArcDeg,1.f);
+		}
+		OutPhase=FMath::Clamp(OutPhase,-1.f,1.f);
+		return true;
+	}
+	if (bHookFlying)
+	{
+		// The swing starts at -1, so the catch doesn't jump
+		OutPhase=-1.f;
+		return true;
 	}
 	return false;
 }
