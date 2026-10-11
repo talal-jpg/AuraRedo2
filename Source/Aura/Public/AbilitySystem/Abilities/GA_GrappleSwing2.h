@@ -494,6 +494,9 @@ struct AURA_API FRootMotionSource_GrappleSwing2 : public FRootMotionSource
 
 	float AttachTime=0.f;
 
+	// Arc angle in degrees at the end of the attach move, where GetGrappleSwing2Phase reads -1 (negative when hooked from behind)
+	float AttachArcAngle=0.f;
+
 	float LastDt=0.f;
 
 	float LOSBlockedTime=0.f;
@@ -725,8 +728,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Grapple")
 	static bool GetGrappleSwing2State(const ACharacter* Character, FVector& OutAnchor, float& OutRopeLength, bool& bOutTaut);
 
-	// Where the character is in the arc while the rope is attached, from the angle to the anchor along the hook direction:
-	// -1 is 90 degrees back on the side it hooked from, 0 is straight below the anchor, 1 is 90 degrees past it.
+	// Where the character is in the swing, from the angle to the anchor along its direction of motion:
+	// -1 where the rope caught (and while the hook is still flying), 0 straight below the anchor, 1 where the auto release
+	// lets go (the arc end angle, or earlier when the swing runs out of speed). Negative while heading toward the bottom
+	// and positive once past it, so steering keeps it right. False when there is no swing.
 	// Works on the owner and the server, like GetGrappleSwing2State
 	UFUNCTION(BlueprintPure, Category = "Grapple")
 	static bool GetGrappleSwing2Phase(const ACharacter* Character, float& OutPhase);
