@@ -21,6 +21,11 @@
 #include "Actors/MyTargetDecalActor.h"
 #include "Character/MyCharPlayer.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraComponent.h"
+#include "EngineUtils.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Components/SplineMeshComponent.h"
+#include "AbilitySystem/Abilities/GA_Beam.h"
 #include "Components/CapsuleComponent.h"
 #include "EOS/MainMenu.h"
 #include "GameFramework/Character.h"
@@ -47,6 +52,7 @@ AMyPlayerController2::AMyPlayerController2()
 void AMyPlayerController2::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	TickHitImpact(DeltaTime);
 	// AutoMove();
 	// CursorTrace();
 	
@@ -407,3 +413,97 @@ void AMyPlayerController2::ShowDamageNumber_2_Implementation(float InDamage,ACha
 }
 
 
+
+void AMyPlayerController2::Client_PlayBeamImpact_Implementation(TSubclassOf<UGA_Beam> BeamClass,bool bCaster)
+{
+	if (!BeamClass) return;
+	const UGA_Beam* Beam=BeamClass->GetDefaultObject<UGA_Beam>();
+	if (bCaster) Beam->PlayBeamCastImpactLocal(this);
+	else Beam->PlayBeamHitImpactLocal(this);
+}
+
+void AMyPlayerController2::StartHitImpact(UMaterialInterface* Material,float Duration,float FOVOffset)
+{
+	UCameraComponent* Camera=GetPawn()?GetPawn()->FindComponentByClass<UCameraComponent>():nullptr;
+	if (!Camera) return;
+	
+	if (bHitImpactActive) StopHitImpact();
+	
+	HitImpactCamera=Camera;
+	HitImpactFOVOffset=FOVOffset;
+	HitImpactDuration=FMath::Max(Duration,0.05f);
+	HitImpactStartWorldTime=GetWorld()->GetTimeSeconds();
+	bHitImpactActive=true;
+	
+	if (Material)
+	{
+		// The material runs the whole sequence itself from (Time-ImpactTime)/Duration, this side only sets when it started
+		HitImpactMID=UMaterialInstanceDynamic::Create(Material,this);
+		HitImpactMID->SetScalarParameterValue(TEXT("ImpactTime"),HitImpactStartWorldTime);
+		HitImpactMID->SetScalarParameterValue(TEXT("Duration"),HitImpactDuration);
+		Camera->PostProcessSettings.AddBlendable(HitImpactMID,1.f);
+		
+		// Characters go white in the impact frames, the material finds them through custom depth
+		for (TActorIterator<ACharacter> It(GetWorld());It;++It)
+		{
+			TArray<UMeshComponent*> Meshes;
+			It->GetComponents<UMeshComponent>(Meshes);
+			for (UMeshComponent* Mesh:Meshes)
+			{
+				// Body meshes only, not world space widgets (health bars, debug widgets) or the beam spline mesh
+				const bool bBodyMesh=Mesh->IsA<USkeletalMeshComponent>() || (Mesh->IsA<UStaticMeshComponent>() && !Mesh->IsA<USplineMeshComponent>());
+				if (bBodyMesh && Mesh->IsVisible() && !Mesh->bRenderCustomDepth)
+				{
+					Mesh->SetRenderCustomDepth(true);
+					HitImpactCustomDepthMeshes.Add(Mesh);
+				}
+			}
+		}
+	}
+	TickHitImpact(0.f);
+}
+
+void AMyPlayerController2::TickHitImpact(float DeltaTime)
+{
+	if (!bHitImpactActive) return;
+	if (!IsValid(HitImpactCamera))
+	{
+		StopHitImpact();
+		return;
+	}
+	
+	// Same clock as the material (View.GameTime), so a pause freezes both instead of the effect timing out mid sequence
+	const float Elapsed=GetWorld()->GetTimeSeconds()-HitImpactStartWorldTime;
+	if (Elapsed>=HitImpactDuration)
+	{
+		StopHitImpact();
+		return;
+	}
+	
+	// FOV kick: full on impact, eases out
+	const float Alpha=FMath::Square(1.f-Elapsed/HitImpactDuration);
+	const float NewFOV=HitImpactFOVOffset*Alpha;
+	HitImpactCamera->SetFieldOfView(HitImpactCamera->FieldOfView-HitImpactAppliedFOV+NewFOV);
+	HitImpactAppliedFOV=NewFOV;
+}
+
+void AMyPlayerController2::StopHitImpact()
+{
+	if (IsValid(HitImpactCamera))
+	{
+		HitImpactCamera->SetFieldOfView(HitImpactCamera->FieldOfView-HitImpactAppliedFOV);
+		if (HitImpactMID)
+		{
+			HitImpactCamera->PostProcessSettings.RemoveBlendable(HitImpactMID);
+		}
+	}
+	for (UPrimitiveComponent* Mesh:HitImpactCustomDepthMeshes)
+	{
+		if (IsValid(Mesh)) Mesh->SetRenderCustomDepth(false);
+	}
+	HitImpactCustomDepthMeshes.Reset();
+	HitImpactAppliedFOV=0.f;
+	HitImpactCamera=nullptr;
+	HitImpactMID=nullptr;
+	bHitImpactActive=false;
+}

@@ -7,6 +7,10 @@
 #include "MyPlayerController2.generated.h"
 
 class UMainMenu;
+class UGA_Beam;
+class UMaterialInterface;
+class UCameraComponent;
+class UMaterialInstanceDynamic;
 class UMyAbilitySystemComponent;
 class AMyTargetDecalActor;
 class UDamageTextWidgetComponent;
@@ -147,7 +151,41 @@ public:
 	UPROPERTY(EditAnywhere,Category="DamageNumbers")
 	bool bUseNiagaraDamageNumbers=true;
 	
+	// Sent by UGA_Beam to the player the beam hit (bCaster false) or to the player who cast it (bCaster true), settings come from BeamClass's defaults
+	UFUNCTION(Client,Reliable)
+	void Client_PlayBeamImpact(TSubclassOf<UGA_Beam> BeamClass,bool bCaster);
+	
+	// Puts an instance of Material on the pawn's camera with ImpactTime=now and Duration, and kicks the FOV by FOVOffset easing back over Duration
+	void StartHitImpact(UMaterialInterface* Material,float Duration,float FOVOffset);
+	
+	// Client side: when the last impact started playing. Server side: when the last impact RPC was sent to this player
+	float LastHitImpactStartTime=-1000.f;
+	float LastHitImpactSentTime=-1000.f;
+	float LastCastImpactStartTime=-1000.f;
+	float LastCastImpactSentTime=-1000.f;
+	
 	private:
+	
+	void TickHitImpact(float DeltaTime);
+	void StopHitImpact();
+	
+	UPROPERTY()
+	TObjectPtr<UCameraComponent> HitImpactCamera;
+	
+	UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> HitImpactMID;
+	
+	// Character meshes we turned custom depth on for, so the material can mask characters out. Turned back off in StopHitImpact
+	UPROPERTY()
+	TArray<TObjectPtr<UPrimitiveComponent>> HitImpactCustomDepthMeshes;
+	
+	float HitImpactFOVOffset=0.f;
+	float HitImpactDuration=0.f;
+	// World time of the hit, the same clock as the material's Time node, so pausing holds both
+	double HitImpactStartWorldTime=0.0;
+	// FOV currently added to the camera, removed again before applying the next frame's offset so other FOV changes are kept
+	float HitImpactAppliedFOV=0.f;
+	bool bHitImpactActive=false;
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UDamageTextWidgetComponent> DamageTextWidgetComponentClass;
