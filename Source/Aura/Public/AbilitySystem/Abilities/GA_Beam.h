@@ -24,16 +24,17 @@ public:
 	UFUNCTION(BlueprintCallable,Category="Beam|HitImpact")
 	void PlayBeamHitImpact(ACharacter* HitCharacter);
 	
-	// Runs on the hit player's machine (AMyPlayerController2::Client_PlayBeamImpact calls it on this class's CDO)
-	void PlayBeamHitImpactLocal(APlayerController* HitPC) const;
+	// Runs on the hit player's machine (AMyPlayerController2::Client_PlayBeamImpact calls it on this class's CDO with bFromServer true).
+	// bFromServer: the server already spaced these out, so the local gate only drops a copy of an impact this machine just played itself
+	void PlayBeamHitImpactLocal(APlayerController* HitPC,bool bFromServer=false) const;
 	
 	// Plays the cast impact on the casting player's own screen: impact frames post process (CastPostProcessMaterial), FOV kick (CastFOVOffset) and CastCameraShake.
 	// Call it where the beam lands, from the server or from the caster's own machine: a locally controlled caster plays it directly, otherwise the server sends it
 	UFUNCTION(BlueprintCallable,Category="Beam|CastImpact")
 	void PlayBeamCastImpact(ACharacter* CasterCharacter);
 	
-	// Runs on the caster's machine
-	void PlayBeamCastImpactLocal(APlayerController* CasterPC) const;
+	// Runs on the caster's machine, bFromServer as in PlayBeamHitImpactLocal
+	void PlayBeamCastImpactLocal(APlayerController* CasterPC,bool bFromServer=false) const;
 	
 	// Impact frames material (M_PP_ImpactFrames). Gets ImpactTime (world time of the hit) and Duration, and plays its own sequence from the Time node
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|HitImpact")

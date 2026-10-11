@@ -418,8 +418,8 @@ void AMyPlayerController2::Client_PlayBeamImpact_Implementation(TSubclassOf<UGA_
 {
 	if (!BeamClass) return;
 	const UGA_Beam* Beam=BeamClass->GetDefaultObject<UGA_Beam>();
-	if (bCaster) Beam->PlayBeamCastImpactLocal(this);
-	else Beam->PlayBeamHitImpactLocal(this);
+	if (bCaster) Beam->PlayBeamCastImpactLocal(this,true);
+	else Beam->PlayBeamHitImpactLocal(this,true);
 }
 
 void AMyPlayerController2::StartHitImpact(UMaterialInterface* Material,float Duration,float FOVOffset)
