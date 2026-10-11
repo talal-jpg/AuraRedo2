@@ -8,6 +8,19 @@
 #include "GameFramework/Character.h"
 #include "PlayerInput/MyPlayerController2.h"
 
+namespace
+{
+	// Impacts sent by the server arrive with network jitter and frame rounding, so the client gate is this much shorter than the server's.
+	// It still drops the server's copy of an impact this machine already played itself (that copy arrives about one round trip later)
+	constexpr float ServerImpactGateSlack=0.25f;
+	
+	float ImpactGate(float MinInterval,float Duration,bool bFromServer)
+	{
+		const float Gate=FMath::Max(MinInterval,Duration);
+		return bFromServer?FMath::Max(Gate-ServerImpactGateSlack,0.f):Gate;
+	}
+}
+
 void UGA_Beam::PlayBeamHitImpact(ACharacter* HitCharacter)
 {
 	if (!HitCharacter) return;
@@ -38,14 +51,14 @@ void UGA_Beam::PlayBeamHitImpact(ACharacter* HitCharacter)
 	}
 }
 
-void UGA_Beam::PlayBeamHitImpactLocal(APlayerController* HitPC) const
+void UGA_Beam::PlayBeamHitImpactLocal(APlayerController* HitPC,bool bFromServer) const
 {
 	AMyPlayerController2* MyPC=Cast<AMyPlayerController2>(HitPC);
 	if (!MyPC || !MyPC->IsLocalController()) return;
 	
 	// A continuous beam hits every frame, only start a new impact once the last one is over
 	const float Now=MyPC->GetWorld()->GetTimeSeconds();
-	if (Now-MyPC->LastHitImpactStartTime<FMath::Max(HitImpactMinInterval,HitImpactDuration)) return;
+	if (Now-MyPC->LastHitImpactStartTime<ImpactGate(HitImpactMinInterval,HitImpactDuration,bFromServer)) return;
 	MyPC->LastHitImpactStartTime=Now;
 	
 	MyPC->StartHitImpact(HitPostProcessMaterial,HitImpactDuration,HitFOVOffset);
@@ -77,13 +90,13 @@ void UGA_Beam::PlayBeamCastImpact(ACharacter* CasterCharacter)
 	CasterPC->Client_PlayBeamImpact(GetClass(),true);
 }
 
-void UGA_Beam::PlayBeamCastImpactLocal(APlayerController* CasterPC) const
+void UGA_Beam::PlayBeamCastImpactLocal(APlayerController* CasterPC,bool bFromServer) const
 {
 	AMyPlayerController2* MyPC=Cast<AMyPlayerController2>(CasterPC);
 	if (!MyPC || !MyPC->IsLocalController()) return;
 	
 	const float Now=MyPC->GetWorld()->GetTimeSeconds();
-	if (Now-MyPC->LastCastImpactStartTime<FMath::Max(CastImpactMinInterval,CastImpactDuration)) return;
+	if (Now-MyPC->LastCastImpactStartTime<ImpactGate(CastImpactMinInterval,CastImpactDuration,bFromServer)) return;
 	MyPC->LastCastImpactStartTime=Now;
 	
 	MyPC->StartHitImpact(CastPostProcessMaterial,CastImpactDuration,CastFOVOffset);
