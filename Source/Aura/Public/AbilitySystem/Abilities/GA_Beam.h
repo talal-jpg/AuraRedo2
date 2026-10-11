@@ -19,14 +19,15 @@ class AURA_API UGA_Beam : public UMyGameplayAbility
 	GENERATED_BODY()
 	
 public:
-	// Call on the server when the beam hits a player. Plays the impact frames post process, the FOV kick and HitCameraShake on the hit player's own screen
-	UFUNCTION(BlueprintCallable,BlueprintAuthorityOnly,Category="Beam|HitImpact")
+	// Plays the hit impact on the hit player's own screen: impact frames post process (HitPostProcessMaterial), FOV kick (HitFOVOffset) and HitCameraShake.
+	// Call it where the beam lands, from the server or from the hit player's own machine: a locally controlled character plays it directly, otherwise the server sends it
+	UFUNCTION(BlueprintCallable,Category="Beam|HitImpact")
 	void PlayBeamHitImpact(ACharacter* HitCharacter);
 	
 	// Runs on the hit player's machine (AMyPlayerController2::Client_PlayBeamImpact calls it on this class's CDO)
 	void PlayBeamHitImpactLocal(APlayerController* HitPC) const;
 	
-	// Plays the caster's impact frames post process and CastCameraShake on the casting player's own screen (no FOV change).
+	// Plays the cast impact on the casting player's own screen: impact frames post process (CastPostProcessMaterial), FOV kick (CastFOVOffset) and CastCameraShake.
 	// Call it where the beam lands, from the server or from the caster's own machine: a locally controlled caster plays it directly, otherwise the server sends it
 	UFUNCTION(BlueprintCallable,Category="Beam|CastImpact")
 	void PlayBeamCastImpact(ACharacter* CasterCharacter);
@@ -66,6 +67,10 @@ public:
 	// A beam that keeps landing only starts a new caster impact this long after the last one started (never sooner than CastImpactDuration)
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact")
 	float CastImpactMinInterval=1.5f;
+	
+	// Degrees added to the caster's camera FOV when the beam lands, eases back to normal over CastImpactDuration (negative zooms in, 0 turns it off)
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact")
+	float CastFOVOffset=-8.f;
 	
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact")
 	TSubclassOf<UCameraShakeBase> CastCameraShake;

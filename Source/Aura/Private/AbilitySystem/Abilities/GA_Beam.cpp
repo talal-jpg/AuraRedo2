@@ -10,21 +10,31 @@
 
 void UGA_Beam::PlayBeamHitImpact(ACharacter* HitCharacter)
 {
-	if (!HitCharacter || !HitCharacter->HasAuthority()) return;
+	if (!HitCharacter) return;
+	APlayerController* HitPC=Cast<APlayerController>(HitCharacter->GetController());
+	if (!HitPC) return;
 	
-	// Same route as damage numbers: the server tells the hit player's own controller, which plays the effect on that machine
-	if (AMyPlayerController2* HitPC=Cast<AMyPlayerController2>(HitCharacter->GetController()))
+	// Hit player on this machine (listen server host, or a client calling it for itself): play it here, no RPC needed
+	if (HitPC->IsLocalController())
+	{
+		PlayBeamHitImpactLocal(HitPC);
+		return;
+	}
+	
+	// Remote hit player: same route as damage numbers, the server tells their own controller, which plays the effect on that machine
+	if (!HitCharacter->HasAuthority()) return;
+	if (AMyPlayerController2* MyHitPC=Cast<AMyPlayerController2>(HitPC))
 	{
 		// A continuous beam calls this every frame: only send the reliable RPC once the last impact is over
 		const float Now=HitCharacter->GetWorld()->GetTimeSeconds();
-		if (Now-HitPC->LastHitImpactSentTime<FMath::Max(HitImpactMinInterval,HitImpactDuration)) return;
-		HitPC->LastHitImpactSentTime=Now;
-		HitPC->Client_PlayBeamImpact(GetClass(),false);
+		if (Now-MyHitPC->LastHitImpactSentTime<FMath::Max(HitImpactMinInterval,HitImpactDuration)) return;
+		MyHitPC->LastHitImpactSentTime=Now;
+		MyHitPC->Client_PlayBeamImpact(GetClass(),false);
 	}
-	else if (APlayerController* OtherPC=Cast<APlayerController>(HitCharacter->GetController()))
+	else if (HitCameraShake)
 	{
 		// Not the mech controller, only the shake has a built in client RPC
-		if (HitCameraShake) OtherPC->ClientStartCameraShake(HitCameraShake,HitCameraShakeScale);
+		HitPC->ClientStartCameraShake(HitCameraShake,HitCameraShakeScale);
 	}
 }
 
@@ -76,7 +86,7 @@ void UGA_Beam::PlayBeamCastImpactLocal(APlayerController* CasterPC) const
 	if (Now-MyPC->LastCastImpactStartTime<FMath::Max(CastImpactMinInterval,CastImpactDuration)) return;
 	MyPC->LastCastImpactStartTime=Now;
 	
-	MyPC->StartHitImpact(CastPostProcessMaterial,CastImpactDuration,0.f);
+	MyPC->StartHitImpact(CastPostProcessMaterial,CastImpactDuration,CastFOVOffset);
 	
 	if (CastCameraShake && MyPC->PlayerCameraManager)
 	{
