@@ -6,6 +6,7 @@
 #include "AbilitySystemComponent.h"
 #include "VectorTypes.h"
 #include "Abilities/GameplayAbilityTargetTypes.h"
+#include "AbilitySystem/Abilities/GA_GrappleSwing2.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
@@ -50,6 +51,22 @@ void UMyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		float AmountToLerp=.05;
 		TargetLocDelayed= FMath::Lerp(TargetLocDelayed,TargetLoc,AmountToLerp);
 		
+	}
+	if (bIsSwinging)
+	{
+		// Holds the last value when there is no swing, so blending out doesn't pop
+		float Phase=0.f;
+		if (UGA_GrappleSwing2::GetGrappleSwing2Phase(MyCharPlayer,Phase))
+		{
+			SwingPhase=Phase;
+			UKismetSystemLibrary::PrintString(this,std::to_string(SwingPhase).c_str());
+		}
+		else if (MyCharPlayer->GetLocalRole()==ROLE_SimulatedProxy)
+		{
+			// Other players' swings: the server's value, smoothed between net updates
+			SwingPhase=FMath::FInterpTo(SwingPhase,MyCharPlayer->ReplicatedSwingPhase/127.f,DeltaSeconds,20.f);
+			// UKismetSystemLibrary::PrintString(GetOwningActor(),std::to_string(SwingPhase).c_str());
+		}
 	}
 	if (!bIsShooting && !bIsBoosting)return;
 	TargetLoc=MyCharPlayer->TargetLocation;

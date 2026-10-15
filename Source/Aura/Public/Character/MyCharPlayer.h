@@ -44,6 +44,12 @@ public:
 	virtual void OnRep_PlayerState() override;
 	virtual void PossessedBy(AController* NewController) override;
 	
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	// Swing phase for other players' screens, -127..127 for -1..1. Written by the server
+	UPROPERTY(Replicated)
+	int8 ReplicatedSwingPhase=0;
+	
 	/** Server: landing on a hex platform updates the player ranking (AMyPlayerState::SetCurrentPlatform). */
 	virtual void BaseChange() override;
 	

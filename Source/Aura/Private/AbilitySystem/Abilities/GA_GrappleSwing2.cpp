@@ -1881,3 +1881,4 @@ void UGA_GrappleSwing2::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 	}
 	bIntentionalEnd=false;
 }
+

@@ -8,6 +8,7 @@
 #include "MyAnimInstance.h"
 #include "MyPlayerState.h"
 #include "Actors/MyHexPlatform.h"
+#include "AbilitySystem/Abilities/GA_GrappleSwing2.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
@@ -20,6 +21,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Net/UnrealNetwork.h"
 #include "UI/MyHUD.h"
 
 
@@ -69,6 +71,7 @@ void AMyCharPlayer::BeginPlay()
 {
 	Super::BeginPlay();
 	// GetMesh()->SetWorldRotation(FRotator(0,0,0));
+	
 	auto MP=GetGameInstance()->GetSubsystem<UMultiplayerSessionsSubsystem>();
 	
 	UE_LOG(LogTemp, Warning, TEXT("%s"), *MP->GetName());
@@ -86,6 +89,15 @@ void AMyCharPlayer::BeginPlay()
 void AMyCharPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	if (HasAuthority())
+	{
+		// Keeps the last value when there is no swing, the same as the owner's anim
+		float Phase=0.f;
+		if (UGA_GrappleSwing2::GetGrappleSwing2Phase(this,Phase))
+		{
+			ReplicatedSwingPhase=(int8)FMath::RoundToInt(Phase*127.f);
+		}
+	}
 	LerpChestRotToRot();
 	LerpFeetRotToRot();
 	
@@ -157,6 +169,12 @@ void AMyCharPlayer::Tick(float DeltaTime)
 	}
 	
 	// UKismetSystemLibrary::DrawDebugSphere(GetWorld(),TargetLocation,100,12,FLinearColor::Yellow,false,0.1f);
+}
+
+void AMyCharPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME_CONDITION(AMyCharPlayer,ReplicatedSwingPhase,COND_SimulatedOnly);
 }
 
 void AMyCharPlayer::OnRep_PlayerState()

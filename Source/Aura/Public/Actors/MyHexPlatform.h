@@ -76,7 +76,8 @@ public:
 	TArray<FIntVector> GetOriginalEdgeHexes() const;
 
 	TMap<int32, TArray<FIntVector>> GetEdgeInstances() const;
-	
+	int32 GetOpenSideBits(const FIntVector& Coord) const;
+
 	TMap<int32, TArray<FIntVector>> EdgeInstances;
 
 	/** Distance along the whole path spline at the point this platform was sampled from. -1 = not set. */

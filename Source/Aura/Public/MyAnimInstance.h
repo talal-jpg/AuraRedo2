@@ -109,6 +109,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsSwinging=false;
 	
+	UPROPERTY(BlueprintReadOnly)
+	float SwingPhase=0.f;
+	
 	void ShootingTagCountChangeCallback(FGameplayTag Tag,int32 TagCount);
 	void BeamTagCountChangeCallback(FGameplayTag Tag,int32 TagCount);
 	void BoostingTagCountChangeCallback(FGameplayTag Tag,int32 TagCount);

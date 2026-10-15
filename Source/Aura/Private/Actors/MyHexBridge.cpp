@@ -87,6 +87,21 @@ void AMyHexBridge::BeginPlay()
 	// properties are applied before BeginPlay, so the points are already there too.
 	ApplyEnds();
 	BindToPlatforms();
+	
+	//Adding Mid point to bend spline before pcg Gen
+	if (BridgeSpline->GetNumberOfSplinePoints()==2)
+	{
+		
+		FVector Pos1 = BridgeSpline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
+		FVector Pos2 = BridgeSpline->GetLocationAtSplinePoint(1, ESplineCoordinateSpace::World);
+		FVector MidPos = (Pos1 + Pos2) * 0.5f;
+		float Length=FVector::Dist(Pos1,Pos2);
+		float Disp= Length*0.1143;
+		MidPos = MidPos + FVector(0, 0, -Disp);
+		
+		BridgeSpline->AddSplinePointAtIndex(MidPos, 1, ESplineCoordinateSpace::World, true);
+	}
+
 
 	if (bGenerateOnBeginPlay && PCGComponent && PCGComponent->GetGraph())
 	{

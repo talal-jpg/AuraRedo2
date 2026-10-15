@@ -47,7 +47,7 @@ AMyHexPlatform::AMyHexPlatform()
 	);
 	HexPillarsISM->SetRemoveSwap();
 	
-	HexPillarsISM->NumCustomDataFloats=1;
+	HexPillarsISM->NumCustomDataFloats=4;
 
 	SetRootComponent(HexPillarsISM);
 
@@ -923,6 +923,8 @@ void AMyHexPlatform::BuildHexGrid()
 		}
 
 		HexPillarsISM->SetCustomDataValue(InstanceIndex, 0, Falloff, true);
+		HexPillarsISM->SetCustomDataValue(InstanceIndex, 1, Loc2d.X , true);
+		HexPillarsISM->SetCustomDataValue(InstanceIndex, 2, Loc2d.Y, true);
 
 		HexMap.Add(
 			Coord,
@@ -935,6 +937,14 @@ void AMyHexPlatform::BuildHexGrid()
 		);
 	}
 	 EdgeInstances= GetEdgeInstances();
+
+	// Custom data 3 = open-side bits for M_Pillar1's edge mask. Written after the
+	// loop so every neighbour already exists in HexMap.
+	for (const TPair<FIntVector, int32>& Pair : HexMap)
+	{
+		HexPillarsISM->SetCustomDataValue(Pair.Value, 3, static_cast<float>(GetOpenSideBits(Pair.Key)), false);
+	}
+	HexPillarsISM->MarkRenderStateDirty();
 	
 }
 
@@ -1447,10 +1457,22 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 		return;
 	}
 
+	
+	
+	// Mesh->OverrideAnimationData(MyAnimSequence, /*bIsLooping=*/true, /*bIsPlaying=*/true,
+	// 						/*Position=*/0.f, /*PlayRate=*/1.5f);
+	
 	SkeletalMesh->PlayAnimation(
 		RbdAnimSeq,
 		false
 	);
+	
+	float Scale=InstanceTransform.GetScale3D().Z;
+	FVector2D InputRange= FVector2D(1.f,.4f);
+	FVector2D OutputRange= FVector2D(1.f,2.5f);
+	float AnimRate=FMath::GetMappedRangeValueClamped(InputRange,OutputRange,Scale);
+	
+	SkeletalMesh->SetPlayRate(AnimRate);
 
 	UE_LOG(
 		LogTemp,
@@ -1463,8 +1485,9 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 	// Destroy after animation
 	// -------------------------------------------------------------------------
 
-	const float AnimationLength =
+	float AnimationLength =
 		RbdAnimSeq->GetPlayLength();
+	AnimationLength/= AnimRate;
 
 	FTimerHandle TimerHandle;
 
@@ -1712,4 +1735,24 @@ TMap<int32, TArray<FIntVector>> AMyHexPlatform::GetEdgeInstances() const
 	}
 
 	return OutEdgeInstances;
+}
+
+// Bit i set = side Directions[i] has no neighbour. 0..63, exact as a float.
+int32 AMyHexPlatform::GetOpenSideBits(const FIntVector& Coord) const
+{
+	static const FIntVector Directions[6] =
+	{
+		FIntVector( 1,  0, -1), FIntVector( 1, -1,  0), FIntVector( 0, -1,  1),
+		FIntVector(-1,  0,  1), FIntVector(-1,  1,  0), FIntVector( 0,  1, -1)
+	};
+
+	int32 Bits = 0;
+	for (int32 i = 0; i < 6; ++i)
+	{
+		if (!HexMap.Contains(Coord + Directions[i]))
+		{
+			Bits |= 1 << i;
+		}
+	}
+	return Bits;
 }
