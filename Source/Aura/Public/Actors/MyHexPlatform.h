@@ -15,6 +15,8 @@ class AMyHexPlatform;
 class APawn;
 class USplineComponent;
 class UMyHexBridgeSubsystem;
+class UPCGComponent;
+class UGeometryCollection;
 
 /** A tile started collapsing on this machine (server and clients). Coord is (Q, R, S). */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHexTileActivatedSignature, AMyHexPlatform* /*Platform*/, const FIntVector& /*Coord*/);
@@ -32,6 +34,43 @@ struct FHexCoord
 
 	UPROPERTY()
 	int32 S = 0;
+};
+
+/**
+ * One tile's placement data, worked out once after BuildHexGrid (AMyHexPlatform::BuildTileInfos).
+ * Everything is in actor space. Read by the PCG tile scatter node.
+ */
+USTRUCT(BlueprintType)
+struct FHexTileInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	FIntVector Coord = FIntVector::ZeroValue;
+
+	/** Stable per-platform index (AMyHexPlatform::MakeTileIndex). Exact as a float, so it fits ISM custom data. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	int32 TileIndex = INDEX_NONE;
+
+	/** Centre of the pillar's top face. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	FVector LocalTopCenter = FVector::ZeroVector;
+
+	/** The pillar instance's bounds. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	FBox LocalBounds = FBox(ForceInit);
+
+	/** Centre to the middle of a flat side (the mesh's X half size, scaled). */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	float Apothem = 0.f;
+
+	/** Rings in from the platform's outline: 0 = this tile has an open side. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	int32 EdgeDepth = 0;
+
+	/** Bit i set = no tile on side i (AMyHexPlatform::GetHexSideDirection). Same bits as the edge mask. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	int32 OpenSideBits = 0;
 };
 
 
@@ -86,6 +125,24 @@ public:
 
 	bool HasSplineDistance() const { return SplineDistance >= 0.f; }
 
+	// -------------------------------------------------------------------------
+	// Tile infos / tile props
+	// -------------------------------------------------------------------------
+
+	/** PCG attribute (and prop ISM custom data) that names the tile a prop stands on. */
+	static const FName TileIndexAttributeName;
+
+	/** Live tiles, rebuilt by BuildHexGrid. A tile is removed once it collapses. */
+	const TMap<FIntVector, FHexTileInfo>& GetTileInfos() const { return TileInfos; }
+
+	float GetHexRadius() const { return HexRadius; }
+
+	/** (Q, R) packed into 0 .. (2 * GridSize + 1)^2 - 1. */
+	int32 MakeTileIndex(const FIntVector& Coord) const;
+
+	/** Unit vector (actor space, XY) from a tile's centre through its side Side (0..5, the open-side bit order). */
+	static FVector2D GetHexSideDirection(int32 Side);
+
 	/**
 	 * Set by the PCG graph when it spawns the platform (Spawn Actor property override from the
 	 * SplineDistance point attribute: the sampler's Distance plus the segment's GetPathStartDistance).
@@ -113,6 +170,13 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Platform")
 	TObjectPtr<UInstancedStaticMeshComponent> HexPillarsISM;
+
+	/**
+	 * Scatters rocks and ruins on the tiles (assign the graph in the Blueprint). Generated locally on
+	 * every machine after BuildHexGrid in BeginPlay; the scatter is deterministic, so all machines match.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
+	TObjectPtr<UPCGComponent> TilePropsPCG;
 
 
 	// -------------------------------------------------------------------------
@@ -277,6 +341,40 @@ protected:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Lead", meta = (ClampMin = "0.0", EditCondition = "bAutoDestroyWhenLeftBehind && bKeepWhileAnyPlayerIsOnIt"))
 	float BridgeKeepDistance = 300.f;
+
+	// -------------------------------------------------------------------------
+	// Tile props (rocks and ruins scattered by TilePropsPCG)
+	// -------------------------------------------------------------------------
+
+	/** Run TilePropsPCG in BeginPlay. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
+	bool bSpawnTileProps = true;
+
+	/**
+	 * Custom data slot that holds the TileIndex in the PCG-spawned prop ISMs. The Static Mesh
+	 * Spawner's "By Attribute" packer writes TileIndex here when it is the first packed attribute.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props", meta = (ClampMin = "0"))
+	int32 PropTileIndexCustomDataSlot = 0;
+
+	/**
+	 * Prop mesh -> the Geometry Collection spawned in its place when its tile collapses. The prop
+	 * ISM is matched by its static mesh. Meshes not in the map just disappear.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
+	TMap<TObjectPtr<UStaticMesh>, TObjectPtr<UGeometryCollection>> PropBreakables;
+
+	/** Seconds the broken Geometry Collections live. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props", meta = (ClampMin = "0.1"))
+	float BrokenPropLifeSpan = 6.f;
+
+	/** Break every cluster as soon as the Geometry Collection spawns. Off = it falls whole and breaks on impact. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
+	bool bCrumbleBrokenProps = true;
+
+	/** Velocity change (cm/s) given to the broken pieces, in world space, plus a little random spread. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
+	FVector BrokenPropImpulse = FVector(0.f, 0.f, 150.f);
 
 	// -------------------------------------------------------------------------
 	// Runtime ISM bookkeeping
@@ -487,4 +585,30 @@ private:
 
 	FTimerHandle LeadCheckTimerHandle;
 	FTimerHandle CollapseTimerHandle;
+
+	// -------------------------------------------------------------------------
+	// Tile infos / tile props
+	// -------------------------------------------------------------------------
+
+	/** Fills TileInfos from HexMap (top centre, bounds, edge depth, open sides). End of BuildHexGrid. */
+	void BuildTileInfos();
+
+	/** Starts TilePropsPCG (local, not replicated). */
+	void GenerateTileProps();
+
+	/** TilePropsPCG finished: maps every prop ISM to the tiles it has instances on. */
+	void OnTilePropsGenerated(UPCGComponent* InComponent);
+
+	/** OnHexTileActivated: the tile collapsed, so its props break. */
+	void HandleTileActivated(AMyHexPlatform* Platform, const FIntVector& Coord);
+
+	/** Removes the tile's prop instances; with bSpawnBreakables, spawns their Geometry Collections in their place. */
+	void BreakTileProps(int32 TileIndex, bool bSpawnBreakables);
+
+	void SpawnBrokenProp(UGeometryCollection* Collection, const FTransform& WorldTransform);
+
+	TMap<FIntVector, FHexTileInfo> TileInfos;
+
+	/** TileIndex -> prop ISMs that have instances on that tile. The instances themselves are found by their TileIndex custom data, since indices shift on removal. */
+	TMap<int32, TArray<TWeakObjectPtr<UInstancedStaticMeshComponent>>> TilePropISMs;
 };

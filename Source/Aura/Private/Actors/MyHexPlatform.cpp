@@ -21,6 +21,13 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "PCGComponent.h"
+#include "PCGManagedResource.h"
+#include "Engine/StaticMesh.h"
+#include "GeometryCollection/GeometryCollectionActor.h"
+#include "GeometryCollection/GeometryCollectionComponent.h"
+#include "GeometryCollection/GeometryCollectionObject.h"
+#include "GeometryCollection/GeometryCollectionSimulationTypes.h"
 
 
 // =============================================================================
@@ -58,6 +65,15 @@ AMyHexPlatform::AMyHexPlatform()
 	HexPillarsISM->SetCollisionResponseToAllChannels(
 		ECR_Block
 	);
+
+	// -------------------------------------------------------------------------
+	// Tile props
+	// -------------------------------------------------------------------------
+
+	// Every machine generates its own props after building its grid, so nothing is replicated
+	TilePropsPCG = CreateDefaultSubobject<UPCGComponent>(TEXT("TilePropsPCG"));
+	TilePropsPCG->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
+	TilePropsPCG->SetIsReplicated(false);
 }
 
 
@@ -118,6 +134,10 @@ void AMyHexPlatform::BeginPlay()
 	{
 		ApplyActivatedTiles(/*bPlayEffect=*/false);
 	}
+
+	// Rocks and ruins on the tiles left after the late-join removal above. Their props break with them.
+	OnHexTileActivated.AddUObject(this, &ThisClass::HandleTileActivated);
+	GenerateTileProps();
 
 	// Draws the live tiles on the minimap and follows their collapse (not on a dedicated server)
 	if (UMyHexMinimapSubsystem* Minimap = GetWorld()->GetSubsystem<UMyHexMinimapSubsystem>())
@@ -945,6 +965,8 @@ void AMyHexPlatform::BuildHexGrid()
 		HexPillarsISM->SetCustomDataValue(Pair.Value, 3, static_cast<float>(GetOpenSideBits(Pair.Key)), false);
 	}
 	HexPillarsISM->MarkRenderStateDirty();
+
+	BuildTileInfos();
 	
 }
 
@@ -1755,4 +1777,286 @@ int32 AMyHexPlatform::GetOpenSideBits(const FIntVector& Coord) const
 		}
 	}
 	return Bits;
+}
+
+
+// =============================================================================
+// Tile infos
+// =============================================================================
+
+const FName AMyHexPlatform::TileIndexAttributeName(TEXT("TileIndex"));
+
+int32 AMyHexPlatform::MakeTileIndex(const FIntVector& Coord) const
+{
+	const int32 Size = FMath::Max(0, GridSize);
+	const int32 Width = 2 * Size + 1;
+
+	return (Coord.X + Size) * Width + (Coord.Y + Size);
+}
+
+FVector2D AMyHexPlatform::GetHexSideDirection(int32 Side)
+{
+	// Same order as the Directions in GetOpenSideBits, turned into actor space with HexToWorld's formula
+	static const FIntVector Directions[6] =
+	{
+		FIntVector( 1,  0, -1), FIntVector( 1, -1,  0), FIntVector( 0, -1,  1),
+		FIntVector(-1,  0,  1), FIntVector(-1,  1,  0), FIntVector( 0,  1, -1)
+	};
+
+	const FIntVector& D = Directions[((Side % 6) + 6) % 6];
+
+	return FVector2D(FMath::Sqrt(3.f) * (D.X + D.Y * 0.5f), 1.5f * D.Y).GetSafeNormal();
+}
+
+void AMyHexPlatform::BuildTileInfos()
+{
+	TileInfos.Reset();
+
+	if (!HexPillarsISM || !HexPillarStaticMesh)
+	{
+		return;
+	}
+
+	const FBox MeshBox = HexPillarStaticMesh->GetBoundingBox();
+
+	for (const TPair<FIntVector, int32>& Pair : HexMap)
+	{
+		FTransform InstanceTransform;
+
+		if (!HexPillarsISM->GetInstanceTransform(Pair.Value, InstanceTransform, /*bWorldSpace=*/false))
+		{
+			continue;
+		}
+
+		const FBox Box = MeshBox.TransformBy(InstanceTransform);
+		const FVector Location = InstanceTransform.GetLocation();
+
+		FHexTileInfo& Info = TileInfos.Add(Pair.Key);
+		Info.Coord = Pair.Key;
+		Info.TileIndex = MakeTileIndex(Pair.Key);
+		Info.LocalTopCenter = FVector(Location.X, Location.Y, Box.Max.Z);
+		Info.LocalBounds = Box;
+		Info.Apothem = static_cast<float>(MeshBox.GetExtent().X * InstanceTransform.GetScale3D().X);
+		Info.OpenSideBits = GetOpenSideBits(Pair.Key);
+		Info.EdgeDepth = MAX_int32;
+	}
+
+	// Edge depth: rings in from the outline, breadth first from every tile with an open side
+	TArray<FIntVector> Queue;
+	Queue.Reserve(TileInfos.Num());
+
+	for (TPair<FIntVector, FHexTileInfo>& Pair : TileInfos)
+	{
+		if (Pair.Value.OpenSideBits != 0)
+		{
+			Pair.Value.EdgeDepth = 0;
+			Queue.Add(Pair.Key);
+		}
+	}
+
+	for (int32 Head = 0; Head < Queue.Num(); ++Head)
+	{
+		const FIntVector Current = Queue[Head];
+		const int32 NextDepth = TileInfos.FindChecked(Current).EdgeDepth + 1;
+
+		for (const FIntVector& Neighbor : GetNeighbors(Current))
+		{
+			FHexTileInfo* NeighborInfo = TileInfos.Find(Neighbor);
+
+			if (NeighborInfo && NeighborInfo->EdgeDepth > NextDepth)
+			{
+				NeighborInfo->EdgeDepth = NextDepth;
+				Queue.Add(Neighbor);
+			}
+		}
+	}
+}
+
+
+// =============================================================================
+// Tile props
+// =============================================================================
+
+void AMyHexPlatform::GenerateTileProps()
+{
+	if (!bSpawnTileProps || !TilePropsPCG || !TilePropsPCG->GetGraph())
+	{
+		return;
+	}
+
+	// Tiles that fell before this client got the platform: no props on them
+	for (const FIntVector& Coord : LocalActivatedTiles)
+	{
+		TileInfos.Remove(Coord);
+	}
+
+	TilePropsPCG->OnPCGGraphGeneratedDelegate.RemoveAll(this);
+	TilePropsPCG->OnPCGGraphGeneratedDelegate.AddUObject(this, &ThisClass::OnTilePropsGenerated);
+
+	TilePropsPCG->GenerateLocal(/*bForce=*/true);
+}
+
+void AMyHexPlatform::OnTilePropsGenerated(UPCGComponent* InComponent)
+{
+	TilePropISMs.Reset();
+
+	if (!InComponent)
+	{
+		return;
+	}
+
+	TSet<int32> PropTiles;
+
+	InComponent->ForEachManagedResource([this, &PropTiles](UPCGManagedResource* Resource)
+	{
+		const UPCGManagedISMComponent* ManagedISM = Cast<UPCGManagedISMComponent>(Resource);
+		UInstancedStaticMeshComponent* ISM = ManagedISM ? ManagedISM->GetComponent() : nullptr;
+
+		if (!ISM || ISM == HexPillarsISM || ISM->NumCustomDataFloats <= PropTileIndexCustomDataSlot)
+		{
+			return;
+		}
+
+		const int32 NumFloats = ISM->NumCustomDataFloats;
+		const int32 Count = ISM->GetInstanceCount();
+
+		for (int32 Instance = 0; Instance < Count; ++Instance)
+		{
+			const int32 DataIndex = Instance * NumFloats + PropTileIndexCustomDataSlot;
+
+			if (!ISM->PerInstanceSMCustomData.IsValidIndex(DataIndex))
+			{
+				break;
+			}
+
+			const int32 TileIndex = FMath::RoundToInt(ISM->PerInstanceSMCustomData[DataIndex]);
+
+			TilePropISMs.FindOrAdd(TileIndex).AddUnique(ISM);
+			PropTiles.Add(TileIndex);
+		}
+	});
+
+	// Tiles that collapsed while the graph was running
+	for (const FIntVector& Coord : LocalActivatedTiles)
+	{
+		BreakTileProps(MakeTileIndex(Coord), /*bSpawnBreakables=*/false);
+	}
+
+	UE_LOG(LogTemp, Verbose, TEXT("%s: tile props on %d tiles"), *GetName(), PropTiles.Num());
+}
+
+void AMyHexPlatform::HandleTileActivated(AMyHexPlatform* Platform, const FIntVector& Coord)
+{
+	TileInfos.Remove(Coord);
+
+	// Debris is cosmetic: none on a dedicated server
+	BreakTileProps(MakeTileIndex(Coord), /*bSpawnBreakables=*/GetNetMode() != NM_DedicatedServer);
+}
+
+void AMyHexPlatform::BreakTileProps(int32 TileIndex, bool bSpawnBreakables)
+{
+	TArray<TWeakObjectPtr<UInstancedStaticMeshComponent>> ISMs;
+
+	if (!TilePropISMs.RemoveAndCopyValue(TileIndex, ISMs))
+	{
+		return;
+	}
+
+	for (const TWeakObjectPtr<UInstancedStaticMeshComponent>& WeakISM : ISMs)
+	{
+		UInstancedStaticMeshComponent* ISM = WeakISM.Get();
+
+		if (!ISM || ISM->NumCustomDataFloats <= PropTileIndexCustomDataSlot)
+		{
+			continue;
+		}
+
+		// Instance indices shift as others are removed, so find this tile's by their custom data
+		const int32 NumFloats = ISM->NumCustomDataFloats;
+		TArray<int32> ToRemove;
+
+		for (int32 Instance = ISM->GetInstanceCount() - 1; Instance >= 0; --Instance)
+		{
+			const int32 DataIndex = Instance * NumFloats + PropTileIndexCustomDataSlot;
+
+			if (ISM->PerInstanceSMCustomData.IsValidIndex(DataIndex)
+				&& FMath::RoundToInt(ISM->PerInstanceSMCustomData[DataIndex]) == TileIndex)
+			{
+				ToRemove.Add(Instance);
+			}
+		}
+
+		if (ToRemove.IsEmpty())
+		{
+			continue;
+		}
+
+		if (bSpawnBreakables)
+		{
+			const TObjectPtr<UGeometryCollection>* Collection = PropBreakables.Find(ISM->GetStaticMesh());
+
+			if (Collection && *Collection)
+			{
+				for (const int32 Instance : ToRemove)
+				{
+					FTransform WorldTransform;
+
+					if (ISM->GetInstanceTransform(Instance, WorldTransform, /*bWorldSpace=*/true))
+					{
+						SpawnBrokenProp(*Collection, WorldTransform);
+					}
+				}
+			}
+		}
+
+		// Already sorted high to low
+		ISM->RemoveInstances(ToRemove, /*bInstanceArrayAlreadySortedInReverseOrder=*/true);
+	}
+}
+
+void AMyHexPlatform::SpawnBrokenProp(UGeometryCollection* Collection, const FTransform& WorldTransform)
+{
+	UWorld* World = GetWorld();
+
+	if (!World || !Collection)
+	{
+		return;
+	}
+
+	AGeometryCollectionActor* Broken = World->SpawnActorDeferred<AGeometryCollectionActor>(
+		AGeometryCollectionActor::StaticClass(),
+		WorldTransform,
+		this,
+		nullptr,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn
+	);
+
+	if (!Broken)
+	{
+		return;
+	}
+
+	// Each machine spawns its own debris
+	Broken->SetReplicates(false);
+
+	UGeometryCollectionComponent* GC = Broken->GetGeometryCollectionComponent();
+
+	if (GC)
+	{
+		GC->SetRestCollection(Collection);
+		GC->ObjectType = EObjectStateTypeEnum::Chaos_Object_Dynamic;
+
+		// Set before the physics state is created, so it applies on the first frame
+		const FVector Spread(FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f), 0.f);
+		GC->InitialVelocityType = EInitialVelocityTypeEnum::Chaos_Initial_Velocity_User_Defined;
+		GC->InitialLinearVelocity = BrokenPropImpulse + Spread * BrokenPropImpulse.Size() * 0.5f;
+	}
+
+	Broken->FinishSpawning(WorldTransform);
+	Broken->SetLifeSpan(BrokenPropLifeSpan);
+
+	if (GC && bCrumbleBrokenProps)
+	{
+		GC->CrumbleActiveClusters();
+	}
 }
