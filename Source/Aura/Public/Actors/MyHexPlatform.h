@@ -118,8 +118,8 @@ public:
 	void UnregisterBridge(AMyHexBridge* Bridge);
 
 	/**
-	 * Every machine. Bridges ending here, for the tile path from each bridge to the centre. A change
-	 * rebuilds the path and regenerates the tile props after PropsRegenerateDelay.
+	 * Server. Bridges ending here: their end tiles become PathStartTiles (replicated), where the tile
+	 * paths to the centre start. A change rebuilds the path and regenerates the tile props.
 	 */
 	void RegisterPathBridge(AMyHexBridge* Bridge);
 	void UnregisterPathBridge(AMyHexBridge* Bridge);
@@ -452,6 +452,20 @@ protected:
 	void OnRep_ActivatedTiles();
 
 	/**
+	 * Server-owned bridge end tiles on this platform, sorted by TileIndex: the tile paths start here.
+	 * Every machine lays the same path from these and the grid layout. Stops changing with bPathFrozen.
+	 */
+	UPROPERTY(ReplicatedUsing = OnRep_PathStartTiles)
+	TArray<FIntVector> PathStartTiles;
+
+	/** Set by the server when the lead lands or collapsing starts: the path and the tile props stop changing. */
+	UPROPERTY(Replicated)
+	bool bPathFrozen = false;
+
+	UFUNCTION()
+	void OnRep_PathStartTiles();
+
+	/**
 	 * Collapses locally every replicated tile this machine hasn't collapsed yet. bPlayEffect = false
 	 * only removes the tiles (no falling pillars), for tiles that fell before this client got the platform.
 	 */
@@ -626,10 +640,19 @@ private:
 	FTimerHandle LeadCheckTimerHandle;
 	FTimerHandle CollapseTimerHandle;
 
-	/** Every machine. Bridges ending on this platform, for the tile path. */
+	/** Server. Bridges ending on this platform, for PathStartTiles. */
 	TArray<TWeakObjectPtr<AMyHexBridge>> PathBridges;
 
+	/** Server. Start tiles of bridges destroyed because an end tile fell: the walkway to them stays. */
+	TSet<FIntVector> RetainedPathStarts;
+
+	/** Every tile's top centre as built (before late-join removals), so every machine lays the same path. */
+	TMap<FIntVector, FVector> PathLayoutTiles;
+
 	FTimerHandle TilePropsTimerHandle;
+
+	/** GenerateTileProps has run at least once. */
+	bool bTilePropsGenerated = false;
 
 	// -------------------------------------------------------------------------
 	// Tile infos / tile props
@@ -644,8 +667,17 @@ private:
 	/** Timer: rebuilds the bridge path, then regenerates the props (waits while a component is still generating). */
 	void RebuildPathAndTileProps();
 
-	/** Sets PathDistance / PathDirection on every tile from PathBridges' end tiles. */
+	/** Sets PathDistance / PathDirection on every tile from PathStartTiles, laid out on PathLayoutTiles. */
 	void BuildBridgePaths();
+
+	/** Server. PathStartTiles from PathBridges (+ RetainedPathStarts); schedules a rebuild if they changed. */
+	void UpdatePathStartTiles();
+
+	/** Server. The lead landed or collapsing started. */
+	void FreezePath();
+
+	/** Props exist and the platform is frozen or losing tiles: no more regeneration. */
+	bool AreTilePropsFrozen() const;
 
 	/** Starts TilePropsPCG and HexTileProps2 (local, not replicated). */
 	void GenerateTileProps();

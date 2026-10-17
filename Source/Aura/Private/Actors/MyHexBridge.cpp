@@ -189,13 +189,12 @@ void AMyHexBridge::BindToPlatforms()
 		Platform->OnHexTileActivated.RemoveAll(this);
 		Platform->OnHexTileActivated.AddUObject(this, &ThisClass::OnPlatformTileActivated);
 
-		// Every machine: the platform lays its tile path from this bridge's end
-		Platform->RegisterPathBridge(this);
-
 		if (HasAuthority())
 		{
 			Platform->OnEndPlay.AddUniqueDynamic(this, &ThisClass::HandleEndPlatformEndPlay);
 			Platform->RegisterBridge(this);
+			// Its end tile becomes a start of the platform's walkway (PathStartTiles, replicated)
+			Platform->RegisterPathBridge(this);
 		}
 	}
 

@@ -96,6 +96,9 @@ void AMyHexPlatform::GetLifetimeReplicatedProps(
 		ActivatedTiles
 	);
 
+	DOREPLIFETIME(AMyHexPlatform, PathStartTiles);
+	DOREPLIFETIME(AMyHexPlatform, bPathFrozen);
+
 	// Grid shape. Set once when the server spawns the platform (PCG property overrides) and never
 	// changed, so it only goes in the first bunch. The engine applies it before the client's
 	// BeginPlay, which is where the client builds its grid.
@@ -236,6 +239,7 @@ void AMyHexPlatform::StartCollapsing()
 	}
 
 	bCollapseStarted = true;
+	FreezePath();
 
 	// ---------------------------------------------------------------------
 	// Start chain activation timer
@@ -315,6 +319,7 @@ void AMyHexPlatform::NotifyLeadLanded()
 	}
 
 	bLeadLanded = true;
+	FreezePath();
 	TryStartCollapsing();
 }
 
@@ -575,27 +580,103 @@ void AMyHexPlatform::UnregisterBridge(AMyHexBridge* Bridge)
 
 void AMyHexPlatform::RegisterPathBridge(AMyHexBridge* Bridge)
 {
-	PathBridges.RemoveAll([](const TWeakObjectPtr<AMyHexBridge>& WeakBridge) { return !WeakBridge.IsValid(); });
-
-	if (Bridge && !PathBridges.Contains(Bridge))
+	if (!HasAuthority() || !Bridge)
 	{
-		PathBridges.Add(Bridge);
+		return;
+	}
 
-		// Once tiles are falling the path and props stay as they are
-		if (HasActorBegunPlay() && LocalActivatedTiles.IsEmpty())
+	PathBridges.RemoveAll([](const TWeakObjectPtr<AMyHexBridge>& WeakBridge) { return !WeakBridge.IsValid(); });
+	PathBridges.AddUnique(Bridge);
+
+	UpdatePathStartTiles();
+}
+
+void AMyHexPlatform::UnregisterPathBridge(AMyHexBridge* Bridge)
+{
+	if (!HasAuthority() || !Bridge || IsActorBeingDestroyed())
+	{
+		return;
+	}
+
+	// Destroyed because one of its end tiles fell: the walkway to it stays, so nothing regenerates
+	if (Bridge->HasEndTileCollapsed())
+	{
+		for (const FMyHexBridgeEnd* End : { &Bridge->GetEnds().Start, &Bridge->GetEnds().End })
+		{
+			if (End->Platform == this)
+			{
+				RetainedPathStarts.Add(End->Tile);
+			}
+		}
+	}
+
+	if (PathBridges.Remove(Bridge) > 0)
+	{
+		UpdatePathStartTiles();
+	}
+}
+
+void AMyHexPlatform::UpdatePathStartTiles()
+{
+	if (!HasAuthority() || bPathFrozen)
+	{
+		return;
+	}
+
+	TArray<FIntVector> Starts = RetainedPathStarts.Array();
+
+	for (const TWeakObjectPtr<AMyHexBridge>& WeakBridge : PathBridges)
+	{
+		const AMyHexBridge* Bridge = WeakBridge.Get();
+
+		if (!Bridge)
+		{
+			continue;
+		}
+
+		for (const FMyHexBridgeEnd* End : { &Bridge->GetEnds().Start, &Bridge->GetEnds().End })
+		{
+			if (End->Platform == this)
+			{
+				Starts.AddUnique(End->Tile);
+			}
+		}
+	}
+
+	// Only tiles of the built grid; sorted so every machine walks them in the same order
+	Starts.RemoveAll([this](const FIntVector& Tile) { return !PathLayoutTiles.IsEmpty() && !PathLayoutTiles.Contains(Tile); });
+	Starts.Sort([this](const FIntVector& A, const FIntVector& B) { return MakeTileIndex(A) < MakeTileIndex(B); });
+
+	if (Starts != PathStartTiles)
+	{
+		PathStartTiles = MoveTemp(Starts);
+
+		if (HasActorBegunPlay())
 		{
 			ScheduleTileProps(PropsRegenerateDelay);
 		}
 	}
 }
 
-void AMyHexPlatform::UnregisterPathBridge(AMyHexBridge* Bridge)
+void AMyHexPlatform::OnRep_PathStartTiles()
 {
-	// A bridge whose end tile fell is destroyed: the path and props stay as they are
-	if (PathBridges.Remove(Bridge) > 0 && HasActorBegunPlay() && !IsActorBeingDestroyed() && LocalActivatedTiles.IsEmpty())
+	if (HasActorBegunPlay())
 	{
 		ScheduleTileProps(PropsRegenerateDelay);
 	}
+}
+
+void AMyHexPlatform::FreezePath()
+{
+	if (HasAuthority())
+	{
+		bPathFrozen = true;
+	}
+}
+
+bool AMyHexPlatform::AreTilePropsFrozen() const
+{
+	return bTilePropsGenerated && (bPathFrozen || !LocalActivatedTiles.IsEmpty());
 }
 
 float AMyHexPlatform::ComputeFootprintRadius() const
@@ -1900,6 +1981,13 @@ void AMyHexPlatform::BuildTileInfos()
 			}
 		}
 	}
+
+	// The grid as built, for the bridge paths (late joiners remove fallen tiles after this)
+	PathLayoutTiles.Reset();
+	for (const TPair<FIntVector, FHexTileInfo>& Pair : TileInfos)
+	{
+		PathLayoutTiles.Add(Pair.Key, Pair.Value.LocalTopCenter);
+	}
 }
 
 
@@ -1909,15 +1997,33 @@ void AMyHexPlatform::BuildTileInfos()
 
 void AMyHexPlatform::ScheduleTileProps(float Delay)
 {
-	if (UWorld* World = GetWorld())
+	UWorld* World = GetWorld();
+
+	if (!World || AreTilePropsFrozen())
 	{
-		// Restarted on every call, so a burst of bridge changes regenerates once
-		World->GetTimerManager().SetTimer(TilePropsTimerHandle, this, &ThisClass::RebuildPathAndTileProps, FMath::Max(Delay, 0.01f), false);
+		return;
 	}
+
+	// Coalesce bursts of bridge changes, but never bring a pending generation forward
+	// (the first bridge must not cut PropsBridgeWait short)
+	FTimerManager& TimerManager = World->GetTimerManager();
+
+	if (TimerManager.IsTimerActive(TilePropsTimerHandle))
+	{
+		Delay = FMath::Max(Delay, TimerManager.GetTimerRemaining(TilePropsTimerHandle));
+	}
+
+	TimerManager.SetTimer(TilePropsTimerHandle, this, &ThisClass::RebuildPathAndTileProps, FMath::Max(Delay, 0.01f), false);
 }
 
 void AMyHexPlatform::RebuildPathAndTileProps()
 {
+	// The lead landed, collapsing started or a tile fell since this was scheduled
+	if (AreTilePropsFrozen())
+	{
+		return;
+	}
+
 	// A generation still running would ignore the new request, so come back once it's done
 	for (const UPCGComponent* PropsPCG : { TilePropsPCG.Get(), HexTileProps2.Get() })
 	{
@@ -1927,6 +2033,8 @@ void AMyHexPlatform::RebuildPathAndTileProps()
 			return;
 		}
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("%s: generating tile props (%d path start tiles, %d tiles fallen)"), *GetName(), PathStartTiles.Num(), LocalActivatedTiles.Num());
 
 	BuildBridgePaths();
 	GenerateTileProps();
@@ -1940,42 +2048,64 @@ void AMyHexPlatform::BuildBridgePaths()
 		Pair.Value.PathDirection = FVector2D::ZeroVector;
 	}
 
-	if (!bBuildBridgePaths || TileInfos.IsEmpty())
+	if (!bBuildBridgePaths || PathLayoutTiles.IsEmpty() || PathStartTiles.IsEmpty())
 	{
 		return;
 	}
 
+	// Everything below works on the grid as built, not on the live tiles, so every machine (late
+	// joiners too) lays the same path; results only go to the tiles still standing.
+	static const FIntVector Directions[6] =
+	{
+		FIntVector( 1,  0, -1), FIntVector( 1, -1,  0), FIntVector( 0, -1,  1),
+		FIntVector(-1,  0,  1), FIntVector(-1,  1,  0), FIntVector( 0,  1, -1)
+	};
+
+	auto LayoutNeighbors = [this](const FIntVector& Coord)
+	{
+		TArray<FIntVector, TInlineAllocator<6>> Result;
+		for (const FIntVector& Direction : Directions)
+		{
+			if (PathLayoutTiles.Contains(Coord + Direction))
+			{
+				Result.Add(Coord + Direction);
+			}
+		}
+		return Result;
+	};
+
 	auto TileXY = [this](const FIntVector& Coord)
 	{
-		const FVector& Top = TileInfos.FindChecked(Coord).LocalTopCenter;
+		const FVector& Top = PathLayoutTiles.FindChecked(Coord);
 		return FVector(Top.X, Top.Y, 0.0);
 	};
 
-	// Centre: the tile nearest the middle of all tiles (ties to the lower TileIndex, same on every machine)
+	// Centre: the tile nearest the middle of all tiles (ties to the lower TileIndex)
 	FVector Centroid = FVector::ZeroVector;
-	for (const TPair<FIntVector, FHexTileInfo>& Pair : TileInfos)
+	for (const TPair<FIntVector, FVector>& Pair : PathLayoutTiles)
 	{
 		Centroid += TileXY(Pair.Key);
 	}
-	Centroid /= TileInfos.Num();
+	Centroid /= PathLayoutTiles.Num();
 
 	FIntVector Centre = FIntVector::ZeroValue;
 	double BestDistSq = TNumericLimits<double>::Max();
 	int32 BestIndex = MAX_int32;
 
-	for (const TPair<FIntVector, FHexTileInfo>& Pair : TileInfos)
+	for (const TPair<FIntVector, FVector>& Pair : PathLayoutTiles)
 	{
 		const double DistSq = FVector::DistSquared(TileXY(Pair.Key), Centroid);
+		const int32 Index = MakeTileIndex(Pair.Key);
 
-		if (DistSq < BestDistSq - 1.0 || (FMath::IsNearlyEqual(DistSq, BestDistSq, 1.0) && Pair.Value.TileIndex < BestIndex))
+		if (DistSq < BestDistSq - 1.0 || (FMath::IsNearlyEqual(DistSq, BestDistSq, 1.0) && Index < BestIndex))
 		{
 			BestDistSq = DistSq;
-			BestIndex = Pair.Value.TileIndex;
+			BestIndex = Index;
 			Centre = Pair.Key;
 		}
 	}
 
-	// Steps from the centre over the remaining tiles
+	// Steps from the centre
 	TMap<FIntVector, int32> StepsToCentre;
 	StepsToCentre.Add(Centre, 0);
 	TArray<FIntVector> Queue = { Centre };
@@ -1985,9 +2115,9 @@ void AMyHexPlatform::BuildBridgePaths()
 		const FIntVector Current = Queue[Head];
 		const int32 NextSteps = StepsToCentre.FindChecked(Current) + 1;
 
-		for (const FIntVector& Neighbor : GetNeighbors(Current))
+		for (const FIntVector& Neighbor : LayoutNeighbors(Current))
 		{
-			if (TileInfos.Contains(Neighbor) && !StepsToCentre.Contains(Neighbor))
+			if (!StepsToCentre.Contains(Neighbor))
 			{
 				StepsToCentre.Add(Neighbor, NextSteps);
 				Queue.Add(Neighbor);
@@ -1995,63 +2125,36 @@ void AMyHexPlatform::BuildBridgePaths()
 		}
 	}
 
-	// Bridge end tiles on this platform, sorted so every machine walks them in the same order
-	TArray<FIntVector> Starts;
+	// Walk down the step count from each start tile (already sorted), keeping close to the straight
+	// line to the centre. A start the walk can't leave is still kept clear.
+	TSet<FIntVector> PathSet;
+	TMap<FIntVector, FVector2D> PathDirections;
 
-	for (const TWeakObjectPtr<AMyHexBridge>& WeakBridge : PathBridges)
+	for (const FIntVector& Start : PathStartTiles)
 	{
-		const AMyHexBridge* Bridge = WeakBridge.Get();
-
-		if (!Bridge)
+		if (!PathLayoutTiles.Contains(Start))
 		{
 			continue;
 		}
 
-		for (const FMyHexBridgeEnd* End : { &Bridge->GetEnds().Start, &Bridge->GetEnds().End })
+		PathSet.Add(Start);
+
+		if (!StepsToCentre.Contains(Start))
 		{
-			if (End->Platform == this && StepsToCentre.Contains(End->Tile))
-			{
-				Starts.AddUnique(End->Tile);
-			}
+			continue;
 		}
-	}
 
-	Starts.Sort([this](const FIntVector& A, const FIntVector& B) { return MakeTileIndex(A) < MakeTileIndex(B); });
-
-	if (Starts.IsEmpty())
-	{
-		return;
-	}
-
-	// Walk down the step count from each bridge tile, keeping close to the straight line to the centre
-	TArray<FIntVector> PathQueue;
-
-	for (const FIntVector& Start : Starts)
-	{
 		const FVector LineStart = TileXY(Start);
 		const FVector LineEnd = TileXY(Centre);
 		FIntVector Current = Start;
 
-		while (true)
+		while (Current != Centre)
 		{
-			FHexTileInfo& Info = TileInfos.FindChecked(Current);
-
-			if (Info.PathDistance != 0)
-			{
-				Info.PathDistance = 0;
-				PathQueue.Add(Current);
-			}
-
-			if (Current == Centre)
-			{
-				break;
-			}
-
 			const int32 WantedSteps = StepsToCentre.FindChecked(Current) - 1;
 			FIntVector Next = Current;
 			double BestLineDist = TNumericLimits<double>::Max();
 
-			for (const FIntVector& Neighbor : GetNeighbors(Current))
+			for (const FIntVector& Neighbor : LayoutNeighbors(Current))
 			{
 				const int32* Steps = StepsToCentre.Find(Neighbor);
 
@@ -2075,48 +2178,47 @@ void AMyHexPlatform::BuildBridgePaths()
 			}
 
 			// First path through a tile sets its direction
-			if (Info.PathDirection.IsZero())
+			if (!PathDirections.Contains(Current))
 			{
 				const FVector Step = TileXY(Next) - TileXY(Current);
-				Info.PathDirection = FVector2D(Step.X, Step.Y).GetSafeNormal();
+				PathDirections.Add(Current, FVector2D(Step.X, Step.Y).GetSafeNormal());
 			}
 
 			Current = Next;
+			PathSet.Add(Current);
 		}
 	}
 
-	// The centre carries on in the direction of the path that reached it first
-	FHexTileInfo& CentreInfo = TileInfos.FindChecked(Centre);
-
-	if (CentreInfo.PathDirection.IsZero())
+	// The centre carries on in the direction of a path that reached it
+	if (PathSet.Contains(Centre) && !PathDirections.Contains(Centre))
 	{
-		for (const FIntVector& Neighbor : GetNeighbors(Centre))
+		for (const FIntVector& Neighbor : LayoutNeighbors(Centre))
 		{
-			const FHexTileInfo* NeighborInfo = TileInfos.Find(Neighbor);
-
-			if (NeighborInfo && NeighborInfo->PathDistance == 0 && !NeighborInfo->PathDirection.IsZero())
+			if (const FVector2D* Direction = PathDirections.Find(Neighbor))
 			{
-				CentreInfo.PathDirection = NeighborInfo->PathDirection;
+				PathDirections.Add(Centre, *Direction);
 				break;
 			}
 		}
 	}
 
-	// Rings out from the path, so big props can keep their distance
-	for (int32 Head = 0; Head < PathQueue.Num(); ++Head)
+	// Straight hex distance to the nearest path tile, so a notch in the outline doesn't let big props closer
+	for (TPair<FIntVector, FHexTileInfo>& Pair : TileInfos)
 	{
-		const FIntVector Current = PathQueue[Head];
-		const int32 NextDistance = TileInfos.FindChecked(Current).PathDistance + 1;
+		const FIntVector& Coord = Pair.Key;
+		int32 Distance = MAX_int32;
 
-		for (const FIntVector& Neighbor : GetNeighbors(Current))
+		for (const FIntVector& PathTile : PathSet)
 		{
-			FHexTileInfo* NeighborInfo = TileInfos.Find(Neighbor);
+			const FIntVector D = Coord - PathTile;
+			Distance = FMath::Min(Distance, FMath::Max3(FMath::Abs(D.X), FMath::Abs(D.Y), FMath::Abs(D.Z)));
+		}
 
-			if (NeighborInfo && NeighborInfo->PathDistance > NextDistance)
-			{
-				NeighborInfo->PathDistance = NextDistance;
-				PathQueue.Add(Neighbor);
-			}
+		Pair.Value.PathDistance = Distance;
+
+		if (Distance == 0)
+		{
+			Pair.Value.PathDirection = PathDirections.FindRef(Coord);
 		}
 	}
 }
@@ -2133,6 +2235,8 @@ void AMyHexPlatform::GenerateTileProps()
 	{
 		TileInfos.Remove(Coord);
 	}
+
+	bTilePropsGenerated = true;
 
 	for (UPCGComponent* PropsPCG : { TilePropsPCG.Get(), HexTileProps2.Get() })
 	{
@@ -2218,6 +2322,12 @@ void AMyHexPlatform::OnTilePropsGenerated(UPCGComponent* InComponent)
 void AMyHexPlatform::HandleTileActivated(AMyHexPlatform* Platform, const FIntVector& Coord)
 {
 	TileInfos.Remove(Coord);
+
+	// The first tile to fall freezes the props: drop any pending regeneration
+	if (bTilePropsGenerated)
+	{
+		GetWorldTimerManager().ClearTimer(TilePropsTimerHandle);
+	}
 
 	// Debris is cosmetic: none on a dedicated server
 	BreakTileProps(MakeTileIndex(Coord), /*bSpawnBreakables=*/GetNetMode() != NM_DedicatedServer);
