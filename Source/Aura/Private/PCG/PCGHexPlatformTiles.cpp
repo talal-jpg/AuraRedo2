@@ -12,11 +12,25 @@
 
 #define LOCTEXT_NAMESPACE "PCGHexPlatformTiles"
 
+namespace PCGHexPlatformTilesConstants
+{
+	static const FName PathPinLabel = TEXT("Path");
+	static const FName PathDistanceAttributeName = TEXT("PathDistance");
+}
+
 
 TArray<FPCGPinProperties> UPCGHexPlatformTilesSettings::InputPinProperties() const
 {
 	// Reads the owning platform, no inputs
 	return {};
+}
+
+TArray<FPCGPinProperties> UPCGHexPlatformTilesSettings::OutputPinProperties() const
+{
+	TArray<FPCGPinProperties> Properties;
+	Properties.Emplace(PCGPinConstants::DefaultOutputLabel, EPCGDataType::Point);
+	Properties.Emplace(PCGHexPlatformTilesConstants::PathPinLabel, EPCGDataType::Point);
+	return Properties;
 }
 
 FPCGElementPtr UPCGHexPlatformTilesSettings::CreateElement() const
@@ -62,10 +76,12 @@ bool FPCGHexPlatformTilesElement::ExecuteInternal(FPCGContext* Context) const
 		int32 TileIndex;
 		int32 EdgeDepth;
 		bool bIsEdge;
+		int32 PathDistance;
 		int32 Seed;
 	};
 
 	TArray<FScatterPoint> Points;
+	TArray<FScatterPoint> PathPoints;
 
 	for (const FHexTileInfo* Tile : SortedTiles)
 	{
@@ -83,6 +99,20 @@ bool FPCGHexPlatformTilesElement::ExecuteInternal(FPCGContext* Context) const
 		}
 
 		const bool bIsEdge = OpenSides.Num() > 0;
+
+		// One point per path tile: top centre, X along the path
+		if (Tile->PathDistance == 0)
+		{
+			const float PathYaw = FMath::RadiansToDegrees(FMath::Atan2(Tile->PathDirection.Y, Tile->PathDirection.X));
+
+			FScatterPoint& PathPoint = PathPoints.AddDefaulted_GetRef();
+			PathPoint.Transform = FTransform(FRotator(0.f, PathYaw, 0.f), Tile->LocalTopCenter, FVector(SizeScale)) * ActorTransform;
+			PathPoint.TileIndex = Tile->TileIndex;
+			PathPoint.EdgeDepth = Tile->EdgeDepth;
+			PathPoint.bIsEdge = bIsEdge;
+			PathPoint.PathDistance = 0;
+			PathPoint.Seed = PCGHelpers::ComputeSeed(TileSeed, -1);
+		}
 
 		const float Falloff01 = FMath::Clamp(static_cast<float>(Tile->EdgeDepth) / static_cast<float>(FMath::Max(1, Settings->EdgeFalloffRings)), 0.f, 1.f);
 		const float Chance = FMath::Lerp(Settings->EdgeChance, Settings->InnerChance, Falloff01);
@@ -143,6 +173,7 @@ bool FPCGHexPlatformTilesElement::ExecuteInternal(FPCGContext* Context) const
 			Point.TileIndex = Tile->TileIndex;
 			Point.EdgeDepth = Tile->EdgeDepth;
 			Point.bIsEdge = bIsEdge;
+			Point.PathDistance = Tile->PathDistance;
 			Point.Seed = PCGHelpers::ComputeSeed(TileSeed, Attempt);
 		}
 	}
@@ -151,43 +182,56 @@ bool FPCGHexPlatformTilesElement::ExecuteInternal(FPCGContext* Context) const
 	// Output
 	// -------------------------------------------------------------------------
 
-	UPCGBasePointData* PointData = FPCGContext::NewPointData_AnyThread(Context);
-	check(PointData);
+	const FVector PointExtent(Settings->PointExtent);
 
-	FPCGTaggedData& Output = Context->OutputData.TaggedData.Emplace_GetRef();
-	Output.Data = PointData;
-
-	UPCGMetadata* Metadata = PointData->MutableMetadata();
-	FPCGMetadataAttribute<int32>* TileIndexAttr = Metadata->CreateAttribute<int32>(AMyHexPlatform::TileIndexAttributeName, INDEX_NONE, false, true);
-	FPCGMetadataAttribute<int32>* EdgeDepthAttr = Metadata->CreateAttribute<int32>(TEXT("EdgeDepth"), 0, false, true);
-	FPCGMetadataAttribute<bool>* IsEdgeAttr = Metadata->CreateAttribute<bool>(TEXT("IsEdge"), false, false, true);
-
-	PointData->SetNumPoints(Points.Num(), /*bInitializeValues=*/false);
-	PointData->AllocateProperties(EPCGPointNativeProperties::All);
-
-	FPCGPointValueRanges OutRanges(PointData, /*bAllocate=*/false);
-
-	const FVector Extent(Settings->PointExtent);
-
-	for (int32 Index = 0; Index < Points.Num(); ++Index)
+	auto WritePoints = [Context](const TArray<FScatterPoint>& Source, FName PinLabel, TFunctionRef<FVector(const FScatterPoint&)> GetExtent)
 	{
-		const FScatterPoint& Src = Points[Index];
+		UPCGBasePointData* PointData = FPCGContext::NewPointData_AnyThread(Context);
+		check(PointData);
 
-		FPCGPoint Point;
-		Point.Transform = Src.Transform;
-		Point.BoundsMin = -Extent;
-		Point.BoundsMax = Extent;
-		Point.Density = 1.f;
-		Point.Steepness = 0.5f;
-		Point.Seed = Src.Seed;
-		Point.MetadataEntry = Metadata->AddEntry();
+		FPCGTaggedData& Output = Context->OutputData.TaggedData.Emplace_GetRef();
+		Output.Data = PointData;
+		Output.Pin = PinLabel;
 
-		TileIndexAttr->SetValue(Point.MetadataEntry, Src.TileIndex);
-		EdgeDepthAttr->SetValue(Point.MetadataEntry, Src.EdgeDepth);
-		IsEdgeAttr->SetValue(Point.MetadataEntry, Src.bIsEdge);
+		UPCGMetadata* Metadata = PointData->MutableMetadata();
+		FPCGMetadataAttribute<int32>* TileIndexAttr = Metadata->CreateAttribute<int32>(AMyHexPlatform::TileIndexAttributeName, INDEX_NONE, false, true);
+		FPCGMetadataAttribute<int32>* EdgeDepthAttr = Metadata->CreateAttribute<int32>(TEXT("EdgeDepth"), 0, false, true);
+		FPCGMetadataAttribute<bool>* IsEdgeAttr = Metadata->CreateAttribute<bool>(TEXT("IsEdge"), false, false, true);
+		FPCGMetadataAttribute<int32>* PathDistanceAttr = Metadata->CreateAttribute<int32>(PCGHexPlatformTilesConstants::PathDistanceAttributeName, MAX_int32, false, true);
 
-		OutRanges.SetFromPoint(Index, Point);
-	}
+		PointData->SetNumPoints(Source.Num(), /*bInitializeValues=*/false);
+		PointData->AllocateProperties(EPCGPointNativeProperties::All);
+
+		FPCGPointValueRanges OutRanges(PointData, /*bAllocate=*/false);
+
+		for (int32 Index = 0; Index < Source.Num(); ++Index)
+		{
+			const FScatterPoint& Src = Source[Index];
+			const FVector Extent = GetExtent(Src);
+
+			FPCGPoint Point;
+			Point.Transform = Src.Transform;
+			Point.BoundsMin = -Extent;
+			Point.BoundsMax = Extent;
+			Point.Density = 1.f;
+			Point.Steepness = 0.5f;
+			Point.Seed = Src.Seed;
+			Point.MetadataEntry = Metadata->AddEntry();
+
+			TileIndexAttr->SetValue(Point.MetadataEntry, Src.TileIndex);
+			EdgeDepthAttr->SetValue(Point.MetadataEntry, Src.EdgeDepth);
+			IsEdgeAttr->SetValue(Point.MetadataEntry, Src.bIsEdge);
+			PathDistanceAttr->SetValue(Point.MetadataEntry, Src.PathDistance);
+
+			OutRanges.SetFromPoint(Index, Point);
+		}
+	};
+
+	WritePoints(Points, PCGPinConstants::DefaultOutputLabel, [&PointExtent](const FScatterPoint&) { return PointExtent; });
+
+	// Path points cover their tile (bounds are before the point's scale)
+	const float PathHalfSize = SizeScale > UE_KINDA_SMALL_NUMBER && !Tiles.IsEmpty() ? Tiles.CreateConstIterator()->Value.Apothem / SizeScale : 50.f;
+	WritePoints(PathPoints, PCGHexPlatformTilesConstants::PathPinLabel, [PathHalfSize](const FScatterPoint&) { return FVector(PathHalfSize, PathHalfSize, 10.f); });
 
 	return true;
 }

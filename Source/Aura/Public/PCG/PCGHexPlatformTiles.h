@@ -15,7 +15,11 @@
  * Spawner's custom data (Instance Data Packer "By Attribute", TileIndex first) so the platform
  * can find the props of a tile when it collapses.
  *
- * Output attributes: TileIndex (int32), EdgeDepth (int32, 0 = tile with an open side), IsEdge (bool).
+ * Output attributes: TileIndex (int32), EdgeDepth (int32, 0 = tile with an open side), IsEdge (bool),
+ * PathDistance (int32, rings from the bridge path, 0 = on it, large when there is no path).
+ *
+ * The Path pin has one point per path tile (from each bridge end to the centre tile): tile top centre,
+ * X along the path, scaled like the props, bounds = the tile. Same attributes.
  * Deterministic for a given seed and grid, so every machine scatters the same props.
  */
 UCLASS(BlueprintType, ClassGroup = (Procedural))
@@ -28,14 +32,14 @@ public:
 #if WITH_EDITOR
 	virtual FName GetDefaultNodeName() const override { return FName(TEXT("HexPlatformTiles")); }
 	virtual FText GetDefaultNodeTitle() const override { return NSLOCTEXT("PCGHexPlatformTiles", "NodeTitle", "Hex Platform Tile Scatter"); }
-	virtual FText GetNodeTooltipText() const override { return NSLOCTEXT("PCGHexPlatformTiles", "NodeTooltip", "Scatter points on the owning hex platform's tile tops, more near the edges. Writes TileIndex, EdgeDepth, IsEdge."); }
+	virtual FText GetNodeTooltipText() const override { return NSLOCTEXT("PCGHexPlatformTiles", "NodeTooltip", "Scatter points on the owning hex platform's tile tops, more near the edges. Writes TileIndex, EdgeDepth, IsEdge, PathDistance. Path: one point per bridge path tile."); }
 	virtual EPCGSettingsType GetType() const override { return EPCGSettingsType::Spatial; }
 #endif
 
 protected:
 
 	virtual TArray<FPCGPinProperties> InputPinProperties() const override;
-	virtual TArray<FPCGPinProperties> OutputPinProperties() const override { return Super::DefaultPointOutputPinProperties(); }
+	virtual TArray<FPCGPinProperties> OutputPinProperties() const override;
 	virtual FPCGElementPtr CreateElement() const override;
 
 public:

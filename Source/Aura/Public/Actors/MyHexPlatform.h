@@ -71,6 +71,14 @@ struct FHexTileInfo
 	/** Bit i set = no tile on side i (AMyHexPlatform::GetHexSideDirection). Same bits as the edge mask. */
 	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
 	int32 OpenSideBits = 0;
+
+	/** Rings from the bridge path (0 = on it). MAX_int32 while the platform has no path. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	int32 PathDistance = MAX_int32;
+
+	/** Path tiles: actor-space direction along the path, towards the centre tile. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
+	FVector2D PathDirection = FVector2D::ZeroVector;
 };
 
 
@@ -108,6 +116,13 @@ public:
 	/** Server. Bridges that end on this platform register so a player over them keeps it alive. */
 	void RegisterBridge(AMyHexBridge* Bridge);
 	void UnregisterBridge(AMyHexBridge* Bridge);
+
+	/**
+	 * Every machine. Bridges ending here, for the tile path from each bridge to the centre. A change
+	 * rebuilds the path and regenerates the tile props after PropsRegenerateDelay.
+	 */
+	void RegisterPathBridge(AMyHexBridge* Bridge);
+	void UnregisterPathBridge(AMyHexBridge* Bridge);
 
 	/** True once the tile has started collapsing, on this machine or on the server. */
 	bool IsTileCollapsed(const FIntVector& Coord) const;
@@ -371,6 +386,24 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
 	TMap<TObjectPtr<UStaticMesh>, TObjectPtr<UGeometryCollection>> PropBreakables;
 
+	/**
+	 * Lay a path of tiles from every bridge end to the centre tile (FHexTileInfo::PathDistance /
+	 * PathDirection, read by the Hex Platform Tile Scatter node: path floor, no props on it).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
+	bool bBuildBridgePaths = true;
+
+	/**
+	 * Seconds after BeginPlay before the first tile prop generation, so the bridges (and with them the
+	 * path) are usually known. Bridges arriving later regenerate the props.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props", meta = (ClampMin = "0.0"))
+	float PropsBridgeWait = 3.f;
+
+	/** Seconds after the last bridge change before the path is rebuilt and the props regenerate. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props", meta = (ClampMin = "0.0"))
+	float PropsRegenerateDelay = 0.5f;
+
 	/** Seconds the broken Geometry Collections live. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props", meta = (ClampMin = "0.1"))
 	float BrokenPropLifeSpan = 6.f;
@@ -593,12 +626,26 @@ private:
 	FTimerHandle LeadCheckTimerHandle;
 	FTimerHandle CollapseTimerHandle;
 
+	/** Every machine. Bridges ending on this platform, for the tile path. */
+	TArray<TWeakObjectPtr<AMyHexBridge>> PathBridges;
+
+	FTimerHandle TilePropsTimerHandle;
+
 	// -------------------------------------------------------------------------
 	// Tile infos / tile props
 	// -------------------------------------------------------------------------
 
 	/** Fills TileInfos from HexMap (top centre, bounds, edge depth, open sides). End of BuildHexGrid. */
 	void BuildTileInfos();
+
+	/** (Re)starts the tile prop timer: path rebuild + GenerateTileProps after Delay. */
+	void ScheduleTileProps(float Delay);
+
+	/** Timer: rebuilds the bridge path, then regenerates the props (waits while a component is still generating). */
+	void RebuildPathAndTileProps();
+
+	/** Sets PathDistance / PathDirection on every tile from PathBridges' end tiles. */
+	void BuildBridgePaths();
 
 	/** Starts TilePropsPCG and HexTileProps2 (local, not replicated). */
 	void GenerateTileProps();

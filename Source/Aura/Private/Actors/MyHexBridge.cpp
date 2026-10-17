@@ -119,6 +119,7 @@ void AMyHexBridge::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			Platform->OnHexTileActivated.RemoveAll(this);
 			Platform->OnEndPlay.RemoveDynamic(this, &ThisClass::HandleEndPlatformEndPlay);
 			Platform->UnregisterBridge(this);
+			Platform->UnregisterPathBridge(this);
 		}
 	}
 
@@ -187,6 +188,9 @@ void AMyHexBridge::BindToPlatforms()
 
 		Platform->OnHexTileActivated.RemoveAll(this);
 		Platform->OnHexTileActivated.AddUObject(this, &ThisClass::OnPlatformTileActivated);
+
+		// Every machine: the platform lays its tile path from this bridge's end
+		Platform->RegisterPathBridge(this);
 
 		if (HasAuthority())
 		{
