@@ -46,6 +46,7 @@ void AMyHexBridge::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 
 	// Set once before FinishSpawning and never changed
 	DOREPLIFETIME_CONDITION(AMyHexBridge, Ends, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexBridge, bIsBottomBridge, COND_InitialOnly);
 }
 
 void AMyHexBridge::OnRep_Ends()
@@ -59,12 +60,13 @@ void AMyHexBridge::OnRep_Ends()
 // Init (server)
 // =============================================================================
 
-void AMyHexBridge::InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridgeEnd& InEnd, const FVector& InStartTangent, const FVector& InEndTangent)
+void AMyHexBridge::InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridgeEnd& InEnd, const FVector& InStartTangent, const FVector& InEndTangent, bool bInIsBottomBridge)
 {
 	Ends.Start = InStart;
 	Ends.End = InEnd;
 	Ends.StartTangent = InStartTangent;
 	Ends.EndTangent = InEndTangent;
+	bIsBottomBridge = bInIsBottomBridge;
 }
 
 
@@ -87,21 +89,6 @@ void AMyHexBridge::BeginPlay()
 	// properties are applied before BeginPlay, so the points are already there too.
 	ApplyEnds();
 	BindToPlatforms();
-	
-	//Adding Mid point to bend spline before pcg Gen
-	if (BridgeSpline->GetNumberOfSplinePoints()==2)
-	{
-		
-		FVector Pos1 = BridgeSpline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
-		FVector Pos2 = BridgeSpline->GetLocationAtSplinePoint(1, ESplineCoordinateSpace::World);
-		FVector MidPos = (Pos1 + Pos2) * 0.5f;
-		float Length=FVector::Dist(Pos1,Pos2);
-		float Disp= Length*0.1143;
-		MidPos = MidPos + FVector(0, 0, -Disp);
-		
-		BridgeSpline->AddSplinePointAtIndex(MidPos, 1, ESplineCoordinateSpace::World, true);
-	}
-
 
 	if (bGenerateOnBeginPlay && PCGComponent && PCGComponent->GetGraph())
 	{
@@ -146,18 +133,47 @@ void AMyHexBridge::ApplyEnds()
 		return;
 	}
 
-	// Replaces the two default points a spline starts with
-	BridgeSpline->SetSplinePoints(
-		{ Ends.Start.Location, Ends.End.Location },
-		ESplineCoordinateSpace::World,
-		/*bUpdateSpline=*/false
-	);
+	const FVector& P0 = Ends.Start.Location;
+	const FVector& P1 = Ends.End.Location;
 
 	// A curved deck: the server's tangents, applied verbatim so every machine gets the same curve
-	if (!Ends.StartTangent.IsNearlyZero() || !Ends.EndTangent.IsNearlyZero())
+	const bool bCurved = !Ends.StartTangent.IsNearlyZero() || !Ends.EndTangent.IsNearlyZero();
+
+	// A top bridge dips at the middle like a rope bridge. A bottom bridge keeps the planned deck.
+	const double Sag = bIsBottomBridge ? 0.0 : SagRatio * FVector::Dist(P0, P1);
+
+	if (Sag <= UE_KINDA_SMALL_NUMBER)
 	{
-		BridgeSpline->SetTangentsAtSplinePoint(0, Ends.StartTangent, Ends.StartTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
-		BridgeSpline->SetTangentsAtSplinePoint(1, Ends.EndTangent, Ends.EndTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+		// Replaces the two default points a spline starts with
+		BridgeSpline->SetSplinePoints({ P0, P1 }, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+
+		if (bCurved)
+		{
+			BridgeSpline->SetTangentsAtSplinePoint(0, Ends.StartTangent, Ends.StartTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+			BridgeSpline->SetTangentsAtSplinePoint(1, Ends.EndTangent, Ends.EndTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+		}
+	}
+	else
+	{
+		// The planned deck is one cubic (the chord when straight). Split at its middle into two cubics,
+		// it keeps exactly the same path seen from above; each half spans half the input range, so the
+		// tangents halve. The middle point then drops by Sag and the end tangents' Z moves by Sag,
+		// which is the dip the old inserted middle point gave. (Inserting that point into the curved
+		// spline kept the full-length end tangents on half-length segments and pulled the middle back
+		// onto the straight line, so curved decks bent the wrong way.)
+		const FVector T0 = bCurved ? Ends.StartTangent : P1 - P0;
+		const FVector T1 = bCurved ? Ends.EndTangent : P1 - P0;
+		const FVector Down(0.0, 0.0, Sag);
+
+		const FVector Mid = FMath::CubicInterp(P0, T0, P1, T1, 0.5) - Down;
+		const FVector StartTangent = 0.5 * T0 - Down;
+		const FVector MidTangent = 0.5 * FMath::CubicInterpDerivative(P0, T0, P1, T1, 0.5);
+		const FVector EndTangent = 0.5 * T1 + Down;
+
+		BridgeSpline->SetSplinePoints({ P0, Mid, P1 }, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+		BridgeSpline->SetTangentsAtSplinePoint(0, StartTangent, StartTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+		BridgeSpline->SetTangentsAtSplinePoint(1, MidTangent, MidTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
+		BridgeSpline->SetTangentsAtSplinePoint(2, EndTangent, EndTangent, ESplineCoordinateSpace::World, /*bUpdateSpline=*/false);
 	}
 
 	BridgeSpline->UpdateSpline();

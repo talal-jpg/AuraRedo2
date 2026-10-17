@@ -8,6 +8,8 @@
 #include "UObject/ObjectKey.h"
 #include "MyHexBridgeSubsystem.generated.h"
 
+struct FStreamableHandle;
+
 class AMyHexBridge;
 class AMyHexPlatform;
 class APawn;
@@ -46,6 +48,8 @@ class AURA_API UMyHexBridgeSubsystem : public UWorldSubsystem
 	GENERATED_BODY()
 
 public:
+
+	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 
 	virtual void Deinitialize() override;
 
@@ -265,8 +269,11 @@ private:
 	 */
 	bool TraceReaches(const FEdgeWorld& From, const FEdgeWorld& To, const AMyHexPlatform& Target, const UMyHexBridgeSettings& Settings, const FCollisionQueryParams* QueryParams = nullptr) const;
 
-	/** Tangents are world-space spline tangents from EdgeA to EdgeB (zero = straight). */
-	AMyHexBridge* SpawnBridge(AMyHexPlatform& A, const FEdgeWorld& EdgeA, AMyHexPlatform& B, const FEdgeWorld& EdgeB, const FVector& StartTangent, const FVector& EndTangent, const UMyHexBridgeSettings& Settings);
+	/**
+	 * Tangents are world-space spline tangents from EdgeA to EdgeB (zero = straight).
+	 * bBottom: both platforms are on the lower chain; spawns BottomBridgeClass when it is set.
+	 */
+	AMyHexBridge* SpawnBridge(AMyHexPlatform& A, const FEdgeWorld& EdgeA, AMyHexPlatform& B, const FEdgeWorld& EdgeB, const FVector& StartTangent, const FVector& EndTangent, bool bBottom, const UMyHexBridgeSettings& Settings);
 
 	FIntPoint GetCell(const FVector& Location, float CellSize) const;
 
@@ -315,4 +322,7 @@ private:
 	int32 CullsThisFrame = 0;
 
 	FTimerHandle ProcessTimerHandle;
+
+	/** Keeps BridgeClass and BottomBridgeClass loaded on every machine from world begin play. */
+	TSharedPtr<FStreamableHandle> BridgeClassesHandle;
 };

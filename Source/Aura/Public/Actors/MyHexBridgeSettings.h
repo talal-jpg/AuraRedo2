@@ -27,9 +27,19 @@ class AURA_API UMyHexBridgeSettings : public UDeveloperSettings
 
 public:
 
-	/** Actor spawned for every bridge. Use a Blueprint child of AMyHexBridge with its PCG graph set. */
+	/**
+	 * Actor spawned for every bridge (bottom bridges: BottomBridgeClass when set). Use a Blueprint
+	 * child of AMyHexBridge with its PCG graph set.
+	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Bridges")
 	TSoftClassPtr<AMyHexBridge> BridgeClass;
+
+	/**
+	 * Actor spawned instead of BridgeClass for a bottom bridge: both platforms on the lower chain
+	 * (HexLower). Unset = BridgeClass for every bridge.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Bridges")
+	TSoftClassPtr<AMyHexBridge> BottomBridgeClass;
 
 	/**
 	 * Seconds to wait after a platform registers before building the batch's bridges. Restarted by

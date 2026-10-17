@@ -11,7 +11,9 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SplineComponent.h"
 #include "DrawDebugHelpers.h"
+#include "Engine/AssetManager.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/StreamableManager.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
@@ -4581,6 +4583,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 			FEdgeWorld EdgeSecond;
 			FVector StartTangent;
 			FVector EndTangent;
+			bool bBottom;
 		};
 
 		TArray<FSpawn> Spawns;
@@ -4618,6 +4621,9 @@ struct UMyHexBridgeSubsystem::FPlanner
 			Spawn.EdgeSecond = bAFirst ? EdgeB : EdgeA;
 			Spawn.StartTangent = bAFirst ? Record.TangentA : -Record.TangentB;
 			Spawn.EndTangent = bAFirst ? Record.TangentB : -Record.TangentA;
+
+			// Bottom bridge: both platforms on the lower chain (a cross-chain bridge is not one)
+			Spawn.bBottom = E(Record.LocalA).Chain == 0 && E(Record.LocalB).Chain == 0;
 		}
 
 		TArray<TWeakObjectPtr<AMyHexPlatform>> ToNotify;
@@ -4637,7 +4643,7 @@ struct UMyHexBridgeSubsystem::FPlanner
 				continue;
 			}
 
-			if (AMyHexBridge* Bridge = Sub.SpawnBridge(*First, Spawn.EdgeFirst, *Second, Spawn.EdgeSecond, Spawn.StartTangent, Spawn.EndTangent, Settings))
+			if (AMyHexBridge* Bridge = Sub.SpawnBridge(*First, Spawn.EdgeFirst, *Second, Spawn.EdgeSecond, Spawn.StartTangent, Spawn.EndTangent, Spawn.bBottom, Settings))
 			{
 				Recs[Spawn.Record].Bridge = Bridge;
 				++Stats.Spawned;
@@ -4717,11 +4723,40 @@ bool UMyHexBridgeSubsystem::DoesSupportWorldType(const EWorldType::Type WorldTyp
 	return WorldType == EWorldType::Game || WorldType == EWorldType::PIE;
 }
 
+void UMyHexBridgeSubsystem::OnWorldBeginPlay(UWorld& InWorld)
+{
+	Super::OnWorldBeginPlay(InWorld);
+
+	// Server and clients: load the bridge classes now rather than in a blocking load when the first
+	// bridge of each class spawns or replicates
+	const UMyHexBridgeSettings& Settings = *GetDefault<UMyHexBridgeSettings>();
+	TArray<FSoftObjectPath> ClassPaths;
+
+	for (const TSoftClassPtr<AMyHexBridge>* Class : { &Settings.BridgeClass, &Settings.BottomBridgeClass })
+	{
+		if (!Class->IsNull())
+		{
+			ClassPaths.Add(Class->ToSoftObjectPath());
+		}
+	}
+
+	if (ClassPaths.Num() > 0 && UAssetManager::IsInitialized())
+	{
+		BridgeClassesHandle = UAssetManager::GetStreamableManager().RequestAsyncLoad(MoveTemp(ClassPaths));
+	}
+}
+
 void UMyHexBridgeSubsystem::Deinitialize()
 {
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(ProcessTimerHandle);
+	}
+
+	if (BridgeClassesHandle.IsValid())
+	{
+		BridgeClassesHandle->ReleaseHandle();
+		BridgeClassesHandle.Reset();
 	}
 
 	Platforms.Empty();
@@ -5232,9 +5267,14 @@ bool UMyHexBridgeSubsystem::TraceReaches(const FEdgeWorld& From, const FEdgeWorl
 // Spawn
 // =============================================================================
 
-AMyHexBridge* UMyHexBridgeSubsystem::SpawnBridge(AMyHexPlatform& A, const FEdgeWorld& EdgeA, AMyHexPlatform& B, const FEdgeWorld& EdgeB, const FVector& StartTangent, const FVector& EndTangent, const UMyHexBridgeSettings& Settings)
+AMyHexBridge* UMyHexBridgeSubsystem::SpawnBridge(AMyHexPlatform& A, const FEdgeWorld& EdgeA, AMyHexPlatform& B, const FEdgeWorld& EdgeB, const FVector& StartTangent, const FVector& EndTangent, bool bBottom, const UMyHexBridgeSettings& Settings)
 {
-	UClass* BridgeClass = Settings.BridgeClass.LoadSynchronous();
+	UClass* BridgeClass = bBottom ? Settings.BottomBridgeClass.LoadSynchronous() : nullptr;
+
+	if (!BridgeClass)
+	{
+		BridgeClass = Settings.BridgeClass.LoadSynchronous();
+	}
 
 	if (!BridgeClass)
 	{
@@ -5267,7 +5307,7 @@ AMyHexBridge* UMyHexBridgeSubsystem::SpawnBridge(AMyHexPlatform& A, const FEdgeW
 	End.Location = EdgeB.Mid;
 
 	// Set before FinishSpawning so BeginPlay already has the spline points and tangents
-	Bridge->InitBridge(Start, End, StartTangent, EndTangent);
+	Bridge->InitBridge(Start, End, StartTangent, EndTangent, bBottom);
 	Bridge->FinishSpawning(SpawnTransform);
 
 	// BeginPlay destroys a bridge whose end tile already collapsed

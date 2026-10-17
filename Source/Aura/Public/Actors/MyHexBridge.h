@@ -78,7 +78,7 @@ public:
 	AMyHexBridge();
 
 	/** Server only, between SpawnActorDeferred and FinishSpawning. Zero tangents = straight. */
-	void InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridgeEnd& InEnd, const FVector& InStartTangent = FVector::ZeroVector, const FVector& InEndTangent = FVector::ZeroVector);
+	void InitBridge(const FMyHexBridgeEnd& InStart, const FMyHexBridgeEnd& InEnd, const FVector& InStartTangent = FVector::ZeroVector, const FVector& InEndTangent = FVector::ZeroVector, bool bInIsBottomBridge = false);
 
 	UFUNCTION(BlueprintPure, Category = "Hex Bridge")
 	const FMyHexBridgeEnds& GetEnds() const { return Ends; }
@@ -90,6 +90,13 @@ public:
 	/** Fires once, on every machine, when the first of the two end tiles collapses. */
 	UPROPERTY(BlueprintAssignable, Category = "Hex Bridge")
 	FOnHexBridgeEndTileCollapsedSignature OnEndTileCollapsed;
+
+	/**
+	 * Both end platforms are on the lower chain (HexLower). Set by UMyHexBridgeSubsystem at spawn and
+	 * replicated with the first update, so every machine has it in BeginPlay. Never changes.
+	 */
+	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Bridge")
+	bool bIsBottomBridge = false;
 
 protected:
 
@@ -118,6 +125,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Bridge")
 	bool bGenerateOnBeginPlay = true;
 
+	/**
+	 * A top bridge (not bIsBottomBridge) dips like a rope bridge: its middle sits this fraction of the
+	 * distance between its ends below the planned deck. 0 = no dip. Bottom bridges never dip.
+	 * The planner's slope and clearance checks don't include the dip.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Bridge", meta = (ClampMin = "0.0"))
+	float SagRatio = 0.1143f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Bridge")
 	bool bDestroyWhenEndTileCollapses = true;
 
@@ -133,7 +148,7 @@ private:
 	UFUNCTION()
 	void OnRep_Ends();
 
-	/** Puts the spline on the two end points, with the custom tangents when there are any. */
+	/** Puts the spline on the two end points, with the custom tangents when there are any and the dip of a top bridge. */
 	void ApplyEnds();
 
 	/**
