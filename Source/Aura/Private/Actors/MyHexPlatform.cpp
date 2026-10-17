@@ -74,6 +74,10 @@ AMyHexPlatform::AMyHexPlatform()
 	TilePropsPCG = CreateDefaultSubobject<UPCGComponent>(TEXT("TilePropsPCG"));
 	TilePropsPCG->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
 	TilePropsPCG->SetIsReplicated(false);
+
+	HexTileProps2 = CreateDefaultSubobject<UPCGComponent>(TEXT("HexTileProps2"));
+	HexTileProps2->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
+	HexTileProps2->SetIsReplicated(false);
 }
 
 
@@ -1879,7 +1883,7 @@ void AMyHexPlatform::BuildTileInfos()
 
 void AMyHexPlatform::GenerateTileProps()
 {
-	if (!bSpawnTileProps || !TilePropsPCG || !TilePropsPCG->GetGraph())
+	if (!bSpawnTileProps)
 	{
 		return;
 	}
@@ -1890,33 +1894,59 @@ void AMyHexPlatform::GenerateTileProps()
 		TileInfos.Remove(Coord);
 	}
 
-	TilePropsPCG->OnPCGGraphGeneratedDelegate.RemoveAll(this);
-	TilePropsPCG->OnPCGGraphGeneratedDelegate.AddUObject(this, &ThisClass::OnTilePropsGenerated);
+	for (UPCGComponent* PropsPCG : { TilePropsPCG.Get(), HexTileProps2.Get() })
+	{
+		if (!PropsPCG || !PropsPCG->GetGraph())
+		{
+			continue;
+		}
 
-	TilePropsPCG->GenerateLocal(/*bForce=*/true);
+		PropsPCG->OnPCGGraphGeneratedDelegate.RemoveAll(this);
+		PropsPCG->OnPCGGraphGeneratedDelegate.AddUObject(this, &ThisClass::OnTilePropsGenerated);
+
+		PropsPCG->GenerateLocal(/*bForce=*/true);
+	}
 }
 
 void AMyHexPlatform::OnTilePropsGenerated(UPCGComponent* InComponent)
 {
-	TilePropISMs.Reset();
-
 	if (!InComponent)
 	{
 		return;
 	}
 
-	TSet<int32> PropTiles;
+	// This component's prop ISMs. The other component's entries in TilePropISMs stay.
+	TArray<UInstancedStaticMeshComponent*> ComponentISMs;
 
-	InComponent->ForEachManagedResource([this, &PropTiles](UPCGManagedResource* Resource)
+	InComponent->ForEachManagedResource([this, &ComponentISMs](UPCGManagedResource* Resource)
 	{
 		const UPCGManagedISMComponent* ManagedISM = Cast<UPCGManagedISMComponent>(Resource);
 		UInstancedStaticMeshComponent* ISM = ManagedISM ? ManagedISM->GetComponent() : nullptr;
 
-		if (!ISM || ISM == HexPillarsISM || ISM->NumCustomDataFloats <= PropTileIndexCustomDataSlot)
+		if (ISM && ISM != HexPillarsISM && ISM->NumCustomDataFloats > PropTileIndexCustomDataSlot)
 		{
-			return;
+			ComponentISMs.Add(ISM);
 		}
+	});
 
+	// Drop what an earlier generation of this component left (and anything destroyed)
+	for (auto It = TilePropISMs.CreateIterator(); It; ++It)
+	{
+		It.Value().RemoveAll([&ComponentISMs](const TWeakObjectPtr<UInstancedStaticMeshComponent>& WeakISM)
+		{
+			return !WeakISM.IsValid() || ComponentISMs.Contains(WeakISM.Get());
+		});
+
+		if (It.Value().IsEmpty())
+		{
+			It.RemoveCurrent();
+		}
+	}
+
+	TSet<int32> PropTiles;
+
+	for (UInstancedStaticMeshComponent* ISM : ComponentISMs)
+	{
 		const int32 NumFloats = ISM->NumCustomDataFloats;
 		const int32 Count = ISM->GetInstanceCount();
 
@@ -1934,7 +1964,7 @@ void AMyHexPlatform::OnTilePropsGenerated(UPCGComponent* InComponent)
 			TilePropISMs.FindOrAdd(TileIndex).AddUnique(ISM);
 			PropTiles.Add(TileIndex);
 		}
-	});
+	}
 
 	// Tiles that collapsed while the graph was running
 	for (const FIntVector& Coord : LocalActivatedTiles)
@@ -1942,7 +1972,7 @@ void AMyHexPlatform::OnTilePropsGenerated(UPCGComponent* InComponent)
 		BreakTileProps(MakeTileIndex(Coord), /*bSpawnBreakables=*/false);
 	}
 
-	UE_LOG(LogTemp, Verbose, TEXT("%s: tile props on %d tiles"), *GetName(), PropTiles.Num());
+	UE_LOG(LogTemp, Verbose, TEXT("%s: %s props on %d tiles"), *GetName(), *InComponent->GetName(), PropTiles.Num());
 }
 
 void AMyHexPlatform::HandleTileActivated(AMyHexPlatform* Platform, const FIntVector& Coord)

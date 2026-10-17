@@ -178,6 +178,13 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
 	TObjectPtr<UPCGComponent> TilePropsPCG;
 
+	/**
+	 * Second tile prop layer (ice cliffs and frozen rock formations, PCG_HexTileProps2). Generated and
+	 * broken exactly like TilePropsPCG; its spawned meshes go in the same PropBreakables map.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
+	TObjectPtr<UPCGComponent> HexTileProps2;
+
 
 	// -------------------------------------------------------------------------
 	// Assets
@@ -346,7 +353,7 @@ protected:
 	// Tile props (rocks and ruins scattered by TilePropsPCG)
 	// -------------------------------------------------------------------------
 
-	/** Run TilePropsPCG in BeginPlay. */
+	/** Run TilePropsPCG and HexTileProps2 in BeginPlay. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
 	bool bSpawnTileProps = true;
 
@@ -593,10 +600,10 @@ private:
 	/** Fills TileInfos from HexMap (top centre, bounds, edge depth, open sides). End of BuildHexGrid. */
 	void BuildTileInfos();
 
-	/** Starts TilePropsPCG (local, not replicated). */
+	/** Starts TilePropsPCG and HexTileProps2 (local, not replicated). */
 	void GenerateTileProps();
 
-	/** TilePropsPCG finished: maps every prop ISM to the tiles it has instances on. */
+	/** A tile prop component finished: maps its prop ISMs to the tiles they have instances on. */
 	void OnTilePropsGenerated(UPCGComponent* InComponent);
 
 	/** OnHexTileActivated: the tile collapsed, so its props break. */
@@ -609,6 +616,9 @@ private:
 
 	TMap<FIntVector, FHexTileInfo> TileInfos;
 
-	/** TileIndex -> prop ISMs that have instances on that tile. The instances themselves are found by their TileIndex custom data, since indices shift on removal. */
+	/**
+	 * TileIndex -> prop ISMs (from both tile prop components) that have instances on that tile. The
+	 * instances themselves are found by their TileIndex custom data, since indices shift on removal.
+	 */
 	TMap<int32, TArray<TWeakObjectPtr<UInstancedStaticMeshComponent>>> TilePropISMs;
 };
