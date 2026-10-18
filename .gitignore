@@ -14,3 +14,7 @@ Build/
 *.VC.opendb
 Linux/
 *.DotSettings.user
+
+# Fab/marketplace packs: reimport from Fab, never pushed (public repo)
+/Content/Assets/AncientTechCity/
+/Content/FrozenNorseEnvironment/
