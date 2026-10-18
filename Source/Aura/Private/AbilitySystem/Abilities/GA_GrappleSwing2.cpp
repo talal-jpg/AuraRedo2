@@ -1111,7 +1111,9 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 	Ctx.Pos=Character->GetActorLocation();
 	Ctx.Up=-MoveComp->GetGravityDirection();
 	Ctx.HalfHeight=Character->GetCapsuleComponent() ? Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 88.f;
-	const FVector V=MoveComp->Velocity;
+	// const FVector V=MoveComp->Velocity;
+	const FVector V= Character->GetActorForwardVector();
+	
 	const float G=-MoveComp->GetGravityZ();
 
 	// Auto-chain: wait for the apex so the next web does not drag the release vault down
