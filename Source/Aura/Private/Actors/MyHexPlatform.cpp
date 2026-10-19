@@ -935,6 +935,37 @@ void AMyHexPlatform::BuildHexGrid()
 
 	const float InstanceRadius = HexRadius / 100;
 
+	// The side (GetHexSideDirection) of a tile that points most directly away from the platform centre.
+	// The pillar has flat sides on +-X and only tiles when turned in 60 degree steps, so each pillar is
+	// turned to put +X on that side (and -X towards the centre). Cube coordinate dot products are exact
+	// integers, so every machine picks the same side, ties included (the lowest side wins).
+	// The centre tile has no outward side and stays on side 0, i.e. unturned.
+	const auto GetOutwardSide = [](const FIntVector& Coord)
+	{
+		static const FIntVector Directions[6] =
+		{
+			FIntVector( 1,  0, -1), FIntVector( 1, -1,  0), FIntVector( 0, -1,  1),
+			FIntVector(-1,  0,  1), FIntVector(-1,  1,  0), FIntVector( 0,  1, -1)
+		};
+
+		int32 OutwardSide = 0;
+		int32 BestDot = 0;
+
+		for (int32 Side = 0; Side < 6; ++Side)
+		{
+			const FIntVector& D = Directions[Side];
+			const int32 Dot = Coord.X * D.X + Coord.Y * D.Y + Coord.Z * D.Z;
+
+			if (Dot > BestDot)
+			{
+				BestDot = Dot;
+				OutwardSide = Side;
+			}
+		}
+
+		return OutwardSide;
+	};
+
 
 	// -------------------------------------------------------------------------
 	// Generate grid
@@ -1021,7 +1052,18 @@ void AMyHexPlatform::BuildHexGrid()
 		// Create the instance
 		// ---------------------------------------------------------------------
 
+		const FIntVector Coord(
+			HexCoord.Q,
+			HexCoord.R,
+			HexCoord.S
+		);
+
 		FTransform InstanceTransform;
+
+		// +X out, -X towards the centre (side i of GetHexSideDirection is at -60 * i degrees)
+		InstanceTransform.SetRotation(
+			FRotator(0.f, -60.f * GetOutwardSide(Coord), 0.f).Quaternion()
+		);
 
 		InstanceTransform.SetLocation(
 			FVector(
@@ -1038,12 +1080,6 @@ void AMyHexPlatform::BuildHexGrid()
 				InstanceRadius,
 				Scale
 			)
-		);
-
-		const FIntVector Coord(
-			HexCoord.Q,
-			HexCoord.R,
-			HexCoord.S
 		);
 
 		const int32 InstanceIndex = AddHexInstance(Coord, InstanceTransform);
@@ -1070,10 +1106,15 @@ void AMyHexPlatform::BuildHexGrid()
 	 EdgeInstances= GetEdgeInstances();
 
 	// Custom data 3 = open-side bits for M_Pillar1's edge mask. Written after the
-	// loop so every neighbour already exists in HexMap.
+	// loop so every neighbour already exists in HexMap. The mask reads the pillar's local
+	// position, so the bits turn with the pillar: actor side i is local side i - OutwardSide.
 	for (const TPair<FIntVector, int32>& Pair : HexMap)
 	{
-		HexPillarsISM->SetCustomDataValue(Pair.Value, 3, static_cast<float>(GetOpenSideBits(Pair.Key)), false);
+		const int32 Bits = GetOpenSideBits(Pair.Key);
+		const int32 Turn = GetOutwardSide(Pair.Key);
+		const int32 LocalBits = ((Bits >> Turn) | (Bits << (6 - Turn))) & 0x3F;
+
+		HexPillarsISM->SetCustomDataValue(Pair.Value, 3, static_cast<float>(LocalBits), false);
 	}
 	HexPillarsISM->MarkRenderStateDirty();
 
@@ -1938,6 +1979,9 @@ void AMyHexPlatform::BuildTileInfos()
 		{
 			continue;
 		}
+
+		// Without the pillar's 60 degree turn: the hex covers the same ground, but its turned box wouldn't
+		InstanceTransform.SetRotation(FQuat::Identity);
 
 		const FBox Box = MeshBox.TransformBy(InstanceTransform);
 		const FVector Location = InstanceTransform.GetLocation();
