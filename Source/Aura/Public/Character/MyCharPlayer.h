@@ -7,6 +7,7 @@
 #include "Interfaces/MyPlayerInterface.h"
 #include "MyCharPlayer.generated.h"
 
+class UAnimMontage;
 class UGameplayEffect;
 class UCameraComponent;
 class USpringArmComponent;
@@ -32,6 +33,38 @@ public:
 	
 	UFUNCTION(BlueprintCallable,NetMulticast,Unreliable)
 	void Multicast_SetPhysicsState(float InPhysicsStateSetTimeStamp,float InPhysicsStateSetDuration, FName InPhysicsBoneName,FVector InPhysicsForceDir);
+	
+	// Hard landing: landing after flying faster than HardLandingMinSpeed plays HardLandingMontage on every machine,
+	// the same way BP_MyCharMech's Multicast_Roll does at the end of GA_BoostBP
+	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
+	
+	virtual void Landed(const FHitResult& Hit) override;
+	
+	UFUNCTION(BlueprintCallable,NetMulticast,Reliable)
+	void Multicast_HardLanding(float InYaw);
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="HardLanding")
+	bool bHardLandingEnabled=true;
+	
+	// Impact speed (cm/s) above which the landing plays the montage
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="HardLanding",meta=(ClampMin="0"))
+	float HardLandingMinSpeed=1200.f;
+	
+	// true: only the downward speed counts. false: the full velocity
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="HardLanding")
+	bool bHardLandingVerticalSpeedOnly=false;
+	
+	// Turns the character to its landing direction before rolling, like GA_BoostBP sets the rotation before the roll
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="HardLanding")
+	bool bHardLandingFaceVelocity=true;
+	
+	// Defaults to AM_fallToRoll_Montage, the one Multicast_Roll plays
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="HardLanding")
+	TObjectPtr<UAnimMontage> HardLandingMontage;
+	
+	// Set when the character goes from MOVE_Flying to falling, cleared on landing
+	UPROPERTY(BlueprintReadOnly,Category="HardLanding")
+	bool bFallingFromFlight=false;
 
 protected:
 	// Called when the game starts or when spawned
