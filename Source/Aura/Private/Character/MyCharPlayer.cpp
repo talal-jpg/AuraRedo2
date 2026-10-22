@@ -8,6 +8,7 @@
 #include "MyAnimInstance.h"
 #include "MyPlayerState.h"
 #include "Actors/MyHexPlatform.h"
+#include "Animation/AnimMontage.h"
 #include "AbilitySystem/Abilities/GA_GrappleSwing2.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
@@ -23,6 +24,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "UI/MyHUD.h"
+#include "UObject/ConstructorHelpers.h"
 
 
 // Sets default values
@@ -46,6 +48,50 @@ AMyCharPlayer::AMyCharPlayer()
 	bUseControllerRotationRoll = false;
 	bUseControllerRotationYaw = false;
 	
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> FallToRollMontage(TEXT("/Game/Assets/Characters/Mech/SKM_mech/Animations/AM_fallToRoll_Montage.AM_fallToRoll_Montage"));
+	HardLandingMontage=FallToRollMontage.Object;
+}
+
+void AMyCharPlayer::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode)
+{
+	Super::OnMovementModeChanged(PrevMovementMode, PreviousCustomMode);
+	
+	const EMovementMode NewMode=GetCharacterMovement()->MovementMode;
+	if (PrevMovementMode==MOVE_Flying && NewMode==MOVE_Falling)
+	{
+		bFallingFromFlight=true;
+	}
+	else if (NewMode!=MOVE_Falling)
+	{
+		// Flying again, or put on the ground without Landed (GA_BoostBP's end already rolls for Flying -> Walking)
+		bFallingFromFlight=false;
+	}
+}
+
+void AMyCharPlayer::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+	
+	const bool bWasFlying=bFallingFromFlight;
+	bFallingFromFlight=false;
+	
+	// Server decides and multicasts, like GA_BoostBP -> Multicast_Roll
+	if (!bWasFlying || !bHardLandingEnabled || !HardLandingMontage || !HasAuthority()) return;
+	
+	// Still the impact velocity here, the CMC clears it after Landed
+	const FVector ImpactVelocity=GetCharacterMovement()->Velocity;
+	const float ImpactSpeed=bHardLandingVerticalSpeedOnly ? -ImpactVelocity.Z : ImpactVelocity.Size();
+	if (ImpactSpeed<=HardLandingMinSpeed) return;
+	
+	const FVector FlatVelocity(ImpactVelocity.X,ImpactVelocity.Y,0.f);
+	const float Yaw=(bHardLandingFaceVelocity && !FlatVelocity.IsNearlyZero()) ? FlatVelocity.Rotation().Yaw : GetActorRotation().Yaw;
+	Multicast_HardLanding(Yaw);
+}
+
+void AMyCharPlayer::Multicast_HardLanding_Implementation(float InYaw)
+{
+	SetActorRotation(FRotator(0.f,InYaw,0.f));
+	PlayAnimMontage(HardLandingMontage);
 }
 
 void AMyCharPlayer::RegisterToBoostingState()
