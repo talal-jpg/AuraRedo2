@@ -840,11 +840,11 @@ void USettingsMenu3::RebuildKeyBindingRows()
 
 		FRowEntry Entry;
 		Entry.MappingName = Pair.Key;
-		for (const FPlayerKeyMapping& Mapping : Pair.Value.Mappings)
+		// Name and category come from the row's first mapping
+		if (TSet<FPlayerKeyMapping>::TConstIterator FirstMapping = Pair.Value.Mappings.CreateConstIterator())
 		{
-			Entry.DisplayName = Mapping.GetDisplayName();
-			Entry.Category = Mapping.GetDisplayCategory();
-			break;
+			Entry.DisplayName = FirstMapping->GetDisplayName();
+			Entry.Category = FirstMapping->GetDisplayCategory();
 		}
 		if (Entry.DisplayName.IsEmpty())
 		{
