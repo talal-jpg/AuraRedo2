@@ -23,6 +23,9 @@ public:
 	
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	
+	// Refuses players the host banned from the lobby (Current Session > Ban) and joins past the lobby's player limit
+	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+	
 	UPROPERTY(EditAnywhere)
 	UDA_MyEnemyCharacterClassInfo* DA_MyEnemyCharacterClassInfo;
 	

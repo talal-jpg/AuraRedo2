@@ -14,6 +14,24 @@ AMyGameMode::AMyGameMode()
 }
 
 
+void AMyGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+	if (!ErrorMessage.IsEmpty())
+	{
+		return;
+	}
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UMultiplayerSessionsSubsystem* Subsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>())
+		{
+			// A non-empty message refuses the connection and is what the joining player sees
+			ErrorMessage = Subsystem->CheckJoinAllowed(UniqueId, GetNumPlayers());
+		}
+	}
+}
+
 void AMyGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
