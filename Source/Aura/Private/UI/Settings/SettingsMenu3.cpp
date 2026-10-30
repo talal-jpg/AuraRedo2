@@ -817,7 +817,7 @@ void USettingsMenu3::RebuildKeyBindingRows()
 		}
 	}
 
-	const UEnhancedPlayerMappableKeyProfile* Profile = UserSettings->GetCurrentKeyProfile();
+	const UEnhancedPlayerMappableKeyProfile* Profile = UserSettings->GetActiveKeyProfile();
 	if (!Profile)
 	{
 		return;
@@ -881,7 +881,7 @@ void USettingsMenu3::RebuildKeyBindingRows()
 void USettingsMenu3::RefreshKeyBindingRows()
 {
 	UEnhancedInputUserSettings* UserSettings = GetInputUserSettings();
-	const UEnhancedPlayerMappableKeyProfile* Profile = UserSettings ? UserSettings->GetCurrentKeyProfile() : nullptr;
+	const UEnhancedPlayerMappableKeyProfile* Profile = UserSettings ? UserSettings->GetActiveKeyProfile() : nullptr;
 	if (!Profile)
 	{
 		return;
@@ -947,7 +947,7 @@ void USettingsMenu3::ResetKeyRow(FName MappingName)
 void USettingsMenu3::ResetAllKeyBindings()
 {
 	UEnhancedInputUserSettings* UserSettings = GetInputUserSettings();
-	const UEnhancedPlayerMappableKeyProfile* Profile = UserSettings ? UserSettings->GetCurrentKeyProfile() : nullptr;
+	const UEnhancedPlayerMappableKeyProfile* Profile = UserSettings ? UserSettings->GetActiveKeyProfile() : nullptr;
 	if (!Profile)
 	{
 		return;
