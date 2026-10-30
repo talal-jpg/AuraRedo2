@@ -36,6 +36,10 @@
 #include "PlayerInput/MyInputComponent.h"
 #include "UI/DamageTextWidgetComponent.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Camera/CameraModifier_CameraShake.h"
+#include "EOS/MultiplayerSessionsSubsystem.h"
+#include "EOS/PauseMenu3.h"
+#include "UI/Settings/MyGameUserSettings.h"
 
 
 class UEnhancedPlayerInput;
@@ -52,6 +56,11 @@ AMyPlayerController2::AMyPlayerController2()
 void AMyPlayerController2::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	if (IsLocalController())
+	{
+		TickFieldOfViewSetting();
+		TickScreenShakeSetting();
+	}
 	TickHitImpact(DeltaTime);
 	// AutoMove();
 	// CursorTrace();
@@ -120,7 +129,10 @@ void AMyPlayerController2::SetupInputComponent()
 	Super::SetupInputComponent();
 	UEnhancedInputLocalPlayerSubsystem* EnhancedInputSubsystem=ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer());
 	
-	EnhancedInputSubsystem->AddMappingContext(IMC_PlayerInputMappingContext,0);
+	// bNotifyUserSettings registers the context with Enhanced Input's user settings, so key binds saved from Options > Controls apply here
+	FModifyContextOptions ContextOptions;
+	ContextOptions.bNotifyUserSettings=true;
+	EnhancedInputSubsystem->AddMappingContext(IMC_PlayerInputMappingContext,0,ContextOptions);
 	
 	UMyInputComponent* MyInputComp=Cast<UMyInputComponent>(InputComponent);
 	//TODO Move From Triggered to Started??
@@ -130,6 +142,10 @@ void AMyPlayerController2::SetupInputComponent()
 	MyInputComp->BindAction(IA_Jump,ETriggerEvent::Triggered,this,&AMyPlayerController2::Jump);
 	MyInputComp->BindAction(IA_Q,ETriggerEvent::Started,this,&AMyPlayerController2::MenuButtonPressed,true);
 	MyInputComp->BindAction(IA_E,ETriggerEvent::Started,this,&AMyPlayerController2::MenuButtonPressed,false);
+	if (IA_Pause)
+	{
+		MyInputComp->BindAction(IA_Pause,ETriggerEvent::Started,this,&AMyPlayerController2::TogglePauseMenu);
+	}
 	
 	
 	MyInputComp->BindAbilityAction(InputConfig,this,&AMyPlayerController2::PressedFunc,&AMyPlayerController2::HeldFunc,&AMyPlayerController2::ReleasedFunc);
@@ -224,6 +240,13 @@ void AMyPlayerController2::Rotate(const FInputActionValue& Value)
 {
 	if (!GetPawn())return;
 	FVector2d Val=Value.Get<FVector2d>();
+	// Options > Controls: look sensitivity and invert X / Y
+	if (const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings())
+	{
+		Val*=Settings->GetLookSensitivity();
+		if (Settings->GetInvertLookX()) Val.X=-Val.X;
+		if (Settings->GetInvertLookY()) Val.Y=-Val.Y;
+	}
 	GetPawn()->AddControllerYawInput(Val.X);
 	GetPawn()->AddControllerPitchInput(Val.Y);
 }
@@ -350,6 +373,84 @@ void AMyPlayerController2::UpdateDamageCircle()
 	}
 }
 
+void AMyPlayerController2::TogglePauseMenu()
+{
+	if (!IsLocalController() || !PauseMenuClass) return;
+	
+	if (!PauseMenu)
+	{
+		PauseMenu=CreateWidget<UPauseMenu3>(this,PauseMenuClass);
+		if (!PauseMenu) return;
+	}
+	
+	// While it's open the menu has the input (Esc / Start close it there), this only runs to open it
+	if (PauseMenu->IsMenuOpen()) PauseMenu->CloseMenu();
+	else PauseMenu->OpenMenu();
+}
+
+void AMyPlayerController2::ClientWasKicked_Implementation(const FText& KickReason)
+{
+	Super::ClientWasKicked_Implementation(KickReason);
+	
+	UGameInstance* GameInstance=GetGameInstance();
+	if (!GameInstance) return;
+	
+	if (UMultiplayerSessionsSubsystem* Sessions=GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>())
+	{
+		Sessions->NotifyKicked(KickReason);
+	}
+	// Back to the default map (the main menu), which shows the reason
+	GameInstance->ReturnToMainMenu();
+}
+
+void AMyPlayerController2::TickFieldOfViewSetting()
+{
+	// Look the camera up again only when the pawn changes (respawn, possess)
+	if (GetPawn()!=FOVSettingPawn.Get())
+	{
+		FOVSettingPawn=GetPawn();
+		UCameraComponent* Camera=GetPawn()?GetPawn()->FindComponentByClass<UCameraComponent>():nullptr;
+		if (Camera!=FOVSettingCamera.Get())
+		{
+			// A new camera still has its authored FOV
+			FOVSettingCamera=Camera;
+			AppliedFOVSettingDelta=0.f;
+		}
+	}
+	
+	UCameraComponent* Camera=FOVSettingCamera.Get();
+	if (!Camera) return;
+	
+	// The default setting leaves the camera's own FOV as authored
+	const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings();
+	const float Delta=Settings?Settings->GetFieldOfView()-UMyGameUserSettings::DefaultFieldOfView:0.f;
+	if (!FMath::IsNearlyEqual(Delta,AppliedFOVSettingDelta))
+	{
+		Camera->SetFieldOfView(Camera->FieldOfView-AppliedFOVSettingDelta+Delta);
+		AppliedFOVSettingDelta=Delta;
+	}
+}
+
+void AMyPlayerController2::TickScreenShakeSetting()
+{
+	const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings();
+	if (!Settings || !PlayerCameraManager) return;
+	
+	// Covers every shake, including ClientStartCameraShake from the server
+	UCameraModifier* ShakeModifier=PlayerCameraManager->FindCameraModifierByClass(UCameraModifier_CameraShake::StaticClass());
+	if (!ShakeModifier) return;
+	
+	const bool bWantShake=Settings->GetScreenShakeEnabled();
+	if (bWantShake && ShakeModifier->IsDisabled())
+	{
+		ShakeModifier->EnableModifier();
+	}
+	else if (!bWantShake && !ShakeModifier->IsDisabled())
+	{
+		ShakeModifier->DisableModifier(true);
+	}
+}
+
 void AMyPlayerController2::JoinSessionButtonWrapper()
 {
 	UE_LOG(LogTemp,Warning,TEXT("JoinSessionButtonWrapperCalled"));
@@ -362,6 +463,10 @@ void AMyPlayerController2::JoinSessionButtonWrapper()
 
 void AMyPlayerController2::ShowDamageNumber_Implementation(float InDamage,ACharacter* TargetCharacter,bool bIsCrit,bool bIsBlocked)
 {
+	// Options > Gameplay > Show Damage Numbers, read on the client that sees them
+	const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings();
+	if (Settings && !Settings->GetShowDamageNumbers()) return;
+	
 	if (IsValid(TargetCharacter) && DamageTextWidgetComponentClass)
 	{
 		UDamageTextWidgetComponent* DamageTextWidgetComponent=NewObject<UDamageTextWidgetComponent>(TargetCharacter,DamageTextWidgetComponentClass);
@@ -377,6 +482,9 @@ void AMyPlayerController2::ShowDamageNumber_Implementation(float InDamage,AChara
 
 void AMyPlayerController2::ShowDamageNumber_2_Implementation(float InDamage,ACharacter* TargetCharacter,bool bIsCrit,bool bIsBlocked)
 {
+	const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings();
+	if (Settings && !Settings->GetShowDamageNumbers()) return;
+	
 	if (!IsValid(TargetCharacter) || !DamageNumberDataChannel) return;
 	
 	FVector Location=TargetCharacter->GetActorLocation();
@@ -426,6 +534,14 @@ void AMyPlayerController2::StartHitImpact(UMaterialInterface* Material,float Dur
 {
 	UCameraComponent* Camera=GetPawn()?GetPawn()->FindComponentByClass<UCameraComponent>():nullptr;
 	if (!Camera) return;
+	
+	// Options > Accessibility: no flash frames without Screen Flashes, no FOV kick without Screen Shake
+	if (const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings())
+	{
+		if (!Settings->GetScreenFlashesEnabled()) Material=nullptr;
+		if (!Settings->GetScreenShakeEnabled()) FOVOffset=0.f;
+	}
+	if (!Material && FMath::IsNearlyZero(FOVOffset)) return;
 	
 	if (bHitImpactActive) StopHitImpact();
 	
