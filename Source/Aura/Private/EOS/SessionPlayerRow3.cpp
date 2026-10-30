@@ -26,7 +26,7 @@ void USessionPlayerRow3::Setup(UPauseMenu3* InOwningMenu, APlayerState* InPlayer
 {
 	OwningMenu = InOwningMenu;
 	PlayerState = InPlayerState;
-	bIsHostPlayer = bInIsHostPlayer;
+	bRowIsHostPlayer = bInIsHostPlayer;
 
 	if (HostBadge)
 	{
@@ -69,7 +69,7 @@ void USessionPlayerRow3::Refresh()
 	if (PingText)
 	{
 		// The host's own ping is meaningless (always 0)
-		PingText->SetText(bIsHostPlayer
+		PingText->SetText(bRowIsHostPlayer
 			? LOCTEXT("HostPing", "Host")
 			: FText::Format(LOCTEXT("Ping", "{0} ms"), FText::AsNumber(FMath::RoundToInt(State->GetPingInMilliseconds()))));
 	}

@@ -59,9 +59,10 @@ void UMyGameUserSettings::ResetGroupToDefaults(EAuraSettingsGroup Group)
 	switch (Group)
 	{
 	case EAuraSettingsGroup::Video:
-		// Same values UGameUserSettings::SetToDefaults() uses for the video part
+		// Same values UGameUserSettings::SetToDefaults() uses for the video part, except a real resolution:
+		// (0, 0) would make ValidateSettings mark the default mode as confirmed without ever applying it
 		SetFullscreenMode(GetDefaultWindowMode());
-		SetScreenResolution(GetDefaultResolution());
+		SetScreenResolution(GetDesktopResolution());
 		SetVSyncEnabled(false);
 		SetFrameRateLimit(0.f);
 		ScalabilityQuality.SetDefaults(); // also puts the render scale back to 100%

@@ -265,6 +265,8 @@ void UMainMenu3::CreateSessionButtonClicked()
 
 void UMainMenu3::BrowseSessionsButtonClicked()
 {
+	// Searches below anyway
+	bBrowseListStale = false;
 	ShowPanel(BrowsePanel);
 	RefreshSessionsButtonClicked();
 }
@@ -455,6 +457,7 @@ void UMainMenu3::RefreshSessionsButtonClicked()
 	}
 
 	SetBrowseButtonsEnabled(false);
+	bBrowseListStale = false;
 	if (SessionListPanel)
 	{
 		SessionListPanel->ClearChildren();
@@ -922,6 +925,11 @@ void UMainMenu3::ActivatePanel(UWidget* Panel)
 		}
 	}
 
+	if (Panel == BrowsePanel && bBrowseListStale)
+	{
+		RefreshSessionsButtonClicked();
+	}
+
 	if (MenuSwitcher && MenuSwitcher->HasChild(Panel))
 	{
 		MenuSwitcher->SetActiveWidget(Panel);
@@ -1147,6 +1155,13 @@ void UMainMenu3::OnSessionsFound(const TArray<FAuraSessionInfo>& SessionInfos, b
 	if (bAwaitingCodeLookup)
 	{
 		bAwaitingCodeLookup = false;
+
+		// The lookup replaced the cached results the browse rows' Join buttons index into
+		if (SessionListPanel)
+		{
+			SessionListPanel->ClearChildren();
+		}
+		bBrowseListStale = true;
 
 		if (SessionInfos.Num() == 0)
 		{

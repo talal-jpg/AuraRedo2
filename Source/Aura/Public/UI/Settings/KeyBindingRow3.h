@@ -44,7 +44,7 @@ private:
 	UFUNCTION()
 	void ResetRowClicked();
 
-	void KeySelected(EPlayerMappableKeySlot Slot, const FInputChord& SelectedKey);
+	void KeySelected(EPlayerMappableKeySlot KeySlot, const FInputChord& SelectedKey);
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* ActionNameText;

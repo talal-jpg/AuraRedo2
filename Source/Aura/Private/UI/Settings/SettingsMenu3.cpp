@@ -220,7 +220,10 @@ void USettingsMenu3::OpenSettings()
 	RebuildKeyBindingRows();
 	RefreshControls();
 	SetHint(GetSettings() ? FText::GetEmpty() : LOCTEXT("NoSettingsClass", "GameUserSettingsClassName isn't UMyGameUserSettings - changes won't be saved."));
-	ShowTab(0);
+
+	// The first tab the layout has
+	const TArray<UWidget*> Tabs = GetTabs();
+	ShowTab(Tabs.IndexOfByPredicate([](const UWidget* Tab) { return Tab != nullptr; }));
 }
 
 void USettingsMenu3::CloseSettings()
@@ -289,7 +292,8 @@ TArray<UButton*> USettingsMenu3::GetTabButtons() const
 void USettingsMenu3::ShowTab(int32 TabIndex)
 {
 	const TArray<UWidget*> Tabs = GetTabs();
-	if (!Tabs.IsValidIndex(TabIndex))
+	// A tab left out of the layout can't open, and must not collapse the ones that are there
+	if (!Tabs.IsValidIndex(TabIndex) || !Tabs[TabIndex])
 	{
 		return;
 	}
@@ -297,7 +301,7 @@ void USettingsMenu3::ShowTab(int32 TabIndex)
 	CurrentTab = TabIndex;
 	UWidget* Tab = Tabs[TabIndex];
 
-	if (SettingsSwitcher && Tab)
+	if (SettingsSwitcher)
 	{
 		SettingsSwitcher->SetActiveWidget(Tab);
 	}
@@ -896,7 +900,7 @@ void USettingsMenu3::RefreshKeyBindingRows()
 	}
 }
 
-void USettingsMenu3::RebindKey(FName MappingName, EPlayerMappableKeySlot Slot, const FKey& NewKey)
+void USettingsMenu3::RebindKey(FName MappingName, EPlayerMappableKeySlot KeySlot, const FKey& NewKey)
 {
 	UEnhancedInputUserSettings* UserSettings = GetInputUserSettings();
 	if (!UserSettings)
@@ -906,7 +910,7 @@ void USettingsMenu3::RebindKey(FName MappingName, EPlayerMappableKeySlot Slot, c
 
 	FMapPlayerKeyArgs Args;
 	Args.MappingName = MappingName;
-	Args.Slot = Slot;
+	Args.Slot = KeySlot;
 	Args.NewKey = NewKey;
 
 	FGameplayTagContainer FailureReason;
@@ -1042,6 +1046,13 @@ void USettingsMenu3::OnAccessibilityComboChanged(FString SelectedItem, ESelectIn
 
 	ReadAccessibilityControls();
 	ApplyAccessibilityNow();
+
+	// Strength means nothing with the mode off
+	UMyGameUserSettings* Settings = GetSettings();
+	if (ColorBlindStrengthSlider && Settings)
+	{
+		ColorBlindStrengthSlider->SetIsEnabled(Settings->GetColorBlindMode() != EAuraColorBlindMode::Off);
+	}
 }
 
 void USettingsMenu3::OnAccessibilitySliderChanged(float Value)

@@ -364,7 +364,17 @@ void UMultiplayerSessionsSubsystem::DestroySession()
 		return;
 	}
 
+	// One binding only, even when called again while a destroy is running
+	SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
 	DestroySessionCompleteDelegateHandle = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegate);
+
+	// Already going away (a kick destroys, then the disconnect right after asks again): the running
+	// destroy's completion handles the queued leave / join / re-host. Asking the OSS again fails it.
+	const FNamedOnlineSession* ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
+	if (ExistingSession && ExistingSession->SessionState == EOnlineSessionState::Destroying)
+	{
+		return;
+	}
 
 	if (!SessionInterface->DestroySession(NAME_GameSession))
 	{
@@ -477,11 +487,27 @@ void UMultiplayerSessionsSubsystem::OnCreateSessionComplete(FName SessionName, b
 
 void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 {
+	// A search cancelled earlier finishing now, while the current one still runs: keep waiting.
+	// The OSS marks its own search Done or Failed before reporting it.
+	if (CancelledSearchesPending > 0 && LastSessionSearch.IsValid() && LastSessionSearch->SearchState == EOnlineAsyncTaskState::InProgress)
+	{
+		--CancelledSearchesPending;
+		return;
+	}
+	CancelledSearchesPending = 0;
+
 	if (SessionInterface)
 	{
 		SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
 	}
 	bSearchInProgress = false;
+
+	// A listener may start the next search from inside the broadcasts below, which sets these again
+	// for that search: take this search's own first
+	const bool bCodeJoinSearch = bPendingCodeJoin;
+	const bool bQuickJoinSearch = bPendingQuickJoin;
+	bPendingCodeJoin = false;
+	bPendingQuickJoin = false;
 
 	// BUGFIX: the old code dereferenced LastSessionSearch->SearchResults with no
 	// validity check at all.
@@ -490,14 +516,12 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 		MultiplayerOnFindSessionsComplete.Broadcast(TArray<FOnlineSessionSearchResult>(), false);
 		MultiplayerOnSessionsFound.Broadcast(TArray<FAuraSessionInfo>(), bWasSuccessful);
 
-		if (bPendingCodeJoin)
+		if (bCodeJoinSearch)
 		{
-			bPendingCodeJoin = false;
 			MultiplayerOnSessionError.Broadcast(TEXT("No session found with that code."));
 		}
-		if (bPendingQuickJoin)
+		if (bQuickJoinSearch)
 		{
-			bPendingQuickJoin = false;
 			MultiplayerOnSessionError.Broadcast(TEXT("No open lobbies found. Host one instead?"));
 		}
 		return;
@@ -583,10 +607,8 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 
 	MultiplayerOnSessionsFound.Broadcast(SessionInfos, bWasSuccessful);
 
-	if (bPendingQuickJoin)
+	if (bQuickJoinSearch)
 	{
-		bPendingQuickJoin = false;
-
 		// Fill the fullest lobby first so players end up together, lowest ping breaks ties
 		const FAuraSessionInfo* Best = nullptr;
 		for (const FAuraSessionInfo& Info : SessionInfos)
@@ -613,9 +635,8 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 		}
 	}
 
-	if (bPendingCodeJoin)
+	if (bCodeJoinSearch)
 	{
-		bPendingCodeJoin = false;
 		if (SessionInfos.Num() > 0)
 		{
 			JoinCachedSession(SessionInfos[0].ResultIndex);
@@ -748,6 +769,7 @@ void UMultiplayerSessionsSubsystem::CancelFindSessions()
 	// Unbind first so the cancelled search's results never reach the menu
 	SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
 	bSearchInProgress = false;
+	++CancelledSearchesPending;
 	bPendingCodeJoin = false;
 	bPendingQuickJoin = false;
 
@@ -1157,7 +1179,19 @@ void UMultiplayerSessionsSubsystem::HandleNetworkFailure(UWorld* World, UNetDriv
 	}
 	if (NetDriver && NetDriver->NetDriverName != NAME_GameNetDriver)
 	{
-		return;
+		// A refused or failed connect (PreLogin's "You are banned from this lobby.", a handshake
+		// timeout) is reported by the pending net driver, which has no world yet
+		if (NetDriver->NetDriverName != NAME_PendingNetDriver)
+		{
+			return;
+		}
+		const FWorldContext* PendingContext = GEngine ? GEngine->GetWorldContextFromPendingNetGameNetDriver(NetDriver) : nullptr;
+		// No context left to check against: only a game with a single game instance can be sure it's its own
+		const bool bOwnConnect = PendingContext ? PendingContext->OwningGameInstance == GetGameInstance() : !GIsEditor;
+		if (!bOwnConnect)
+		{
+			return;
+		}
 	}
 	// Only a client losing its host. A listen server also hears about clients timing out,
 	// and must keep its session for everyone else.
@@ -1180,8 +1214,12 @@ void UMultiplayerSessionsSubsystem::HandleNetworkFailure(UWorld* World, UNetDriv
 	case ENetworkFailure::ConnectionTimeout:
 		PendingMenuMessage = TEXT("Lost connection to the host.");
 		break;
+	case ENetworkFailure::PendingConnectionFailure:
+		// The host refused the connection with its reason (PreLogin: banned, lobby full), or the handshake failed
+		PendingMenuMessage = ErrorString.IsEmpty() ? TEXT("Couldn't connect to the host.") : ErrorString;
+		break;
 	case ENetworkFailure::FailureReceived:
-		// The server's own reason, e.g. PreLogin's "You are banned from this lobby."
+		// The server's own reason for closing the connection
 		PendingMenuMessage = ErrorString.IsEmpty() ? TEXT("The host closed the connection.") : ErrorString;
 		break;
 	case ENetworkFailure::OutdatedClient:
@@ -1212,7 +1250,7 @@ void UMultiplayerSessionsSubsystem::HandleTravelFailure(UWorld* World, ETravelFa
 
 	if (FailureType == ETravelFailure::PendingNetGameCreateFailure && !ErrorString.IsEmpty())
 	{
-		// The host refused the connection (PreLogin), ErrorString is its reason
+		// The pending connection couldn't start, ErrorString says why
 		PendingMenuMessage = ErrorString;
 	}
 	else

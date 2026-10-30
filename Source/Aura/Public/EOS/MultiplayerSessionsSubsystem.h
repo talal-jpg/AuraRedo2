@@ -253,6 +253,10 @@ private:
 	// Guards the cancel callback against firing twice (some OSSs trigger it and return false).
 	bool bCancelFindPending{ false };
 
+	// Steam keeps running a cancelled search and still reports it: that late completion must not
+	// be taken as the result of the search started after the cancel.
+	int32 CancelledSearchesPending{ 0 };
+
 	// JoinSession() found a leftover session: destroy it, then join this.
 	bool bJoinOnDestroy{ false };
 	FOnlineSessionSearchResult PendingJoinResult;

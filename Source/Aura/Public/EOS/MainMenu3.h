@@ -403,6 +403,8 @@ private:
 	bool bAwaitingJoin{ false };
 	bool bAwaitingCreate{ false };
 	bool bBrowseSearchPending{ false };
+	// A code lookup replaced the search results the browse rows join by index: search again on return
+	bool bBrowseListStale{ false };
 
 	// Starts once the running browse refresh reports back (a second search would be refused)
 	EMainMenu3QueuedSearch QueuedSearch{ EMainMenu3QueuedSearch::None };

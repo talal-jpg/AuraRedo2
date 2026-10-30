@@ -62,5 +62,5 @@ private:
 	UPauseMenu3* OwningMenu;
 
 	TWeakObjectPtr<APlayerState> PlayerState;
-	bool bIsHostPlayer{ false };
+	bool bRowIsHostPlayer{ false };
 };

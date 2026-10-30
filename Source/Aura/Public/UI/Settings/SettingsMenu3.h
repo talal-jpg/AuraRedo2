@@ -55,7 +55,7 @@ public:
 	FOnSettingsMenu3Closed OnClosed;
 
 	// Called by UKeyBindingRow3
-	void RebindKey(FName MappingName, EPlayerMappableKeySlot Slot, const FKey& NewKey);
+	void RebindKey(FName MappingName, EPlayerMappableKeySlot KeySlot, const FKey& NewKey);
 	void ResetKeyRow(FName MappingName);
 
 protected:

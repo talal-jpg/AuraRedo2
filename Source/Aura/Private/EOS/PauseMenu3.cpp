@@ -113,19 +113,25 @@ bool UPauseMenu3::Initialize()
 	return true;
 }
 
-void UPauseMenu3::NativeConstruct()
+void UPauseMenu3::NativeOnInitialized()
 {
-	Super::NativeConstruct();
+	Super::NativeOnInitialized();
 
-	ButtonFXState.Setup(WidgetTree, ButtonFX);
-
-	// Bound while the menu is on screen; Construct / Destruct run on every open / close
+	// Bound for the widget's whole life, not per open: a privacy change or Open Lobby still
+	// finishes (and Open Lobby still starts the session) when the menu closes before the reply
 	if (UMultiplayerSessionsSubsystem* Sessions = GetSessions())
 	{
 		Sessions->MultiplayerOnUpdateSessionComplete.AddUniqueDynamic(this, &ThisClass::OnUpdateSession);
 		Sessions->MultiplayerOnCreateSessionComplete.AddUniqueDynamic(this, &ThisClass::OnCreateSession);
 		Sessions->MultiplayerOnSessionError.AddUniqueDynamic(this, &ThisClass::OnSessionError);
 	}
+}
+
+void UPauseMenu3::NativeConstruct()
+{
+	Super::NativeConstruct();
+
+	ButtonFXState.Setup(WidgetTree, ButtonFX);
 }
 
 void UPauseMenu3::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -147,13 +153,6 @@ void UPauseMenu3::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 void UPauseMenu3::NativeDestruct()
 {
 	ButtonFXState.Reset();
-
-	if (UMultiplayerSessionsSubsystem* Sessions = GetSessions())
-	{
-		Sessions->MultiplayerOnUpdateSessionComplete.RemoveDynamic(this, &ThisClass::OnUpdateSession);
-		Sessions->MultiplayerOnCreateSessionComplete.RemoveDynamic(this, &ThisClass::OnCreateSession);
-		Sessions->MultiplayerOnSessionError.RemoveDynamic(this, &ThisClass::OnSessionError);
-	}
 
 	Super::NativeDestruct();
 }

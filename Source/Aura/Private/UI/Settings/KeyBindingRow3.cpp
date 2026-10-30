@@ -138,14 +138,14 @@ void UKeyBindingRow3::OnGamepadKeySelected(FInputChord SelectedKey)
 	KeySelected(GamepadSlot, SelectedKey);
 }
 
-void UKeyBindingRow3::KeySelected(EPlayerMappableKeySlot Slot, const FInputChord& SelectedKey)
+void UKeyBindingRow3::KeySelected(EPlayerMappableKeySlot KeySlot, const FInputChord& SelectedKey)
 {
 	if (bRefreshing || !OwningMenu || !SelectedKey.Key.IsValid())
 	{
 		return;
 	}
 
-	OwningMenu->RebindKey(MappingName, Slot, SelectedKey.Key);
+	OwningMenu->RebindKey(MappingName, KeySlot, SelectedKey.Key);
 }
 
 void UKeyBindingRow3::ResetRowClicked()
