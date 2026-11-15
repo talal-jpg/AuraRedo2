@@ -13,6 +13,7 @@ All code is in `Source/Aura/Public/MechSwarm` and `Source/Aura/Private/MechSwarm
 ## Contents
 
 1. [Quick setup in the editor](#1-quick-setup-in-the-editor)
+   * [Spawning sentinels in a level (worked example)](#spawning-sentinels-in-a-level-worked-example)
 2. [Architecture at a glance](#2-architecture-at-a-glance)
 3. [Folder and file map](#3-folder-and-file-map)
 4. [Structural dependencies](#4-structural-dependencies)
@@ -46,10 +47,11 @@ The `MassGameplay` plugin is enabled in `Aura.uproject`, and the Mass modules ar
    `SentinelAttackEffect = GE_SentinelAttack`, and tune the caps. Assign it on your GameMode Blueprint
    (`BP_MyGameMode` > **Mech Sentinels** > **Sentinel Swarm Rules**).
 3. **Mesh / material**: run `SourceArt/MechSentinel/ue_import_mech_sentinel.py` in the editor. It imports the low-poly
-   sentinel (`SM_MechSentinel_Head`, `SM_MechSentinel_Far` with baked tentacles, the tentacle and claw tip) and creates the
-   tentacle ribbon material. Give the head a material that reads `PerInstanceCustomData` 0..3
-   (see [section 12](#12-ism-representation-and-the-material)). For the Niagara tentacles, build
-   `NS_MechSentinelTentacles` with the recipe in [section 15](#15-sentinel-model-and-niagara-ribbon-tentacles).
+   sentinel (`SM_MechSentinel_Head`, `SM_MechSentinel_Far` with baked tentacles, the tentacle and claw tip), creates the
+   tentacle ribbon material and the body / eye materials (they read `PerInstanceCustomData` 0..3, see
+   [section 12](#12-ism-representation-and-the-material)) and assigns them to the mesh slots. For the Niagara tentacles,
+   build `NS_MechSentinelTentacles` with the recipe in [section 15](#15-sentinel-model-and-niagara-ribbon-tentacles)
+   (already built and committed under `Content/MechSentinel/FX`).
 4. **Entity config**: create a `MassEntityConfigAsset` (for example `DA_SentinelConfig`) with these traits:
    | Trait | Settings |
    |---|---|
@@ -67,6 +69,79 @@ The `MassGameplay` plugin is enabled in `Aura.uproject`, and the Mass modules ar
 6. **Weapons**: add a `MechSentinelHitCapsuleComponent` to projectiles, or call
    `ApplyDamageToSentinelsInCapsule` from abilities / melee (server).
 7. Play as **listen server + clients** (or a dedicated server). Standalone works too.
+
+### Spawning sentinels in a level (worked example)
+
+Everything below is ready-made under `/Game/MechSentinel` (built by `SourceArt/MechSentinel/ue_setup_mech_sentinel_demo.py`):
+
+| Asset | What it is |
+|---|---|
+| `Demo/L_MechSentinelDemo` | open it and press Play: a 200 m floor with nav mesh, a PlayerStart and one configured spawner |
+| `Demo/BP_MechSentinelDemoGameMode` | child of the project's GameMode with the rules below assigned (used by the demo map only) |
+| `Data/DA_MechSentinelConfig` | the entity config (traits and attributes below) |
+| `Data/DA_MechSentinelSwarmRules` | global rules: damage effects, 10 attackers per player, 1500 alive at most |
+| `GAS/GE_SentinelDamage`, `GE_SentinelAttack`, `GE_SentinelStun` | damage taken, damage dealt to players, a 2 s stun |
+
+**In your own level:**
+
+1. Assign `DA_MechSentinelSwarmRules` on the GameMode Blueprint the level uses (**Mech Sentinels** >
+   **Sentinel Swarm Rules**). Without it sentinels still spawn, fly and attack, but no damage is applied either way.
+2. Place Actors > search **Mech Sentinel Wave Spawner**, drop it where the swarm should appear, about 8 m above the
+   ground. Sentinels spawn inside `SpawnExtent` (an ellipsoid, 15 x 15 x 4 m by default) around it.
+3. Details > **Mech Sentinels** > `EntityConfig` = `DA_MechSentinelConfig`.
+4. Fill **Waves** and the spawner settings (tables below), then Play. For multiplayer use Play As Listen Server; the
+   spawner must stay level-placed (clients build the entity template from it).
+
+**How many and how fast** (one row per element of `Waves`; counts are multiplied by `CountMultiplier`):
+
+| Wave field | Meaning | W1 | W2 | W3 | W4 |
+|---|---|---|---|---|---|
+| `Count` | sentinels in the wave | 12 | 30 | 60 | 120 |
+| `DelayBefore` | countdown before the wave starts (s) | 3 | 5 | 6 | 8 |
+| `SpawnDuration` | the wave is spawned evenly over this time (s); rate = Count / SpawnDuration | 4 | 6 | 8 | 10 |
+| `TimeLimit` | with `AdvanceMode` OnTimer / ClearedOrTimer: seconds until the next wave (0 = never by timer) | 45 | 50 | 60 | 75 |
+| `HealthMultiplier` | x the config's MaxHealth | 1 | 1.25 | 1.5 | 2 |
+| `ArmorMultiplier` | x the config's Armor | 1 | 1.25 | 1.5 | 2 |
+| `DamageMultiplier` | x the config's AttackDamage | 1 | 1 | 1.2 | 1.5 |
+| `AttackSpeedMultiplier` | x the config's AttackSpeed | 1 | 1 | 1.1 | 1.2 |
+| `MoveSpeedMultiplier` | x the swarm's MovementSpeed (per sentinel attribute) | 1 | 1 | 1.05 | 1.1 |
+
+| Spawner setting | Demo value | Meaning |
+|---|---|---|
+| `AdvanceMode` | ClearedOrTimer | next wave when every sentinel of the wave is dead, or after `TimeLimit` (WhenCleared / OnTimer also exist) |
+| `bAutoStart` | on | starts wave 1 on BeginPlay (otherwise call `StartWaves`) |
+| `bRepeatLastWave` | on | after W4, repeat it forever, each time `+ExtraCountPerRepeat` sentinels and `x StatScalePerRepeat` health, armor and damage |
+| `ExtraCountPerRepeat` / `StatScalePerRepeat` | 25 / 1.1 | |
+| `CountMultiplier` | 1 | global amount knob (`SetCountMultiplier` at runtime, also re-plans the wave in progress) |
+| `MaxAlive` | 400 | this spawner waits while 400 of its sentinels are alive (the rules cap all spawners at 1500) |
+| `SpawnBatchSize` | 25 | at most 25 entities created per frame |
+| `SpawnExtent` | (1500, 1500, 400) cm | spawn ellipsoid around the spawner |
+| `FallbackTargets`, `bSpawnerIsFallbackTarget` | none, on | where sentinels go when every player already has `MaxAttackersPerPlayer` attackers (they circle the spawner) |
+
+**Attributes.** The base values are on `DA_MechSentinelConfig` > **Mech Sentinel** trait: `Attributes` (MaxHealth 120,
+Armor 4, AttackDamage 3, AttackSpeed 0.6 attacks/s) and the shared `MovementSpeed` (900 cm/s). Each wave multiplies them
+when a sentinel is spawned, which gives (armor mitigation = 0.06 x Armor / (1 + 0.06 x Armor)):
+
+| Wave | Count | Spawned at | Next wave | MaxHealth | Armor (damage taken -) | AttackDamage | Attacks/s | Speed (cm/s) |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 12 | 3 / s for 4 s | cleared or 45 s | 120 | 4 (-19%) | 3 | 0.6 | 900 |
+| 2 | 30 | 5 / s for 6 s | cleared or 50 s | 150 | 5 (-23%) | 3 | 0.6 | 900 |
+| 3 | 60 | 7.5 / s for 8 s | cleared or 60 s | 180 | 6 (-26%) | 3.6 | 0.66 | 945 |
+| 4 | 120 | 12 / s for 10 s | cleared or 75 s | 240 | 8 (-32%) | 4.5 | 0.72 | 990 |
+| 5 (W4 repeat 1) | 145 | 14.5 / s for 10 s | cleared or 75 s | 264 | 8.8 (-35%) | 4.95 | 0.72 | 990 |
+| 6 (W4 repeat 2) | 170 | 17 / s for 10 s | cleared or 75 s | 290 | 9.7 (-37%) | 5.4 | 0.72 | 990 |
+
+At most `MaxAttackersPerPlayer` (10) sentinels attack one player; with the W1 values that is up to 10 x 3 x 0.6 = 18
+damage per second before the player's own defences, 32 per second in W4. A sentinel attacks inside `AttackRange`
+(450 cm) and orbits its player at `OrbitRadius` (320 cm).
+
+**At runtime** (spawner, server, Blueprint callable): `StartWaves`, `StopWaves`, `StartNextWave`, `SetCountMultiplier`,
+`SetWaveCount`, `SpawnSentinelsNow(n)`, `DespawnAll`; read `GetCurrentWaveNumber`, `GetCurrentWaveTotal`,
+`GetAliveCount`, `GetRemainingToSpawn`; bind `OnWaveStarted(wave, count)` / `OnWaveCleared(wave)`. Buffs and debuffs
+are gameplay effects on the sentinels (modifiers on `MechSentinelAttributeSet.Armor`, `AttackDamage`, `AttackSpeed`,
+`MoveSpeedMultiplier`, or `State.Sentinel.Stunned` / `Shielded` tags); the swarm speed is
+`UMechSentinelSwarmSubsystem::SetSwarmMovementSpeed`. To shoot them, add a `MechSentinelHitCapsuleComponent` to the
+player's projectiles ([section 11](#11-hitting-sentinels-from-actors-the-capsule-function)).
 
 ---
 
