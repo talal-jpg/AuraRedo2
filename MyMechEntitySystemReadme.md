@@ -584,15 +584,15 @@ Amount control:
 * Caps: `MaxAlive` per spawner, `MaxAliveSentinels` in the rules (soft global cap).
 * Pacing: `SpawnDuration`, `SpawnBatchSize`, `DelayBefore`, `TimeLimit`.
 * Per-wave stat multipliers scale the trait's attribute defaults at spawn.
-* `SpawnSentinelsNow(n)`, `StartNextWave()`, `StopWaves()`, `DespawnAll(bKill)`. `SpawnSentinelsNow` and
-  `DespawnAll` only queue the request, because the caller may run next to a Mass phase: the spawner's tick carries it
-  out later the same frame. Manual spawns are created at most `SpawnBatchSize` per frame within `MaxAlive` and the
-  rules' `MaxAliveSentinels`, and whatever the caps leave out is dropped. `SpawnSentinelsNow` returns how many it queued.
+* `SpawnSentinelsNow(n)`, `StartNextWave()`, `StopWaves()`, `DespawnAll(bKill)`. `SpawnSentinelsNow` and `DespawnAll`
+  only queue the request, because the caller may run next to a Mass phase: the spawner's tick carries it out later the
+  same frame. Manual spawns are created at most `SpawnBatchSize` per frame within `MaxAlive` and the rules'
+  `MaxAliveSentinels`, and whatever the caps leave out is dropped. `SpawnSentinelsNow` returns how many it queued.
   `DespawnAll` cancels the spawn requests queued before it, so the order of calls in a frame is kept. Once the spawner
-  ends play (destroyed or unloaded) its tick stops, so a `DespawnAll` still waiting then, or one called from its
-  End Play or Destroyed events, despawns on the next timer tick instead. Spawn requests are dropped then, and
-  `SpawnSentinelsNow` returns 0 until the spawner plays again. From another Blueprint, call `DespawnAll` before
-  Destroy Actor: a call on a spawner that is already destroyed may be skipped.
+  ends play (destroyed or unloaded) its tick stops, so a `DespawnAll` still waiting then, or one called from its End
+  Play or Destroyed events, despawns on the next timer tick instead. Spawn requests are dropped then, and
+  `SpawnSentinelsNow` returns 0 until the spawner's level is shown again. From another Blueprint, call `DespawnAll`
+  before Destroy Actor: a call on a spawner that is already destroyed may be skipped.
 * Events: `OnWaveStarted(wave, count)` (server + clients; `count` is the replicated `GetCurrentWaveTotal()`, so both
   sides report the same number), `OnWaveCleared(wave)` (server).
 * `StartWaves` with an empty `Waves` array goes straight to Finished.
@@ -653,7 +653,8 @@ no engine collision), so the ability sweeps the shot against their capsules itse
                                 line's nearest point; otherwise the shot follows the pawn's view
    segment                      from that nearest point along the aim, up to the first wall the server traces
                                 (Visibility channel, complex collision; characters are not walls), the crosshair
-                                trace's own hit on a character, or SentinelShotRange
+                                trace's first hit when that is a character ahead of the shooter, or
+                                SentinelShotRange. Otherwise shots pass through characters (teammates included)
    spec                         SentinelDamageEffect or the rules' DefaultSentinelDamageEffect, at the ability level,
                                 SetByCaller SetDamageByCaller = SentinelDamage
  next timer tick (same frame)   QueryCapsule(segment, SentinelShotRadius) -> ApplySpecToHits(closest SentinelMaxTargets)
@@ -780,14 +781,14 @@ its place, to work around a UE 5.8.2 bug ([section 9](#9-replication-data-flow))
   `SpawnSentinelsNow` / `DespawnAll` are queued. Blueprint callers of the hit functions must follow the same rule.
   Tag changes from a hit (kills, stuns) are deferred whenever a phase may be running, so a hit from the wrong place
   cannot crash; its damage write can still race the phase's worker threads.
-* **Client aim is checked**: the gun's aim comes from the client. The server uses it only when its camera is within
-  50 m of the shooter and its line passes within 300 cm of the shooter, plus 0.25 s of the shooter's movement
-  (otherwise it shoots along the pawn's view). It traces the walls itself, from the shooter's capsule centre to the
-  start of the shot and on along it, so a modified client cannot shoot through walls. Characters are not walls for
-  this trace, because their server positions differ from what the client saw: the client's own crosshair hit stops
-  the shot at them. The direction is still the client's, as in any shooter without server-side aim. `QueryCapsule`
-  checks the hash cell count per axis and scans every sentinel instead when the bounds are huge or not finite, so no
-  shot can hang the server.
+* **Client aim is checked**: the gun's aim comes from the client. The server uses it only when its camera is within 50 m
+  of the shooter and its line passes within 300 cm of the shooter, plus 0.25 s of the shooter's movement (otherwise it
+  shoots along the pawn's view). It traces the walls itself, from the shooter's capsule centre to the start of the shot
+  and on along it, so a modified client cannot shoot through walls. Characters are not walls for this trace, because
+  their server positions differ from what the client saw: a character stops the shot only when it is the crosshair
+  trace's first hit, ahead of the shooter. The direction is still the client's, as in any shooter without server-side
+  aim. `QueryCapsule` checks the hash cell count per axis and scans every sentinel instead when the bounds are huge or
+  not finite, so no shot can hang the server.
 * **Gun hits are not lag compensated**: the server sweeps the shot against where the sentinels are when the shot
   arrives, and what the shooting client saw is about one round trip (plus smoothing) older than that.
   `SentinelShotRadius` gives some slack. The hit lands later in the frame the shot arrives in (timer).

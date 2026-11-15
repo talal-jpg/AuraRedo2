@@ -75,6 +75,10 @@ void AMechSentinelWaveSpawner::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
+	// A level shown again initializes all of its actors before any of their BeginPlay: spawn requests made from those
+	// BeginPlays are queued again, as on the first play.
+	bSpawnerEndedPlay = false;
+
 	// As early as possible on clients: replicated sentinels need this template to spawn.
 	const UWorld* World = GetWorld();
 	if (World && World->IsGameWorld() && CanBuildTemplateNow())

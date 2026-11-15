@@ -63,8 +63,9 @@ namespace MechSwarm::GunShootPrivate
 	/**
 	 * The first wall from From to To: the first blocking hit on the crosshair trace's channel that is not part of a
 	 * character. Characters (pawns, their components and attached actors, whatever their collision profiles) are looked
-	 * past, because their positions on the server differ from what the shooting client saw; the client's own crosshair
-	 * hit stops the shot at them instead. The characters looked past are added to Params.
+	 * past, because their positions on the server differ from what the shooting client saw. A character stops the shot
+	 * only when it is the client's own crosshair hit (see GetSentinelShotSegment). The characters looked past are added
+	 * to Params.
 	 */
 	bool TraceWall(const UWorld& World, const FVector& From, const FVector& To, FCollisionQueryParams& Params,
 		const FCollisionResponseParams& Responses, FHitResult& OutWall)
@@ -227,7 +228,7 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 		}
 	}
 
-	// Characters stop the shot where the crosshair trace hit them, when that hit lies ahead of the shooter.
+	// The crosshair trace's first hit stops the shot, when it lies ahead of the shooter: the only stop at characters.
 	double Range = SentinelShotRange;
 	if (bUseAimTrace && AimHit.bBlockingHit)
 	{

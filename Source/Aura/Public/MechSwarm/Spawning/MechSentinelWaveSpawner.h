@@ -126,7 +126,8 @@ public:
 	 * Spawns sentinels outside the wave flow (they still count as alive for the current wave). They are created by the
 	 * spawner's own tick later this frame, after the Mass phases, because Mass cannot create entities while a phase runs:
 	 * at most SpawnBatchSize per frame, within MaxAlive and the rules' MaxAliveSentinels. What the caps leave out is
-	 * dropped. Returns the number queued: 0 once the spawner has ended play (destroyed or unloaded).
+	 * dropped. Returns the number queued: 0 from the spawner's end of play (destroyed or unloaded) until its level is
+	 * shown again.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	int32 SpawnSentinelsNow(int32 Count);
@@ -309,8 +310,8 @@ private:
 	bool bPendingDespawn = false;
 	bool bPendingDespawnKill = true;
 	/**
-	 * Set in EndPlay (Destroyed, RemovedFromWorld) on the authority, cleared in BeginPlay: Tick will not run again, so
-	 * DespawnAll uses a timer and SpawnSentinelsNow does nothing.
+	 * Set in EndPlay (Destroyed, RemovedFromWorld) on the authority, cleared when the spawner initializes again (its
+	 * level shown again): Tick will not run until then, so DespawnAll uses a timer and SpawnSentinelsNow does nothing.
 	 */
 	bool bSpawnerEndedPlay = false;
 };
