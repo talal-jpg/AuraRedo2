@@ -1,0 +1,5 @@
+# The cloud session that generated these files cannot reach the Git LFS server, so the small exports and previews
+# here are stored as plain git blobs (about 5 MB in total). Remove these lines to go back to the repo-wide LFS rules.
+*.png -filter -diff -merge binary
+*.fbx -filter -diff -merge binary
+*.blend binary

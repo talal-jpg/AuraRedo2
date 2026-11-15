@@ -26,6 +26,10 @@ public:
 	// Refuses players the host banned from the lobby (Current Session > Ban) and joins past the lobby's player limit
 	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	
+	/** Global, server side rules of the Mass sentinel swarm (targeting caps, armor formula, damage effects). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mech Sentinels")
+	TObjectPtr<class UMechSentinelSwarmRules> SentinelSwarmRules;
+	
 	UPROPERTY(EditAnywhere)
 	UDA_MyEnemyCharacterClassInfo* DA_MyEnemyCharacterClassInfo;
 	
