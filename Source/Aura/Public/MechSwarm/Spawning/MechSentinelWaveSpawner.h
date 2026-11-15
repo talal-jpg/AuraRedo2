@@ -132,9 +132,10 @@ public:
 	int32 SpawnSentinelsNow(int32 Count);
 
 	/**
-	 * Removes every sentinel this spawner created, on the spawner's own tick later this frame (after the Mass phases),
-	 * or right after the frame's Mass phases if the spawner is destroyed first. bKill plays the death fall, otherwise
-	 * they vanish. Cancels the SpawnSentinelsNow requests made before it.
+	 * Removes every sentinel this spawner created, on the spawner's own tick later this frame (after the Mass phases).
+	 * Once the spawner has ended play (destroyed or unloaded), on the next timer tick instead, so it also works from the
+	 * spawner's End Play and Destroyed events. bKill plays the death fall, otherwise they vanish. Cancels the
+	 * SpawnSentinelsNow requests made before it.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void DespawnAll(bool bKill = true);
@@ -274,6 +275,9 @@ private:
 	/** DespawnAll's work, run from Tick. */
 	void DespawnAllNow(bool bKill);
 
+	/** DespawnAll's work for a spawner that ended play: hands the sentinels to a timer (next tick, outside the phases). */
+	void QueueDespawnOnTimer(bool bKill);
+
 	/** Kills (bKill) or destroys the given entities; drops the destroyed ones from the array. Outside the Mass phases. */
 	static void DespawnEntities(UWorld& World, TArray<FMassEntityHandle>& Entities, bool bKill);
 
@@ -304,4 +308,6 @@ private:
 	int32 PendingManualSpawns = 0;
 	bool bPendingDespawn = false;
 	bool bPendingDespawnKill = true;
+	/** Set in EndPlay (Destroyed, RemovedFromWorld) on the authority: Tick will not run again, DespawnAll uses a timer. */
+	bool bDespawnByTimer = false;
 };

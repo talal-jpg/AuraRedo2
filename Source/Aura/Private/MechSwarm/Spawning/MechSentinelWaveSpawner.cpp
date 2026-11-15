@@ -87,6 +87,8 @@ void AMechSentinelWaveSpawner::BeginPlay()
 {
 	// Also for instances or Blueprints saved with another group: see the constructor.
 	SetTickGroup(TG_PostUpdateWork);
+	// A spawner whose level streams back in plays again: DespawnAll goes through Tick again.
+	bDespawnByTimer = false;
 
 	Super::BeginPlay();
 
@@ -125,22 +127,15 @@ void AMechSentinelWaveSpawner::BeginPlay()
 
 void AMechSentinelWaveSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	// A DespawnAll queued this frame would be lost with the actor's tick, and the sentinels outlive the spawner: finish
-	// it on a timer instead, which also runs outside the Mass phases.
-	UWorld* World = GetWorld();
-	if (bPendingDespawn && World && HasAuthority()
-		&& (EndPlayReason == EEndPlayReason::Destroyed || EndPlayReason == EEndPlayReason::RemovedFromWorld))
+	// The spawner's tick will not run again, but its sentinels outlive it. From here on DespawnAll is finished on a timer
+	// (which also runs outside the Mass phases): one queued earlier this frame, and one called from Event End Play,
+	// OnEndPlay, Event Destroyed or OnDestroyed, which all run after this point.
+	bDespawnByTimer = HasAuthority()
+		&& (EndPlayReason == EEndPlayReason::Destroyed || EndPlayReason == EEndPlayReason::RemovedFromWorld);
+	if (bDespawnByTimer && bPendingDespawn)
 	{
 		bPendingDespawn = false;
-		const TWeakObjectPtr<UWorld> WeakWorld(World);
-		World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda(
-			[WeakWorld, Entities = SpawnedEntities, bKill = bPendingDespawnKill]() mutable
-			{
-				if (UWorld* WorldNow = WeakWorld.Get())
-				{
-					DespawnEntities(*WorldNow, Entities, bKill);
-				}
-			}));
+		QueueDespawnOnTimer(bPendingDespawnKill);
 	}
 
 	if (bFallbacksRegistered)
@@ -602,12 +597,45 @@ void AMechSentinelWaveSpawner::DespawnAll(const bool bKill)
 		return;
 	}
 
-	// Like SpawnSentinelsNow: done by Tick, outside the Mass phases. Manual spawns queued before this call are cancelled
-	// (they would otherwise appear right after the despawn); the ones queued after it still run after it.
+	// Manual spawns queued before this call are cancelled (they would otherwise appear right after the despawn); the
+	// ones queued after it still run after it.
+	PendingManualSpawns = 0;
+
+	// Ended play (destroyed or unloaded): the tick will not run again.
+	if (bDespawnByTimer)
+	{
+		bPendingDespawn = false;
+		QueueDespawnOnTimer(bKill);
+		return;
+	}
+
+	// Like SpawnSentinelsNow: done by Tick, outside the Mass phases.
 	bPendingDespawn = true;
 	bPendingDespawnKill = bKill;
-	PendingManualSpawns = 0;
 	SetActorTickEnabled(true);
+}
+
+void AMechSentinelWaveSpawner::QueueDespawnOnTimer(const bool bKill)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// The handles move to the timer: a second call has nothing left to do, and a spawner that streams back in starts
+	// without stale ones.
+	const TWeakObjectPtr<UWorld> WeakWorld(World);
+	World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda(
+		[WeakWorld, Entities = MoveTemp(SpawnedEntities), bKill]() mutable
+		{
+			if (UWorld* WorldNow = WeakWorld.Get())
+			{
+				DespawnEntities(*WorldNow, Entities, bKill);
+			}
+		}));
+	SpawnedEntities.Reset();
+	AliveCount = 0;
 }
 
 void AMechSentinelWaveSpawner::DespawnAllNow(const bool bKill)

@@ -68,10 +68,11 @@ public:
 	/**
 	 * THE hit function: every sentinel whose simple collision capsule touches the given capsule takes Damage through GAS
 	 * (DamageEffect, or the rules' DefaultSentinelDamageEffect: armor mitigation, Shielded, Dead...).
+	 * Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for
+	 * Next Tick.
 	 * @param Instigator    Who dealt the damage (its ASC is the effect source when it has one).
 	 * @param MaxTargets    0 = everyone in the capsule, otherwise the closest N.
 	 * @return number of sentinels hit. OutTotalDamage is the health actually removed.
-	 * Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for Next Tick.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Combat", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "DamageEffect,MaxTargets"))
 	static int32 ApplyDamageToSentinelsInCapsule(const UObject* WorldContextObject, AActor* Instigator, FVector Center, FRotator Rotation, float Radius, float HalfHeight,

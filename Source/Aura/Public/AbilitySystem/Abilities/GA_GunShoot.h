@@ -28,8 +28,9 @@ public:
 	/**
 	 * Mech Sentinels: the server also damages the sentinels along each shot. Sentinels are Mass entities without engine
 	 * collision, so the crosshair trace (AT_SendMouseCursorData) passes through them; the shot is swept against their hit
-	 * capsules instead, from the character along the aim, up to the first wall or character the trace hit. The task hands
-	 * each shot to OnServerMouseCursorData before the graph sees it, so ending the ability on a shot still damages.
+	 * capsules instead, from the character along the aim, up to the first wall (traced on the server) or the first
+	 * character the crosshair trace hit. The task hands each shot to OnServerMouseCursorData before the graph sees it, so
+	 * ending the ability on a shot still damages.
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels")
 	bool bDamageSentinels = true;
@@ -46,7 +47,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels", ClampMin = "0", ForceUnits = "cm"))
 	float SentinelShotRadius = 15.f;
 
-	/** How far sentinels can be shot when the trace hits nothing. */
+	/** How far sentinels can be shot when no wall or character stops the shot. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels", ClampMin = "100", ForceUnits = "cm"))
 	float SentinelShotRange = 20000.f;
 
@@ -58,7 +59,10 @@ public:
 	virtual void OnServerMouseCursorData(const FGameplayAbilityTargetDataHandle& Data) override;
 
 private:
-	/** The segment swept against the sentinels for an aim trace. False when there is nothing to shoot along. */
+	/**
+	 * The segment swept against the sentinels for an aim trace. False when there is nothing to shoot along, or when the
+	 * line starts in a wall.
+	 */
 	bool GetSentinelShotSegment(const FHitResult& AimHit, const AActor& Avatar, FVector& OutStart, FVector& OutEnd) const;
 
 	/** The last shot damaged, kept alive so it is told apart from a replay of the same data (and not from a new shot that reused its memory). */

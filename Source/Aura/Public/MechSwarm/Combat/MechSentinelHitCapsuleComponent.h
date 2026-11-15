@@ -27,8 +27,8 @@ public:
 
 	/**
 	 * Tests now. Returns the number of sentinels newly hit. Call it outside the Mass phases: from a melee swing's anim
-	 * notify, input or an actor tick, go through Set Timer for Next Tick and call it from there. Kills and stuns are
-	 * deferred if a phase may be running, but the damage itself is written at once.
+	 * notify, input or an actor tick, go through Set Timer for Next Tick and call it from there. Called during a phase it
+	 * does not crash (a kill or stun takes effect when the phase ends), but the damage write races the phase's workers.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Hit")
 	int32 ApplyHitsNow();

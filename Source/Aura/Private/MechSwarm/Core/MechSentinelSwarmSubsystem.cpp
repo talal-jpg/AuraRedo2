@@ -762,7 +762,14 @@ int32 UMechSentinelSwarmSubsystem::QueryCapsule(const FVector& SegmentStart, con
 	{
 		MinCell = ToCell(Min, InvCellSize);
 		MaxCell = ToCell(Max, InvCellSize);
-		NumCells = (int64(MaxCell.X) - MinCell.X + 1) * (int64(MaxCell.Y) - MinCell.Y + 1) * (int64(MaxCell.Z) - MinCell.Z + 1);
+		// Each axis is checked before multiplying, so the product (at most MaxCellsPerQuery^3) cannot overflow.
+		const int64 SpanX = FMath::Max<int64>(0, int64(MaxCell.X) - MinCell.X + 1);
+		const int64 SpanY = FMath::Max<int64>(0, int64(MaxCell.Y) - MinCell.Y + 1);
+		const int64 SpanZ = FMath::Max<int64>(0, int64(MaxCell.Z) - MinCell.Z + 1);
+		if (SpanX <= MaxCellsPerQuery && SpanY <= MaxCellsPerQuery && SpanZ <= MaxCellsPerQuery)
+		{
+			NumCells = SpanX * SpanY * SpanZ;
+		}
 	}
 
 	if (NumCells > MaxCellsPerQuery || NumCells > int64(CollisionCells.Num()) * 4)

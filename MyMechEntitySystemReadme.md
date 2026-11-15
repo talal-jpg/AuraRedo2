@@ -267,6 +267,8 @@ Source/Aura/{Public,Private}/MechSwarm/
 Also touched:
     Public/MyGameMode.h                         SentinelSwarmRules
     {Public,Private}/AbilitySystem/Abilities/GA_GunShoot.h/.cpp   gun shots also damage sentinels (section 11)
+    Public/AbilitySystem/Abilities/MyGameplayAbility.h            OnServerMouseCursorData: the server's shot hook
+    {Public,Private}/AbilitySystem/AbilityTasks/AT_SendMouseCursorData.h/.cpp   calls it before the Blueprint
     Config/DefaultMass.ini                      engine replication processor off, the project's on (section 9)
     Aura.Build.cs (Mass modules), Aura.uproject (MassGameplay)
 
@@ -309,6 +311,7 @@ Arrows read "uses / depends on". Engine pieces are in `[brackets]`.
   Core/MechSentinelSwarmRules.cpp --> GAS/MechSentinelDefaultEffects (the default effect classes; .cpp only)
   Replication/MechSentinelReplicationProcessor --> [UMassReplicationProcessor] (subclass), Replication/MechSentinelReplicator
   AbilitySystem/Abilities/GA_GunShoot --> Combat/MechSentinelCombatLibrary, Core/MechSentinelSwarmSubsystem (server hits)
+  AbilitySystem/AbilityTasks/AT_SendMouseCursorData --> AbilitySystem/Abilities/MyGameplayAbility (the shot hook)
 ```
 
 Include rules that keep it acyclic:
@@ -585,8 +588,10 @@ Amount control:
   `DespawnAll` only queue the request, because the caller may run next to a Mass phase: the spawner's tick carries it
   out later the same frame. Manual spawns are created at most `SpawnBatchSize` per frame within `MaxAlive` and the
   rules' `MaxAliveSentinels`, and whatever the caps leave out is dropped. `SpawnSentinelsNow` returns how many it queued.
-  `DespawnAll` cancels the spawn requests queued before it, so the order of calls in a frame is kept. A spawner
-  destroyed (or unloaded) right after `DespawnAll` still despawns its sentinels, on the next timer tick.
+  `DespawnAll` cancels the spawn requests queued before it, so the order of calls in a frame is kept. Once the spawner
+  ends play (destroyed or unloaded) its tick stops, so a `DespawnAll` still waiting then, or one called from its
+  End Play or Destroyed events, despawns on the next timer tick instead. From another Blueprint, call it before
+  Destroy Actor: a call on a spawner that is already destroyed may be skipped.
 * Events: `OnWaveStarted(wave, count)` (server + clients; `count` is the replicated `GetCurrentWaveTotal()`, so both
   sides report the same number), `OnWaveCleared(wave)` (server).
 * `StartWaves` with an empty `Waves` array goes straight to Finished.
@@ -623,7 +628,8 @@ activated by input runs in TG_PrePhysics, next to a running phase, so defer the 
 (timers run after TG_PostPhysics), like `GA_GunShoot` does. The same goes for `ApplyHitsNow` from a melee swing's anim
 notify, and for handlers of the player damage and death events, which fire inside the attack processor. A hit that
 does land during a phase cannot crash it: kills and stuns change Mass tags, and those are deferred whenever a phase may
-be running. Its damage, though, is written at once, while the phase's worker threads may read the same sentinel.
+be running, so they take effect when the phase ends (until then the sentinel still moves, but it no longer attacks).
+Its damage, though, is written at once, while the phase's worker threads may read the same sentinel.
 
 `UMechSentinelHitCapsuleComponent` wraps this for projectiles: every server tick it tests its capsule plus the path
 since last frame (no tunnelling), hits each sentinel once, supports piercing (`MaxSentinelsHit`), extra effects,
@@ -640,9 +646,11 @@ no engine collision), so the ability sweeps the shot against their capsules itse
  (server)                       broadcasts it to the Blueprint (which may end the ability): the listen server host's
                                 own shot from Activate, a remote client's when it arrives
  OnServerMouseCursorData        once per shot (a shot the task replays, or that two waiting tasks both get, is skipped)
-   segment                      from the character along the aim (camera through crosshair), up to the trace's first
-                                blocking hit (wall, character) or SentinelShotRange. The client sends the aim: an
-                                origin over 50 m from the character is ignored, and the shot follows the pawn's view
+   segment                      from the character along the aim (camera through crosshair), up to the first wall
+                                (a server trace), the crosshair trace's own first hit (a character) or
+                                SentinelShotRange. The client sends the aim, so the server uses it only when the
+                                camera is within 50 m of the character and the line passes within 3 m of it (plus
+                                0.25 s of the character's movement); otherwise the shot follows the pawn's view
    spec                         SentinelDamageEffect or the rules' DefaultSentinelDamageEffect, at the ability level,
                                 SetByCaller SetDamageByCaller = SentinelDamage
  next timer tick (same frame)   QueryCapsule(segment, SentinelShotRadius) -> ApplySpecToHits(closest SentinelMaxTargets)
@@ -654,7 +662,7 @@ no engine collision), so the ability sweeps the shot against their capsules itse
 | `SentinelDamage` | 40 | damage per sentinel hit before armor (scalable float, read at the ability level). 4 shots kill a W1 sentinel, 9 a W4 one |
 | `SentinelDamageEffect` | empty | the GE for sentinel hits; empty uses the rules' `DefaultSentinelDamageEffect` |
 | `SentinelShotRadius` | 15 cm | thickness of the shot, added to the sentinel capsules (slack for latency) |
-| `SentinelShotRange` | 20000 cm | how far sentinels can be shot when the trace hits nothing |
+| `SentinelShotRange` | 20000 cm | how far sentinels can be shot when no wall or character stops the shot |
 | `SentinelMaxTargets` | 1 | sentinels per shot: 1 = the closest, 0 = every one on the line (piercing) |
 
 ---
@@ -769,9 +777,12 @@ its place, to work around a UE 5.8.2 bug ([section 9](#9-replication-data-flow))
   `SpawnSentinelsNow` / `DespawnAll` are queued. Blueprint callers of the hit functions must follow the same rule.
   Tag changes from a hit (kills, stuns) are deferred whenever a phase may be running, so a hit from the wrong place
   cannot crash; its damage write can still race the phase's worker threads.
-* **Client aim is checked**: the gun's aim comes from the client, so the server ignores an aim origin over 50 m from
-  the shooter. `QueryCapsule` counts hash cells in 64 bits and scans every sentinel instead when the bounds are huge
-  or not finite, so no shot can hang the server.
+* **Client aim is checked**: the gun's aim comes from the client. The server uses it only when its camera is within
+  50 m of the shooter and its line passes within about 3 m of the shooter (otherwise it shoots along the pawn's view),
+  and it traces the walls itself from the point of the line nearest the shooter: a wall past that point stops the shot
+  whatever the client reports. The direction is still the client's, as in any shooter without server-side aim.
+  `QueryCapsule` checks the hash cell count per axis and scans every sentinel instead when the bounds are huge or not
+  finite, so no shot can hang the server.
 * **Gun hits are not lag compensated**: the server sweeps the shot against where the sentinels are when the shot
   arrives, and what the shooting client saw is about one round trip (plus smoothing) older than that.
   `SentinelShotRadius` gives some slack. The hit lands later in the frame the shot arrives in (timer).

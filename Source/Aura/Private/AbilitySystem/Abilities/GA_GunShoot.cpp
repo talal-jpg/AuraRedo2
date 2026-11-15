@@ -24,10 +24,25 @@ DEFINE_LOG_CATEGORY_STATIC(LogGunShoot, Log, All);
 namespace MechSwarm::GunShootPrivate
 {
 	/**
-	 * Farthest the aim trace may start from the shooter (cm). The aim comes from the client's target data: an origin
-	 * beyond any camera distance (a modified client, or a broken trace) shoots from the pawn's own view instead.
+	 * The aim comes from the client's target data, so the server bounds it. Farthest the aim trace may start from the
+	 * shooter (cm), a sanity bound on the camera position.
 	 */
 	constexpr double MaxAimOriginDistance = 5000.0;
+
+	/**
+	 * Farthest the shot's line may pass from the shooter (cm), plus how far the shooter moves in MoveSlackSeconds. A
+	 * crosshair ray passes the character within the camera's offset (socket offset, camera lag), and the server's
+	 * character trails the client's. Beyond that, a modified client or a broken trace, the shot follows the pawn's own
+	 * view instead, so shots cannot start around a corner.
+	 */
+	constexpr double MaxShotLineOffset = 300.0;
+	constexpr double MoveSlackSeconds = 0.25;
+
+	/** The point of the line closest to Location, but never behind Origin. */
+	FVector StartOnLine(const FVector& Origin, const FVector& Direction, const FVector& Location)
+	{
+		return Origin + Direction * FMath::Max(0.0, FVector::DotProduct(Location - Origin, Direction));
+	}
 }
 
 void UGA_GunShoot::OnServerMouseCursorData(const FGameplayAbilityTargetDataHandle& Data)
@@ -104,18 +119,29 @@ void UGA_GunShoot::OnServerMouseCursorData(const FGameplayAbilityTargetDataHandl
 
 bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor& Avatar, FVector& OutStart, FVector& OutEnd) const
 {
-	// Along the aim trace: from the camera through the crosshair. MyPlayerController2's trace ends FLT_MAX away, so the
-	// vector is scaled into a sane range before it is normalized.
+	using namespace MechSwarm::GunShootPrivate;
+	const FVector AvatarLocation = Avatar.GetActorLocation();
+
+	// Along the aim trace: from the camera through the crosshair. The direction comes from the trace's own end, which is
+	// right even when the sweep started inside something (its hit is then at its start). MyPlayerController2's trace ends
+	// FLT_MAX away, so the vector is scaled into a sane range before it is normalized.
 	FVector Origin = AimHit.TraceStart;
-	FVector Direction = (AimHit.bBlockingHit ? FVector(AimHit.Location) : FVector(AimHit.TraceEnd)) - Origin;
+	FVector Direction = FVector(AimHit.TraceEnd) - Origin;
 	const double Largest = Direction.GetAbsMax();
 	Direction = (!Direction.ContainsNaN() && FMath::IsFinite(Largest) && Largest > UE_KINDA_SMALL_NUMBER)
 		? (Direction / Largest).GetSafeNormal()
 		: FVector::ZeroVector;
 
-	const bool bOriginNearShooter = !Origin.ContainsNaN()
-		&& FVector::DistSquared(Origin, Avatar.GetActorLocation()) <= FMath::Square(MechSwarm::GunShootPrivate::MaxAimOriginDistance);
-	const bool bUseAimTrace = bOriginNearShooter && !Direction.IsNearlyZero();
+	// The client sends the aim: use it when the camera is near the shooter and its line passes close to the shooter.
+	bool bUseAimTrace = !Origin.ContainsNaN() && !Direction.IsNearlyZero()
+		&& FVector::DistSquared(Origin, AvatarLocation) <= FMath::Square(MaxAimOriginDistance);
+	if (bUseAimTrace)
+	{
+		// From the shooter rather than from the camera behind it: nothing between the camera and the character is hit.
+		OutStart = StartOnLine(Origin, Direction, AvatarLocation);
+		const double MaxOffset = MaxShotLineOffset + Avatar.GetVelocity().Size() * MoveSlackSeconds;
+		bUseAimTrace = FVector::DistSquared(OutStart, AvatarLocation) <= FMath::Square(MaxOffset);
+	}
 	if (!bUseAimTrace)
 	{
 		// No usable aim trace: shoot where the pawn looks.
@@ -126,13 +152,10 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 		}
 		Origin = Pawn->GetPawnViewLocation();
 		Direction = Pawn->GetBaseAimRotation().Vector();
+		OutStart = StartOnLine(Origin, Direction, AvatarLocation);
 	}
 
-	// From the shooter rather than from the camera behind it: nothing between the camera and the character is hit.
-	const double AvatarAlongShot = FVector::DotProduct(Avatar.GetActorLocation() - Origin, Direction);
-	OutStart = Origin + Direction * FMath::Max(0.0, AvatarAlongShot);
-
-	// Walls and characters stop the shot: end at the aim trace's blocking hit when it lies ahead of the shooter.
+	// Characters stop the shot where the crosshair trace hit them, when that hit lies ahead of the shooter.
 	double Range = SentinelShotRange;
 	if (bUseAimTrace && AimHit.bBlockingHit)
 	{
@@ -141,6 +164,28 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 		{
 			Range = FMath::Min(Range, BlockAlongShot);
 		}
+	}
+
+	// Walls stop it here, whatever the client reports: the crosshair trace's channel (complex collision), without
+	// characters, whose positions on the server trail what the client saw, and without the shooter's own attachments.
+	if (const UWorld* World = Avatar.GetWorld())
+	{
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(GunShootSentinelWalls), /*bTraceComplex*/ true, &Avatar);
+		TArray<AActor*> Attached;
+		Avatar.GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
+		Params.AddIgnoredActors(Attached);
+		FCollisionResponseParams Responses;
+		Responses.CollisionResponse.SetResponse(ECC_Pawn, ECR_Ignore);
+		FHitResult Wall;
+		if (World->LineTraceSingleByChannel(Wall, OutStart, OutStart + Direction * Range, ECC_Visibility, Params, Responses))
+		{
+			Range = Wall.bStartPenetrating ? 0.0 : FMath::Min(Range, double(Wall.Distance));
+		}
+	}
+	if (Range <= UE_KINDA_SMALL_NUMBER)
+	{
+		// The line starts in a wall.
+		return false;
 	}
 	OutEnd = OutStart + Direction * Range;
 	return true;
