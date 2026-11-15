@@ -122,11 +122,19 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void SetWaveCount(int32 WaveIndex, int32 NewCount);
 
-	/** Spawns sentinels right away, outside the wave flow (they still count as alive for the current wave). */
+	/**
+	 * Spawns sentinels outside the wave flow (they still count as alive for the current wave). They are created by the
+	 * spawner's own tick later this frame, after the Mass phases, because Mass cannot create entities while a phase runs:
+	 * at most SpawnBatchSize per frame, within MaxAlive and the rules' MaxAliveSentinels. What the caps leave out is
+	 * dropped. Returns the number queued.
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	int32 SpawnSentinelsNow(int32 Count);
 
-	/** Removes every sentinel this spawner created. bKill plays the death fall, otherwise they vanish. */
+	/**
+	 * Removes every sentinel this spawner created, on the spawner's own tick later this frame (after the Mass phases).
+	 * bKill plays the death fall, otherwise they vanish.
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void DespawnAll(bool bKill = true);
 
@@ -262,6 +270,9 @@ private:
 	/** Drops destroyed handles and recounts the alive sentinels. */
 	void RefreshAlive();
 
+	/** DespawnAll's work, run from Tick. */
+	void DespawnAllNow(bool bKill);
+
 	/** Entities created by this spawner since the swarm last rebuilt its alive set (soft global cap). */
 	int32 SpawnedSinceHashRefresh() const;
 
@@ -281,4 +292,9 @@ private:
 	float SpawnAccumulator = 0.f;
 	bool bStopped = false;
 	bool bFallbacksRegistered = false;
+
+	/** SpawnSentinelsNow / DespawnAll requests, carried out by the next Tick. */
+	int32 PendingManualSpawns = 0;
+	bool bPendingDespawn = false;
+	bool bPendingDespawnKill = true;
 };

@@ -24,6 +24,11 @@ AMechSentinelWaveSpawner::AMechSentinelWaveSpawner()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
+	// Spawning creates entities with Mass's synchronous API, which asserts while any processor runs. The Mass phases
+	// tick in TG_PrePhysics..TG_PostPhysics (and FrameEnd in TG_LastDemotable) and run on worker tasks next to the other
+	// tick functions of their group, so a TG_PrePhysics actor could spawn in the middle of a phase. Nothing of Mass runs
+	// during TG_PostUpdateWork.
+	PrimaryActorTick.TickGroup = TG_PostUpdateWork;
 
 	// Clients need it for the wave state and to build the entity template before replicated sentinels arrive.
 	bReplicates = true;
@@ -79,6 +84,9 @@ void AMechSentinelWaveSpawner::PostInitializeComponents()
 
 void AMechSentinelWaveSpawner::BeginPlay()
 {
+	// Also for instances or Blueprints saved with another group: see the constructor.
+	SetTickGroup(TG_PostUpdateWork);
+
 	Super::BeginPlay();
 
 	EnsureTemplateBuilt();
@@ -305,7 +313,21 @@ void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)
 		return;
 	}
 
+	if (bPendingDespawn)
+	{
+		bPendingDespawn = false;
+		DespawnAllNow(bPendingDespawnKill);
+	}
+
 	RefreshAlive();
+
+	if (PendingManualSpawns > 0)
+	{
+		const int32 Requested = FMath::Min(PendingManualSpawns, SpawnBatchSize);
+		SpawnBatch(Requested);
+		// Whatever the caps did not allow is dropped, not retried.
+		PendingManualSpawns -= Requested;
+	}
 
 	if (bStopped)
 	{
@@ -401,7 +423,15 @@ void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)
 //----------------------------------------------------------------------//
 int32 AMechSentinelWaveSpawner::SpawnSentinelsNow(const int32 Count)
 {
-	return HasAuthority() ? SpawnBatch(Count) : 0;
+	if (!HasAuthority() || Count <= 0)
+	{
+		return 0;
+	}
+
+	// The caller may be ticking next to a running Mass phase: Tick (TG_PostUpdateWork) creates them.
+	PendingManualSpawns += Count;
+	SetActorTickEnabled(true);
+	return Count;
 }
 
 int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count)
@@ -415,7 +445,7 @@ int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count)
 		return 0;
 	}
 
-	// Never create entities in the middle of a Mass phase; the next tick will try again.
+	// Tick runs outside the Mass phases (see the constructor); this only guards other callers.
 	if (EntityManager->IsProcessing() || !Swarm->RegisterEntityConfig(EntityConfig))
 	{
 		return 0;
@@ -541,6 +571,14 @@ void AMechSentinelWaveSpawner::DespawnAll(const bool bKill)
 		return;
 	}
 
+	// Like SpawnSentinelsNow: done by Tick, outside the Mass phases.
+	bPendingDespawn = true;
+	bPendingDespawnKill = bKill;
+	SetActorTickEnabled(true);
+}
+
+void AMechSentinelWaveSpawner::DespawnAllNow(const bool bKill)
+{
 	FMassEntityManager* EntityManager = GetEntityManager();
 	UMechSentinelSwarmSubsystem* Swarm = UMechSentinelSwarmSubsystem::Get(this);
 	UMassSpawnerSubsystem* SpawnerSubsystem = GetWorld() ? GetWorld()->GetSubsystem<UMassSpawnerSubsystem>() : nullptr;
