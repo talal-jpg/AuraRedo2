@@ -65,7 +65,10 @@ struct FHexPillarGCVariant
 	float HeightRatio = 1.f;
 };
 
-/** How a top platform's collapsing tile breaks into its Geometry Collection (AMyHexPlatform::TopPillarGeometryCollection). */
+/**
+ * How a platform's collapsing tile breaks into its Geometry Collection (AMyHexPlatform::TopPillarBreak for the
+ * top platforms, BottomPillarBreak for the bottom ones).
+ */
 USTRUCT(BlueprintType)
 struct FHexPillarBreakSettings
 {
@@ -158,15 +161,14 @@ struct FHexPillarBreakSettings
 };
 
 /**
- * Breaks top platform tiles into Geometry Collections under one world-wide budget.
+ * Breaks platform tiles (top and bottom) into Geometry Collections under one world-wide budget.
  *
- * AMyHexPlatform::ActivateHexLocal queues a break when a top tile collapses near the local player
- * (the same trigger and range as the skeletal mesh fall of the bottom platforms). This runs on every
- * machine that renders, from the replicated ActivatedTiles, so the pieces are local and cosmetic:
- * nothing about them is replicated.
+ * AMyHexPlatform::ActivateHexLocal queues a break when a tile collapses near the local player (the same
+ * trigger and range as the skeletal mesh fall it replaces). This runs on every machine that renders, from
+ * the replicated ActivatedTiles, so the pieces are local and cosmetic: nothing about them is replicated.
  *
  * Each break is a UGeometryCollectionComponent owned by its platform, placed where the removed instance
- * was, at its size (AMyHexPlatform::GetTopPillarCollection). It is set up before it is registered, so its
+ * was, at its size (AMyHexPlatform::GetPillarCollection). It is set up before it is registered, so its
  * physics proxy is built once with the right velocity, scale and collision. Settings come from the
  * platform (FHexPillarBreakSettings).
  *
@@ -189,10 +191,13 @@ public:
 	/**
 	 * Breaks Collection at WorldTransform (a tile instance's) as soon as the budget allows. OpenSides =
 	 * world space directions (XY) from the tile through its sides that have no standing neighbour.
-	 * RemoveAfter = seconds until the pillar disappears.
+	 * RemoveAfter = seconds until the pillar disappears. CustomPrimitiveData = the tile instance's custom
+	 * data, set as the pillar's custom primitive data at the same indices (a Geometry Collection has no
+	 * per-instance custom data, so its material reads these instead).
 	 */
 	void QueueBreak(AMyHexPlatform* Platform, UGeometryCollection* Collection, const FTransform& WorldTransform,
-		const TArray<FVector>& OpenSides, const FHexPillarBreakSettings& Settings, float LengthScale, float RemoveAfter);
+		const TArray<FVector>& OpenSides, const FHexPillarBreakSettings& Settings, float LengthScale, float RemoveAfter,
+		const TArray<float>& CustomPrimitiveData = TArray<float>());
 
 	/**
 	 * Starts compiling Collection's shaders (PSO precache) before its first break, once per world. In a
@@ -231,6 +236,7 @@ private:
 		TWeakObjectPtr<UGeometryCollection> Collection;
 		FTransform WorldTransform;
 		TArray<FVector> OpenSides;
+		TArray<float> CustomPrimitiveData;
 		FHexPillarBreakSettings Settings;
 		float LengthScale = 1.f;
 		float RemoveAfter = 6.f;

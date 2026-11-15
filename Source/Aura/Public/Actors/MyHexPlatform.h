@@ -393,8 +393,9 @@ protected:
 	/**
 	 * A platform of the bottom chain (BP_MyHexPlatformBottom, spawned by the path graph for the lower
 	 * chain): its tiles are HexPillarBottomStaticMesh with one uniform Z scale instead of HexPillarStaticMesh,
-	 * and they collapse with HexPillarBottomSkeletalMesh / BottomRbdAnimSeq. Top platforms keep the
-	 * HexPillar assets and the per-tile heights. A class default, so every machine builds the same tiles.
+	 * and they break into BottomPillarGeometryCollection (else fall with HexPillarBottomSkeletalMesh /
+	 * BottomRbdAnimSeq). Top platforms keep the HexPillar assets and the per-tile heights. A class default,
+	 * so every machine builds the same tiles.
 	 */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
 	bool bIsBottomPlatform = false;
@@ -410,13 +411,35 @@ protected:
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets", meta = (ClampMin = "0.01"))
 	float HexPillarBottomScaleZ = 1.f;
 
-	/** Bottom platforms: spawned in place of a collapsing tile, playing BottomRbdAnimSeq. Unset = the tile just disappears. */
+	/**
+	 * Bottom platforms, when BottomPillarGeometryCollection is unset: spawned in place of a collapsing tile,
+	 * playing BottomRbdAnimSeq. Unset too = the tile just disappears.
+	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
 	TObjectPtr<USkeletalMesh> HexPillarBottomSkeletalMesh;
 
 	/** Bottom platforms: played on HexPillarBottomSkeletalMesh. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
 	TObjectPtr<UAnimSequence> BottomRbdAnimSeq;
+
+	/**
+	 * Bottom platforms: a collapsing tile breaks into this Geometry Collection, the fractured
+	 * HexPillarBottomStaticMesh (GC_HexRockPillar_H100), the same way the top tiles break into theirs.
+	 * Spawned at the instance's exact transform: every bottom tile has the same uniform scale, which the
+	 * GC matches while HexPillarBottomScaleZ is 1 (another value stretches it; bake one at that ratio).
+	 * Set it on the Blueprint, never from the constructor (see TopPillarHeightVariants). None = the
+	 * skeletal fall above. Top platforms ignore it.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	TObjectPtr<UGeometryCollection> BottomPillarGeometryCollection;
+
+	/**
+	 * How BottomPillarGeometryCollection breaks. Its budget fields (MaxActive, MaxSpawnsPerFrame,
+	 * MaxQueueTime, MinAgeToRecycle) are not used: bottom breaks queue under TopPillarBreak's, so the top and
+	 * bottom pillars share one world-wide budget.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	FHexPillarBreakSettings BottomPillarBreak;
 
 	/**
 	 * Top platforms: a collapsing tile breaks into a Geometry Collection (spawned where the instance was,
@@ -454,8 +477,9 @@ protected:
 	bool bUseTopPillarHeightVariants = true;
 
 	/**
-	 * How TopPillarGeometryCollection breaks, and the world-wide budget for it. The budget is shared by
-	 * every platform but read from each queued break, so keep it the same on every top platform class.
+	 * How TopPillarGeometryCollection breaks, and the world-wide budget for it and the bottom pillars. The
+	 * budget is shared by every platform but read from each queued break, so keep it the same on every
+	 * platform class.
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
 	FHexPillarBreakSettings TopPillarBreak;
@@ -946,8 +970,9 @@ protected:
 	//      ->
 	// remove instance
 	//      ->
-	// top platforms: Geometry Collection (UMyHexPillarBreakSubsystem)
-	// bottom platforms: skeletal mesh component -> play animation
+	// Geometry Collection (UMyHexPillarBreakSubsystem, GetPillarCollection: the top variants or
+	// BottomPillarGeometryCollection)
+	// none set: skeletal mesh component -> play animation
 	//
 	// bPlayEffect = false stops after removing the instance (no pieces, skeletal mesh or animation).
 	void ActivateHexLocal(
@@ -986,6 +1011,16 @@ protected:
 	 * spawn it at (uniform scale when a height variant is used). Null = none set.
 	 */
 	UGeometryCollection* GetTopPillarCollection(const FTransform& InstanceTransform, FTransform& OutSpawnTransform) const;
+
+	/**
+	 * The Geometry Collection this platform's tile with this instance transform breaks into, and the
+	 * transform to spawn it at: BottomPillarGeometryCollection at the exact transform on bottom platforms,
+	 * GetTopPillarCollection on top ones. Null = none set.
+	 */
+	UGeometryCollection* GetPillarCollection(const FTransform& InstanceTransform, FTransform& OutSpawnTransform) const;
+
+	/** TopPillarBreak or BottomPillarBreak, with TopPillarBreak's budget either way (one world-wide budget). */
+	FHexPillarBreakSettings GetPillarBreakSettings() const;
 
 	/** The tile mesh: HexPillarBottomStaticMesh on bottom platforms (when set), else HexPillarStaticMesh. */
 	UStaticMesh* GetTileMesh() const;
