@@ -67,15 +67,15 @@ void AMyCharBase::GiveStartupAbilities()
 {
 	for (TSubclassOf<UGameplayAbility> AbilityClass : StartupAbilities)
 	{
-		UMyGameplayAbility* MyGA =Cast<UMyGameplayAbility>(AbilityClass.GetDefaultObject());
-		FGameplayTag InputTag= MyGA->InputTag;
-		FGameplayTag AbilityTag= MyGA->AbilityTag;
+		UMyGameplayAbility* MyGA =AbilityClass ? Cast<UMyGameplayAbility>(AbilityClass.GetDefaultObject()) : nullptr;
 		if (!MyGA)
 		{
-			UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid AbilityClass for Ability: ") + AbilityClass.Get()->GetName());
+			UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid AbilityClass for Ability: ") + GetNameSafe(AbilityClass.Get()));
 		}
 		if (MyGA)
 		{
+			FGameplayTag InputTag= MyGA->InputTag;
+			FGameplayTag AbilityTag= MyGA->AbilityTag;
 			FGameplayAbilitySpec GameplayAbilitySpec=MyAbilitySystemComponent->BuildAbilitySpecFromClass(AbilityClass);
 			
 			if (InputTag.IsValid())
@@ -89,10 +89,6 @@ void AMyCharBase::GiveStartupAbilities()
 			GameplayAbilitySpec.GetDynamicSpecSourceTags().AddTag(MyTags::Ability_Status_Equiped);
 			
 			MyAbilitySystemComponent->GiveAbility(GameplayAbilitySpec);
-		}
-		else
-		{
-			UKismetSystemLibrary::PrintString(GetWorld(),TEXT("Invalid InputTag for Ability: ") + AbilityClass.Get()->GetName());
 		}
 	}
 }
@@ -124,10 +120,8 @@ FVector AMyCharBase::GetCombatSocketLocation_Implementation()
 void AMyCharBase::Die()
 {
 	// WeaponMesh->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepWorld,true));
+	// bIsDead is set inside the multicast, so clients get it too
 	MulticastHandleDeath();
-	
-	//Do we need to set replicated?
-	bIsDead=true;
 }
 
 FOnDeathDelegateSignature& AMyCharBase::GetOnDeathDelegate()
@@ -149,6 +143,8 @@ void AMyCharBase::MulticastHandleDeath_Implementation()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	
 	Dissolve();
+	// Set before broadcasting, so listeners that call IsDead() see true
+	bIsDead=true;
 	OnDeathDelegate.Broadcast(this);
 }
 
