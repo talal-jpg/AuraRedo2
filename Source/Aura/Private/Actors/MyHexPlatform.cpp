@@ -66,7 +66,7 @@ AMyHexPlatform::AMyHexPlatform()
 	);
 	HexPillarsISM->SetRemoveSwap();
 	
-	HexPillarsISM->NumCustomDataFloats=4;
+	HexPillarsISM->NumCustomDataFloats=5;
 
 	SetRootComponent(HexPillarsISM);
 
@@ -1051,6 +1051,10 @@ void AMyHexPlatform::BuildHexGrid()
 	// -------------------------------------------------------------------------
 
 	HexPillarsISM->ClearInstances();
+	// 0 falloff, 1/2 tile XY, 3 packed edge word, 4 packed path word (the edge word is packed below
+	// with PackHexAngle, the path word in WritePathCustomData).
+	// Packed words are integers below 2^24, so they survive the float exactly.
+	HexPillarsISM->SetNumCustomDataFloats(5);
 
 	HexMap.Empty();
 	InstanceToHex.Empty();
@@ -1278,14 +1282,90 @@ void AMyHexPlatform::BuildHexGrid()
 	// Custom data 3 = open-side bits for M_Pillar1's edge mask. Written after the
 	// loop so every neighbour already exists in HexMap. The mask reads the pillar's local
 	// position, so the bits turn with the pillar: actor side i is local side i - OutwardSide.
+	TMap<FIntVector, int32> LocalOpenBits;
 	for (const TPair<FIntVector, int32>& Pair : HexMap)
 	{
 		const int32 Bits = GetOpenSideBits(Pair.Key);
 		const int32 Turn = GetOutwardSide(Pair.Key);
-		const int32 LocalBits = ((Bits >> Turn) | (Bits << (6 - Turn))) & 0x3F;
-
-		HexPillarsISM->SetCustomDataValue(Pair.Value, 3, static_cast<float>(LocalBits), false);
+		LocalOpenBits.Add(Pair.Key, ((Bits >> Turn) | (Bits << (6 - Turn))) & 0x3F);
 	}
+
+	// Custom data 3 = packed edge word for M_Pillar1's edge mask and the snow in M_SmallPillarLines:
+	//   bits 0..5   open sides in the pillar's local frame (bit i = local side i)
+	//   bits 6..11  rings in from the platform outline (0 = tile with an open side), capped at 63
+	//   bits 12..19 direction towards the outline in the pillar's local frame, angle / 360 deg * 256
+	// The material extends ring + direction into a distance to the outline that runs on across tiles:
+	// ring * spacing + spacing / 2 - dot(LocalXY, Dir).
+	{
+		static const FIntVector SnowDirections[6] =
+		{
+			FIntVector( 1,  0, -1), FIntVector( 1, -1,  0), FIntVector( 0, -1,  1),
+			FIntVector(-1,  0,  1), FIntVector(-1,  1,  0), FIntVector( 0,  1, -1)
+		};
+
+		MaxEdgeRing = 0;
+		TMap<FIntVector, int32> Ring;
+		TArray<FIntVector> Queue;
+		for (const TPair<FIntVector, int32>& Pair : HexMap)
+		{
+			if (GetOpenSideBits(Pair.Key) != 0)
+			{
+				Ring.Add(Pair.Key, 0);
+				Queue.Add(Pair.Key);
+			}
+		}
+		for (int32 Head = 0; Head < Queue.Num(); ++Head)
+		{
+			const FIntVector Cur = Queue[Head];
+			const int32 K = Ring[Cur];
+			for (const FIntVector& D : SnowDirections)
+			{
+				const FIntVector N = Cur + D;
+				if (HexMap.Contains(N) && !Ring.Contains(N))
+				{
+					Ring.Add(N, K + 1);
+					Queue.Add(N);
+				}
+			}
+		}
+
+		for (const TPair<FIntVector, int32>& Pair : HexMap)
+		{
+			const int32* KPtr = Ring.Find(Pair.Key);
+			const int32 K = KPtr ? *KPtr : 0;
+
+			// Outward = open sides, or neighbours one ring closer to the outline
+			FVector2D Dir(0.f, 0.f);
+			for (int32 i = 0; i < 6; ++i)
+			{
+				const FIntVector N = Pair.Key + SnowDirections[i];
+				const int32* KN = Ring.Find(N);
+				if (!HexMap.Contains(N) || (KN && *KN < K))
+				{
+					const float A = FMath::DegreesToRadians(-60.f * i);
+					Dir += FVector2D(FMath::Cos(A), FMath::Sin(A));
+				}
+			}
+			Dir = Dir.GetSafeNormal();
+
+			// Actor -> pillar local: the pillar is yawed by -60 * OutwardSide, so turn the direction by +60 * OutwardSide
+			const float T = FMath::DegreesToRadians(60.f * GetOutwardSide(Pair.Key));
+			const FVector2D LocalDir(
+				Dir.X * FMath::Cos(T) - Dir.Y * FMath::Sin(T),
+				Dir.X * FMath::Sin(T) + Dir.Y * FMath::Cos(T)
+			);
+
+			const int32 Word = LocalOpenBits.FindRef(Pair.Key) | (FMath::Min(K, 63) << 6) | (PackHexAngle(LocalDir) << 12);
+			HexPillarsISM->SetCustomDataValue(Pair.Value, 3, static_cast<float>(Word), false);
+			// Path word until the bridge paths are laid: no path
+			HexPillarsISM->SetCustomDataValue(Pair.Value, 4, static_cast<float>(PackHexPathWord(15, FVector2D::ZeroVector)), false);
+			MaxEdgeRing = FMath::Max(MaxEdgeRing, K);
+		}
+	}
+	// Per platform (custom primitive data, shared by every pillar): 0 = deepest ring from the outline, 1 = tile count.
+	// The snow scales its reach with these, so small platforms get a narrow drift and big ones a wide one.
+	HexPillarsISM->SetCustomPrimitiveDataFloat(0, static_cast<float>(MaxEdgeRing));
+	HexPillarsISM->SetCustomPrimitiveDataFloat(1, static_cast<float>(HexMap.Num()));
 	HexPillarsISM->MarkRenderStateDirty();
 
 	BuildTileInfos();
