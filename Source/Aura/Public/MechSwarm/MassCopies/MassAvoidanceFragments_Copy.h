@@ -15,7 +15,7 @@ struct AURA_API FMassMovingAvoidanceParameters_Copy : public FMassConstSharedFra
 {
 	GENERATED_BODY()
 
-	/** Two agents closer than this (cm) push each other apart. Also used as the spatial hash cell size. */
+	/** Two agents closer than this (cm) push each other apart. The spatial hash cells are this plus the prediction reach (max 4x this). */
 	UPROPERTY(EditAnywhere, Category = "Avoidance", meta = (ClampMin = "1", ForceUnits = "cm"))
 	float SeparationDistance = 260.f;
 
@@ -23,7 +23,7 @@ struct AURA_API FMassMovingAvoidanceParameters_Copy : public FMassConstSharedFra
 	UPROPERTY(EditAnywhere, Category = "Avoidance", meta = (ClampMin = "0"))
 	float SeparationStrength = 3500.f;
 
-	/** How far ahead (s) the relative motion is predicted, so agents start dodging before they touch. */
+	/** How far ahead (s) the relative motion is predicted, so agents start dodging before they touch (the hash reach is capped at 4x SeparationDistance). */
 	UPROPERTY(EditAnywhere, Category = "Avoidance", meta = (ClampMin = "0", ForceUnits = "s"))
 	float PredictionTime = 0.6f;
 

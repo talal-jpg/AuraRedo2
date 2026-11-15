@@ -30,6 +30,27 @@ namespace MechSwarm::Behavior
 	{
 		return Board.FallbackSlots.IsValidIndex(Index) ? &Board.FallbackSlots[Index] : nullptr;
 	}
+
+	/** True when a player in range other than ExcludedPlayer, or any fallback point, could still take one more sentinel. */
+	bool HasRoomElsewhere(const FMechSentinelTargetingSharedFragment& Board, const int32 ExcludedPlayer, const FVector& Position, const float MaxDistanceSq)
+	{
+		for (int32 SlotIndex = 0; SlotIndex < Board.PlayerSlots.Num(); ++SlotIndex)
+		{
+			const FMechSentinelTargetSlot& Slot = Board.PlayerSlots[SlotIndex];
+			if (SlotIndex != ExcludedPlayer && Slot.HasRoom() && FVector::DistSquared(Slot.Location, Position) <= MaxDistanceSq)
+			{
+				return true;
+			}
+		}
+		for (const FMechSentinelTargetSlot& Slot : Board.FallbackSlots)
+		{
+			if (Slot.HasRoom())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 }
 
 //----------------------------------------------------------------------//
@@ -159,21 +180,23 @@ void UMechSentinelTargetSelectionProcessor::Execute(FMassEntityManager& EntityMa
 			Slot.bValid = true;
 		}
 
-		const TConstArrayView<FMechSentinelFallbackPoint> Fallbacks = Swarm->GetFallbackTargets(Board.SwarmGroup);
+		const TConstArrayView<FMechSentinelFallbackTarget> Fallbacks = Swarm->GetFallbackTargets(Board.SwarmGroup);
 		bChanged |= Board.FallbackSlots.Num() != Fallbacks.Num();
 		for (int32 Index = 0; !bChanged && Index < Fallbacks.Num(); ++Index)
 		{
-			bChanged = Board.FallbackSlots[Index].Actor.Get() != Fallbacks[Index].Actor.Get();
+			bChanged = Board.FallbackSlots[Index].Actor != Fallbacks[Index].Actor
+				|| Board.FallbackSlots[Index].bValid != Fallbacks[Index].IsValid();
 		}
 		Board.FallbackSlots.SetNum(Fallbacks.Num());
 		for (int32 Index = 0; Index < Fallbacks.Num(); ++Index)
 		{
 			FMechSentinelTargetSlot& Slot = Board.FallbackSlots[Index];
-			Slot.Actor = Fallbacks[Index].Actor.Get();
+			Slot.Actor = Fallbacks[Index].Actor;
 			Slot.Location = Fallbacks[Index].GetLocation();
 			Slot.Claims = 0;
 			Slot.Capacity = Fallbacks[Index].Capacity;
-			Slot.bValid = true;
+			// A destroyed followed actor leaves an invalid slot (never chosen); the serial bump re-targets its sentinels.
+			Slot.bValid = Fallbacks[Index].IsValid();
 		}
 
 		if (bChanged)
@@ -235,7 +258,10 @@ void UMechSentinelTargetSelectionProcessor::Execute(FMassEntityManager& EntityMa
 
 			Target.RetargetTimer -= DeltaTime;
 			const FMechSentinelTargetSlot* CurrentPlayer = GetPlayerSlot(Board, Target.PlayerSlot);
-			const bool bOverCapacity = CurrentPlayer && CurrentPlayer->Capacity > 0 && CurrentPlayer->Claims > CurrentPlayer->Capacity;
+			// Over capacity only matters when another target could take this sentinel; when everything is full the
+			// overflow is permanent and re-evaluating every frame would only churn (and reset the retarget timers).
+			const bool bOverCapacity = CurrentPlayer && CurrentPlayer->Capacity > 0 && CurrentPlayer->Claims > CurrentPlayer->Capacity
+				&& HasRoomElsewhere(Board, Target.PlayerSlot, Position, MaxDistanceSq);
 
 			if (bStale || !Target.HasTarget() || Target.RetargetTimer <= 0.f || bOverCapacity)
 			{
@@ -295,19 +321,33 @@ void UMechSentinelTargetSelectionProcessor::Execute(FMassEntityManager& EntityMa
 						Target.FallbackSlot = BestFallback;
 						++Board.FallbackSlots[BestFallback].Claims;
 					}
-					else if (Board.PlayerSlots.Num() > 0)
+					else
 					{
-						// Everything is crowded and there is nowhere else to go: join the least crowded player.
-						int32 LeastCrowded = 0;
-						for (int32 SlotIndex = 1; SlotIndex < Board.PlayerSlots.Num(); ++SlotIndex)
+						// Everything is crowded and there is nowhere else to go: join the least crowded player in range
+						// (ties go to the nearer one). Nobody in range: no target, the sentinel loiters where it is.
+						int32 LeastCrowded = INDEX_NONE;
+						float LeastCrowdedDistSq = FLT_MAX;
+						for (int32 SlotIndex = 0; SlotIndex < Board.PlayerSlots.Num(); ++SlotIndex)
 						{
-							if (Board.PlayerSlots[SlotIndex].Claims < Board.PlayerSlots[LeastCrowded].Claims)
+							const FMechSentinelTargetSlot& Slot = Board.PlayerSlots[SlotIndex];
+							const float DistSq = FVector::DistSquared(Slot.Location, Position);
+							if (!Slot.bValid || DistSq > MaxDistanceSq)
+							{
+								continue;
+							}
+							const bool bFewerClaims = LeastCrowded == INDEX_NONE || Slot.Claims < Board.PlayerSlots[LeastCrowded].Claims;
+							const bool bTieButNearer = LeastCrowded != INDEX_NONE && Slot.Claims == Board.PlayerSlots[LeastCrowded].Claims && DistSq < LeastCrowdedDistSq;
+							if (bFewerClaims || bTieButNearer)
 							{
 								LeastCrowded = SlotIndex;
+								LeastCrowdedDistSq = DistSq;
 							}
 						}
-						Target.PlayerSlot = LeastCrowded;
-						++Board.PlayerSlots[LeastCrowded].Claims;
+						if (LeastCrowded != INDEX_NONE)
+						{
+							Target.PlayerSlot = LeastCrowded;
+							++Board.PlayerSlots[LeastCrowded].Claims;
+						}
 					}
 				}
 

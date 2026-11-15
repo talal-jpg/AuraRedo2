@@ -31,33 +31,40 @@ void UMassApplyForceProcessor_Copy::ConfigureQueries(const TSharedRef<FMassEntit
 	EntityQuery.AddRequirement<FMassDesiredMovementFragment_Copy>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FMassForceFragment_Copy>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddConstSharedRequirement<FMassMovementParameters_Copy>(EMassFragmentPresence::All);
-	EntityQuery.AddTagRequirement<FMassCustomMovementTag_Copy>(EMassFragmentPresence::None);
 }
 
 void UMassApplyForceProcessor_Copy::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
 {
 	EntityQuery.ForEachEntityChunk(Context, [](FMassExecutionContext& Context)
 	{
-		const float DeltaTime = FMath::Min(MechSwarm::Movement::MaxIntegrationStep, Context.GetDeltaTimeSeconds());
 		const FMassMovementParameters_Copy& Params = Context.GetConstSharedFragment<FMassMovementParameters_Copy>();
 		const TArrayView<FMassDesiredMovementFragment_Copy> DesiredList = Context.GetMutableFragmentView<FMassDesiredMovementFragment_Copy>();
 		const TArrayView<FMassForceFragment_Copy> ForceList = Context.GetMutableFragmentView<FMassForceFragment_Copy>();
+
+		// Entities whose position is owned by someone else (dead wrecks, ...) never reach the movement integration,
+		// so their force would pile up: drop it here.
+		const bool bIntegratedLater = Context.DoesArchetypeHaveTag<FMassCodeDrivenMovementTag_Copy>()
+			&& !Context.DoesArchetypeHaveTag<FMassCustomMovementTag_Copy>();
 
 		const int32 NumEntities = Context.GetNumEntities();
 		for (int32 EntityIndex = 0; EntityIndex < NumEntities; ++EntityIndex)
 		{
 			FMassDesiredMovementFragment_Copy& Desired = DesiredList[EntityIndex];
-			FMassForceFragment_Copy& Force = ForceList[EntityIndex];
 
-			FVector NewDesired = Desired.DesiredVelocity + Force.Value * DeltaTime;
+			FVector NewDesired = Desired.DesiredVelocity;
 			if (!Params.bAllowVerticalMovement)
 			{
 				NewDesired.Z = 0.f;
+				ForceList[EntityIndex].Value.Z = 0.f;
 			}
 
 			const float SpeedCap = FMath::Min(Params.MaxSpeed, Desired.DesiredMaxSpeedOverride);
 			Desired.DesiredVelocity = NewDesired.GetClampedToMaxSize(SpeedCap);
-			Force.Value = FVector::ZeroVector;
+
+			if (!bIntegratedLater)
+			{
+				ForceList[EntityIndex].Value = FVector::ZeroVector;
+			}
 		}
 	});
 }
@@ -78,6 +85,7 @@ void UMassApplyMovementProcessor_Copy::ConfigureQueries(const TSharedRef<FMassEn
 	EntityQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FMassVelocityFragment_Copy>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FMassDesiredMovementFragment_Copy>(EMassFragmentAccess::ReadOnly);
+	EntityQuery.AddRequirement<FMassForceFragment_Copy>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
 	EntityQuery.AddConstSharedRequirement<FMassMovementParameters_Copy>(EMassFragmentPresence::All);
 	EntityQuery.AddTagRequirement<FMassCodeDrivenMovementTag_Copy>(EMassFragmentPresence::All);
 	EntityQuery.AddTagRequirement<FMassCustomMovementTag_Copy>(EMassFragmentPresence::None);
@@ -92,6 +100,7 @@ void UMassApplyMovementProcessor_Copy::Execute(FMassEntityManager& EntityManager
 		const TArrayView<FTransformFragment> TransformList = Context.GetMutableFragmentView<FTransformFragment>();
 		const TArrayView<FMassVelocityFragment_Copy> VelocityList = Context.GetMutableFragmentView<FMassVelocityFragment_Copy>();
 		const TConstArrayView<FMassDesiredMovementFragment_Copy> DesiredList = Context.GetFragmentView<FMassDesiredMovementFragment_Copy>();
+		const TArrayView<FMassForceFragment_Copy> ForceList = Context.GetMutableFragmentView<FMassForceFragment_Copy>();
 
 		const float MaxDeltaV = Params.MaxAcceleration * DeltaTime;
 
@@ -99,16 +108,33 @@ void UMassApplyMovementProcessor_Copy::Execute(FMassEntityManager& EntityManager
 		for (int32 EntityIndex = 0; EntityIndex < NumEntities; ++EntityIndex)
 		{
 			FVector& Velocity = VelocityList[EntityIndex].Value;
-			const FVector& DesiredVelocity = DesiredList[EntityIndex].DesiredVelocity;
+			const FMassDesiredMovementFragment_Copy& Desired = DesiredList[EntityIndex];
 
+			// 1) Steer toward the desired velocity (limited by MaxAcceleration).
 			if (Params.MaxAcceleration <= 0.f)
 			{
-				Velocity = DesiredVelocity;
+				Velocity = Desired.DesiredVelocity;
 			}
 			else
 			{
-				const FVector DeltaV = (DesiredVelocity - Velocity).GetClampedToMaxSize(MaxDeltaV);
+				const FVector DeltaV = (Desired.DesiredVelocity - Velocity).GetClampedToMaxSize(MaxDeltaV);
 				Velocity += DeltaV;
+			}
+
+			// 2) Forces (avoidance...) are accelerations on the real velocity. The velocity persists between frames,
+			//    so they integrate over time and balance against step 1 instead of being a one-frame nudge.
+			//    Steering processors assign DesiredVelocity from scratch every frame, so folding forces into it
+			//    (as the engine pipeline does with its force-based steering) would lose them.
+			if (ForceList.Num() > 0)
+			{
+				FMassForceFragment_Copy& Force = ForceList[EntityIndex];
+				Velocity += Force.Value * DeltaTime;
+				Force.Value = FVector::ZeroVector;
+				if (!Params.bAllowVerticalMovement)
+				{
+					Velocity.Z = 0.f;
+				}
+				Velocity = Velocity.GetClampedToMaxSize(FMath::Min(Params.MaxSpeed, Desired.DesiredMaxSpeedOverride));
 			}
 
 			FTransform& Transform = TransformList[EntityIndex].GetMutableTransform();

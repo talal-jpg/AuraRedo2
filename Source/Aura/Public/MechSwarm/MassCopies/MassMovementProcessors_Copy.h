@@ -9,7 +9,9 @@
 #include "MassMovementProcessors_Copy.generated.h"
 
 /**
- * Folds the accumulated force (acceleration) into the desired velocity and clamps it to the allowed speed.
+ * Clamps the desired velocity to the allowed speed / plane, and drops the accumulated force of entities that
+ * UMassApplyMovementProcessor_Copy will not integrate (custom movement). The force itself is applied to the
+ * velocity by UMassApplyMovementProcessor_Copy.
  * Runs on the authority only (server / standalone); clients get positions from replication.
  */
 UCLASS()
@@ -28,7 +30,8 @@ protected:
 };
 
 /**
- * Moves velocity toward the desired velocity (acceleration limited) and integrates the transform location.
+ * Moves velocity toward the desired velocity (acceleration limited), adds the accumulated force (acceleration)
+ * and integrates the transform location.
  * Entities tagged FMassCustomMovementTag_Copy are skipped (someone else owns their position).
  */
 UCLASS()

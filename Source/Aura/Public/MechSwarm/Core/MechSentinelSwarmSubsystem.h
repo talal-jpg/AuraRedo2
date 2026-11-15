@@ -39,6 +39,32 @@ struct AURA_API FMechSentinelFallbackPoint
 	FVector GetLocation() const { return Actor ? Actor->GetActorLocation() : Location; }
 };
 
+/**
+ * Runtime copy of a registered fallback point. The actor is held weakly: designers may destroy it at any time,
+ * and the subsystem's registration storage is not visible to GC.
+ */
+struct FMechSentinelFallbackTarget
+{
+	TWeakObjectPtr<AActor> Actor;
+	FVector Location = FVector::ZeroVector;
+	int32 Capacity = 0;
+	/** True when the point follows an actor (and becomes invalid once that actor is gone). */
+	bool bFollowsActor = false;
+
+	explicit FMechSentinelFallbackTarget(const FMechSentinelFallbackPoint& Point)
+		: Actor(Point.Actor.Get()), Location(Point.Location), Capacity(Point.Capacity), bFollowsActor(Point.Actor != nullptr)
+	{
+	}
+
+	bool IsValid() const { return !bFollowsActor || Actor.IsValid(); }
+
+	FVector GetLocation() const
+	{
+		const AActor* FollowedActor = Actor.Get();
+		return FollowedActor ? FollowedActor->GetActorLocation() : Location;
+	}
+};
+
 /** Result of a capsule query against the sentinels' simple collision capsules. */
 USTRUCT(BlueprintType)
 struct AURA_API FMechSentinelHit
@@ -123,8 +149,8 @@ public:
 	/** Valid, alive player pawns. */
 	void GatherPlayerTargets(TArray<TPair<AActor*, FVector>>& OutTargets) const;
 
-	/** Fallback points of a group (empty view when none). */
-	TConstArrayView<FMechSentinelFallbackPoint> GetFallbackTargets(FName SwarmGroup) const;
+	/** Fallback points of a group (empty view when none). Check IsValid(): a followed actor may have been destroyed. */
+	TConstArrayView<FMechSentinelFallbackTarget> GetFallbackTargets(FName SwarmGroup) const;
 
 	//----------------------------------------------------------------------//
 	// GAS bridge (server)
@@ -204,12 +230,12 @@ protected:
 	{
 		TWeakObjectPtr<UObject> Owner;
 		FName SwarmGroup;
-		TArray<FMechSentinelFallbackPoint> Points;
+		TArray<FMechSentinelFallbackTarget> Points;
 	};
 	TArray<FFallbackRegistration> FallbackRegistrations;
 
 	/** Flattened per group, rebuilt on (un)registration. */
-	TMap<FName, TArray<FMechSentinelFallbackPoint>> FallbacksByGroup;
+	TMap<FName, TArray<FMechSentinelFallbackTarget>> FallbacksByGroup;
 
 	struct FCollisionEntry
 	{

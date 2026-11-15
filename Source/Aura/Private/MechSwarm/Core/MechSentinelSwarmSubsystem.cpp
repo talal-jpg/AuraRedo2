@@ -268,7 +268,11 @@ void UMechSentinelSwarmSubsystem::RegisterFallbackTargets(const FName SwarmGroup
 	FFallbackRegistration& Registration = FallbackRegistrations.AddDefaulted_GetRef();
 	Registration.Owner = Owner;
 	Registration.SwarmGroup = SwarmGroup;
-	Registration.Points = Points;
+	Registration.Points.Reserve(Points.Num());
+	for (const FMechSentinelFallbackPoint& Point : Points)
+	{
+		Registration.Points.Emplace(Point);
+	}
 	RebuildFallbackMap();
 }
 
@@ -290,13 +294,13 @@ void UMechSentinelSwarmSubsystem::RebuildFallbackMap()
 	}
 }
 
-TConstArrayView<FMechSentinelFallbackPoint> UMechSentinelSwarmSubsystem::GetFallbackTargets(const FName SwarmGroup) const
+TConstArrayView<FMechSentinelFallbackTarget> UMechSentinelSwarmSubsystem::GetFallbackTargets(const FName SwarmGroup) const
 {
-	if (const TArray<FMechSentinelFallbackPoint>* Points = FallbacksByGroup.Find(SwarmGroup))
+	if (const TArray<FMechSentinelFallbackTarget>* Points = FallbacksByGroup.Find(SwarmGroup))
 	{
 		return *Points;
 	}
-	return TConstArrayView<FMechSentinelFallbackPoint>();
+	return TConstArrayView<FMechSentinelFallbackTarget>();
 }
 
 void UMechSentinelSwarmSubsystem::GatherPlayerTargets(TArray<TPair<AActor*, FVector>>& OutTargets) const

@@ -4,6 +4,7 @@
 
 #include "MassExecutionContext.h"
 #include "MassReplicationFragments.h"
+#include "MassReplicationSubsystem.h"
 #include "Mass/EntityFragments.h"
 #include "MechSwarm/MassCopies/MassMovementFragments_Copy.h"
 #include "MechSwarm/Replication/MechSentinelClientBubble.h"
@@ -91,5 +92,75 @@ void UMechSentinelReplicator::ProcessClientReplication(FMassExecutionContext& Co
 	};
 
 	CalculateClientReplication<FMechSentinelFastArrayItem>(Context, ReplicationContext, CacheViewsCallback, AddEntityCallback, ModifyEntityCallback, RemoveEntityCallback);
+#endif // UE_REPLICATION_COMPILE_SERVER_CODE
+}
+
+//----------------------------------------------------------------------//
+// UMechSentinelReplicationDestroyObserver
+//----------------------------------------------------------------------//
+UMechSentinelReplicationDestroyObserver::UMechSentinelReplicationDestroyObserver()
+	: EntityQuery(*this)
+{
+	ExecutionFlags = (int32)EProcessorExecutionFlags::Server;
+	ObservedTypes.Add(FMassReplicatedAgentFragment::StaticStruct());
+	ObservedOperations = EMassObservedOperationFlags::DestroyEntity;
+	// Touches the replication subsystem and the bubble actors, like the engine's destruction observer.
+	bRequiresGameThreadExecution = true;
+}
+
+void UMechSentinelReplicationDestroyObserver::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
+{
+	EntityQuery.AddRequirement<FMassReplicatedAgentFragment>(EMassFragmentAccess::ReadOnly);
+	EntityQuery.AddTagRequirement<FMechSentinelTag>(EMassFragmentPresence::All);
+}
+
+void UMechSentinelReplicationDestroyObserver::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
+{
+#if UE_REPLICATION_COMPILE_SERVER_CODE
+	UMassReplicationSubsystem* ReplicationSubsystem = UWorld::GetSubsystem<UMassReplicationSubsystem>(EntityManager.GetWorld());
+	if (!ReplicationSubsystem)
+	{
+		return;
+	}
+
+	const FMassBubbleInfoClassHandle BubbleClassHandle = ReplicationSubsystem->GetBubbleInfoClassHandle(AMechSentinelClientBubbleInfo::StaticClass());
+	if (!ReplicationSubsystem->IsBubbleClassHandleValid(BubbleClassHandle))
+	{
+		return;
+	}
+
+	const TArray<FMassClientHandle>& Clients = ReplicationSubsystem->GetClientReplicationHandles();
+	if (Clients.IsEmpty())
+	{
+		return;
+	}
+
+	EntityQuery.ForEachEntityChunk(Context, [ReplicationSubsystem, BubbleClassHandle, &Clients](FMassExecutionContext& Context)
+	{
+		for (FMassExecutionContext::FEntityIterator EntityIt = Context.CreateEntityIterator(); EntityIt; ++EntityIt)
+		{
+			const FMassEntityHandle Entity = Context.GetEntity(EntityIt);
+			for (const FMassClientHandle& Client : Clients)
+			{
+				if (!ReplicationSubsystem->IsValidClientHandle(Client))
+				{
+					continue;
+				}
+
+				FMassClientReplicationInfo* ClientInfo = ReplicationSubsystem->GetMutableClientReplicationInfo(Client);
+				FMassReplicatedAgentData* AgentData = ClientInfo ? ClientInfo->AgentsData.Find(Entity) : nullptr;
+				if (!AgentData || !AgentData->Handle.IsValid())
+				{
+					continue;
+				}
+
+				if (AMechSentinelClientBubbleInfo* Bubble = ReplicationSubsystem->GetTypedClientBubble<AMechSentinelClientBubbleInfo>(BubbleClassHandle, Client))
+				{
+					Bubble->GetSentinelSerializer().Bubble.RemoveAgent(AgentData->Handle);
+				}
+				AgentData->Invalidate();
+			}
+		}
+	});
 #endif // UE_REPLICATION_COMPILE_SERVER_CODE
 }

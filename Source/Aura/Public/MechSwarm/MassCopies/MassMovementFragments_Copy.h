@@ -21,7 +21,9 @@ struct AURA_API FMassVelocityFragment_Copy : public FMassFragment
 
 /**
  * Acceleration accumulator (cm/s^2). Avoidance and other steering helpers add to it,
- * UMassApplyForceProcessor_Copy folds it into the desired velocity and clears it every frame.
+ * UMassApplyMovementProcessor_Copy applies it to the velocity and clears it every frame.
+ * Deviation from the engine: there, ApplyForce folds forces into the desired velocity because engine steering is
+ * force based; sentinel steering assigns the desired velocity directly, so forces act on the velocity instead.
  */
 USTRUCT()
 struct AURA_API FMassForceFragment_Copy : public FMassFragment

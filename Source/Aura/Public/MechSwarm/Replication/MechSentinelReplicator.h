@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MassObserverProcessor.h"
 #include "MassReplicationProcessor.h"
 #include "MechSentinelReplicator.generated.h"
 
@@ -19,4 +20,27 @@ class AURA_API UMechSentinelReplicator : public UMassReplicatorBase
 public:
 	virtual void AddRequirements(FMassEntityQuery& EntityQuery) override;
 	virtual void ProcessClientReplication(FMassExecutionContext& Context, FMassReplicationContext& ReplicationContext) override;
+};
+
+/**
+ * Server: removes a destroyed sentinel from every client bubble right away.
+ * The engine only removes destroyed agents from inside UMassReplicationProcessor's per-chunk replicator callback.
+ * When every entity a client had in range is destroyed in the same frame (the end of a wave), no chunk is processed
+ * for that client, the agent is never removed, and the processor's cleanup asserts on the still-valid agent handle
+ * (in Shipping the client keeps a frozen ghost sentinel). Removing the agent here and invalidating its handle makes
+ * the engine's later bookkeeping a no-op.
+ */
+UCLASS()
+class AURA_API UMechSentinelReplicationDestroyObserver : public UMassObserverProcessor
+{
+	GENERATED_BODY()
+
+public:
+	UMechSentinelReplicationDestroyObserver();
+
+protected:
+	virtual void ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager) override;
+	virtual void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context) override;
+
+	FMassEntityQuery EntityQuery;
 };

@@ -12,6 +12,7 @@
 #include "Templates/SubclassOf.h"
 #include "MechSentinelFragments.generated.h"
 
+class AActor;
 class UGameplayEffect;
 class UAbilitySystemComponent;
 
@@ -174,6 +175,20 @@ struct AURA_API FMechSentinelGASFragment : public FMassFragment
 
 	UPROPERTY(VisibleAnywhere, Category = "GAS")
 	TArray<FMechSentinelActiveEffect> ActiveEffects;
+};
+
+/**
+ * The tag container and the effect list are UE containers (heap storage, relocatable), so Mass may move this
+ * fragment's memory freely. Mass asserts trivially copyable fragments unless the author opts out like this
+ * (the engine does the same for FMassReplicationViewerInfoFragment).
+ */
+template<>
+struct TMassFragmentTraits<FMechSentinelGASFragment> final
+{
+	enum
+	{
+		AuthorAcceptsItsNotTriviallyCopyable = true
+	};
 };
 
 //----------------------------------------------------------------------//

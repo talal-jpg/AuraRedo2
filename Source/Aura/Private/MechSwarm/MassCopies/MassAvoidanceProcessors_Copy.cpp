@@ -50,7 +50,9 @@ void UMassMovingAvoidanceProcessor_Copy::Execute(FMassEntityManager& EntityManag
 		Cell.Value.Reset();
 	}
 
-	// Pass 1: gather positions / velocities in query order and find the largest separation distance.
+	// Pass 1: gather positions / velocities in query order, and size the hash cells so that the 3x3x3 block around
+	// an agent covers its prediction horizon: SeparationDistance + PredictionTime * fastest speed this frame
+	// (capped at 4x SeparationDistance so a few very fast agents cannot make the cells huge).
 	float CellSize = 1.f;
 	EntityQuery.ForEachEntityChunk(Context, [this, &CellSize](FMassExecutionContext& Context)
 	{
@@ -58,13 +60,17 @@ void UMassMovingAvoidanceProcessor_Copy::Execute(FMassEntityManager& EntityManag
 		const TConstArrayView<FTransformFragment> TransformList = Context.GetFragmentView<FTransformFragment>();
 		const TConstArrayView<FMassVelocityFragment_Copy> VelocityList = Context.GetFragmentView<FMassVelocityFragment_Copy>();
 
-		CellSize = FMath::Max(CellSize, Params.SeparationDistance);
-
+		float ChunkMaxSpeedSq = 0.f;
 		const int32 NumEntities = Context.GetNumEntities();
 		for (int32 EntityIndex = 0; EntityIndex < NumEntities; ++EntityIndex)
 		{
-			Samples.Add({ TransformList[EntityIndex].GetTransform().GetLocation(), VelocityList[EntityIndex].Value });
+			const FVector& Velocity = VelocityList[EntityIndex].Value;
+			ChunkMaxSpeedSq = FMath::Max(ChunkMaxSpeedSq, float(Velocity.SizeSquared()));
+			Samples.Add({ TransformList[EntityIndex].GetTransform().GetLocation(), Velocity });
 		}
+
+		const float Reach = Params.SeparationDistance + Params.PredictionTime * FMath::Sqrt(ChunkMaxSpeedSq);
+		CellSize = FMath::Max(CellSize, FMath::Clamp(Reach, Params.SeparationDistance, 4.f * Params.SeparationDistance));
 	});
 
 	if (Samples.Num() < 2)

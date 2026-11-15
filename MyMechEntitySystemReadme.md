@@ -244,11 +244,12 @@ gets its **own** targeting board and its own movement speed. Two spawners whose 
       v
  [Tasks]      UMechSentinelSteeringProcessor         target -> desired velocity / facing (orbit, arrive, wobble, sink if stunned)
       v
- [Avoidance]  UMassMovingAvoidanceProcessor_Copy     spatial hash, predictive separation -> force
+ [Avoidance]  UMassMovingAvoidanceProcessor_Copy     spatial hash (cells sized to the prediction reach) -> force
       v
- [ApplyForces] UMassApplyForceProcessor_Copy         desired += force * dt, speed clamp, force reset
+ [ApplyForces] UMassApplyForceProcessor_Copy         clamp desired velocity (speed / vertical); drop force if not code driven
       v
- [Movement]   UMassApplyMovementProcessor_Copy       velocity -> desired (accel limited), location += v * dt
+ [Movement]   UMassApplyMovementProcessor_Copy       velocity -> desired (accel limited), velocity += force * dt,
+                                                     force reset, speed clamp, location += v * dt
               UMassSmoothOrientationProcessor_Copy   slerp to facing / velocity, pitch clamp, banking
       v
  [MechSwarm.Combat]
@@ -294,8 +295,12 @@ only exists on `NM_Client`, so a listen server renders its own simulation direct
    assignment, when the timer runs out / the board changed / the player is over capacity:
      1. nearest player with room (capacity = rules MaxAttackersPerPlayer; current target gets a stickiness bonus)
      2. otherwise nearest fallback point with room (per point Capacity, 0 = unlimited)
-     3. otherwise the least crowded player (never idle while players exist)
+     3. otherwise the least crowded player within range (never idle while players are reachable)
 ```
+
+A player only counts as "over capacity" when another player or fallback point actually has room, so sentinels do not
+bounce between equally crowded players. Fallback points that follow an actor are held weakly: when the actor is
+destroyed the point is dropped from the board (the board serial changes and its claimers retarget).
 
 Claims are recounted from scratch every frame (pass 2) before anyone is reassigned (pass 3), so the counts are exact
 even when sentinels die, players leave or the board changes.
@@ -370,8 +375,10 @@ Armor formula (all in `ExecCalc_SentinelDamage`, constants in the rules):
    ModifyEntity : movement throttled by UpdateInterval[LOD];
                   state / health / hit / attack changes sent at once      FMechSentinelClientBubbleHandler
    RemoveEntity : bubble.RemoveAgentChecked                                PostReplicatedAdd   : make sure the template
-     |                                                                                           exists, spawn entities,
-     v                                                                                           apply snapshot (snap)
+ UMechSentinelReplicationDestroyObserver                                                 exists, spawn entities,
+   entity destroyed -> bubble.RemoveAgent for every client that had it                   apply snapshot (snap)
+     |
+     v
  AMechSentinelClientBubbleInfo (owned by the PlayerController)            PostReplicatedChange: apply snapshot
    FMechSentinelClientBubbleSerializer : fast array of           ----->   PreReplicatedRemove : destroy entities
    FMechSentinelFastArrayItem { NetID, TemplateID, Data }
@@ -383,6 +390,9 @@ Armor formula (all in `ExecCalc_SentinelDamage`, constants in the rules):
 ```
 
 Why it works on clients:
+* Entities destroyed on the server are removed from every client bubble by `UMechSentinelReplicationDestroyObserver`
+  in the same frame. The engine only removes agents of entities it still finds in a client's range; when a whole wave
+  in range dies in one frame it would otherwise leave stale agents and hit its cleanup assert.
 * The bubble info class is registered in `UMechSentinelSwarmSubsystem::Initialize`, before any template is built and
   before any client connects (the engine asserts otherwise).
 * The entity template ID depends only on the config asset, so server and client agree. Clients build it from the
@@ -518,7 +528,8 @@ the Replication trait, client bubble base classes), which the custom agent / bub
   this frame, so several spawners in the same frame can overshoot by a batch.
 * **Wrecks**: dead sentinels fall with gravity, stop on WorldStatic geometry (one line trace per falling wreck per frame),
   tumble and are destroyed after `DeathFallDuration`.
-* **Avoidance** is entity-entity only (3D separation with prediction). There is no level-geometry avoidance for live
+* **Avoidance** is entity-entity only (3D separation with prediction, applied as an acceleration on the velocity after the
+  steering approach, so it is not cancelled by the acceleration limit). There is no level-geometry avoidance for live
   sentinels; keep the play space open or add fallback points away from walls.
 * **Movement speed** is a shared fragment per swarm group (change it with `SetSwarmMovementSpeed`), scaled per entity by
   the `MoveSpeedMultiplier` attribute (slows / hastes through GAS).
