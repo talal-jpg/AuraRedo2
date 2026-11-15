@@ -24,5 +24,46 @@ public:
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UGameplayEffect> DamageEffectClass;
-	
+
+	/**
+	 * Mech Sentinels: the server also damages the sentinels along each shot. Sentinels are Mass entities without engine
+	 * collision, so the crosshair trace (AT_SendMouseCursorData) passes through them; the shot is swept against their hit
+	 * capsules instead, from the character along the aim, up to the first wall or character the trace hit.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels")
+	bool bDamageSentinels = true;
+
+	/** Damage per sentinel hit, before the sentinel's armor. Evaluated at the ability level. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels"))
+	FScalableFloat SentinelDamage = FScalableFloat(40.f);
+
+	/** Effect for sentinel hits. Empty: the GameMode rules' DefaultSentinelDamageEffect (GE_SentinelDamage or the built-in one). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels"))
+	TSubclassOf<UGameplayEffect> SentinelDamageEffect;
+
+	/** Thickness of the shot, added to the sentinels' capsules: some slack for fast sentinels seen through latency. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels", ClampMin = "0", ForceUnits = "cm"))
+	float SentinelShotRadius = 15.f;
+
+	/** How far sentinels can be shot when the trace hits nothing. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels", ClampMin = "100", ForceUnits = "cm"))
+	float SentinelShotRange = 20000.f;
+
+	/** Sentinels one shot can hit: 1 = the closest one, 0 = every sentinel on the line (piercing). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels", ClampMin = "0"))
+	int32 SentinelMaxTargets = 1;
+
+protected:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+private:
+	/** Server: the shot's target data, from AT_SendMouseCursorData. */
+	void OnShotTargetData(const FGameplayAbilityTargetDataHandle& Data, FGameplayTag ApplicationTag);
+
+	/** The segment swept against the sentinels for an aim trace. False when there is nothing to shoot along. */
+	bool GetSentinelShotSegment(const FHitResult& AimHit, const AActor& Avatar, FVector& OutStart, FVector& OutEnd) const;
+
+	/** The last shot damaged, kept alive so it is told apart from a replay of the same data (and not from a new shot that reused its memory). */
+	TSharedPtr<FGameplayAbilityTargetData> LastSentinelShot;
 };

@@ -21,6 +21,8 @@ class AURA_API UMechSentinelSwarmRules : public UPrimaryDataAsset
 	GENERATED_BODY()
 
 public:
+	UMechSentinelSwarmRules();
+
 	// Targeting
 
 	/** How many sentinels may engage one player before newcomers pick another player or a fallback point. */
@@ -46,15 +48,17 @@ public:
 	float ShieldedDamageMultiplier = 0.25f;
 
 	/**
-	 * Instant GE used to damage sentinels when callers do not pass their own.
-	 * It should use UExecCalc_SentinelDamage and read the SetByCaller magnitude MyTags::SetDamageByCaller ("SetDamageByCaller").
+	 * Instant GE used to damage sentinels when callers do not pass their own (GA_GunShoot, the hit capsule, the combat
+	 * library). Defaults to the built-in UMechSentinelDamageEffect. A replacement should use UExecCalc_SentinelDamage and
+	 * read the SetByCaller magnitude MyTags::SetDamageByCaller ("SetDamageByCaller").
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TSubclassOf<UGameplayEffect> DefaultSentinelDamageEffect;
 
 	/**
-	 * Instant GE a sentinel applies to the player it attacks. The SetByCaller magnitude MyTags::SetDamageByCaller is set
-	 * to the sentinel's AttackDamage attribute, so the project's existing player damage GE (ExecCalc_Damage) works as is.
+	 * Instant GE a sentinel applies to the player it attacks, with the SetByCaller magnitude MyTags::SetDamageByCaller set
+	 * to the sentinel's AttackDamage attribute. Defaults to the built-in UMechSentinelAttackEffect, which adds it to the
+	 * player's IncomingDamage. A GE running the project's ExecCalc_Damage works too. Empty: attacks only show visually.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TSubclassOf<UGameplayEffect> SentinelAttackEffect;
