@@ -96,6 +96,118 @@ struct FHexTileInfo
 	FVector2D PathDirection = FVector2D::ZeroVector;
 };
 
+/** One stone of a paving pattern, in cells: X along the path, Y across it from its left edge. */
+USTRUCT(BlueprintType)
+struct FHexPavingPatternSlab
+{
+	GENERATED_BODY()
+
+	/** The stone's first cell. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Paving")
+	FIntPoint Cell = FIntPoint::ZeroValue;
+
+	/** Cells it covers. 1x1, 2x1, 1x2 and 2x2 have meshes on the tile scatter node. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Paving", meta = (ClampMin = "1"))
+	FIntPoint Size = FIntPoint(1, 1);
+};
+
+/** One copy of the paving pattern: stones covering PavingPatternLength x PavingCellsAcross cells. */
+USTRUCT(BlueprintType)
+struct FHexPavingPattern
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Paving")
+	TArray<FHexPavingPatternSlab> Slabs;
+};
+
+/** A paving stone laid on a bridge path by AMyHexPlatform::BuildBridgePaths. Actor space. */
+USTRUCT(BlueprintType)
+struct FHexPavingSlab
+{
+	GENERATED_BODY()
+
+	/** Centre of the stone, at the top of the tile it lands on. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	FVector Location = FVector::ZeroVector;
+
+	/** Degrees. X runs along the stone's long side. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	float Yaw = 0.f;
+
+	/** Cells, long side first (1x1, 2x1 or 2x2 with the default patterns). */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	FIntPoint Size = FIntPoint(1, 1);
+
+	/**
+	 * Real size over Size cells, X along the long side. Stones on a bend span their own lane's stretch of
+	 * the curve, plaza courses are stretched to fit their side, and a lane ending against another path is trimmed.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	FVector2D Scale = FVector2D(1.0, 1.0);
+
+	/**
+	 * Curvature (1/cm) of the stone's stretch of path, for the paving material to bend the stone into its curved
+	 * keystone so the joints on a bend stay even. X: the path runs along the stone's X and turns towards its +Y.
+	 * Y: the path runs along the stone's Y and turns towards its -X. One of them is 0; both are on straight runs.
+	 * On a bend Location sits off the middle of the stone's chord by the bend's sagitta, so once bent the stone's
+	 * ends land on its lane's curve.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	FVector2D Bend = FVector2D::ZeroVector;
+
+	/** The tile under the stone's centre. The stone breaks when that tile collapses. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	FIntVector Tile = FIntVector::ZeroValue;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	int32 TileIndex = INDEX_NONE;
+
+	/** Index into PavingPatterns of the copy it came from. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	int32 Pattern = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	int32 Seed = 0;
+};
+
+/**
+ * The plaza the bridge paths meet in around the centre tile (AMyHexPlatform::BuildBridgePaths): a regular
+ * polygon with one side per path into it (at least PavingPlazaMinSides), counting a path that would have
+ * joined another one near it. Actor space.
+ */
+USTRUCT(BlueprintType)
+struct FHexPathPlaza
+{
+	GENERATED_BODY()
+
+	/** False when no path reaches the centre tile, a bridge starts on it, or there is no room. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	bool bValid = false;
+
+	/** Middle of the plaza on the top of the centre tile, where the lamp stands. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	FVector Centre = FVector::ZeroVector;
+
+	/** Degrees. Side 0 faces out this way; side K at Yaw + 360 * K / NumSides. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	float Yaw = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	int32 NumSides = 0;
+
+	/** cm */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	float SideLength = 0.f;
+
+	/** The centre tile. The lamp breaks when it collapses. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	FIntVector Tile = FIntVector::ZeroValue;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Paving")
+	int32 TileIndex = INDEX_NONE;
+};
+
 
 UCLASS()
 class AURA_API AMyHexPlatform : public AActor
@@ -171,6 +283,15 @@ public:
 	const TMap<FIntVector, FHexTileInfo>& GetTileInfos() const { return TileInfos; }
 
 	float GetHexRadius() const { return HexRadius; }
+
+	/** Paving stones on the bridge paths, laid out on the grid as built (fallen tiles included). */
+	const TArray<FHexPavingSlab>& GetPavingSlabs() const { return PavingSlabs; }
+
+	/** The plaza the paths meet in at the centre tile (bValid false if there is none). */
+	const FHexPathPlaza& GetPathPlaza() const { return PathPlaza; }
+
+	/** PavingCellSize scaled by HexRadius / 100 (cm). */
+	float GetPavingCellSize() const { return PavingCellSize * HexRadius / 100.f; }
 
 	/** (Q, R) packed into 0 .. (2 * GridSize + 1)^2 - 1. */
 	int32 MakeTileIndex(const FIntVector& Coord) const;
@@ -530,6 +651,104 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
 	bool bBuildBridgePaths = true;
 
+	// -------------------------------------------------------------------------
+	// Path paving (stones along the bridge paths, the tile scatter node's Paving pin)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Pave the bridge paths: a spline through each path's tile centres, cut into pieces by how much
+	 * it bends, with copies of PavingPatterns laid along it. Each stone breaks with the tile under it.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (EditCondition = "bBuildBridgePaths"))
+	bool bPaveBridgePaths = true;
+
+	/** Side of one pattern cell (cm, for HexRadius 100; scaled by HexRadius / 100). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "5.0"))
+	float PavingCellSize = 40.f;
+
+	/** Cells across the path. The path is PavingCellsAcross * PavingCellSize wide. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "1", ClampMax = "16"))
+	int32 PavingCellsAcross = 4;
+
+	/** Cells along the path covered by one pattern copy. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "1", ClampMax = "16"))
+	int32 PavingPatternLength = 4;
+
+	/**
+	 * The pattern copies laid one after another along the path; each copy picks one (and maybe mirrors
+	 * it) from the start tile and its position. Stones outside the copy's cells are skipped.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving")
+	TArray<FHexPavingPattern> PavingPatterns;
+
+	/**
+	 * Most the spline may turn (degrees) inside one piece. Straight runs take whole pattern copies;
+	 * bends are cut into 2-cell and 1-cell pieces, and a stone that crosses a cut is split there.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "1.0", ClampMax = "90.0"))
+	float PavingMaxBend = 14.f;
+
+	/** Smoothing passes over the tile centres before the spline goes through them (takes out the hex zigzag). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "0", ClampMax = "50"))
+	int32 PavingSmoothing = 10;
+
+	/** How far smoothing may move a point from its tile centre, as a fraction of the tile apothem. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float PavingSmoothMaxOffset = 0.75f;
+
+	/** How far past the bridge tile's centre the paving runs, towards its open side (fraction of the apothem). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float PavingEdgeReach = 0.92f;
+
+	/**
+	 * A stone over tiles whose tops differ by more than this (cm) is halved until each piece sits on
+	 * one height, so big stones don't hang over a step.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "0.0"))
+	float PavingStepSplitHeight = 4.f;
+
+	/**
+	 * The paths that reach the centre tile meet in a paved plaza there: a square, or a pentagon / hexagon when
+	 * 5 / 6 paths come in, each path turning square onto its own side. A path that would join another one near
+	 * the plaza goes on to a side of its own instead, unless some path would then have to loop round the plaza (or
+	 * hook in right by its bridge) to reach its side, or the plaza would no longer fit. Its middle is the Lamp point.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (EditCondition = "bPaveBridgePaths"))
+	bool bPavePlaza = true;
+
+	/**
+	 * Side length of the plaza (cells) before PavingPlazaSizeRatio grows it, at least the path width plus a cell.
+	 * Where a bridge tile would end up under it, the plaza shrinks further, down to the path width plus a cell.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "1.0", EditCondition = "bPavePlaza"))
+	float PavingPlazaSideCells = 6.f;
+
+	/**
+	 * The plaza grows with the platform: its sides stand this fraction of the way from the centre to the nearest
+	 * bridge tile, when that is bigger than PavingPlazaSideCells gives. 0 leaves its size to PavingPlazaSideCells.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "0.0", ClampMax = "0.6", EditCondition = "bPavePlaza"))
+	float PavingPlazaSizeRatio = 0.15f;
+
+	/** Fewest sides the plaza has. More paths into the centre than this give it one side each. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "4", ClampMax = "8", EditCondition = "bPavePlaza"))
+	int32 PavingPlazaMinSides = 4;
+
+	/** Cells of straight path square onto the plaza side before it. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "0.0", EditCondition = "bPavePlaza"))
+	float PavingPlazaLead = 1.5f;
+
+	/** Cells (at least) a path gets to turn onto that straight lead: the path is cut back this far before it. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving", meta = (ClampMin = "0.0", EditCondition = "bPavePlaza"))
+	float PavingPlazaTurn = 3.f;
+
+	/**
+	 * Draw each path spline, its cuts, the stones and the plaza outline for 30 s after the paving is laid.
+	 * The console variable Aura.PathPavingDebug 1 turns it on for every platform.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Paving")
+	bool bDrawPavingDebug = false;
+
 	/**
 	 * Seconds after BeginPlay before the first tile prop generation, so the bridges (and with them the
 	 * path) are usually known. Bridges arriving later regenerate the props.
@@ -845,8 +1064,8 @@ private:
 	/** Server. Bridges ending on this platform, for PathStartTiles. */
 	TArray<TWeakObjectPtr<AMyHexBridge>> PathBridges;
 
-	/** Server. Start tiles of bridges destroyed because an end tile fell: the walkway to them stays. */
-	TSet<FIntVector> RetainedPathStarts;
+	/** Server. Start tiles (and bridge sides) of bridges destroyed because an end tile fell: the walkway to them stays. */
+	TMap<FIntVector, uint8> RetainedPathStarts;
 
 	/** Every tile's top centre as built (before late-join removals), so every machine lays the same path. */
 	TMap<FIntVector, FVector> PathLayoutTiles;
@@ -872,8 +1091,36 @@ private:
 	/** Sets PathDistance / PathDirection on every tile from PathStartTiles, laid out on PathLayoutTiles. */
 	void BuildBridgePaths();
 
+	/** Custom data 4 of every pillar: rings from the bridge path + direction (see PackHexPathWord), for the path snow. */
+	void WritePathCustomData();
+
+	/** Pillar-local direction as an 8 bit angle (angle / 360 deg * 256), for the packed custom data words. */
+	static int32 PackHexAngle(const FVector2D& Dir);
+
+	/** Path word: bits 0..3 rings from the path (15 = none), bits 4..11 direction (along the path on it, else towards it). */
+	static int32 PackHexPathWord(int32 PathRing, const FVector2D& LocalDir);
+
+	/** Deepest ring from the outline (BuildHexGrid), also in custom primitive data 0 for the snow. */
+	int32 MaxEdgeRing = 0;
+
+	/**
+	 * Fills PavingSlabs along Routes (each from a bridge tile to Centre or to an earlier route) and around
+	 * the plaza at Centre (PathPlaza). Tiles the stones land on join PathSet; PathDirections gets their
+	 * direction if they had none.
+	 */
+	void BuildPathPaving(const TArray<TArray<FIntVector>>& Routes, const FIntVector& Centre, TSet<FIntVector>& PathSet, TMap<FIntVector, FVector2D>& PathDirections);
+
+	/** Paving stones from the last BuildBridgePaths. */
+	TArray<FHexPavingSlab> PavingSlabs;
+
+	/** The plaza from the last BuildBridgePaths. */
+	FHexPathPlaza PathPlaza;
+
 	/** Server. PathStartTiles from PathBridges (+ RetainedPathStarts); schedules a rebuild if they changed. */
 	void UpdatePathStartTiles();
+
+	/** The side of Tile (GetHexSideDirection) nearest a bridge end's world location. */
+	uint8 GetPathStartSide(const FIntVector& Tile, const FVector& WorldLocation) const;
 
 	/** Server. The lead landed or collapsing started. */
 	void FreezePath();
