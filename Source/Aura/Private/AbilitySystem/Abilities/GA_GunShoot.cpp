@@ -31,17 +31,61 @@ namespace MechSwarm::GunShootPrivate
 
 	/**
 	 * Farthest the shot's line may pass from the shooter (cm), plus how far the shooter moves in MoveSlackSeconds. A
-	 * crosshair ray passes the character within the camera's offset (socket offset, camera lag), and the server's
-	 * character trails the client's. Beyond that, a modified client or a broken trace, the shot follows the pawn's own
-	 * view instead, so shots cannot start around a corner.
+	 * crosshair ray passes the character within the camera's offset (arm height, socket offset, camera lag), and the
+	 * server's character trails the client's. Beyond that (a modified client, or a broken trace) the shot follows the
+	 * pawn's own view instead.
 	 */
 	constexpr double MaxShotLineOffset = 300.0;
 	constexpr double MoveSlackSeconds = 0.25;
+
+	/** Characters in a row the wall trace looks past; the next one counts as a wall. */
+	constexpr int32 MaxCharactersSkipped = 8;
 
 	/** The point of the line closest to Location, but never behind Origin. */
 	FVector StartOnLine(const FVector& Origin, const FVector& Direction, const FVector& Location)
 	{
 		return Origin + Direction * FMath::Max(0.0, FVector::DotProduct(Location - Origin, Direction));
+	}
+
+	/** The pawn that Actor is, or is attached to (a character's weapon, for example). */
+	const APawn* GetCharacterOf(const AActor* Actor)
+	{
+		for (; Actor; Actor = Actor->GetAttachParentActor())
+		{
+			if (const APawn* Pawn = Cast<APawn>(Actor))
+			{
+				return Pawn;
+			}
+		}
+		return nullptr;
+	}
+
+	/**
+	 * The first wall from From to To: the first blocking hit on the crosshair trace's channel that is not part of a
+	 * character. Characters (pawns, their components and attached actors, whatever their collision profiles) are looked
+	 * past, because their positions on the server differ from what the shooting client saw; the client's own crosshair
+	 * hit stops the shot at them instead. The characters looked past are added to Params.
+	 */
+	bool TraceWall(const UWorld& World, const FVector& From, const FVector& To, FCollisionQueryParams& Params,
+		const FCollisionResponseParams& Responses, FHitResult& OutWall)
+	{
+		for (int32 Skipped = 0; ; ++Skipped)
+		{
+			if (!World.LineTraceSingleByChannel(OutWall, From, To, ECC_Visibility, Params, Responses))
+			{
+				return false;
+			}
+			const APawn* Character = GetCharacterOf(OutWall.GetActor());
+			if (!Character || Skipped >= MaxCharactersSkipped)
+			{
+				return true;
+			}
+			TArray<AActor*> Attached;
+			Character->GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
+			Params.AddIgnoredActor(Character);
+			Params.AddIgnoredActors(Attached);
+			Params.AddIgnoredActor(OutWall.GetActor());
+		}
 	}
 }
 
@@ -120,7 +164,31 @@ void UGA_GunShoot::OnServerMouseCursorData(const FGameplayAbilityTargetDataHandl
 bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor& Avatar, FVector& OutStart, FVector& OutEnd) const
 {
 	using namespace MechSwarm::GunShootPrivate;
+	const UWorld* World = Avatar.GetWorld();
+	if (!World)
+	{
+		return false;
+	}
 	const FVector AvatarLocation = Avatar.GetActorLocation();
+
+	// The server traces the walls itself, whatever the client reports: the crosshair trace's channel with complex
+	// collision, without the shooter and its attachments. The Pawn object type is skipped here, and TraceWall looks past
+	// the rest of every character.
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GunShootSentinelWalls), /*bTraceComplex*/ true, &Avatar);
+	TArray<AActor*> Attached;
+	Avatar.GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
+	Params.AddIgnoredActors(Attached);
+	FCollisionResponseParams Responses;
+	Responses.CollisionResponse.SetResponse(ECC_Pawn, ECR_Ignore);
+	FHitResult Wall;
+
+	// The shot starts at the point of its line nearest the shooter, so nothing between the camera and the character is
+	// hit. No wall may lie between the shooter's capsule centre (which movement keeps out of walls) and that point.
+	const auto IsStartInTheOpen = [&]()
+	{
+		return FVector::DistSquared(AvatarLocation, OutStart) <= 1.0
+			|| !TraceWall(*World, AvatarLocation, OutStart, Params, Responses, Wall);
+	};
 
 	// Along the aim trace: from the camera through the crosshair. The direction comes from the trace's own end, which is
 	// right even when the sweep started inside something (its hit is then at its start). MyPlayerController2's trace ends
@@ -132,15 +200,15 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 		? (Direction / Largest).GetSafeNormal()
 		: FVector::ZeroVector;
 
-	// The client sends the aim: use it when the camera is near the shooter and its line passes close to the shooter.
+	// The client sends the aim. It is used when the camera is near the shooter, its line passes close to the shooter,
+	// and the shot's start is in the open.
 	bool bUseAimTrace = !Origin.ContainsNaN() && !Direction.IsNearlyZero()
 		&& FVector::DistSquared(Origin, AvatarLocation) <= FMath::Square(MaxAimOriginDistance);
 	if (bUseAimTrace)
 	{
-		// From the shooter rather than from the camera behind it: nothing between the camera and the character is hit.
 		OutStart = StartOnLine(Origin, Direction, AvatarLocation);
 		const double MaxOffset = MaxShotLineOffset + Avatar.GetVelocity().Size() * MoveSlackSeconds;
-		bUseAimTrace = FVector::DistSquared(OutStart, AvatarLocation) <= FMath::Square(MaxOffset);
+		bUseAimTrace = FVector::DistSquared(OutStart, AvatarLocation) <= FMath::Square(MaxOffset) && IsStartInTheOpen();
 	}
 	if (!bUseAimTrace)
 	{
@@ -153,6 +221,10 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 		Origin = Pawn->GetPawnViewLocation();
 		Direction = Pawn->GetBaseAimRotation().Vector();
 		OutStart = StartOnLine(Origin, Direction, AvatarLocation);
+		if (!IsStartInTheOpen())
+		{
+			return false;
+		}
 	}
 
 	// Characters stop the shot where the crosshair trace hit them, when that hit lies ahead of the shooter.
@@ -166,21 +238,10 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 		}
 	}
 
-	// Walls stop it here, whatever the client reports: the crosshair trace's channel (complex collision), without
-	// characters, whose positions on the server trail what the client saw, and without the shooter's own attachments.
-	if (const UWorld* World = Avatar.GetWorld())
+	// Walls stop it at the first one the server finds.
+	if (TraceWall(*World, OutStart, OutStart + Direction * Range, Params, Responses, Wall))
 	{
-		FCollisionQueryParams Params(SCENE_QUERY_STAT(GunShootSentinelWalls), /*bTraceComplex*/ true, &Avatar);
-		TArray<AActor*> Attached;
-		Avatar.GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
-		Params.AddIgnoredActors(Attached);
-		FCollisionResponseParams Responses;
-		Responses.CollisionResponse.SetResponse(ECC_Pawn, ECR_Ignore);
-		FHitResult Wall;
-		if (World->LineTraceSingleByChannel(Wall, OutStart, OutStart + Direction * Range, ECC_Visibility, Params, Responses))
-		{
-			Range = Wall.bStartPenetrating ? 0.0 : FMath::Min(Range, double(Wall.Distance));
-		}
+		Range = Wall.bStartPenetrating ? 0.0 : FMath::Min(Range, double(Wall.Distance));
 	}
 	if (Range <= UE_KINDA_SMALL_NUMBER)
 	{

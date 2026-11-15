@@ -87,8 +87,8 @@ void AMechSentinelWaveSpawner::BeginPlay()
 {
 	// Also for instances or Blueprints saved with another group: see the constructor.
 	SetTickGroup(TG_PostUpdateWork);
-	// A spawner whose level streams back in plays again: DespawnAll goes through Tick again.
-	bDespawnByTimer = false;
+	// A spawner whose level streams back in plays again: DespawnAll and SpawnSentinelsNow go through Tick again.
+	bSpawnerEndedPlay = false;
 
 	Super::BeginPlay();
 
@@ -129,13 +129,18 @@ void AMechSentinelWaveSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	// The spawner's tick will not run again, but its sentinels outlive it. From here on DespawnAll is finished on a timer
 	// (which also runs outside the Mass phases): one queued earlier this frame, and one called from Event End Play,
-	// OnEndPlay, Event Destroyed or OnDestroyed, which all run after this point.
-	bDespawnByTimer = HasAuthority()
+	// OnEndPlay, Event Destroyed or OnDestroyed, which all run after this point. Spawn requests are dropped: queued ones
+	// would otherwise burst out when an unloaded level streams back in.
+	bSpawnerEndedPlay = HasAuthority()
 		&& (EndPlayReason == EEndPlayReason::Destroyed || EndPlayReason == EEndPlayReason::RemovedFromWorld);
-	if (bDespawnByTimer && bPendingDespawn)
+	if (bSpawnerEndedPlay)
 	{
-		bPendingDespawn = false;
-		QueueDespawnOnTimer(bPendingDespawnKill);
+		PendingManualSpawns = 0;
+		if (bPendingDespawn)
+		{
+			bPendingDespawn = false;
+			QueueDespawnOnTimer(bPendingDespawnKill);
+		}
 	}
 
 	if (bFallbacksRegistered)
@@ -449,7 +454,8 @@ void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)
 //----------------------------------------------------------------------//
 int32 AMechSentinelWaveSpawner::SpawnSentinelsNow(const int32 Count)
 {
-	if (!HasAuthority() || Count <= 0)
+	// After end play the tick that would create them does not run.
+	if (!HasAuthority() || Count <= 0 || bSpawnerEndedPlay)
 	{
 		return 0;
 	}
@@ -598,11 +604,11 @@ void AMechSentinelWaveSpawner::DespawnAll(const bool bKill)
 	}
 
 	// Manual spawns queued before this call are cancelled (they would otherwise appear right after the despawn); the
-	// ones queued after it still run after it.
+	// ones queued after it still run after it, unless the spawner has ended play.
 	PendingManualSpawns = 0;
 
 	// Ended play (destroyed or unloaded): the tick will not run again.
-	if (bDespawnByTimer)
+	if (bSpawnerEndedPlay)
 	{
 		bPendingDespawn = false;
 		QueueDespawnOnTimer(bKill);
