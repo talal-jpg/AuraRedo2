@@ -5,29 +5,41 @@
 
 #include <string>
 
+#include "Actors/MyHexAtmosphereFX.h"
 #include "Actors/MyHexBridge.h"
 #include "Actors/MyHexBridgeSubsystem.h"
 #include "Actors/MyHexMinimapSubsystem.h"
+#include "Actors/MyHexPathSpawner.h"
 #include "MyGameState.h"
 #include "Animation/AnimSequence.h"
+#include "Algo/BinarySearch.h"
 #include "Curves/CurveFloat.h"
 #include "CollisionQueryParams.h"
 #include "Components/SplineComponent.h"
+#include "DrawDebugHelpers.h"
+#include "HAL/IConsoleManager.h"
+#include "Math/InterpCurve.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Camera/PlayerCameraManager.h"
+#include "EngineUtils.h"
 #include "TimerManager.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "PCGComponent.h"
+#include "PCGGraph.h"
 #include "PCGManagedResource.h"
 #include "Engine/StaticMesh.h"
 #include "GeometryCollection/GeometryCollectionActor.h"
 #include "GeometryCollection/GeometryCollectionComponent.h"
 #include "GeometryCollection/GeometryCollectionObject.h"
 #include "GeometryCollection/GeometryCollectionSimulationTypes.h"
+#include "UObject/ConstructorHelpers.h"
 
 
 // =============================================================================
@@ -66,6 +78,24 @@ AMyHexPlatform::AMyHexPlatform()
 		ECR_Block
 	);
 
+	// M_Pillar2's WPO is a static displacement (no Time node, custom data fixed after spawn). Writing
+	// velocity for it kept every pillar in the velocity pass each frame (9.8 ms GPU on 2026-10-24).
+	HexPillarsISM->bWorldPositionOffsetWritesVelocity = false;
+
+	// Tile mesh of the bottom platforms (bIsBottomPlatform)
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> BottomMesh(
+		TEXT("/Game/Assets/MyPlatform/geo/SM/HexPillarBottom.HexPillarBottom")
+	);
+
+	if (BottomMesh.Succeeded())
+	{
+		HexPillarBottomStaticMesh = BottomMesh.Object;
+	}
+
+	// The top pillar Geometry Collections (TopPillarHeightVariants) are set on BP_MyHexPlatform, not loaded
+	// here: a load from this constructor comes before the Dataflow node types are registered, and the GCs'
+	// embedded Dataflow graphs then lose their nodes.
+
 	// -------------------------------------------------------------------------
 	// Tile props
 	// -------------------------------------------------------------------------
@@ -97,12 +127,16 @@ void AMyHexPlatform::GetLifetimeReplicatedProps(
 	);
 
 	DOREPLIFETIME(AMyHexPlatform, PathStartTiles);
+	DOREPLIFETIME(AMyHexPlatform, PathStartSides);
 	DOREPLIFETIME(AMyHexPlatform, bPathFrozen);
 
 	// Grid shape. Set once when the server spawns the platform (PCG property overrides) and never
 	// changed, so it only goes in the first bunch. The engine applies it before the client's
 	// BeginPlay, which is where the client builds its grid.
 	DOREPLIFETIME_CONDITION(AMyHexPlatform, HexPillarStaticMesh, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, bIsBottomPlatform, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, HexPillarBottomStaticMesh, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AMyHexPlatform, HexPillarBottomScaleZ, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AMyHexPlatform, GridSize, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AMyHexPlatform, HexRadius, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AMyHexPlatform, VerticalScaling, COND_InitialOnly);
@@ -126,13 +160,19 @@ void AMyHexPlatform::BeginPlay()
 
 	// The grid itself is NOT replicated, every machine builds it here.
 	//
-	// On a client OnConstruction() ran with the class defaults, before the replicated shape
-	// (GridSize, NoiseOffset, ... set by PCG on the server) arrived. Those are applied before
-	// BeginPlay, so this rebuild matches the server's grid.
+	// OnConstruction() doesn't build it in game worlds: on a client it would run with the class
+	// defaults, before the replicated shape (GridSize, NoiseOffset, ... set by PCG on the server)
+	// arrived. That is applied before BeginPlay, so this build matches the server's grid.
 	//
 	// Only the shape and the activation state are replicated.
 	
 	BuildHexGrid();
+
+	// The platform vanishes past this (hidden by the path-end fog)
+	if (PlatformMaxDrawDistance > 0.f)
+	{
+		HexPillarsISM->SetCullDistance(PlatformMaxDrawDistance);
+	}
 
 	// Tiles that collapsed before this client received the platform (late join) came with the
 	// initial properties; OnRep_ActivatedTiles skipped them because the grid wasn't built yet.
@@ -140,6 +180,37 @@ void AMyHexPlatform::BeginPlay()
 	if (!HasAuthority())
 	{
 		ApplyActivatedTiles(/*bPlayEffect=*/false);
+	}
+
+	// Top tiles break into Geometry Collections: get their shaders compiling before the first break.
+	// The variants share their material, so one of them covers the rest.
+	if (!bIsBottomPlatform)
+	{
+		if (UMyHexPillarBreakSubsystem* PillarBreaks = GetWorld()->GetSubsystem<UMyHexPillarBreakSubsystem>())
+		{
+			PillarBreaks->PrecacheCollection(this, TopPillarGeometryCollection);
+
+			if (!TopPillarHeightVariants.IsEmpty())
+			{
+				PillarBreaks->PrecacheCollection(this, TopPillarHeightVariants[0].Collection);
+			}
+		}
+	}
+
+	// The far-break ISMs are made now, empty, so their PSOs compile before the first far break: in a
+	// cooked build a primitive gets no scene proxy until its PSOs are ready (pops in late otherwise)
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		if (UMyHexPillarBreakSubsystem* Breaks = GetWorld()->GetSubsystem<UMyHexPillarBreakSubsystem>())
+		{
+			Breaks->PrewarmFarBreak(FarTopPillar);
+			Breaks->PrewarmFarBreak(FarBottomPillar);
+
+			for (const TPair<TObjectPtr<UStaticMesh>, FHexFarBreakMesh>& Pair : FarPropMeshes)
+			{
+				Breaks->PrewarmFarBreak(Pair.Value);
+			}
+		}
 	}
 
 	// Rocks and ruins on the tiles left after the late-join removal above. Their props break with them.
@@ -152,13 +223,13 @@ void AMyHexPlatform::BeginPlay()
 	{
 		Minimap->RegisterPlatform(this);
 	}
-	UKismetSystemLibrary::PrintString(
-		this,
-		TEXT("BEGIN PLAY: HexMap=%d | ISM=%d"),
+	UE_LOG(
+		LogTemp,
+		Verbose,
+		TEXT("%s BeginPlay: HexMap=%d | ISM=%d"),
+		*GetName(),
 		HexMap.Num(),
-		HexPillarsISM
-			? HexPillarsISM->GetInstanceCount()
-			: -1
+		HexPillarsISM->GetInstanceCount()
 	);
 
 	//TODO Can choose a grid randomly based on Grid size ( the larger the size the greater the chance is to get selected for destruction)
@@ -221,6 +292,9 @@ void AMyHexPlatform::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			Minimap->UnregisterPlatform(this);
 		}
 	}
+
+	// Fog, snow and dust the tile prop graph spawned (PCG leaves them behind)
+	AMyHexAtmosphereFX::DestroyAttachedTo(this);
 
 	// Broadcasts OnEndPlay, which makes the bridges ending on this platform destroy themselves
 	Super::EndPlay(EndPlayReason);
@@ -703,14 +777,26 @@ void AMyHexPlatform::OnConstruction(
 {
 	Super::OnConstruction(Transform);
 
-	BuildHexGrid();
-	
-	UKismetSystemLibrary::PrintString(this,TEXT("ConstructionEventCalled"));
-	
-	for (auto Hex:HexMap)
+#if WITH_EDITOR
+	// A freshly placed platform's PCG graph instances only listen to their graph after a load,
+	// duplicate or graph change, so editing the graph (or toggling Debug) wouldn't regenerate it.
+	for (UPCGComponent* PropsPCG : { TilePropsPCG.Get(), HexTileProps2.Get() })
 	{
-		UKismetSystemLibrary::PrintString(this,Hex.Key.ToString());
+		if (PropsPCG && PropsPCG->GetGraphInstance())
+		{
+			PropsPCG->GetGraphInstance()->SetupCallbacks();
+		}
 	}
+#endif
+
+	// Game worlds build the grid in BeginPlay, once the replicated shape has arrived. Building it here
+	// as well doubled the work for every platform the path spawns.
+	if (const UWorld* World = GetWorld(); World && World->IsGameWorld())
+	{
+		return;
+	}
+
+	BuildHexGrid();
 }
 
 
@@ -898,13 +984,16 @@ void AMyHexPlatform::BuildHexGrid()
 	// Set static mesh
 	// -------------------------------------------------------------------------
 
-	if (!HexPillarStaticMesh)
+	// HexPillarBottom on bottom platforms, HexPillar on top ones
+	UStaticMesh* TileMesh = GetTileMesh();
+
+	if (!TileMesh)
 	{
 		return;
 	}
 
 	HexPillarsISM->SetStaticMesh(
-		HexPillarStaticMesh
+		TileMesh
 	);
 
 
@@ -934,6 +1023,10 @@ void AMyHexPlatform::BuildHexGrid()
 	constexpr double BOH_NoiseScale = 0.2;
 
 	const float InstanceRadius = HexRadius / 100;
+
+	// Bottom platforms: one Z scale for every tile (no per-tile heights)
+	const bool bUniformHeight = bIsBottomPlatform && TileMesh == HexPillarBottomStaticMesh;
+	const float UniformScaleZ = InstanceRadius * HexPillarBottomScaleZ;
 
 	// The side (GetHexSideDirection) of a tile that points most directly away from the platform centre.
 	// The pillar has flat sides on +-X and only tiles when turned in 60 degree steps, so each pillar is
@@ -1078,7 +1171,7 @@ void AMyHexPlatform::BuildHexGrid()
 			FVector(
 				InstanceRadius,
 				InstanceRadius,
-				Scale
+				bUniformHeight ? UniformScaleZ : Scale
 			)
 		);
 
@@ -1089,9 +1182,10 @@ void AMyHexPlatform::BuildHexGrid()
 			continue;
 		}
 
-		HexPillarsISM->SetCustomDataValue(InstanceIndex, 0, Falloff, true);
-		HexPillarsISM->SetCustomDataValue(InstanceIndex, 1, Loc2d.X , true);
-		HexPillarsISM->SetCustomDataValue(InstanceIndex, 2, Loc2d.Y, true);
+		// Render state is marked dirty once, after the loop
+		HexPillarsISM->SetCustomDataValue(InstanceIndex, 0, Falloff, false);
+		HexPillarsISM->SetCustomDataValue(InstanceIndex, 1, Loc2d.X, false);
+		HexPillarsISM->SetCustomDataValue(InstanceIndex, 2, Loc2d.Y, false);
 
 		HexMap.Add(
 			Coord,
@@ -1568,10 +1662,74 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 
 	LocalActivatedTiles.Add(Coord);
 
-	// Bridges ending on this tile listen for this
-	OnHexTileActivated.Broadcast(this, Coord);
+	// Break visuals (tile animation, prop debris) only near the local player; further out, up to
+	// FarBreakMaxDistance, the baked far breaks. None without a local player (dedicated server).
+	double PlayerDistance = 0.0;
+	const bool bHasLocalPlayer = GetLocalPlayerDistance2D(InstanceTransform.GetLocation(), PlayerDistance);
+	const bool bInEffectsRange = bHasLocalPlayer && PlayerDistance <= BreakEffectsMaxDistance;
+	const bool bFar = bPlayEffect && bHasLocalPlayer && !bInEffectsRange
+		&& (FarBreakMaxDistance <= 0.f || PlayerDistance <= FarBreakMaxDistance);
 
-	if (!bPlayEffect)
+	// The pillar's far break goes first, so at FarBreakMaxActive the tile gets its slot before its props
+	// (HandleTileActivated, during the broadcast below). Not where the platform itself is already culled.
+	if (bFar && (PlatformMaxDrawDistance <= 0.f || PlayerDistance <= PlatformMaxDrawDistance))
+	{
+		PlayFarBreak(bIsBottomPlatform ? FarBottomPillar : FarTopPillar, InstanceTransform, GetPillarAnimRate(InstanceTransform.GetScale3D().Z));
+	}
+
+	// Bridges ending on this tile listen for this
+	bBreakingTileInEffectsRange = bPlayEffect && bInEffectsRange;
+	bBreakingTileFar = bFar;
+	BreakingTileDistance = PlayerDistance;
+	OnHexTileActivated.Broadcast(this, Coord);
+	bBreakingTileInEffectsRange = false;
+	bBreakingTileFar = false;
+
+	if (bFar)
+	{
+		return;
+	}
+
+	if (!bPlayEffect || !bInEffectsRange)
+	{
+		return;
+	}
+
+	// Top platforms break into a Geometry Collection instead of the skeletal mesh fall. Every machine
+	// makes its own from the replicated ActivatedTiles, under one world-wide budget.
+	FTransform PillarSpawnTransform;
+	UGeometryCollection* PillarCollection = bIsBottomPlatform ? nullptr : GetTopPillarCollection(InstanceTransform, PillarSpawnTransform);
+
+	if (PillarCollection)
+	{
+		if (UMyHexPillarBreakSubsystem* PillarBreaks = GetWorld()->GetSubsystem<UMyHexPillarBreakSubsystem>())
+		{
+			// The pieces only spread out through sides with no standing neighbour (this tile already left HexMap)
+			TArray<FVector> OpenSides;
+			const int32 OpenSideBits = GetOpenSideBits(Coord);
+
+			for (int32 Side = 0; Side < 6; ++Side)
+			{
+				if (OpenSideBits & (1 << Side))
+				{
+					OpenSides.Add(HexPillarsISM->GetComponentTransform().TransformVectorNoScale(FVector(GetHexSideDirection(Side), 0.0)).GetSafeNormal());
+				}
+			}
+
+			// Gone after the same delay as the tile prop debris (BrokenPropLifeSpan), all at once
+			const float RemoveAfter = TopPillarBreak.bMatchTilePropLifeSpan ? BrokenPropLifeSpan : TopPillarBreak.LifeSpan;
+
+			PillarBreaks->QueueBreak(this, PillarCollection, PillarSpawnTransform, OpenSides, TopPillarBreak, HexRadius / 100.f, RemoveAfter);
+		}
+
+		return;
+	}
+
+	// Bottom platforms fall with the bottom assets; until both are set their tiles just disappear
+	USkeletalMesh* FallMesh = bIsBottomPlatform ? HexPillarBottomSkeletalMesh.Get() : HexPillarSkeletalMesh.Get();
+	UAnimSequence* FallAnim = bIsBottomPlatform ? BottomRbdAnimSeq.Get() : RbdAnimSeq.Get();
+
+	if (bIsBottomPlatform && (!FallMesh || !FallAnim))
 	{
 		return;
 	}
@@ -1591,7 +1749,7 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 		return;
 	}
 
-	SkeletalMesh->SetSkeletalMesh(HexPillarSkeletalMesh);
+	SkeletalMesh->SetSkeletalMesh(FallMesh);
 
 	SkeletalMesh->SetAnimationMode(
 		EAnimationMode::AnimationSingleNode
@@ -1620,7 +1778,7 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 	// Play animation
 	// -------------------------------------------------------------------------
 
-	if (!RbdAnimSeq)
+	if (!FallAnim)
 	{
 		UE_LOG(
 			LogTemp,
@@ -1637,14 +1795,11 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 	// 						/*Position=*/0.f, /*PlayRate=*/1.5f);
 	
 	SkeletalMesh->PlayAnimation(
-		RbdAnimSeq,
+		FallAnim,
 		false
 	);
 	
-	float Scale=InstanceTransform.GetScale3D().Z;
-	FVector2D InputRange= FVector2D(1.f,.4f);
-	FVector2D OutputRange= FVector2D(1.f,2.5f);
-	float AnimRate=FMath::GetMappedRangeValueClamped(InputRange,OutputRange,Scale);
+	const float AnimRate = GetPillarAnimRate(InstanceTransform.GetScale3D().Z);
 	
 	SkeletalMesh->SetPlayRate(AnimRate);
 
@@ -1660,7 +1815,7 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 	// -------------------------------------------------------------------------
 
 	float AnimationLength =
-		RbdAnimSeq->GetPlayLength();
+		FallAnim->GetPlayLength();
 	AnimationLength/= AnimRate;
 
 	FTimerHandle TimerHandle;
@@ -1781,6 +1936,60 @@ bool AMyHexPlatform::RemoveHexInstance(const FIntVector& Coord)
 // Spawn Animated Pillar
 // =============================================================================
 
+float AMyHexPlatform::GetPillarAnimRate(float PillarScaleZ)
+{
+	return FMath::GetMappedRangeValueClamped(FVector2D(1.f, .4f), FVector2D(1.f, 2.5f), PillarScaleZ);
+}
+
+UGeometryCollection* AMyHexPlatform::GetTopPillarCollection(const FTransform& InstanceTransform, FTransform& OutSpawnTransform) const
+{
+	OutSpawnTransform = InstanceTransform;
+
+	const FVector Scale = InstanceTransform.GetScale3D();
+	const double ScaleXY = 0.5 * (FMath::Abs(Scale.X) + FMath::Abs(Scale.Y));
+
+	if (bUseTopPillarHeightVariants && ScaleXY > UE_KINDA_SMALL_NUMBER)
+	{
+		// Nearest height in ratio terms (log space): steps are a constant factor apart
+		const double LogRatio = FMath::Loge(FMath::Max(FMath::Abs(Scale.Z) / ScaleXY, UE_KINDA_SMALL_NUMBER));
+		const FHexPillarGCVariant* Best = nullptr;
+		double BestError = TNumericLimits<double>::Max();
+
+		for (const FHexPillarGCVariant& Variant : TopPillarHeightVariants)
+		{
+			if (!Variant.Collection || Variant.HeightRatio <= 0.f)
+			{
+				continue;
+			}
+
+			const double Error = FMath::Abs(FMath::Loge(static_cast<double>(Variant.HeightRatio)) - LogRatio);
+
+			if (Error < BestError)
+			{
+				BestError = Error;
+				Best = &Variant;
+			}
+		}
+
+		if (Best)
+		{
+			// The variant carries most of the height. bExactTopPillarHeight: the rest goes in the Z scale, so the
+			// pillar matches the tile exactly (Z / XY left over: 0.66 .. 1.5 with the default three); else a
+			// uniform scale, which keeps turning pieces exact but leaves the height up to that much off.
+			const double ScaleZ = bExactTopPillarHeight ? FMath::Abs(Scale.Z) / Best->HeightRatio : ScaleXY;
+			OutSpawnTransform.SetScale3D(FVector(Scale.X, Scale.Y, ScaleZ));
+			return Best->Collection;
+		}
+	}
+
+	return TopPillarGeometryCollection;
+}
+
+UStaticMesh* AMyHexPlatform::GetTileMesh() const
+{
+	return bIsBottomPlatform && HexPillarBottomStaticMesh ? HexPillarBottomStaticMesh.Get() : HexPillarStaticMesh.Get();
+}
+
 
 // =============================================================================
 // Remove Animated Pillar
@@ -1814,6 +2023,32 @@ bool AMyHexPlatform::IsValidHex(
 ) const
 {
 	return HexMap.Contains(Coord);
+}
+
+void AMyHexPlatform::DebugBreakTiles(int32 NumChains)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (NumChains <= 0)
+	{
+		TArray<FIntVector> Coords;
+		HexMap.GetKeys(Coords);
+
+		for (const FIntVector& Coord : Coords)
+		{
+			ActivateHex(Coord);
+		}
+
+		return;
+	}
+
+	for (int32 Chain = 0; Chain < NumChains; ++Chain)
+	{
+		GenerateAndActivateChainFromRandomSelectedGrid();
+	}
 }
 
 bool AMyHexPlatform::IsTileCollapsed(
@@ -1964,12 +2199,12 @@ void AMyHexPlatform::BuildTileInfos()
 {
 	TileInfos.Reset();
 
-	if (!HexPillarsISM || !HexPillarStaticMesh)
+	if (!HexPillarsISM || !HexPillarsISM->GetStaticMesh())
 	{
 		return;
 	}
 
-	const FBox MeshBox = HexPillarStaticMesh->GetBoundingBox();
+	const FBox MeshBox = HexPillarsISM->GetStaticMesh()->GetBoundingBox();
 
 	for (const TPair<FIntVector, int32>& Pair : HexMap)
 	{
@@ -2296,6 +2531,83 @@ void AMyHexPlatform::GenerateTileProps()
 	}
 }
 
+void AMyHexPlatform::UpdateTileFootprint()
+{
+	TileFootprintRadius = 0.f;
+	TileFootprintCount = 0;
+	TileFootprintCenter = GetActorLocation();
+
+	const int32 Count = HexPillarsISM ? HexPillarsISM->GetInstanceCount() : 0;
+
+	if (Count == 0)
+	{
+		return;
+	}
+
+	TArray<FVector> Centres;
+	Centres.Reserve(Count);
+	FVector2D Sum = FVector2D::ZeroVector;
+
+	for (int32 Index = 0; Index < Count; ++Index)
+	{
+		FTransform Transform;
+
+		if (HexPillarsISM->GetInstanceTransform(Index, Transform, /*bWorldSpace=*/true))
+		{
+			Centres.Add(Transform.GetLocation());
+			Sum += FVector2D(Transform.GetLocation());
+		}
+	}
+
+	if (Centres.IsEmpty())
+	{
+		return;
+	}
+
+	const FVector2D Centre = Sum / Centres.Num();
+	double MaxDistance = 0.0;
+
+	for (const FVector& Location : Centres)
+	{
+		MaxDistance = FMath::Max(MaxDistance, FVector2D::Distance(Centre, FVector2D(Location)));
+	}
+
+	TileFootprintCount = Centres.Num();
+	TileFootprintRadius = static_cast<float>(MaxDistance) + HexRadius;
+	TileFootprintCenter = FVector(Centre, HexPillarsISM->Bounds.GetBox().Max.Z);
+}
+
+void AMyHexPlatform::GenerateAtmosphere()
+{
+	if (!AtmospherePCG || GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	const FMyHexAtmosphereVariant* Atmosphere = AMyHexPathSpawner::FindActiveAtmosphere(this);
+	UPCGGraphInterface* Graph = Atmosphere ? Atmosphere->PlatformGraph.Get() : nullptr;
+
+	if (!Graph)
+	{
+		// The active variant has no platform graph (or there is no variant): clear what an earlier one spawned
+		if (AtmospherePCG->bGenerated)
+		{
+			AtmospherePCG->CleanupLocal(/*bRemoveComponents=*/true);
+		}
+
+		return;
+	}
+
+	// SetGraphLocal does a structural refresh of the component, so only set the graph when the variant changed it
+	if (AtmosphereGraphSet.Get() != Graph)
+	{
+		AtmospherePCG->SetGraphLocal(Graph);
+		AtmosphereGraphSet = Graph;
+	}
+
+	AtmospherePCG->GenerateLocal(/*bForce=*/true);
+}
+
 void AMyHexPlatform::OnTilePropsGenerated(UPCGComponent* InComponent)
 {
 	if (!InComponent)
@@ -2316,6 +2628,14 @@ void AMyHexPlatform::OnTilePropsGenerated(UPCGComponent* InComponent)
 			ComponentISMs.Add(ISM);
 		}
 	});
+
+	if (PropMaxDrawDistance > 0.f)
+	{
+		for (UInstancedStaticMeshComponent* ISM : ComponentISMs)
+		{
+			ISM->SetCullDistance(PropMaxDrawDistance);
+		}
+	}
 
 	// Drop what an earlier generation of this component left (and anything destroyed)
 	for (auto It = TilePropISMs.CreateIterator(); It; ++It)
@@ -2357,7 +2677,7 @@ void AMyHexPlatform::OnTilePropsGenerated(UPCGComponent* InComponent)
 	// Tiles that collapsed while the graph was running
 	for (const FIntVector& Coord : LocalActivatedTiles)
 	{
-		BreakTileProps(MakeTileIndex(Coord), /*bSpawnBreakables=*/false);
+		BreakTileProps(MakeTileIndex(Coord), EHexPropBreakMode::RemoveOnly);
 	}
 
 	UE_LOG(LogTemp, Verbose, TEXT("%s: %s props on %d tiles"), *GetName(), *InComponent->GetName(), PropTiles.Num());
@@ -2373,11 +2693,56 @@ void AMyHexPlatform::HandleTileActivated(AMyHexPlatform* Platform, const FIntVec
 		GetWorldTimerManager().ClearTimer(TilePropsTimerHandle);
 	}
 
-	// Debris is cosmetic: none on a dedicated server
-	BreakTileProps(MakeTileIndex(Coord), /*bSpawnBreakables=*/GetNetMode() != NM_DedicatedServer);
+	// Debris is cosmetic: none on a dedicated server (no local player). Far from the local player, the baked
+	// far breaks, unless the props are already culled there.
+	const bool bPropsDrawn = PropMaxDrawDistance <= 0.f || BreakingTileDistance <= PropMaxDrawDistance;
+	const EHexPropBreakMode Mode = bBreakingTileInEffectsRange ? EHexPropBreakMode::Near
+		: bBreakingTileFar && bPropsDrawn ? EHexPropBreakMode::Far : EHexPropBreakMode::RemoveOnly;
+
+	BreakTileProps(MakeTileIndex(Coord), Mode);
 }
 
-void AMyHexPlatform::BreakTileProps(int32 TileIndex, bool bSpawnBreakables)
+bool AMyHexPlatform::GetLocalPlayerDistance2D(FVector WorldLoc, double& OutDistance) const
+{
+	const UWorld* World = GetWorld();
+
+	if (!World)
+	{
+		return false;
+	}
+
+	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+	{
+		const APlayerController* PC = It->Get();
+
+		if (!PC || !PC->IsLocalController())
+		{
+			continue;
+		}
+
+		FVector ViewLoc;
+
+		if (const APawn* Pawn = PC->GetPawn())
+		{
+			ViewLoc = Pawn->GetActorLocation();
+		}
+		else if (PC->PlayerCameraManager)
+		{
+			ViewLoc = PC->PlayerCameraManager->GetCameraLocation();
+		}
+		else
+		{
+			continue;
+		}
+
+		OutDistance = FVector::Dist2D(ViewLoc, WorldLoc);
+		return true;
+	}
+
+	return false;
+}
+
+void AMyHexPlatform::BreakTileProps(int32 TileIndex, EHexPropBreakMode Mode)
 {
 	TArray<TWeakObjectPtr<UInstancedStaticMeshComponent>> ISMs;
 
@@ -2415,7 +2780,31 @@ void AMyHexPlatform::BreakTileProps(int32 TileIndex, bool bSpawnBreakables)
 			continue;
 		}
 
-		if (bSpawnBreakables)
+		if (Mode == EHexPropBreakMode::Far)
+		{
+			if (const FHexFarBreakMesh* Far = FarPropMeshes.Find(ISM->GetStaticMesh()))
+			{
+				for (const int32 Instance : ToRemove)
+				{
+					FTransform WorldTransform;
+
+					if (ISM->GetInstanceTransform(Instance, WorldTransform, /*bWorldSpace=*/true))
+					{
+						float Speed = FMath::FRandRange(FarPropSpeedRange.X, FarPropSpeedRange.Y);
+
+						// Fall distance scales with the instance, so play 1 / sqrt(scale) times as fast for true gravity
+						if (bFarPropSpeedFromScale)
+						{
+							const float ScaleZ = FMath::Max(FMath::Abs(static_cast<float>(WorldTransform.GetScale3D().Z)), UE_KINDA_SMALL_NUMBER);
+							Speed *= FMath::Clamp(1.f / FMath::Sqrt(ScaleZ), 0.25f, 4.f);
+						}
+
+						PlayFarBreak(*Far, WorldTransform, Speed);
+					}
+				}
+			}
+		}
+		else if (Mode == EHexPropBreakMode::Near)
 		{
 			const TObjectPtr<UGeometryCollection>* Collection = PropBreakables.Find(ISM->GetStaticMesh());
 
@@ -2435,6 +2824,19 @@ void AMyHexPlatform::BreakTileProps(int32 TileIndex, bool bSpawnBreakables)
 
 		// Already sorted high to low
 		ISM->RemoveInstances(ToRemove, /*bInstanceArrayAlreadySortedInReverseOrder=*/true);
+	}
+}
+
+void AMyHexPlatform::PlayFarBreak(const FHexFarBreakMesh& Far, const FTransform& WorldTransform, float Speed)
+{
+	if (!Far.Mesh)
+	{
+		return;
+	}
+
+	if (UMyHexPillarBreakSubsystem* Breaks = GetWorld()->GetSubsystem<UMyHexPillarBreakSubsystem>())
+	{
+		Breaks->AddFarBreak(Far, WorldTransform, Speed, FarBreakMaxActive);
 	}
 }
 
@@ -2484,3 +2886,70 @@ void AMyHexPlatform::SpawnBrokenProp(UGeometryCollection* Collection, const FTra
 		GC->CrumbleActiveClusters();
 	}
 }
+
+
+#if !UE_BUILD_SHIPPING
+namespace
+{
+	// Aura.BreakTopPlatform [Chains] [X Y Z]: the server collapses tile chains of the top platform nearest
+	// (X, Y, Z), or the local pawn, through the normal replicated path. Chains <= 0 = every tile at once.
+	FAutoConsoleCommandWithWorldAndArgs GBreakTopPlatformCommand(
+		TEXT("Aura.BreakTopPlatform"),
+		TEXT("Aura.BreakTopPlatform [Chains=1] [X Y Z] [Bottom=0] - server: collapse Chains tile chains (0 = every tile at once) of the top platform (Bottom=1: bottom platform) nearest (X, Y, Z) or the local pawn"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			if (!World)
+			{
+				return;
+			}
+
+			const int32 Chains = Args.Num() > 0 ? FCString::Atoi(*Args[0]) : 1;
+			const bool bBottom = Args.Num() > 4 && FCString::Atoi(*Args[4]) != 0;
+			FVector Near = FVector::ZeroVector;
+
+			if (Args.Num() >= 4)
+			{
+				Near = FVector(FCString::Atod(*Args[1]), FCString::Atod(*Args[2]), FCString::Atod(*Args[3]));
+			}
+			else if (const APlayerController* PC = World->GetFirstPlayerController())
+			{
+				if (const APawn* Pawn = PC->GetPawn())
+				{
+					Near = Pawn->GetActorLocation();
+				}
+			}
+
+			AMyHexPlatform* Best = nullptr;
+			double BestDistSq = TNumericLimits<double>::Max();
+
+			for (TActorIterator<AMyHexPlatform> It(World); It; ++It)
+			{
+				if (!It->HasAuthority() || It->IsBottomPlatform() != bBottom || It->GetTileInfos().IsEmpty())
+				{
+					continue;
+				}
+
+				const double DistSq = FVector::DistSquared(It->GetActorLocation(), Near);
+
+				if (DistSq < BestDistSq)
+				{
+					BestDistSq = DistSq;
+					Best = *It;
+				}
+			}
+
+			if (!Best)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Aura.BreakTopPlatform: no %s platform with tiles in %s (run it on the server)"), bBottom ? TEXT("bottom") : TEXT("top"), *World->GetName());
+				return;
+			}
+
+			// Pieces only spawn near the local player (BreakEffectsMaxDistance), as in normal play
+			UE_LOG(LogTemp, Display, TEXT("Aura.BreakTopPlatform: %s (%d tiles) at %s, chains %d, %.0f cm from the search point"),
+				*Best->GetName(), Best->GetTileInfos().Num(), *Best->GetActorLocation().ToCompactString(), Chains, FMath::Sqrt(BestDistSq));
+
+			Best->DebugBreakTiles(Chains);
+		})
+	);
+}
+#endif

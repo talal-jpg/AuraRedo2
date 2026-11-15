@@ -6,6 +6,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/TimerHandle.h"
+#include "Actors/MyHexPillarBreakSubsystem.h"
 #include "MyHexPlatform.generated.h"
 
 
@@ -16,7 +17,21 @@ class APawn;
 class USplineComponent;
 class UMyHexBridgeSubsystem;
 class UPCGComponent;
+class UPCGGraphInterface;
 class UGeometryCollection;
+
+/** How a collapsing tile's props go (AMyHexPlatform::BreakTileProps). */
+enum class EHexPropBreakMode : uint8
+{
+	/** Instances removed, nothing else (late join, props generated after the tile fell). */
+	RemoveOnly,
+
+	/** Near the local player: Geometry Collections (PropBreakables). */
+	Near,
+
+	/** Beyond the break-effects range: the baked far break (FarPropMeshes). */
+	Far,
+};
 
 /** A tile started collapsing on this machine (server and clients). Coord is (Q, R, S). */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHexTileActivatedSignature, AMyHexPlatform* /*Platform*/, const FIntVector& /*Coord*/);
@@ -126,6 +141,11 @@ public:
 
 	/** True once the tile has started collapsing, on this machine or on the server. */
 	bool IsTileCollapsed(const FIntVector& Coord) const;
+
+	bool IsBottomPlatform() const { return bIsBottomPlatform; }
+
+	/** Server, for tests (Aura.BreakTopPlatform): collapses NumChains chains now, or every tile at once when NumChains <= 0. */
+	void DebugBreakTiles(int32 NumChains);
 	
 	TArray<FIntVector> GetOriginalEdgeHexes() const;
 
@@ -200,6 +220,37 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
 	TObjectPtr<UPCGComponent> HexTileProps2;
 
+	/**
+	 * Fog cards, mist, snow and clouds around this platform: runs the PlatformGraph of the path
+	 * spawner's active atmosphere variant (AMyHexPathSpawner::AtmosphereVariants). Generated locally
+	 * with the tile props on every machine that renders; cosmetic only.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Platform|Atmosphere")
+	TObjectPtr<UPCGComponent> AtmospherePCG;
+
+public:
+
+	/**
+	 * Radius (cm, horizontal) of the circle around TileFootprintCenter that holds every tile: furthest
+	 * tile centre plus one HexRadius. Set before the tile props and atmosphere generate; PCG graphs
+	 * read it with Get Actor Property.
+	 */
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Platform|Atmosphere")
+	float TileFootprintRadius = 0.f;
+
+	/** World centre of the tiles (XY) at the height of the highest tile top (Z). */
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Platform|Atmosphere")
+	FVector TileFootprintCenter = FVector::ZeroVector;
+
+	/** Tiles standing when the footprint was measured. */
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Platform|Atmosphere")
+	int32 TileFootprintCount = 0;
+
+	/** Measures TileFootprintRadius, TileFootprintCenter and TileFootprintCount from the tile instances. */
+	void UpdateTileFootprint();
+
+protected:
+
 
 	// -------------------------------------------------------------------------
 	// Assets
@@ -217,6 +268,92 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
 	TObjectPtr<UAnimSequence> RbdAnimSeq;
+
+	/**
+	 * A platform of the bottom chain (BP_MyHexPlatformBottom, spawned by the path graph for the lower
+	 * chain): its tiles are HexPillarBottomStaticMesh with one uniform Z scale instead of HexPillarStaticMesh,
+	 * and they collapse with HexPillarBottomSkeletalMesh / BottomRbdAnimSeq. Top platforms keep the
+	 * HexPillar assets and the per-tile heights. A class default, so every machine builds the same tiles.
+	 */
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	bool bIsBottomPlatform = false;
+
+	/** The tile mesh of bottom platforms (pivot at the top, like HexPillar). None = they use HexPillarStaticMesh. */
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	TObjectPtr<UStaticMesh> HexPillarBottomStaticMesh;
+
+	/**
+	 * Bottom platforms: every tile's Z scale, as a multiple of the XY scale (HexRadius / 100).
+	 * The same on every tile (no per-tile heights). 1 = the mesh's own proportions.
+	 */
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets", meta = (ClampMin = "0.01"))
+	float HexPillarBottomScaleZ = 1.f;
+
+	/** Bottom platforms: spawned in place of a collapsing tile, playing BottomRbdAnimSeq. Unset = the tile just disappears. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	TObjectPtr<USkeletalMesh> HexPillarBottomSkeletalMesh;
+
+	/** Bottom platforms: played on HexPillarBottomSkeletalMesh. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	TObjectPtr<UAnimSequence> BottomRbdAnimSeq;
+
+	/**
+	 * Top platforms: a collapsing tile breaks into a Geometry Collection (spawned where the instance was,
+	 * at its size, and simulated) instead of HexPillarSkeletalMesh / RbdAnimSeq. Local and cosmetic, near
+	 * the local player only (BreakEffectsMaxDistance), under the budget in TopPillarBreak. Bottom platforms
+	 * ignore it.
+	 *
+	 * With TopPillarHeightVariants (and bUseTopPillarHeightVariants) the variant nearest the tile's height
+	 * is used instead. This one is only the fallback when there are none, spawned at the instance's exact
+	 * scale (none by default). None and no variants = top tiles fall with the skeletal mesh as before.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	TObjectPtr<UGeometryCollection> TopPillarGeometryCollection;
+
+	/**
+	 * Top platforms: the pillar Geometry Collection baked at a few heights (GC_HexPillar_H030 / H070 / H160:
+	 * short, medium, tall). The one nearest the tile's Z / XY scale is used, at the tile's transform (see
+	 * bExactTopPillarHeight). Fewer variants = less to load, but more leftover non-uniform scale.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	TArray<FHexPillarGCVariant> TopPillarHeightVariants;
+
+	/**
+	 * Scale the variant's Z by what is left over, so the pillar has the tile's exact height and the swap
+	 * doesn't pop. That leftover is a non-uniform scale (up to 1.5x with three variants), which a Geometry
+	 * Collection applies after each piece's own rotation (an FTransform can't shear): pieces that turn far
+	 * stretch a little and drift from their collision. Off = uniform scale (exact pieces, height up to that
+	 * much off at the bottom).
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	bool bExactTopPillarHeight = true;
+
+	/** Off = always TopPillarGeometryCollection at the instance's exact scale (for comparison). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	bool bUseTopPillarHeightVariants = true;
+
+	/**
+	 * How TopPillarGeometryCollection breaks, and the world-wide budget for it. The budget is shared by
+	 * every platform but read from each queued break, so keep it the same on every top platform class.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Platform|Assets")
+	FHexPillarBreakSettings TopPillarBreak;
+
+
+	// -------------------------------------------------------------------------
+	// Optimization
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Desired Max Draw Distance (cm) of HexPillarsISM, set in BeginPlay: the platform is not drawn when
+	 * its bounds are further away. Keep it beyond the path-end fog. 0 = always drawn.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Optimization", meta = (ClampMin = "0.0"))
+	float PlatformMaxDrawDistance = 0.f;
+
+	/** Desired Max Draw Distance (cm) put on the tile prop ISMs when they are generated. 0 = always drawn. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Optimization", meta = (ClampMin = "0.0"))
+	float PropMaxDrawDistance = 0.f;
 
 
 	// -------------------------------------------------------------------------
@@ -416,6 +553,56 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props")
 	FVector BrokenPropImpulse = FVector(0.f, 0.f, 150.f);
 
+	/**
+	 * Tiles further than this (cm) from the locally controlled player collapse without the broken tile
+	 * animation or the prop Geometry Collections; their instances are still removed. Up to
+	 * FarBreakMaxDistance they play the baked far breaks instead (FarTopPillar, FarBottomPillar, FarPropMeshes).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Tile Props", meta = (ClampMin = "0.0"))
+	float BreakEffectsMaxDistance = 5000.f;
+
+	// -------------------------------------------------------------------------
+	// Far breaks (baked animation for tiles beyond BreakEffectsMaxDistance)
+	//
+	// Each break adds an instance at the removed instance's world transform to a world-wide ISM per mesh
+	// (UMyHexPillarBreakSubsystem), with custom data [0] = world time of the break, [1] = playback speed.
+	// Local and cosmetic. An empty Mesh = the tile vanishes as before.
+	// -------------------------------------------------------------------------
+
+	/** Top platform tiles. Speed = GetPillarAnimRate(tile Z scale): short pillars play faster, like the old fall animation. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Far Break")
+	FHexFarBreakMesh FarTopPillar;
+
+	/** Bottom platform tiles. Speed as for the top tiles. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Far Break")
+	FHexFarBreakMesh FarBottomPillar;
+
+	/** Tile prop mesh -> its baked break. Props whose mesh isn't here just vanish. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Far Break")
+	TMap<TObjectPtr<UStaticMesh>, FHexFarBreakMesh> FarPropMeshes;
+
+	/** Playback speed of far prop breaks, random in this range. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Far Break")
+	FVector2D FarPropSpeedRange = FVector2D(1.0, 1.0);
+
+	/**
+	 * Also multiply far prop speed by 1 / sqrt(instance Z scale), clamped to 0.25-4. The baked break is scaled
+	 * with the instance, so this keeps a fall baked at scale 1 at true gravity whatever the prop's scale.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Far Break")
+	bool bFarPropSpeedFromScale = true;
+
+	/**
+	 * No far breaks beyond this horizontal distance (cm) from the local player (the path-end fog hides them).
+	 * 0 = no limit. Nor beyond PlatformMaxDrawDistance (pillars) / PropMaxDrawDistance (props), where they are culled.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Far Break", meta = (ClampMin = "0.0"))
+	float FarBreakMaxDistance = 20000.f;
+
+	/** World-wide limit of far breaks playing at once (all platforms); over it, the tile or prop just vanishes. 0 = no limit. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Far Break", meta = (ClampMin = "0"))
+	int32 FarBreakMaxActive = 512;
+
 	// -------------------------------------------------------------------------
 	// Runtime ISM bookkeeping
 	// -------------------------------------------------------------------------
@@ -457,6 +644,10 @@ protected:
 	 */
 	UPROPERTY(ReplicatedUsing = OnRep_PathStartTiles)
 	TArray<FIntVector> PathStartTiles;
+
+	/** Per PathStartTiles entry: the tile side (GetHexSideDirection) its bridge leaves through, 255 if unknown. */
+	UPROPERTY(ReplicatedUsing = OnRep_PathStartTiles)
+	TArray<uint8> PathStartSides;
 
 	/** Set by the server when the lead lands or collapsing starts: the path and the tile props stop changing. */
 	UPROPERTY(Replicated)
@@ -536,11 +727,10 @@ protected:
 	//      ->
 	// remove instance
 	//      ->
-	// skeletal mesh component
-	//      ->
-	// play animation
+	// top platforms: Geometry Collection (UMyHexPillarBreakSubsystem)
+	// bottom platforms: skeletal mesh component -> play animation
 	//
-	// bPlayEffect = false stops after removing the instance (no skeletal mesh or animation).
+	// bPlayEffect = false stops after removing the instance (no pieces, skeletal mesh or animation).
 	void ActivateHexLocal(
 		const FIntVector& Coord,
 		bool bPlayEffect = true
@@ -568,6 +758,18 @@ protected:
 	USkeletalMeshComponent* SpawnAnimatedPillar(
 		const FIntVector& Coord
 	);
+
+	/** Collapse animation play rate for a pillar of this Z scale: short pillars fall faster. */
+	static float GetPillarAnimRate(float PillarScaleZ);
+
+	/**
+	 * The Geometry Collection a top tile with this instance transform breaks into, and the transform to
+	 * spawn it at (uniform scale when a height variant is used). Null = none set.
+	 */
+	UGeometryCollection* GetTopPillarCollection(const FTransform& InstanceTransform, FTransform& OutSpawnTransform) const;
+
+	/** The tile mesh: HexPillarBottomStaticMesh on bottom platforms (when set), else HexPillarStaticMesh. */
+	UStaticMesh* GetTileMesh() const;
 
 	void RemoveAnimatedPillar(
 		USkeletalMeshComponent* SkeletalMeshComponent
@@ -682,16 +884,36 @@ private:
 	/** Starts TilePropsPCG and HexTileProps2 (local, not replicated). */
 	void GenerateTileProps();
 
+	/** Runs AtmospherePCG with the active atmosphere variant's graph (local, not on a dedicated server). */
+	void GenerateAtmosphere();
+
+	/** The graph GenerateAtmosphere last gave AtmospherePCG. */
+	TWeakObjectPtr<UPCGGraphInterface> AtmosphereGraphSet;
+
 	/** A tile prop component finished: maps its prop ISMs to the tiles they have instances on. */
 	void OnTilePropsGenerated(UPCGComponent* InComponent);
 
 	/** OnHexTileActivated: the tile collapsed, so its props break. */
 	void HandleTileActivated(AMyHexPlatform* Platform, const FIntVector& Coord);
 
-	/** Removes the tile's prop instances; with bSpawnBreakables, spawns their Geometry Collections in their place. */
-	void BreakTileProps(int32 TileIndex, bool bSpawnBreakables);
+	/** Removes the tile's prop instances; Near spawns their Geometry Collections in their place, Far their baked far breaks. */
+	void BreakTileProps(int32 TileIndex, EHexPropBreakMode Mode);
+
+	/** Far's baked break at WorldTransform through UMyHexPillarBreakSubsystem (nothing if Far.Mesh is None). */
+	void PlayFarBreak(const FHexFarBreakMesh& Far, const FTransform& WorldTransform, float Speed);
 
 	void SpawnBrokenProp(UGeometryCollection* Collection, const FTransform& WorldTransform);
+
+	/** Horizontal distance from the local player (pawn, else camera) to WorldLoc. False with no local player. */
+	bool GetLocalPlayerDistance2D(FVector WorldLoc, double& OutDistance) const;
+
+	/**
+	 * The tile ActivateHexLocal is breaking, read by HandleTileActivated during the broadcast: plays its
+	 * effects near the local player / its far break / its distance from the local player.
+	 */
+	bool bBreakingTileInEffectsRange = false;
+	bool bBreakingTileFar = false;
+	double BreakingTileDistance = 0.0;
 
 	TMap<FIntVector, FHexTileInfo> TileInfos;
 
