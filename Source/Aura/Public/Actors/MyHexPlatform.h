@@ -970,8 +970,9 @@ protected:
 	//      ->
 	// remove instance
 	//      ->
-	// top platforms: Geometry Collection (UMyHexPillarBreakSubsystem)
-	// bottom platforms: skeletal mesh component -> play animation
+	// Geometry Collection (UMyHexPillarBreakSubsystem, GetPillarCollection: the top variants or
+	// BottomPillarGeometryCollection)
+	// none set: skeletal mesh component -> play animation
 	//
 	// bPlayEffect = false stops after removing the instance (no pieces, skeletal mesh or animation).
 	void ActivateHexLocal(
