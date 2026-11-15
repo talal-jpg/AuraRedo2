@@ -99,20 +99,22 @@ void AMyCharPlayer::Multicast_HardLanding_Implementation(float InYaw)
 
 void AMyCharPlayer::RegisterToBoostingState()
 {
-	MyAbilitySystemComponent->RegisterGameplayTagEvent(MyTags::State_Boosting,EGameplayTagEventType::NewOrRemoved).AddLambda(
-		[this](const FGameplayTag Tag,int32 Count)
-		{
-			if (Count>0)
-			{
-				InitJets();
-			}
-			else
-			{
-				StopJets();
-			}
-			
-		}
-	);
+	// The ASC is on the PlayerState and outlives this pawn: a UObject binding is skipped once the pawn is gone (respawn)
+	FOnGameplayEffectTagCountChanged& BoostingTagEvent=MyAbilitySystemComponent->RegisterGameplayTagEvent(MyTags::State_Boosting,EGameplayTagEventType::NewOrRemoved);
+	BoostingTagEvent.RemoveAll(this);
+	BoostingTagEvent.AddUObject(this,&ThisClass::OnBoostingTagChanged);
+}
+
+void AMyCharPlayer::OnBoostingTagChanged(const FGameplayTag Tag, int32 Count)
+{
+	if (Count>0)
+	{
+		InitJets();
+	}
+	else
+	{
+		StopJets();
+	}
 }
 
 // Called when the game starts or when spawned
@@ -246,14 +248,23 @@ void AMyCharPlayer::OnRep_PlayerState()
 		{
 			if (MyPlayerState->MyAbilitySystemComponent)
 			{
+				// Set by the first pawn's GiveStartupAbilities on this machine: this pawn is a respawn
+				const bool bRespawned=MyPlayerState->MyAbilitySystemComponent->bAbilitiesGiven;
 				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
 				// UKismetSystemLibrary::PrintString(GetWorld(), TEXT("OnRep_PlayerState"));
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
 				MyAttributeSet=MyPlayerState->MyAttributeSet;
-				// TODO check if Attributes and Abilities are only inited on the server and auto replicated to clients
-				InitializeAttributes();
-				GiveStartupAbilities();
-				GivePassiveStartupAbilities();
+				if (bRespawned)
+				{
+					InitAbilitySystemAfterRespawn();
+				}
+				else
+				{
+					// TODO check if Attributes and Abilities are only inited on the server and auto replicated to clients
+					InitializeAttributes();
+					GiveStartupAbilities();
+					GivePassiveStartupAbilities();
+				}
 				RegisterToBoostingState();
 				
 				Cast<UMyAnimInstance>(GetMesh()->GetAnimInstance())->InitializeASC(MyAbilitySystemComponent);
@@ -298,12 +309,21 @@ void AMyCharPlayer::PossessedBy(AController* NewController)
 		{
 			if (MyPlayerState->MyAbilitySystemComponent)
 			{
+				// Set by the first pawn's GiveStartupAbilities: this pawn is a respawn
+				const bool bRespawned=MyPlayerState->MyAbilitySystemComponent->bAbilitiesGiven;
 				MyPlayerState->MyAbilitySystemComponent->InitAbilityActorInfo(MyPlayerState, this);
 				MyAbilitySystemComponent=MyPlayerState->MyAbilitySystemComponent;
 				MyAttributeSet= MyPlayerState->MyAttributeSet;
-				InitializeAttributes();
-				GiveStartupAbilities();
-				GivePassiveStartupAbilities();
+				if (bRespawned)
+				{
+					InitAbilitySystemAfterRespawn();
+				}
+				else
+				{
+					InitializeAttributes();
+					GiveStartupAbilities();
+					GivePassiveStartupAbilities();
+				}
 				RegisterToBoostingState();
 				
 				Cast<UMyAnimInstance>(GetMesh()->GetAnimInstance())->InitializeASC(MyAbilitySystemComponent);
@@ -334,6 +354,25 @@ void AMyCharPlayer::InitializeAttributes()
 	//InitVitalAttrs
 	FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,GetLevel_Implementation(),EffectContextHandle);
 	MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleVital.Data.Get());
+}
+
+void AMyCharPlayer::InitAbilitySystemAfterRespawn()
+{
+	// Death adds it as a loose tag on every machine, and it stays on the ASC after the dead pawn is gone
+	MyAbilitySystemComponent->SetLooseGameplayTagCount(MyTags::State_Dead,0);
+	
+	// Not the primary effect (its overrides would undo spent attribute points) or the infinite secondary one
+	// (it would stack): both are still on the ASC
+	if (HasAuthority() && VitalAttributesEffect)
+	{
+		FGameplayEffectContextHandle EffectContextHandle=MyAbilitySystemComponent->MakeEffectContext();
+		EffectContextHandle.AddInstigator(this,this);
+		const FGameplayEffectSpecHandle SpecHandleVital=MyAbilitySystemComponent->MakeOutgoingSpec(VitalAttributesEffect,GetLevel_Implementation(),EffectContextHandle);
+		if (SpecHandleVital.IsValid())
+		{
+			MyAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandleVital.Data.Get());
+		}
+	}
 }
 
 

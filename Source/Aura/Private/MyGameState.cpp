@@ -5,6 +5,8 @@
 
 #include "EngineUtils.h"
 #include "MyPlayerState.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "Actors/MyHexPlatform.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -155,4 +157,12 @@ bool AMyGameState::IsLeading(const AMyPlayerState* PlayerState) const
 void AMyGameState::OnRep_PlayerRanking()
 {
 	OnPlayerRankingChanged.Broadcast();
+}
+
+void AMyGameState::MulticastPlayRespawnFX_Implementation(UNiagaraSystem* System, FVector_NetQuantize Location, FRotator Rotation)
+{
+	if (System && GetNetMode() != NM_DedicatedServer)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, System, Location, Rotation);
+	}
 }

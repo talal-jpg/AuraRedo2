@@ -7,6 +7,7 @@
 #include "MyGameState.generated.h"
 
 class AMyPlayerState;
+class UNiagaraSystem;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerRankingChangedSignature);
 
@@ -72,6 +73,13 @@ public:
 	/** Broadcast on the server after each re-sort and on clients when the ranking replicates. */
 	UPROPERTY(BlueprintAssignable, Category = "Player Ranking")
 	FOnPlayerRankingChangedSignature OnPlayerRankingChanged;
+
+	/**
+	 * Server. Plays System at Location on every machine (the game state is always relevant). AMyGameMode calls it
+	 * when a respawn's FX starts, RespawnFXLeadTime before the pawn appears.
+	 */
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayRespawnFX(UNiagaraSystem* System, FVector_NetQuantize Location, FRotator Rotation);
 
 protected:
 
