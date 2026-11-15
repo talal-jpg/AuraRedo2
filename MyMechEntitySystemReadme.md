@@ -620,12 +620,21 @@ and checks triangle counts, size, slots and sockets.
 
 Everything is client side visuals: nothing replicates, dedicated servers add nothing. One Niagara component per tentacle
 set (one set per distinct trait description) draws every rigged sentinel, so the cost is one CPU emitter of
-`MaxRiggedSentinels * NumTentacles * PointsPerTentacle` particles (48 x 8 x 12 = 4608 by default) plus 400 ribbons.
+`MaxRiggedSentinels * NumTentacles * PointsPerTentacle` particles (48 x 8 x 12 = 4608 by default) drawn as 384 ribbons.
+The component is created hidden and paused as soon as sentinels of the config exist (so the ribbon PSOs precache while
+the swarm is far away), casts shadows by default (`bCastShadows`), and its fixed bounds are this frame's points padded by
+the tube width and the claw. When a rig is laid out from scratch (new owner, teleport) its ribbons stay hidden for that
+one frame and the far mesh is drawn, so a jump never shows as a stretched ribbon or a motion-vector streak.
 
 ### Building NS_MechSentinelTentacles (about 10 minutes in the editor)
 
+`SourceArt/MechSentinel/ue_import_mech_sentinel.py` (Tools > Execute Python Script) imports the four meshes into
+`/Game/MechSentinel/Meshes` and creates `/Game/MechSentinel/Materials/M_MechSentinelTentacle` (Used with Niagara
+Ribbons and Niagara Mesh Particles). The system itself, `/Game/MechSentinel/FX/NS_MechSentinelTentacles`, was built like
+this (no Scratch Pad needed, only stock modules and dynamic inputs):
+
 1. Content Browser > Niagara System > **New system from selected emitter(s)** > **Empty**. Name it
-   `NS_MechSentinelTentacles`. Open it and select the emitter.
+   `NS_MechSentinelTentacles`, rename the emitter `Tentacles`.
 2. **User parameters** (Parameters panel > User Exposed > +). Names must match exactly:
    | Name | Type | Default |
    |---|---|---|
@@ -637,37 +646,41 @@ set (one set per distinct trait description) draws every rigged sentinel, so the
    | `RootWidth` | float | 18 |
    | `TipWidth` | float | 3.5 |
 3. **Emitter Properties**: Sim Target **CPUSim**, Local Space **off**, Calculate Bounds Mode **Fixed** (the code sets the
-   system's fixed bounds every frame).
+   system's fixed bounds every frame), Interpolated Spawning **on** with *Run Update Script* (the spawn frame already
+   reads the arrays, so nothing pops at the origin).
 4. **Emitter State**: Life Cycle Mode Self, Loop Behavior **Once**, Loop Duration Mode **Infinite**.
 5. **Emitter Update**: remove Spawn Rate, add **Spawn Burst Instantaneous**, Spawn Time 0, Spawn Count =
-   `TentacleCount * PointsPerTentacle` (dynamic input *Multiply Int*, both inputs linked to the user parameters).
+   *Multiply Int* (`User.TentacleCount`, `User.PointsPerTentacle`).
 6. **Particle Spawn**: keep Initialize Particle only (lifetime does not matter). **Particle Update**: remove *Particle State*
-   (particles must never die) and add a **new Scratch Pad Module** `MechTentacleFromArrays`:
-   * Module inputs: `Positions` (Position Array), `WidthScale` (Float Array), `Glow` (Float Array), `PointsPerTentacle`
-     (int), `RootWidth`, `TipWidth` (float), `GlowColor` (Linear Color, e.g. 1, 0.06, 0.02). Link them to the user
-     parameters on the module stack.
-   * Graph (Map Get -> math -> Map Set):
-     ```
-     Index     = Particles.UniqueID                          (int)
-     Ribbon    = Index / PointsPerTentacle                   (int divide)
-     Link      = Index - Ribbon * PointsPerTentacle          (int)
-     T         = float(Link) / float(PointsPerTentacle - 1)
-     Particles.Position        = Positions.Get(Index)        (Array "Get" node)
-     Particles.Velocity        = Positions.Get(Index) - Positions.Get(Index - 1)   (direction for the claw mesh)
-     Particles.RibbonID        = Ribbon                      (int)
-     Particles.RibbonLinkOrder = float(Link)
-     Particles.RibbonWidth     = lerp(RootWidth, TipWidth, T) * WidthScale.Get(Ribbon)
-     Particles.Color           = (GlowColor.rgb, Glow.Get(Ribbon) * T^4 * 30)
-     Particles.VisibilityTag   = Link == PointsPerTentacle - 1 ? 1 : 0             (claw mesh only on the tip)
-     Particles.MeshScale       = (1,1,1) * WidthScale.Get(Ribbon)
-     ```
+   (particles must never die) and add four **Set Parameters** modules, in this order (Points = `User.PointsPerTentacle`):
+   ```
+   (1) Local.Ribbon        = Particles.UniqueID / Points                      (int divide)
+       Local.Link          = Particles.UniqueID - Local.Ribbon * Points       (int)
+   (2) Local.T             = float(Local.Link) / float(Points - 1)
+   (3) array reads, dynamic inputs SelectPositionFromArray / SelectFloatFromArray, mode "Direct Set", Clamp on,
+       each array input linked to its User array:
+       Local.Position      = TentaclePositions[Particles.UniqueID]
+       Local.PrevPosition  = TentaclePositions[max(Particles.UniqueID - 1, Local.Ribbon * Points)]
+       Local.WidthScale    = TentacleWidthScale[Local.Ribbon]
+       Local.Glow          = TentacleGlow[Local.Ribbon]
+   (4) Particles.Position        = Local.Position
+       Particles.Velocity        = Local.Position - Local.PrevPosition     (chain direction for the claw; 0 on the root)
+       Particles.RibbonID        = Local.Ribbon                            (int)
+       Particles.RibbonLinkOrder = float(Local.Link)
+       Particles.RibbonWidth     = lerp(User.RootWidth, User.TipWidth, Local.T) * Local.WidthScale
+       Particles.Color           = (1, 0.06, 0.02, Local.Glow * Local.T^4 * 30)   (rgb = glow colour, a = intensity)
+       Particles.VisibilityTag   = Local.Link == Points - 1 ? 1 : 0       (claw mesh only on the tip)
+       Particles.Scale           = (1,1,1) * Local.WidthScale             (mesh renderer default scale binding)
+   ```
+   A hidden ribbon (WidthScale 0) therefore also hides its claw.
 7. **Ribbon Renderer**: Material `M_MechSentinelTentacle`; Shape **Tube**, Tube Subdivisions **6**; bindings
-   Ribbon Id = `Particles.RibbonID`, Ribbon Link Order = `Particles.RibbonLinkOrder`, Ribbon Width = `Particles.RibbonWidth`;
-   UV0 distribution *Scaled Uniformly* (U runs 0 -> 1 from the root; if the sleeve bands taper the wrong way, add a
-   OneMinus on U in the material).
-8. Optional claw tips: add a **Mesh Renderer** with `SM_MechSentinel_TentacleTip`, Facing Mode **Velocity**,
-   Renderer Visibility tag 1 bound to `Particles.VisibilityTag`.
-9. System properties: no Effect Type distance culling (the component sits at the world origin). Save.
+   Ribbon Id = `Particles.RibbonID` (switch the binding type from NiagaraID to **int32**), Ribbon Link Order =
+   `Particles.RibbonLinkOrder`, Ribbon Width = `Particles.RibbonWidth`; UV0 distribution *Scaled Uniformly* (U runs
+   0 -> 1 from the root; if the sleeve bands taper the wrong way, add a OneMinus on U in the material).
+8. Optional claw tips: add a **Mesh Renderer** with `SM_MechSentinel_TentacleTip`, override material
+   `M_MechSentinelTentacle`, Facing Mode **Velocity**, Renderer Visibility tag 1 bound to `Particles.VisibilityTag`.
+9. System properties: no Effect Type (no distance culling: the component sits at the world origin). Save. It should
+   compile with no errors, warnings or stack issues.
 10. On the entity config add the **Mech Sentinel Tentacles (Niagara)** trait and set Niagara System to it.
 
 Without a Niagara system on the trait, sentinels of that config never get ribbons and draw `SM_MechSentinel_Far` (baked
@@ -678,4 +691,5 @@ used anyway); raise `MaxRiggedSentinels` for big close swarms. The roots come fr
 (moved sockets are picked up), with a built-in ring identical to the Blender layout when they are missing.
 
 Limitations: the chains do not collide with the level; ribbons swap to the baked far mesh without a blend when a
-sentinel leaves the budget; tentacle physics restarts from the rest pose when a sentinel gets a rig.
+sentinel leaves the budget; tentacle physics restarts from the rest pose when a sentinel gets a rig; the glow colour is
+fixed in the system (edit step 6 (4) to change it).

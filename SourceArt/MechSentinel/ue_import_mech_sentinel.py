@@ -5,7 +5,7 @@
 # 1. Imports the four FBX files from Export/ into /Game/MechSentinel/Meshes (sockets SOCKET_Tentacle_XX become
 #    static mesh sockets Tentacle_XX on SM_MechSentinel_Head).
 # 2. Creates /Game/MechSentinel/Materials/M_MechSentinelTentacle, the ribbon tube material used by the Niagara
-#    tentacle system (sleeve bands along the ribbon, glow from the particle color).
+#    tentacle system (sleeve bands along the ribbon, glow from the particle color), also usable by the claw meshes.
 # The Niagara system itself is built with the recipe in MyMechEntitySystemReadme.md ("Tentacles").
 
 import os
@@ -54,7 +54,8 @@ def import_meshes():
 
     head = unreal.load_asset(MESH_DIR + "/SM_MechSentinel_Head")
     if head:
-        sockets = [s.socket_name for s in head.get_editor_property("sockets")]
+        # UStaticMesh.Sockets is protected in Python (5.8): look the sockets up by name instead.
+        sockets = ["Tentacle_%02d" % i for i in range(8) if head.find_socket("Tentacle_%02d" % i)]
         unreal.log("SM_MechSentinel_Head sockets: %s" % sockets)
         if len(sockets) < 8:
             unreal.log_warning("Expected 8 Tentacle_XX sockets on the head; the tentacles will use the built-in ring.")
@@ -75,6 +76,8 @@ def create_tentacle_material():
 
     material = asset_tools.create_asset("M_MechSentinelTentacle", MATERIAL_DIR, unreal.Material, unreal.MaterialFactoryNew())
     material.set_editor_property("used_with_niagara_ribbons", True)
+    # Also used by the optional claw mesh renderer at the ribbon tips.
+    material.set_editor_property("used_with_niagara_mesh_particles", True)
 
     # Sleeve bands: U runs along the ribbon (0 at the root), 11 sleeves; a sharp mask at every groove.
     uv = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1400, 0)

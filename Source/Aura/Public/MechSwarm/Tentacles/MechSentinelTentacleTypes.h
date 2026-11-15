@@ -117,6 +117,10 @@ struct AURA_API FMechSentinelTentacleDesc
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simulation", meta = (ClampMin = "1", ForceUnits = "cm"))
 	float TeleportDistance = 400.f;
 
+	/** The ribbons (and claw meshes) cast shadows like the ISM head does. Off saves the shadow pass for the tubes. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering")
+	bool bCastShadows = true;
+
 	int32 GetNumRibbons() const { return MaxRiggedSentinels * NumTentacles; }
 
 	bool operator==(const FMechSentinelTentacleDesc& Other) const
@@ -130,7 +134,7 @@ struct AURA_API FMechSentinelTentacleDesc
 			&& TipStiffnessScale == Other.TipStiffnessScale && SwayAmplitude == Other.SwayAmplitude
 			&& SwayFrequency == Other.SwayFrequency && SwayPhasePerPoint == Other.SwayPhasePerPoint
 			&& AttackSwayMultiplier == Other.AttackSwayMultiplier && DeadStiffnessScale == Other.DeadStiffnessScale
-			&& TeleportDistance == Other.TeleportDistance;
+			&& TeleportDistance == Other.TeleportDistance && bCastShadows == Other.bCastShadows;
 	}
 };
 

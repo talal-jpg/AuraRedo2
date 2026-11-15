@@ -70,7 +70,12 @@ namespace MechSwarm::Tentacles
 		return FMath::Lerp(RootDirection, TrailDirection, Blend).GetSafeNormal();
 	}
 
-	void SimulateRig(FMechSentinelTentacleSet& Set, const int32 Rig, const FTransform& MeshTransform, const bool bReset,
+	/**
+	 * Steps one rig. Returns true when the rig was laid out from scratch this frame (new owner or teleport): its points
+	 * jumped from wherever they were, so its ribbons are hidden for this one frame (no stretched ribbon or motion-vector
+	 * streak) and the caller draws the baked far mesh instead, which is what the sentinel showed before.
+	 */
+	bool SimulateRig(FMechSentinelTentacleSet& Set, const int32 Rig, const FTransform& MeshTransform, const bool bReset,
 		const FRigInputs& Inputs, const float DeltaTime, const float Time)
 	{
 		const FMechSentinelTentacleDesc& Desc = Set.Desc;
@@ -88,6 +93,10 @@ namespace MechSwarm::Tentacles
 
 		Set.RigSeen[Rig] = true;
 
+		// Decided per rig (not per chain) so a rig is either all ribbons or all far mesh.
+		const FVector FirstRoot = MeshTransform.TransformPosition(Set.RootOffsets[0]);
+		const bool bLayOut = bReset || FVector::DistSquared(Set.Positions[Set.PointIndex(Rig, 0, 0)], FirstRoot) > TeleportSq;
+
 		for (int32 Tentacle = 0; Tentacle < Desc.NumTentacles; ++Tentacle)
 		{
 			const int32 Base = Set.PointIndex(Rig, Tentacle, 0);
@@ -100,10 +109,8 @@ namespace MechSwarm::Tentacles
 			const float Phase = Set.RigPhases[Rig] + 0.9f * float(Tentacle);
 
 			const int32 Ribbon = Set.RibbonIndex(Rig, Tentacle);
-			Set.WidthScales[Ribbon] = 1.f;
+			Set.WidthScales[Ribbon] = bLayOut ? 0.f : 1.f;
 			Set.Glow[Ribbon] = Inputs.Glow;
-
-			const bool bLayOut = bReset || FVector::DistSquared(Set.Positions[Base], Root) > TeleportSq;
 
 			FVector RestPoint = Root;
 			Set.Positions[Base] = Root;
@@ -148,6 +155,7 @@ namespace MechSwarm::Tentacles
 				Set.FrameBounds += Position;
 			}
 		}
+		return bLayOut;
 	}
 }
 
@@ -303,7 +311,7 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 			Tentacle.RigIndex = Rig;
 
 			// No ribbons: draw the far mesh, which has the tentacles baked in, even at High / Medium LOD.
-			LODList[EntityIndex].bForceLowLODMesh = (Rig == INDEX_NONE);
+			LODList[EntityIndex].bForceLowLODMesh = true;
 			if (Rig == INDEX_NONE || !Set)
 			{
 				continue;
@@ -313,7 +321,9 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 				StateList.Num() > 0 ? &StateList[EntityIndex] : nullptr,
 				AttackList.Num() > 0 ? &AttackList[EntityIndex] : nullptr);
 			const FTransform MeshTransform = MeshRelativeTransform * TransformList[EntityIndex].GetTransform();
-			SimulateRig(*Set, Rig, MeshTransform, bNewRig, Inputs, DeltaTime, Time);
+			const bool bLaidOut = SimulateRig(*Set, Rig, MeshTransform, bNewRig, Inputs, DeltaTime, Time);
+			// The ribbons show from the frame after the layout; until then the far mesh stays.
+			LODList[EntityIndex].bForceLowLODMesh = bLaidOut;
 		}
 	});
 

@@ -22,6 +22,9 @@ namespace MechSwarm::Tentacles
 	constexpr float RingRadiusZ = 27.f;
 	constexpr float RingCenterZ = -5.f;
 	constexpr float RestDroop = 0.08f;
+
+	/** How far the optional claw mesh (SM_MechSentinel_TentacleTip, 13 cm + prongs) reaches past the last point. */
+	constexpr float TipMeshReach = 15.f;
 }
 
 int32 UMechSentinelTentacleSubsystem::FindOrAddSet(const FMechSentinelTentacleDesc& Desc)
@@ -165,10 +168,9 @@ void UMechSentinelTentacleSubsystem::EndFrame()
 			}
 		}
 
-		if (Set.NumActiveRigs > 0)
-		{
-			EnsureComponent(Set);
-		}
+		// Created as soon as the set is in use, not with the first rig: the ribbon PSOs precache while the swarm is
+		// still far away, instead of the first close sentinel showing a bare head until they are compiled.
+		EnsureComponent(Set);
 
 		UNiagaraComponent* Component = Set.Component;
 		if (!IsValid(Component))
@@ -199,9 +201,10 @@ void UMechSentinelTentacleSubsystem::PushToNiagara(FMechSentinelTentacleSet& Set
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(Component, NiagaraParams::Glow(), Set.Glow);
 
 	// The component sits at the world origin with an identity transform, so world bounds are its local bounds.
+	// Padding: the tube radius around the points plus the claw mesh past the tips.
 	if (Set.FrameBounds.IsValid)
 	{
-		Component->SetSystemFixedBounds(Set.FrameBounds.ExpandBy(FMath::Max(Set.Desc.RootWidth, 10.f)));
+		Component->SetSystemFixedBounds(Set.FrameBounds.ExpandBy(FMath::Max(Set.Desc.RootWidth, 10.f) + TipMeshReach));
 	}
 }
 
@@ -231,6 +234,8 @@ void UMechSentinelTentacleSubsystem::EnsureComponent(FMechSentinelTentacleSet& S
 
 	// Mass writes the chains in PostPhysics; the ribbons must be built from this frame's data.
 	Component->SetTickBehavior(ENiagaraTickBehavior::ForceTickLast);
+	// A spawned Niagara component does not cast shadows by default; the heads do.
+	Component->SetCastShadow(Set.Desc.bCastShadows);
 	Component->SetVariableInt(NiagaraParams::PointsPerTentacle(), Set.Desc.PointsPerTentacle);
 	Component->SetVariableInt(NiagaraParams::TentacleCount(), Set.Desc.GetNumRibbons());
 	Component->SetVariableFloat(NiagaraParams::RootWidth(), Set.Desc.RootWidth);
