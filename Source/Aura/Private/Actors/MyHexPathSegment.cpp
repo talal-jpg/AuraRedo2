@@ -3,6 +3,7 @@
 
 #include "Actors/MyHexPathSegment.h"
 
+#include "Actors/MyHexAtmosphereFX.h"
 #include "Components/SplineComponent.h"
 #include "PCGComponent.h"
 
@@ -25,6 +26,18 @@ AMyHexPathSegment::AMyHexPathSegment()
 
 	// Generated from InitSegment once the spline has its points, never on load
 	PCGComponent->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
+}
+
+
+// =============================================================================
+// EndPlay
+// =============================================================================
+
+void AMyHexPathSegment::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	AMyHexAtmosphereFX::DestroyAttachedTo(this);
+
+	Super::EndPlay(EndPlayReason);
 }
 
 

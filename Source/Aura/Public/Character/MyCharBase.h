@@ -95,14 +95,14 @@ protected:
 	
 	FOnDeathDelegateSignature OnDeathDelegate;
 	
-	virtual FOnDeathDelegateSignature& GetOnDeathDelegate() override; 
-	
 	
 	//CombatIF
 	
 	FVector GetCombatSocketLocation_Implementation();
 	
 	
-public:	
+public:
+	// Public: UMyAnimInstance binds its death FX to it through an AMyCharPlayer pointer
+	virtual FOnDeathDelegateSignature& GetOnDeathDelegate() override;
 
 };

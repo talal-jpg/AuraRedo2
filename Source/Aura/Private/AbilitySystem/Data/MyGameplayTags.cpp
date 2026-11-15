@@ -97,6 +97,7 @@ namespace MyTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Boosting,"State.Boosting")
 	UE_DEFINE_GAMEPLAY_TAG(State_Shooting,"State.Shooting")
 	UE_DEFINE_GAMEPLAY_TAG(State_BlockTranslate,"State.BlockTranslate")
+	UE_DEFINE_GAMEPLAY_TAG(State_Dead,"State.Dead")
 	UE_DEFINE_GAMEPLAY_TAG(State_BlockRot,"State.BlockRot")
 	UE_DEFINE_GAMEPLAY_TAG(State_BlockChestRot,"State.BlockChestRot")
 	

@@ -73,6 +73,10 @@
 			"Enabled": true
 		},
 		{
+			"Name": "PCGNiagaraInterop",
+			"Enabled": true
+		},
+		{
 			"Name": "MassGameplay",
 			"Enabled": true
 		}

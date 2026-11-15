@@ -67,6 +67,9 @@ public:
 
 protected:
 
+	/** Destroys the fog banks the graph spawned (PCG leaves the actors it spawned behind). */
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 	/** Runs after the spline is set and PCG generation has been requested. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Hex Path")
 	void OnSegmentInitialized();

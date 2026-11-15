@@ -21,6 +21,8 @@
 #include "EOS/MultiplayerSessionsSubsystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PawnMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "TimerManager.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "UI/MyHUD.h"
@@ -91,7 +93,8 @@ void AMyCharPlayer::Landed(const FHitResult& Hit)
 void AMyCharPlayer::Multicast_HardLanding_Implementation(float InYaw)
 {
 	SetActorRotation(FRotator(0.f,InYaw,0.f));
-	PlayAnimMontage(HardLandingMontage);
+	// Start at the "roll" section: the mech has already landed, so skip the montage's falling part
+	PlayAnimMontage(HardLandingMontage,1.f,FName("roll"));
 }
 
 void AMyCharPlayer::RegisterToBoostingState()
@@ -122,7 +125,15 @@ void AMyCharPlayer::BeginPlay()
 	
 	UE_LOG(LogTemp, Warning, TEXT("%s"), *MP->GetName());
 	MP->StartHeadlessLogic2();
+
+	RefreshEdgeFogTimer();
 	
+	// TEMP death test (disintegrate FX): set DebugDieAfterBeginPlaySeconds to 0 to turn it off
+	if (HasAuthority() && DebugDieAfterBeginPlaySeconds>0.f)
+	{
+		GetWorldTimerManager().SetTimer(DebugDieTimerHandle,this,&ThisClass::Die,DebugDieAfterBeginPlaySeconds,false);
+	}
+
 	
 	
 	
@@ -215,7 +226,9 @@ void AMyCharPlayer::Tick(float DeltaTime)
 	}
 	
 	// UKismetSystemLibrary::DrawDebugSphere(GetWorld(),TargetLocation,100,12,FLinearColor::Yellow,false,0.1f);
+	
 }
+
 
 void AMyCharPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -443,7 +456,21 @@ void AMyCharPlayer::Die()
 {
 	//Intensionally not calling super here , because CharBase Holds Die Imple
 	//Super::Die();
-	
+	// Later fatal hits call Die again; only broadcast death once
+	if (bIsDead)return;
+	MulticastHandlePlayerDeath();
+}
+
+void AMyCharPlayer::MulticastHandlePlayerDeath_Implementation()
+{
+	// Set before broadcasting, so listeners that call IsDead() see true
+	bIsDead=true;
+	// Every machine adds it locally: the owning client's controller ignores move and rotate input from now on
+	if (UAbilitySystemComponent* DeadASC=GetAbilitySystemComponent())
+	{
+		DeadASC->AddLooseGameplayTag(MyTags::State_Dead);
+	}
+	OnDeathDelegate.Broadcast(this);
 }
 
 void AMyCharPlayer::LerpChestRotToRot()
@@ -551,4 +578,107 @@ void AMyCharPlayer::Multicast_SetPhysicsState_Implementation(float InPhysicsStat
 	MyAnimInstance->PhysicsBoneName= InPhysicsBoneName;
 	MyAnimInstance->PhysicsForceDir=InPhysicsForceDir;
 	//TODO Bone name , Force dir , Force mult, 
+}
+
+void AMyCharPlayer::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(EdgeFogTimer);
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+void AMyCharPlayer::NotifyControllerChanged()
+{
+	Super::NotifyControllerChanged();
+	RefreshEdgeFogTimer();
+}
+
+void AMyCharPlayer::RefreshEdgeFogTimer()
+{
+	UWorld* World = GetWorld();
+	if (!World || !(HasActorBegunPlay() || IsActorBeginningPlay()))
+	{
+		return;
+	}
+	FTimerManager& Timers = World->GetTimerManager();
+	if (!IsLocallyControlled())
+	{
+		Timers.ClearTimer(EdgeFogTimer);
+		return;
+	}
+	if (!Timers.IsTimerActive(EdgeFogTimer))
+	{
+		// Initial placement now, then keep following on the timer.
+		UpdateEdgeFogVolumes();
+		Timers.SetTimer(EdgeFogTimer, this, &AMyCharPlayer::UpdateEdgeFogVolumes, EdgeFogUpdateInterval, true);
+	}
+}
+
+void AMyCharPlayer::UpdateEdgeFogVolumes()
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
+	// Fog cube: keep its world Z range fixed so it covers both chains whatever height the pawn is at.
+	if (!EdgeFogCube.IsValid())
+	{
+		for (UActorComponent* Component : GetComponents())
+		{
+			if (Component && Component->GetFName() == EdgeFogCubeName)
+			{
+				EdgeFogCube = Cast<USceneComponent>(Component);
+				break;
+			}
+		}
+	}
+	if (USceneComponent* Cube = EdgeFogCube.Get())
+	{
+		FVector Location = Cube->GetComponentLocation();
+		Location.Z = 0.5f * (EdgeFogCubeMinZ + EdgeFogCubeMaxZ);
+		FVector Scale = Cube->GetComponentScale();
+		// The cube mesh is 100 cm tall.
+		Scale.Z = FMath::Max(EdgeFogCubeMaxZ - EdgeFogCubeMinZ, 1.f) / 100.f;
+		Cube->SetWorldLocation(Location);
+		Cube->SetWorldScale3D(Scale);
+	}
+
+	// RVT volumes: found once, retried on the next tick while none exist yet (e.g. streaming).
+	EdgeFogVolumes.RemoveAll([](const TWeakObjectPtr<AActor>& Volume) { return !Volume.IsValid(); });
+	if (EdgeFogVolumes.IsEmpty())
+	{
+		TArray<AActor*> Found;
+		UGameplayStatics::GetAllActorsWithTag(this, EdgeFogVolumeTag, Found);
+		for (AActor* Volume : Found)
+		{
+			EdgeFogVolumes.Add(Volume);
+		}
+	}
+
+	const FVector PawnLocation = GetActorLocation();
+	const double Step = FMath::Max(EdgeFogSnapStep, 1.f);
+	for (const TWeakObjectPtr<AActor>& WeakVolume : EdgeFogVolumes)
+	{
+		AActor* Volume = WeakVolume.Get();
+		if (!Volume)
+		{
+			continue;
+		}
+		// A Runtime Virtual Texture Volume's location is its min corner and its scale is its size.
+		const FVector VolumeLocation = Volume->GetActorLocation();
+		const FVector HalfSize = 0.5 * Volume->GetActorScale3D();
+		const FVector Centre = VolumeLocation + FVector(HalfSize.X, HalfSize.Y, 0.0);
+		if (FMath::Abs(PawnLocation.X - Centre.X) <= Step && FMath::Abs(PawnLocation.Y - Centre.Y) <= Step)
+		{
+			continue;
+		}
+		const FVector NewLocation(
+			FMath::GridSnap(PawnLocation.X, Step) - HalfSize.X,
+			FMath::GridSnap(PawnLocation.Y, Step) - HalfSize.Y,
+			VolumeLocation.Z);
+		Volume->SetActorLocation(NewLocation);
+	}
 }
