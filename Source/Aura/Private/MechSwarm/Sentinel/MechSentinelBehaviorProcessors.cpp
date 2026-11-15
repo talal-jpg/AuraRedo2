@@ -105,7 +105,9 @@ void UMechSentinelEffectsProcessor::Execute(FMassEntityManager& EntityManager, F
 				Effect.RemainingTime -= DeltaTime;
 				if (Effect.RemainingTime <= 0.f)
 				{
-					Effects.RemoveAtSwap(EffectIndex);
+					// Not RemoveAtSwap: the list must stay in application order, the proxy re-creates it in that order
+					// (immunity and "remove other effects" components depend on it).
+					Effects.RemoveAt(EffectIndex, EAllowShrinking::No);
 					bAnyExpired = true;
 				}
 			}

@@ -76,23 +76,53 @@ namespace MechSwarm::SubsystemPrivate
 	constexpr int64 MaxCellsPerQuery = 4096;
 
 	/**
-	 * Drops the stored effects that are no longer active on the loaded proxy (removed by another effect, blocked by
-	 * immunity or application requirements, failed to re-apply). StoredHandles is index-aligned with GAS.ActiveEffects,
-	 * as built by AMechSentinelGASProxy::LoadEntity. Returns true when something was dropped.
+	 * Drops the stored effects GAS removed after LoadEntity re-created them (a cleanse or "remove other effects"
+	 * component of the incoming spec, ...), and entries without a class. StoredHandles is index-aligned with
+	 * GAS.ActiveEffects, as built by AMechSentinelGASProxy::LoadEntity. An effect that failed to re-apply (application
+	 * requirements that no longer hold) stays stored, as an active effect would in GAS; it is only missing from that one
+	 * evaluation. Returns true when something was dropped.
 	 */
 	bool PruneRemovedEffects(const UAbilitySystemComponent& ASC, const TArray<FActiveGameplayEffectHandle>& StoredHandles, FMechSentinelGASFragment& GAS)
 	{
 		bool bPruned = false;
 		for (int32 Index = FMath::Min(StoredHandles.Num(), GAS.ActiveEffects.Num()) - 1; Index >= 0; --Index)
 		{
-			const FActiveGameplayEffect* Stored = ASC.GetActiveGameplayEffect(StoredHandles[Index]);
-			if (!Stored || Stored->IsPendingRemove)
+			bool bRemoved = !GAS.ActiveEffects[Index].EffectClass;
+			if (!bRemoved && StoredHandles[Index].IsValid())
 			{
-				GAS.ActiveEffects.RemoveAt(Index);
+				const FActiveGameplayEffect* Stored = ASC.GetActiveGameplayEffect(StoredHandles[Index]);
+				bRemoved = !Stored || Stored->IsPendingRemove;
+			}
+			if (bRemoved)
+			{
+				// RemoveAt, not RemoveAtSwap: the list stays in application order.
+				GAS.ActiveEffects.RemoveAt(Index, EAllowShrinking::No);
 				bPruned = true;
 			}
 		}
 		return bPruned;
+	}
+
+	/** Stores (or refreshes, same class) an active effect of the loaded proxy on the entity, appended in application order. */
+	void StoreActiveEffect(FMechSentinelGASFragment& GAS, const FActiveGameplayEffect& ActiveEffect, const float WorldTime)
+	{
+		const TSubclassOf<UGameplayEffect> EffectClass = ActiveEffect.Spec.Def->GetClass();
+		FMechSentinelActiveEffect* Entry = GAS.ActiveEffects.FindByPredicate([EffectClass](const FMechSentinelActiveEffect& Existing)
+		{
+			return Existing.EffectClass == EffectClass;
+		});
+		if (!Entry)
+		{
+			Entry = &GAS.ActiveEffects.AddDefaulted_GetRef();
+		}
+
+		// Same class again refreshes the stored effect with what GAS resolved (respects the GE stacking setup).
+		Entry->EffectClass = EffectClass;
+		Entry->Level = ActiveEffect.Spec.GetLevel();
+		Entry->RemainingTime = ActiveEffect.GetTimeRemaining(WorldTime);
+		Entry->SetByCallerMagnitudes = ActiveEffect.Spec.SetByCallerTagMagnitudes;
+		Entry->StackCount = FMath::Max(1, ActiveEffect.Spec.GetStackCount());
+		Entry->InstigatorASC = ActiveEffect.Spec.GetEffectContext().GetInstigatorAbilitySystemComponent();
 	}
 }
 
@@ -417,37 +447,56 @@ float UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(const FMass
 		bReevaluate = true;
 	}
 
+	const UWorld* World = GetWorld();
+	const float WorldTime = World ? float(World->GetTimeSeconds()) : 0.f;
+
+	// Stores a duration / infinite effect now active on the proxy. Periodic ones are not persisted: their tags /
+	// modifiers must not stay in Mass either, so the values are rebuilt from the stored list.
+	auto StoreOrReevaluate = [&bReevaluate, GAS, WorldTime](const FActiveGameplayEffect& ActiveEffect)
+	{
+		if (ActiveEffect.GetPeriod() > 0.f)
+		{
+			UE_LOG(LogMechSentinel, Warning, TEXT("%s is periodic. Periodic effects are not persisted on sentinels; use an instant effect applied repeatedly for damage over time."), *GetNameSafe(ActiveEffect.Spec.Def));
+		}
+		else
+		{
+			MechSwarm::SubsystemPrivate::StoreActiveEffect(*GAS, ActiveEffect, WorldTime);
+		}
+		bReevaluate = true;
+	};
+
+	// The incoming effect first (GAS adds it before running its on-application components)...
 	if (Spec.Def->DurationPolicy != EGameplayEffectDurationType::Instant && AppliedHandle.IsValid())
 	{
 		if (const FActiveGameplayEffect* ActiveEffect = ProxyASC->GetActiveGameplayEffect(AppliedHandle))
 		{
-			if (ActiveEffect->GetPeriod() > 0.f)
-			{
-				UE_LOG(LogMechSentinel, Warning, TEXT("%s is periodic. Periodic effects are not persisted on sentinels; use an instant effect applied repeatedly for damage over time."), *GetNameSafe(Spec.Def));
-				// Not stored: its tags / modifiers must not stay in Mass either, so rebuild them from the stored list.
-				bReevaluate = true;
-			}
-			else
-			{
-				const TSubclassOf<UGameplayEffect> EffectClass = Spec.Def->GetClass();
-				FMechSentinelActiveEffect* Entry = GAS->ActiveEffects.FindByPredicate([EffectClass](const FMechSentinelActiveEffect& Existing)
-				{
-					return Existing.EffectClass == EffectClass;
-				});
-				if (!Entry)
-				{
-					Entry = &GAS->ActiveEffects.AddDefaulted_GetRef();
-				}
+			StoreOrReevaluate(*ActiveEffect);
+		}
+	}
 
-				// Same class again refreshes the stored effect with what GAS resolved (respects the GE stacking setup).
-				const UWorld* World = GetWorld();
-				Entry->EffectClass = EffectClass;
-				Entry->Level = ActiveEffect->Spec.GetLevel();
-				Entry->RemainingTime = ActiveEffect->GetTimeRemaining(World ? World->GetTimeSeconds() : 0.f);
-				Entry->SetByCallerMagnitudes = ActiveEffect->Spec.SetByCallerTagMagnitudes;
-				Entry->StackCount = FMath::Max(1, ActiveEffect->Spec.GetStackCount());
-				Entry->InstigatorASC = Spec.GetEffectContext().GetInstigatorAbilitySystemComponent();
-				bReevaluate = true;
+	// ... then what GAS applied on its own while running it (additional on-application effects, overflow effects...),
+	// even for an instant spec. Unload removes them from the proxy, so unless they are stored a stun or a slow they
+	// grant would stay in Mass with nothing to expire it. LoadEntity already stripped the side effects of the stored
+	// effects' re-creation, so everything active that is not a stored handle or the spec's own is new.
+	{
+		FGameplayEffectQuery NewEffects;
+		for (const FActiveGameplayEffectHandle& StoredHandle : Proxy->GetStoredHandles())
+		{
+			if (StoredHandle.IsValid())
+			{
+				NewEffects.IgnoreHandles.Add(StoredHandle);
+			}
+		}
+		if (AppliedHandle.IsValid())
+		{
+			NewEffects.IgnoreHandles.Add(AppliedHandle);
+		}
+		for (const FActiveGameplayEffectHandle& Handle : ProxyASC->GetActiveEffects(NewEffects))
+		{
+			const FActiveGameplayEffect* Extra = ProxyASC->GetActiveGameplayEffect(Handle);
+			if (Extra && !Extra->IsPendingRemove && Extra->Spec.Def)
+			{
+				StoreOrReevaluate(*Extra);
 			}
 		}
 	}
@@ -501,7 +550,8 @@ void UMechSentinelSwarmSubsystem::RecomputeSentinel(const FMassEntityHandle Enti
 
 	const bool bAttacking = View.HasTag<FMechSentinelAttackingTag>();
 	Proxy->LoadEntity(*Attributes, *GAS, bAttacking);
-	// Stored effects that can no longer be applied (immunity, requirements) or that removed each other are dropped.
+	// Safety net: stored effects that removed each other on re-creation are dropped (cannot happen while the list is
+	// kept in application order, but a stale entry must not come back on every evaluation).
 	const bool bPruned = MechSwarm::SubsystemPrivate::PruneRemovedEffects(*Proxy->GetAbilitySystemComponent(), Proxy->GetStoredHandles(), *GAS);
 	if (bPruned)
 	{

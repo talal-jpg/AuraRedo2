@@ -5,6 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "GameplayEffect.h"
+#include "GameplayEffectComponents/ChanceToApplyGameplayEffectComponent.h"
 #include "MechSwarm/GAS/MechSentinelAttributeSet.h"
 #include "MechSwarm/GAS/MechSentinelTags.h"
 #include "MechSwarm/Sentinel/MechSentinelFragments.h"
@@ -49,16 +50,7 @@ void AMechSentinelGASProxy::LoadEntity(const FMechSentinelAttributesFragment& At
 	bLoaded = true;
 
 	UAbilitySystemComponent* ASC = AbilitySystemComponent;
-
-	// MaxHealth first: Health is clamped against it.
-	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetMaxHealthAttribute(), Attributes.MaxHealth);
-	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetHealthAttribute(), Attributes.Health);
-	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetArmorAttribute(), Attributes.BaseArmor);
-	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetAttackDamageAttribute(), Attributes.BaseAttackDamage);
-	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetAttackSpeedAttribute(), Attributes.BaseAttackSpeed);
-	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetMoveSpeedMultiplierAttribute(), Attributes.BaseMoveSpeedMultiplier);
-	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetIncomingDamageAttribute(), 0.f);
-	AttributeSet->ConsumeLastResolvedDamage();
+	SetBaseValues(Attributes);
 
 	if (bAttacking)
 	{
@@ -102,13 +94,68 @@ void AMechSentinelGASProxy::LoadEntity(const FMechSentinelAttributesFragment& At
 			SpecHandle.Data->SetStackCount(Active.StackCount);
 		}
 
-		const FActiveGameplayEffectHandle Handle = ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+		FActiveGameplayEffectHandle Handle = ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+		if (!Handle.IsValid())
+		{
+			// The chance to apply was rolled when the effect first landed: a stored effect must not lose a re-roll.
+			// A failed application has no side effects, so retrying is safe.
+			const UGameplayEffect* EffectCDO = Active.EffectClass.GetDefaultObject();
+			if (EffectCDO && EffectCDO->FindComponent(UChanceToApplyGameplayEffectComponent::StaticClass()))
+			{
+				constexpr int32 MaxChanceRetries = 32;
+				for (int32 Retry = 0; Retry < MaxChanceRetries && !Handle.IsValid(); ++Retry)
+				{
+					Handle = ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+				}
+			}
+		}
 		if (Handle.IsValid())
 		{
 			TemporaryHandles.Add(Handle);
 			StoredHandle = Handle;
 		}
 	}
+
+	StripReapplicationSideEffects(Attributes);
+}
+
+void AMechSentinelGASProxy::SetBaseValues(const FMechSentinelAttributesFragment& Attributes)
+{
+	UAbilitySystemComponent* ASC = AbilitySystemComponent;
+
+	// MaxHealth first: Health is clamped against it.
+	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetMaxHealthAttribute(), Attributes.MaxHealth);
+	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetHealthAttribute(), Attributes.Health);
+	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetArmorAttribute(), Attributes.BaseArmor);
+	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetAttackDamageAttribute(), Attributes.BaseAttackDamage);
+	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetAttackSpeedAttribute(), Attributes.BaseAttackSpeed);
+	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetMoveSpeedMultiplierAttribute(), Attributes.BaseMoveSpeedMultiplier);
+	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetIncomingDamageAttribute(), 0.f);
+	AttributeSet->ConsumeLastResolvedDamage();
+}
+
+void AMechSentinelGASProxy::StripReapplicationSideEffects(const FMechSentinelAttributesFragment& Attributes)
+{
+	UAbilitySystemComponent* ASC = AbilitySystemComponent;
+
+	// Re-creating a stored effect re-runs its "on application" side effects: additional effects (duration ones stay
+	// active, instant ones change base values), overflow effects... They already happened when the effect first
+	// landed, so only the stored effects may stay, and the base values go back to what Mass holds. Removing an extra
+	// can fire its own on-complete effects, hence a few passes.
+	FGameplayEffectQuery NotStored;
+	for (const FActiveGameplayEffectHandle& Handle : StoredHandles)
+	{
+		if (Handle.IsValid())
+		{
+			NotStored.IgnoreHandles.Add(Handle);
+		}
+	}
+	for (int32 Pass = 0; Pass < 4 && ASC->GetActiveEffects(NotStored).Num() > 0; ++Pass)
+	{
+		ASC->RemoveActiveEffects(NotStored);
+	}
+
+	SetBaseValues(Attributes);
 }
 
 FActiveGameplayEffectHandle AMechSentinelGASProxy::ApplySpec(const FGameplayEffectSpec& Spec)

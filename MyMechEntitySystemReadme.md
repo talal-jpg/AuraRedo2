@@ -341,15 +341,18 @@ even when sentinels die, players leave or the board changes.
         v
  UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(entity, spec)
         |
-        |  pass 1  Proxy.LoadEntity  : Mass attributes -> attribute BASE values, re-apply stored duration effects
+        |  pass 1  Proxy.LoadEntity  : Mass attributes -> attribute BASE values, re-create stored duration effects in
+        |                              application order, strip their re-application side effects, bases reset
         |          Proxy.ApplySpec   : GAS runs the effect
         |                                ExecCalc_SentinelDamage: Armor (captured), Shielded, Dead -> IncomingDamage
         |                                UMechSentinelAttributeSet::PostGameplayEffectExecute: IncomingDamage -> Health
         |          Proxy.ReadBack    : bases + currents + owned tags -> Mass
         |          Proxy.Unload      : remove every temporary effect / loose tag (proxy is blank again)
         |                              + anything GAS applied on its own (on-application / on-complete effects)
-        |          prune             : stored effects the spec removed (cleanse, immunity) are dropped from Mass
-        |  pass 2  (when the stored list changed or the spec was periodic) Load / ReadBack / Unload to re-evaluate
+        |          store             : the spec (duration / infinite) and every effect GAS applied on its own while
+        |                              running it (additional effects, even from an instant spec) -> ActiveEffects
+        |          prune             : stored effects the spec removed (cleanse, remove-other) are dropped from Mass
+        |  pass 2  (when the stored list changed or something periodic ran) Load / ReadBack / Unload to re-evaluate
         v
  Mass: FMechSentinelAttributesFragment, FMechSentinelGASFragment updated
         | HitFlash = 1, ++HitSerial, OnSentinelDamaged
@@ -541,14 +544,18 @@ the Replication trait, client bubble base classes), which the custom agent / bub
   runs real GAS (execs, modifiers, tag requirements, immunity, stacking), writes the result back to Mass and unloads.
   Cost is paid only on combat events, not per frame.
 * **Duration / infinite effects** are stored on the entity (`FMechSentinelGASFragment::ActiveEffects`: class, level,
-  remaining time, stack count, SetByCaller values) and re-applied on the proxy when the entity is evaluated. Re-applying
-  the same class refreshes it with what GAS resolved (stacking rules included). Stored effects that GAS removes during an
-  evaluation (a cleanse, immunity, application requirements no longer met) are dropped from the entity. The proxy is
-  shared, so `Unload` also removes every effect GAS applied on its own (additional on-application effects, on-complete
-  effects of the removals). Limitations: periodic effects are not persisted (a warning is logged, their tags and
-  modifiers are not kept; apply an instant effect repeatedly for damage over time), MaxHealth is base-only, and GE
-  "application" side effects (cues, ability grants, execution of on-application components) of stored effects re-run
-  each time the proxy reloads them. Cues are suppressed on the proxy; sentinel visuals come from Mass.
+  remaining time, stack count, SetByCaller values), in application order, and re-created on the proxy in that order
+  when the entity is evaluated. Re-applying the same class refreshes it with what GAS resolved (stacking rules
+  included). Effects GAS applies on its own while running a spec (additional on-application effects, even of an
+  instant spec, such as a stun on hit) are stored the same way, so they expire on time. Re-creating a stored effect
+  does not repeat its first application: its extra effects are removed again and the base values reset to Mass, and a
+  chance-to-apply is not re-rolled. Stored effects that the incoming spec removes (a cleanse, remove-other components)
+  are dropped from the entity. The proxy is shared, so `Unload` removes every effect, including on-complete effects of
+  the removals. Limitations: periodic effects are not persisted (a warning is logged, their tags and modifiers are not
+  kept; apply an instant effect repeatedly for damage over time); a stored effect whose application requirements no
+  longer hold is left out of evaluations (but stays stored until it expires), where GAS would keep it active; MaxHealth
+  is base-only; ability grants of stored effects exist only while the proxy is loaded. Cues are suppressed on the
+  proxy; sentinel visuals come from Mass.
 * **Stunned sentinels** stop steering, sink for `StunnedSinkDuration` (slowing to a stop) and then hover in place: live
   sentinels have no ground check, so a long stun must not drag them through the floor.
 * **Players as source of sentinel attacks**: the proxy ASC is the source. It carries a default `UMyAttributeSet` so the

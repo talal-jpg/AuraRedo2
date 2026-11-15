@@ -34,7 +34,11 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	UMechSentinelAttributeSet* GetAttributeSet() const { return AttributeSet; }
 
-	/** Loads one sentinel. bAttacking adds State.Sentinel.Attacking as a loose tag for tag requirements. */
+	/**
+	 * Loads one sentinel: base values from Mass, then the stored effects re-created in their stored (application)
+	 * order, without the side effects their first application already had. bAttacking adds State.Sentinel.Attacking
+	 * as a loose tag for tag requirements.
+	 */
 	void LoadEntity(const FMechSentinelAttributesFragment& Attributes, const FMechSentinelGASFragment& GAS, bool bAttacking);
 
 	/** Applies an incoming spec to the loaded sentinel. Returned handle is valid for duration / infinite effects that were applied. */
@@ -48,7 +52,8 @@ public:
 
 	/**
 	 * Handles of the stored effects re-applied by LoadEntity, index-aligned with FMechSentinelGASFragment::ActiveEffects
-	 * (invalid where the re-application failed). Lets the bridge see which stored effects GAS removed.
+	 * (invalid where the re-application failed, e.g. application requirements that no longer hold). Lets the bridge see
+	 * which stored effects GAS removed afterwards and which effects GAS applied on its own.
 	 */
 	const TArray<FActiveGameplayEffectHandle>& GetStoredHandles() const { return StoredHandles; }
 
@@ -72,6 +77,9 @@ protected:
 	TObjectPtr<UMyAttributeSet> SourceAttributeSet;
 
 private:
+	void SetBaseValues(const FMechSentinelAttributesFragment& Attributes);
+	void StripReapplicationSideEffects(const FMechSentinelAttributesFragment& Attributes);
+
 	TArray<FActiveGameplayEffectHandle> TemporaryHandles;
 	TArray<FActiveGameplayEffectHandle> StoredHandles;
 	bool bLoaded = false;
