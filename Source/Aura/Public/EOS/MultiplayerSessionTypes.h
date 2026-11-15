@@ -18,6 +18,8 @@ namespace AuraSessionKeys
 	inline const FName Difficulty(TEXT("Difficulty"));
 	inline const FName Rules(TEXT("Rules"));
 	inline const FName Listed(TEXT("Listed"));
+	// MainMenu3
+	inline const FName LobbyName(TEXT("LobbyName"));
 }
 
 UENUM(BlueprintType)
@@ -60,6 +62,14 @@ struct FAuraHostSettings
 	// Leave empty to have the subsystem generate one with GenerateJoinCode().
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aura|Session")
 	FString JoinCode;
+
+	// Shown in the browse list. Empty = the browse row falls back to the host's name.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aura|Session")
+	FString LobbyName;
+
+	// Off = the lobby stops accepting joins once the host starts the match (StartSession).
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aura|Session")
+	bool bAllowJoinInProgress = true;
 };
 
 USTRUCT(BlueprintType)
@@ -124,4 +134,13 @@ struct FAuraSessionInfo
 	// Index into the subsystem's cached FOnlineSessionSearchResult array; pass to JoinCachedSession().
 	UPROPERTY(BlueprintReadOnly, Category = "Aura|Session")
 	int32 ResultIndex = INDEX_NONE;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Aura|Session")
+	FString LobbyName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Aura|Session")
+	EAuraSessionPrivacy Privacy = EAuraSessionPrivacy::Public;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Aura|Session")
+	bool bAllowJoinInProgress = true;
 };

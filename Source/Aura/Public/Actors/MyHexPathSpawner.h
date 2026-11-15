@@ -7,8 +7,91 @@
 #include "GameFramework/Actor.h"
 #include "MyHexPathSpawner.generated.h"
 
+class AMyHexAtmosphereFX;
 class AMyHexPathSegment;
+class UNiagaraSystem;
+class UPCGGraphInterface;
 class USplineComponent;
+
+/** A Niagara effect kept on the local camera, with its own spawn rate and slow gusts. */
+USTRUCT(BlueprintType)
+struct FMyHexCameraEffect
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere")
+	TSoftObjectPtr<UNiagaraSystem> System;
+
+	/** Particles per second (the system's User.SpawnRate). 0 = the system's default. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere", meta = (ClampMin = "0.0"))
+	float SpawnRate = 0.f;
+
+	/** How far gusts and lulls dip the spawn rate (0 = steady, 0.6 = down to 40% in a lull). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float GustAmount = 0.f;
+
+	/** Rough seconds between gusts. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere", meta = (ClampMin = "0.5"))
+	float GustPeriod = 8.f;
+};
+
+/**
+ * One atmosphere layout (fog cards, mist, snow, clouds, height fog). AMyHexPathSpawner holds a list of
+ * them and AtmosphereVariant picks the one in use, so layouts can be swapped without rewiring graphs.
+ * Everything here is cosmetic and runs locally on every machine that renders.
+ */
+USTRUCT(BlueprintType)
+struct FMyHexAtmosphereVariant
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere")
+	FName Name;
+
+	/** Run by every platform on its AtmospherePCG component, with the tile props. None = nothing around the platforms. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere")
+	TObjectPtr<UPCGGraphInterface> PlatformGraph;
+
+	/** Spawned once per machine with a local player and kept on its camera (falling snow that is the same everywhere). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere")
+	TArray<TSoftObjectPtr<UNiagaraSystem>> CameraSystems;
+
+	/** Like CameraSystems, with a spawn rate and gusts per effect. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere")
+	TArray<FMyHexCameraEffect> CameraEffects;
+
+	/** Offset (cm, world) of the camera effects from the camera. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere")
+	FVector CameraFXOffset = FVector::ZeroVector;
+
+	/** Replace the level's Exponential Height Fog settings at runtime. Nothing is saved to the level. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog")
+	bool bOverrideHeightFog = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog", meta = (EditCondition = "bOverrideHeightFog"))
+	float FogDensity = 0.02f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog", meta = (EditCondition = "bOverrideHeightFog"))
+	float FogHeightFalloff = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog", meta = (EditCondition = "bOverrideHeightFog"))
+	FLinearColor FogInscatteringColor = FLinearColor::Black;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog", meta = (EditCondition = "bOverrideHeightFog"))
+	bool bVolumetricFog = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog", meta = (EditCondition = "bOverrideHeightFog"))
+	float VolumetricFogDistance = 6000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog", meta = (EditCondition = "bOverrideHeightFog"))
+	float VolumetricFogExtinctionScale = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog", meta = (EditCondition = "bOverrideHeightFog"))
+	float VolumetricFogScatteringDistribution = 0.74f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Atmosphere|Height Fog", meta = (EditCondition = "bOverrideHeightFog"))
+	FColor VolumetricFogAlbedo = FColor::White;
+};
 
 /**
  * Grows a path spline ahead of the players. Server only.
@@ -39,6 +122,17 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Hex Path")
 	const TArray<AMyHexPathSegment*>& GetSegments() const { return ToRawPtrTArrayUnsafe(Segments); }
+
+	/**
+	 * The atmosphere variant in use in WorldContext's world (its path spawner's AtmosphereVariant, or
+	 * the console variable Aura.AtmosphereVariant when that is 0 or more). Null = none.
+	 */
+	static const FMyHexAtmosphereVariant* FindActiveAtmosphere(const UObject* WorldContext);
+
+	/** WindYaw of WorldContext's path spawner (0 without one). */
+	static float FindWindYaw(const UObject* WorldContext);
+
+	const FMyHexAtmosphereVariant* GetActiveAtmosphere() const;
 
 	/** HexRadius / 100: how much bigger than the original layout everything horizontal is. */
 	UFUNCTION(BlueprintPure, Category = "Hex Path|Scale")
@@ -136,7 +230,76 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Debug")
 	bool bDrawDebug = false;
 
+
+	// -------------------------------------------------------------------------
+	// Path-end fog
+	//
+	// Fog banks across the end of the path hide the platforms of a new segment while they spawn.
+	// After an extension they wait PathEndFogMoveDelay seconds (the new platforms come up behind them),
+	// then glide to the new end. Replicated actors (AMyHexAtmosphereFXNet), spawned by the server.
+	// -------------------------------------------------------------------------
+
+	/** The fog bank effect. None = no path-end fog. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Fog")
+	TSoftObjectPtr<UNiagaraSystem> PathEndFogSystem;
+
+	/** Fog banks side by side across the path end. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Fog", meta = (ClampMin = "0"))
+	int32 PathEndFogCount = 3;
+
+	/** Gap (cm, for HexRadius 100) between neighbouring banks, across the path. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Fog", meta = (ClampMin = "0.0"))
+	float PathEndFogSpacing = 5000.f;
+
+	/** How far (cm, for HexRadius 100) before the end of the path the banks stand. Negative = past the end. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Fog")
+	float PathEndFogBackOff = 0.f;
+
+	/** Height of the banks above the path (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Fog")
+	float PathEndFogZOffset = 0.f;
+
+	/** Actor scale of each bank. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Fog")
+	FVector PathEndFogScale = FVector::OneVector;
+
+	/** Seconds after an extension before the banks start moving to the new end. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Fog", meta = (ClampMin = "0.0"))
+	float PathEndFogMoveDelay = 6.f;
+
+	/** cm per second the banks glide at. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Fog", meta = (ClampMin = "0.0"))
+	float PathEndFogMoveSpeed = 6000.f;
+
+	// -------------------------------------------------------------------------
+	// Atmosphere
+	// -------------------------------------------------------------------------
+
+	/** Atmosphere layouts to choose from. AtmosphereVariant picks one. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Atmosphere")
+	TArray<FMyHexAtmosphereVariant> AtmosphereVariants;
+
+	/**
+	 * Index into AtmosphereVariants; -1 (or out of range) = none. The console variable
+	 * Aura.AtmosphereVariant overrides it when 0 or more (set it before Play to compare layouts).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Atmosphere", meta = (ClampMin = "-1"))
+	int32 AtmosphereVariant = -1;
+
+	/**
+	 * World yaw (degrees) the wind blows towards. Snow and mist with AMyHexAtmosphereFX::bAlignToWind
+	 * turn to it, so every effect blows the same way.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Path|Atmosphere")
+	float WindYaw = 30.f;
+
 private:
+
+	/** Local: spawns the active variant's camera effects and applies its height fog. Not on a dedicated server. */
+	void StartAtmosphere();
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<AMyHexAtmosphereFX>> CameraFXs;
 
 	void CheckPlayers();
 
@@ -145,6 +308,14 @@ private:
 
 	/** Noise in roughly -1..1, stretched because Perlin noise rarely gets past +-0.6. */
 	float SampleNoise(float Value) const;
+
+	/** Server. Spawns the path-end fog banks or sends them to the current end of the path. */
+	void UpdatePathEndFog();
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<AMyHexAtmosphereFX>> PathEndFogs;
+
+	FTimerHandle PathEndFogTimerHandle;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<AMyHexPathSegment>> Segments;

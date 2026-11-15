@@ -71,6 +71,10 @@
 		{
 			"Name": "ModelContextProtocol",
 			"Enabled": true
+		},
+		{
+			"Name": "PCGNiagaraInterop",
+			"Enabled": true
 		}
 	]
 }

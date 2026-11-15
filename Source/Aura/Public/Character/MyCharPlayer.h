@@ -152,6 +152,16 @@ public:
 	
 	virtual void Die() override;
 	
+	// Player death is anim only: no ragdoll or dissolve, just flags and broadcasts death on every machine
+	UFUNCTION(NetMulticast,Reliable)
+	void MulticastHandlePlayerDeath();
+	
+	// TEMP death test: the server calls Die() this many seconds after BeginPlay (0 = off)
+	UPROPERTY(EditDefaultsOnly, Category="Debug")
+	float DebugDieAfterBeginPlaySeconds=3.f;
+	
+	FTimerHandle DebugDieTimerHandle;
+	
 	// AimRot&Location
 	UPROPERTY(BlueprintReadWrite)
 	FVector ForwardVecChest=FVector::ZeroVector;
@@ -193,5 +203,45 @@ public:
 	FVector FootLockNormal_R=FVector::ZeroVector;
 	
 	void SetFootLockLoc();
-	
+
+	// Edge fog: on the locally controlled pawn, a looping timer keeps the RVT volumes tagged
+	// EdgeFogVolumeTag centred on the pawn (snapped, since moving a volume re-renders its RVT)
+	// and keeps the fog cube's world Z range at EdgeFogCubeMinZ..EdgeFogCubeMaxZ.
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Edge Fog")
+	FName EdgeFogVolumeTag = TEXT("EdgeFogRVT");
+
+	/** Volumes move when the pawn is further than this (cm, X or Y) from their centre, to the pawn's XY snapped to this grid. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Edge Fog", meta = (ClampMin = "1.0"))
+	float EdgeFogSnapStep = 2048.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Edge Fog", meta = (ClampMin = "0.02"))
+	float EdgeFogUpdateInterval = 0.1f;
+
+	/** Name of the fog cube component (added in the Blueprint). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Edge Fog")
+	FName EdgeFogCubeName = TEXT("EdgeFogVolume");
+
+	/** World Z range the fog cube covers; must hold both chains' fog bands. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Edge Fog")
+	float EdgeFogCubeMinZ = -2000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Edge Fog")
+	float EdgeFogCubeMaxZ = 8200.f;
+
+	UFUNCTION(BlueprintCallable, Category = "Edge Fog")
+	void UpdateEdgeFogVolumes();
+
+protected:
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void NotifyControllerChanged() override;
+
+private:
+	/** Starts the edge fog timer when locally controlled, stops it otherwise. */
+	void RefreshEdgeFogTimer();
+
+	TArray<TWeakObjectPtr<AActor>> EdgeFogVolumes;
+	TWeakObjectPtr<USceneComponent> EdgeFogCube;
+	FTimerHandle EdgeFogTimer;
+
 };
