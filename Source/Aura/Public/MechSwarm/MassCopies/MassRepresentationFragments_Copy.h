@@ -65,6 +65,12 @@ struct AURA_API FMassRepresentationLODFragment_Copy : public FMassFragment
 
 	TEnumAsByte<EMassLOD::Type> LOD = EMassLOD::Max;
 	TEnumAsByte<EMassLOD::Type> PrevLOD = EMassLOD::Max;
+
+	/**
+	 * Project addition: draw the LowLODMesh even at High / Medium LOD. Set by UMechSentinelTentacleProcessor for
+	 * sentinels without Niagara ribbons, because the low mesh has the tentacles baked in.
+	 */
+	bool bForceLowLODMesh = false;
 };
 
 /** Distances driving FMassRepresentationLODFragment_Copy. */

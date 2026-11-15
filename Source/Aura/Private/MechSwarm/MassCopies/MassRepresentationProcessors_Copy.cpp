@@ -159,7 +159,7 @@ void UMassUpdateISMProcessor_Copy::Execute(FMassEntityManager& EntityManager, FM
 				continue;
 			}
 
-			const int32 Slot = (LOD == EMassLOD::Low) ? LowSlot : HighSlot;
+			const int32 Slot = (LOD == EMassLOD::Low || LODList[EntityIndex].bForceLowLODMesh) ? LowSlot : HighSlot;
 			const FTransform InstanceTransform = Desc->MeshRelativeTransform * TransformList[EntityIndex].GetTransform();
 			const TConstArrayView<float> Custom = CustomList.Num() > 0
 				? TConstArrayView<float>(CustomList[EntityIndex].Values, 4)

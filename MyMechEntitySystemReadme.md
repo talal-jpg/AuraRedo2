@@ -26,6 +26,7 @@ All code is in `Source/Aura/Public/MechSwarm` and `Source/Aura/Private/MechSwarm
 12. [ISM representation and the material](#12-ism-representation-and-the-material)
 13. [_Copy classes and their engine counterparts](#13-_copy-classes-and-their-engine-counterparts)
 14. [Design choices, deviations and limitations](#14-design-choices-deviations-and-limitations)
+15. [Sentinel model and Niagara ribbon tentacles](#15-sentinel-model-and-niagara-ribbon-tentacles)
 
 ---
 
@@ -44,8 +45,11 @@ The `MassGameplay` plugin is enabled in `Aura.uproject`, and the Mass modules ar
 2. **Rules asset**: create a `MechSentinelSwarmRules` data asset. Set `DefaultSentinelDamageEffect = GE_SentinelDamage`,
    `SentinelAttackEffect = GE_SentinelAttack`, and tune the caps. Assign it on your GameMode Blueprint
    (`BP_MyGameMode` > **Mech Sentinels** > **Sentinel Swarm Rules**).
-3. **Mesh / material**: a sentinel static mesh (+ an optional low-poly version) and a material that reads
-   `PerInstanceCustomData` 0..3 (see [section 12](#12-ism-representation-and-the-material)).
+3. **Mesh / material**: run `SourceArt/MechSentinel/ue_import_mech_sentinel.py` in the editor. It imports the low-poly
+   sentinel (`SM_MechSentinel_Head`, `SM_MechSentinel_Far` with baked tentacles, the tentacle and claw tip) and creates the
+   tentacle ribbon material. Give the head a material that reads `PerInstanceCustomData` 0..3
+   (see [section 12](#12-ism-representation-and-the-material)). For the Niagara tentacles, build
+   `NS_MechSentinelTentacles` with the recipe in [section 15](#15-sentinel-model-and-niagara-ribbon-tentacles).
 4. **Entity config**: create a `MassEntityConfigAsset` (for example `DA_SentinelConfig`) with these traits:
    | Trait | Settings |
    |---|---|
@@ -53,7 +57,8 @@ The `MassGameplay` plugin is enabled in `Aura.uproject`, and the Mass modules ar
    | **Movement (Copy)** | max speed / acceleration |
    | **Avoidance (Copy)** | separation distance / strength, prediction time |
    | **Smooth Orientation (Copy)** | turn speed, max pitch, banking |
-   | **Visualization ISM (Copy)** | mesh, low LOD mesh, materials, `NumCustomDataFloats = 4`, LOD distances |
+   | **Visualization ISM (Copy)** | Mesh `SM_MechSentinel_Head`, LowLODMesh `SM_MechSentinel_Far`, materials, `NumCustomDataFloats = 4`, LOD distances |
+   | **Mech Sentinel Tentacles (Niagara)** (optional) | Niagara System `NS_MechSentinelTentacles`, budget (`MaxRiggedSentinels`, `MaxDistance`), sway / stiffness |
    | **Replication** (engine trait) | **Bubble Info Class = `MechSentinelClientBubbleInfo`**, **Replicator Class = `MechSentinelReplicator`**. Suggested LOD distances 0 / 2500 / 7000 / 20000, max count per viewer 150 / 300 / 1000, update interval 0.1 / 0.2 / 0.4 / 0.5 |
    If the Replication trait points at other classes, the swarm subsystem logs an error and ignores the config (instead of the engine asserting).
 5. **Spawner**: place a `MechSentinelWaveSpawner` in the level (it must be **level-placed**, so clients build the same
@@ -153,6 +158,12 @@ Source/Aura/{Public,Private}/MechSwarm/
 |   MechSentinelCombatLibrary.h/.cpp        capsule / sweep queries and hit functions (BP + C++)
 |   MechSentinelHitCapsuleComponent.h/.cpp  drop-in hit capsule for projectiles / melee
 |
++-- Tentacles/                      Niagara ribbon tentacles (client / standalone visuals only)
+|   MechSentinelTentacleTypes.h     FMechSentinelTentacleDesc, tentacle fragment, set index, Niagara parameter names
+|   MechSentinelTentacleTrait.h/.cpp      "Mech Sentinel Tentacles (Niagara)" trait
+|   MechSentinelTentacleSubsystem.h/.cpp  rig pool per set, socket layout, Niagara component + array upload
+|   MechSentinelTentacleProcessor.h/.cpp  budget, verlet chains, far-mesh fallback flag
+|
 +-- MassCopies/                     project-owned versions of engine Mass classes (*_Copy)
     MassMovementFragments_Copy.h, MassMovementProcessors_Copy.h/.cpp, MassMovementTrait_Copy.h/.cpp
     MassAvoidanceFragments_Copy.h, MassAvoidanceProcessors_Copy.h/.cpp, MassAvoidanceTrait_Copy.h/.cpp
@@ -163,6 +174,12 @@ Source/Aura/{Public,Private}/MechSwarm/
     MassVisualizer_Copy.h/.cpp, MassVisualizationTrait_Copy.h/.cpp
 
 Also touched: Public/MyGameMode.h (SentinelSwarmRules), Aura.Build.cs (Mass modules), Aura.uproject (MassGameplay).
+
+SourceArt/MechSentinel/            low-poly model source (Blender 5.x, procedural, see section 15)
+    build_mech_sentinel.py         entry point: build, export FBX, verify, save .blend, render previews
+    mech_sentinel_{common,head,tentacle}.py
+    ue_import_mech_sentinel.py     editor script: import the FBX files, create the tentacle material
+    Export/*.fbx, Previews/*.png, MechSentinel.blend
 ```
 
 ---
@@ -263,7 +280,9 @@ gets its **own** targeting board and its own movement speed. Two spawners whose 
  [MechSwarm.LODCollector]   UMassLODCollectorProcessor_Copy           standalone / listen server (Client flag)
  [MechSwarm.Representation] UMassVisualizationLODProcessor_Copy
                             UMechSentinelVisualDataProcessor          state / health / flash / glow -> custom data
+                            UMechSentinelTentacleProcessor            ribbon budget, verlet chains -> Niagara arrays
                             UMassUpdateISMProcessor_Copy              transforms + custom data -> ISM
+ [Niagara, ForceTickLast]   NS_MechSentinelTentacles                  one ribbon per chain, built from this frame's arrays
 ```
 
 ### Network client
@@ -271,7 +290,7 @@ gets its **own** targeting board and its own movement speed. Two spawners whose 
 ```
  network receive  -> FMechSentinelClientBubbleHandler: spawn / update / destroy client entities, store net samples
  PrePhysics       -> UMechSentinelNetSmoothingProcessor: ease toward sample + velocity * (time since sample)
- PostPhysics      -> LODCollector_Copy -> VisualizationLOD_Copy -> VisualData -> UpdateISM_Copy
+ PostPhysics      -> LODCollector_Copy -> VisualizationLOD_Copy -> VisualData -> Tentacles -> UpdateISM_Copy
 ```
 
 Clients never run behaviour, movement or combat (those processors are `Standalone | Server`); the smoothing fragment
@@ -467,8 +486,13 @@ Per-instance custom data written by `UMechSentinelVisualDataProcessor`:
 | 3 | attack glow 1 -> 0 in ~0.4 s | emissive pulse / beam |
 
 Read them with `PerInstanceCustomData` (index 0..3) in the material and enable "Used with Instanced Static Meshes".
-For the reference image's mood: dark metal, emissive red eyes, thin glowing tendrils (World Position Offset wiggle
-driven by time + instance index), plus a light cone in the level.
+For the reference image's mood: dark metal, emissive red eyes (material slot 1 of the head, `MI_MechSentinel_Eyes`),
+Niagara ribbon tentacles near the camera ([section 15](#15-sentinel-model-and-niagara-ribbon-tentacles)), plus a light
+cone in the level.
+
+`FMassRepresentationLODFragment_Copy::bForceLowLODMesh` (a project addition) makes the ISM use the low mesh even at
+High / Medium LOD. The tentacle processor sets it on every sentinel that has no ribbons, so those are drawn with the
+far mesh, which has the tentacles baked in.
 
 ---
 
@@ -534,3 +558,111 @@ the Replication trait, client bubble base classes), which the custom agent / bub
 * **Movement speed** is a shared fragment per swarm group (change it with `SetSwarmMovementSpeed`), scaled per entity by
   the `MoveSpeedMultiplier` attribute (slows / hastes through GAS).
 * **No DeveloperSettings**: global data is the rules asset referenced by the GameMode, runtime state is in the world subsystem.
+
+---
+
+## 15. Sentinel model and Niagara ribbon tentacles
+
+### The model (SourceArt/MechSentinel)
+
+![hero](SourceArt/MechSentinel/Previews/hero.png)
+
+The low-poly sentinel is built procedurally in Blender (no hand edits, so it can be tweaked and rebuilt):
+
+```
+<python with bpy> SourceArt/MechSentinel/build_mech_sentinel.py --out SourceArt/MechSentinel [--no-render] [--quick]
+blender -b -P SourceArt/MechSentinel/build_mech_sentinel.py -- --out SourceArt/MechSentinel
+```
+
+| Asset | Triangles | What it is |
+|---|---|---|
+| `SM_MechSentinel_Head` | 1212 | 2.36 m long armoured head: overlapping carapace plates, 8 red eye lenses (slot 1), mandibles, ribbed rear collar with 8 tentacle ports and sockets `Tentacle_00..07`. No tentacles. Fits the 70 / 140 cm hit capsule. |
+| `SM_MechSentinel_Far` | 844 | simplified head with 8 baked trailing tentacles (1.9 m): Low LOD and the "no ribbons" fallback |
+| `SM_MechSentinel_Tentacle` | 654 | one straight tentacle: 11 armoured 18 cm sleeves + 3-prong claw (look reference for the ribbon material) |
+| `SM_MechSentinel_TentacleTip` | 126 | the claw alone, base at the origin, pointing +X (optional mesh renderer at the ribbon tips) |
+
+Material slots: `[0] MI_MechSentinel_Body`, `[1] MI_MechSentinel_Eyes`. Units are meters in Blender and come in as cm;
+the nose points +X and the origin is the head centre (the entity location). The build script re-imports every FBX
+and checks triangle counts, size, slots and sockets.
+
+### How the tentacles work
+
+```
+ Mass (PostPhysics, client / standalone / listen server)                      Niagara (ForceTickLast)
+ ---------------------------------------------------------                    ------------------------------------
+ UMassVisualizationLODProcessor_Copy  -> LOD per sentinel
+ UMechSentinelTentacleProcessor
+   pass 1: wants ribbons = LOD High/Medium and distance < MaxDistance
+   budget: closest MaxRiggedSentinels keep / get a rig (owners get a bonus)
+   pass 2: no rig -> bForceLowLODMesh (ISM draws SM_MechSentinel_Far)
+           rig    -> 8 chains x 12 points, 18 cm apart:                       NS_MechSentinelTentacles
+                       root = head socket Tentacle_XX (follows the head)        TentacleCount * PointsPerTentacle
+                       verlet inertia + drag + gravity                          particles, never die
+                       pull toward a trailing pose (soft at the tip)            particle i: ribbon = i / Points
+                       swimming wave root -> tip, faster when attacking         link order = i % Points
+                       limp when dead, re-laid out on teleport                  position = TentaclePositions[i]
+                       length constraint (never stretches)                      width = lerp(Root, Tip) * WidthScale
+ UMechSentinelTentacleSubsystem::EndFrame                                      tube ribbon, M_MechSentinelTentacle
+   free rigs of destroyed sentinels, upload arrays,  ------------------->     claw mesh on the last point (optional)
+   fixed bounds = this frame's points
+ UMassUpdateISMProcessor_Copy -> head (SM_MechSentinel_Head) or far mesh
+```
+
+Everything is client side visuals: nothing replicates, dedicated servers add nothing. One Niagara component per tentacle
+set (one set per distinct trait description) draws every rigged sentinel, so the cost is one CPU emitter of
+`MaxRiggedSentinels * NumTentacles * PointsPerTentacle` particles (48 x 8 x 12 = 4608 by default) plus 400 ribbons.
+
+### Building NS_MechSentinelTentacles (about 10 minutes in the editor)
+
+1. Content Browser > Niagara System > **New system from selected emitter(s)** > **Empty**. Name it
+   `NS_MechSentinelTentacles`. Open it and select the emitter.
+2. **User parameters** (Parameters panel > User Exposed > +). Names must match exactly:
+   | Name | Type | Default |
+   |---|---|---|
+   | `TentaclePositions` | Niagara **Position Array** | empty |
+   | `TentacleWidthScale` | Niagara **Float Array** | empty |
+   | `TentacleGlow` | Niagara **Float Array** | empty |
+   | `PointsPerTentacle` | int32 | 12 |
+   | `TentacleCount` | int32 | 384 |
+   | `RootWidth` | float | 18 |
+   | `TipWidth` | float | 3.5 |
+3. **Emitter Properties**: Sim Target **CPUSim**, Local Space **off**, Calculate Bounds Mode **Fixed** (the code sets the
+   system's fixed bounds every frame).
+4. **Emitter State**: Life Cycle Mode Self, Loop Behavior **Once**, Loop Duration Mode **Infinite**.
+5. **Emitter Update**: remove Spawn Rate, add **Spawn Burst Instantaneous**, Spawn Time 0, Spawn Count =
+   `TentacleCount * PointsPerTentacle` (dynamic input *Multiply Int*, both inputs linked to the user parameters).
+6. **Particle Spawn**: keep Initialize Particle only (lifetime does not matter). **Particle Update**: remove *Particle State*
+   (particles must never die) and add a **new Scratch Pad Module** `MechTentacleFromArrays`:
+   * Module inputs: `Positions` (Position Array), `WidthScale` (Float Array), `Glow` (Float Array), `PointsPerTentacle`
+     (int), `RootWidth`, `TipWidth` (float), `GlowColor` (Linear Color, e.g. 1, 0.06, 0.02). Link them to the user
+     parameters on the module stack.
+   * Graph (Map Get -> math -> Map Set):
+     ```
+     Index     = Particles.UniqueID                          (int)
+     Ribbon    = Index / PointsPerTentacle                   (int divide)
+     Link      = Index - Ribbon * PointsPerTentacle          (int)
+     T         = float(Link) / float(PointsPerTentacle - 1)
+     Particles.Position        = Positions.Get(Index)        (Array "Get" node)
+     Particles.Velocity        = Positions.Get(Index) - Positions.Get(Index - 1)   (direction for the claw mesh)
+     Particles.RibbonID        = Ribbon                      (int)
+     Particles.RibbonLinkOrder = float(Link)
+     Particles.RibbonWidth     = lerp(RootWidth, TipWidth, T) * WidthScale.Get(Ribbon)
+     Particles.Color           = (GlowColor.rgb, Glow.Get(Ribbon) * T^4 * 30)
+     Particles.VisibilityTag   = Link == PointsPerTentacle - 1 ? 1 : 0             (claw mesh only on the tip)
+     Particles.MeshScale       = (1,1,1) * WidthScale.Get(Ribbon)
+     ```
+7. **Ribbon Renderer**: Material `M_MechSentinelTentacle`; Shape **Tube**, Tube Subdivisions **6**; bindings
+   Ribbon Id = `Particles.RibbonID`, Ribbon Link Order = `Particles.RibbonLinkOrder`, Ribbon Width = `Particles.RibbonWidth`;
+   UV0 distribution *Scaled Uniformly* (U runs 0 -> 1 from the root; if the sleeve bands taper the wrong way, add a
+   OneMinus on U in the material).
+8. Optional claw tips: add a **Mesh Renderer** with `SM_MechSentinel_TentacleTip`, Facing Mode **Velocity**,
+   Renderer Visibility tag 1 bound to `Particles.VisibilityTag`.
+9. System properties: no Effect Type distance culling (the component sits at the world origin). Save.
+10. On the entity config add the **Mech Sentinel Tentacles (Niagara)** trait and set Niagara System to it.
+
+Tuning: `MaxDistance` should be close to the Medium LOD distance of the visualization trait (beyond it the far mesh is
+used anyway); raise `MaxRiggedSentinels` for big close swarms. The roots come from the head mesh sockets `Tentacle_XX`
+(moved sockets are picked up), with a built-in ring identical to the Blender layout when they are missing.
+
+Limitations: the chains do not collide with the level; ribbons swap to the baked far mesh without a blend when a
+sentinel leaves the budget; tentacle physics restarts from the rest pose when a sentinel gets a rig.
