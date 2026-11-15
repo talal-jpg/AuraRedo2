@@ -7,6 +7,7 @@
 #include "MyPlayerController2.generated.h"
 
 class UMainMenu;
+class UPauseMenu3;
 class UGA_Beam;
 class UMaterialInterface;
 class UCameraComponent;
@@ -62,6 +63,17 @@ public:
 	
 	UPROPERTY(EditAnywhere)
 	UInputAction* IA_E;
+	
+	// Opens / closes the Esc menu (UPauseMenu3). Map it to Escape and Gamepad Special Right in the IMC
+	UPROPERTY(EditAnywhere, Category="Menu")
+	UInputAction* IA_Pause;
+	
+	// WBP of UPauseMenu3. Empty = no pause menu
+	UPROPERTY(EditAnywhere, Category="Menu")
+	TSubclassOf<UPauseMenu3> PauseMenuClass;
+	
+	UFUNCTION(BlueprintCallable, Category="Menu")
+	void TogglePauseMenu();
 	
 	UPROPERTY(BlueprintReadOnly)
 	FVector2D FlyBoostingMoveInput=FVector2D::ZeroVector;
@@ -164,7 +176,21 @@ public:
 	float LastCastImpactStartTime=-1000.f;
 	float LastCastImpactSentTime=-1000.f;
 	
+	// Sent by AGameSession::KickPlayer. Keeps the reason for the main menu and goes back to it
+	virtual void ClientWasKicked_Implementation(const FText& KickReason) override;
+	
 	private:
+	
+	UPROPERTY()
+	TObjectPtr<UPauseMenu3> PauseMenu;
+	
+	// Options > Gameplay > Field of View, added on top of the camera's own FOV like the hit impact kick
+	void TickFieldOfViewSetting();
+	// Options > Accessibility > Screen Shake turns the camera shake modifier off
+	void TickScreenShakeSetting();
+	TWeakObjectPtr<APawn> FOVSettingPawn;
+	TWeakObjectPtr<UCameraComponent> FOVSettingCamera;
+	float AppliedFOVSettingDelta=0.f;
 	
 	void TickHitImpact(float DeltaTime);
 	void StopHitImpact();
