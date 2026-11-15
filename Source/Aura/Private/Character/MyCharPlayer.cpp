@@ -93,7 +93,8 @@ void AMyCharPlayer::Landed(const FHitResult& Hit)
 void AMyCharPlayer::Multicast_HardLanding_Implementation(float InYaw)
 {
 	SetActorRotation(FRotator(0.f,InYaw,0.f));
-	PlayAnimMontage(HardLandingMontage);
+	// Start at the "roll" section: the mech has already landed, so skip the montage's falling part
+	PlayAnimMontage(HardLandingMontage,1.f,FName("roll"));
 }
 
 void AMyCharPlayer::RegisterToBoostingState()
