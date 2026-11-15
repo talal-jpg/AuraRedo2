@@ -71,9 +71,51 @@ namespace MechSwarm::Tentacles
 	}
 
 	/**
+	 * The current the tentacles drift in: two octaves of an ABC flow (each component varies only across the other two
+	 * axes, so the field is divergence free and swirls instead of pushing everything one way). World space and shared,
+	 * so neighbouring sentinels sway together. Unit RMS magnitude.
+	 */
+	FORCEINLINE FVector FlowAt(const FVector& Position, const double InvScale, const double Time)
+	{
+		const FVector A = Position * InvScale;
+		const FVector B = A * 2.13;
+		return FVector(
+			FMath::Cos(A.Z + 0.71 * Time) + 0.5 * FMath::Cos(B.Y - 1.37 * Time + 1.7),
+			FMath::Cos(A.X + 1.13 * Time) + 0.5 * FMath::Cos(B.Z - 0.93 * Time + 4.1),
+			FMath::Cos(A.Y + 0.89 * Time) + 0.5 * FMath::Cos(B.X - 1.21 * Time + 2.3)) * (1.0 / 1.37);
+	}
+
+	/** Direction turned toward Reference until it is at most the max bend angle away from it. */
+	FORCEINLINE FVector LimitBend(const FVector& Direction, const FVector& Reference, const FVector& Fallback, const double CosMax, const double SinMax)
+	{
+		const double Cos = FVector::DotProduct(Direction, Reference);
+		if (Cos >= CosMax)
+		{
+			return Direction;
+		}
+		// Bend in the plane of the two directions (folded straight back: the plane of the fallback).
+		FVector Perpendicular = Direction - Reference * Cos;
+		if (!Perpendicular.Normalize(UE_KINDA_SMALL_NUMBER))
+		{
+			Perpendicular = Fallback - Reference * FVector::DotProduct(Fallback, Reference);
+			if (!Perpendicular.Normalize(UE_KINDA_SMALL_NUMBER))
+			{
+				Perpendicular = FVector::CrossProduct(Reference, FVector::UpVector).GetSafeNormal(UE_KINDA_SMALL_NUMBER, FVector::RightVector);
+			}
+		}
+		return Reference * CosMax + Perpendicular * SinMax;
+	}
+
+	/**
 	 * Steps one rig. Returns true when the rig was laid out from scratch this frame (new owner or teleport): its points
 	 * jumped from wherever they were, so its ribbons are hidden for this one frame (no stretched ribbon or motion-vector
 	 * streak) and the caller draws the baked far mesh instead, which is what the sentinel showed before.
+	 *
+	 * Each point is a verlet particle with drag (Damping), gravity, the flow field and a spring toward the trailing pose.
+	 * Then, from the root to the tip, it is tied to the point before it: it may bend at most MaxBendAngle, and a stretched
+	 * segment springs back toward SegmentLength (XPBD, critically damped) up to StretchRatio. Because the tie only pulls,
+	 * a fast head drags its tentacles into long streams that catch up when it slows down. Every rate is frame rate
+	 * independent (checked offline at 15 to 240 fps).
 	 */
 	bool SimulateRig(FMechSentinelTentacleSet& Set, const int32 Rig, const FTransform& MeshTransform, const bool bReset,
 		const FRigInputs& Inputs, const float DeltaTime, const float Time)
@@ -81,15 +123,30 @@ namespace MechSwarm::Tentacles
 		const FMechSentinelTentacleDesc& Desc = Set.Desc;
 		const int32 NumPoints = Desc.PointsPerTentacle;
 		const float Segment = Desc.SegmentLength;
+		const float MaxSegment = Segment * FMath::Max(1.f, Desc.StretchRatio);
 		const float InvLastPoint = 1.f / float(NumPoints - 1);
+		const float DeltaTimeSq = FMath::Square(DeltaTime);
 
 		const FQuat Rotation = MeshTransform.GetRotation();
 		const FVector Forward = Rotation.GetAxisX();
 		const FVector Up = Rotation.GetAxisZ();
-		const FVector GravityStep = FVector(0.f, 0.f, -Desc.Gravity * Inputs.GravityScale) * FMath::Square(DeltaTime);
+		const FVector GravityAccel(0.f, 0.f, -Desc.Gravity * Inputs.GravityScale);
 		const float Retain = FMath::Pow(1.f - FMath::Clamp(Desc.Damping, 0.f, 1.f), DeltaTime * 60.f);
 		const float SwayAngle = UE_TWO_PI * Desc.SwayFrequency * Inputs.SwaySpeedScale * Time;
 		const float TeleportSq = FMath::Square(Desc.TeleportDistance);
+
+		// Catch-up: XPBD fraction of a spring of CatchUpRate rad/s (stable at any frame rate), plus critical damping of
+		// how fast the segment stretches or shrinks, so it catches up without bouncing.
+		const float CatchUpStep = Desc.CatchUpRate * DeltaTime;
+		const float CatchUp = FMath::Square(CatchUpStep) / (1.f + FMath::Square(CatchUpStep));
+		const float CatchUpDamping = 1.f - FMath::Exp(-2.f * CatchUpStep);
+		const float Straighten = 1.f - FMath::Exp(-Desc.Straightening * Inputs.StiffnessScale * DeltaTime);
+		const float MaxBend = FMath::DegreesToRadians(FMath::Clamp(Desc.MaxBendAngle, 1.f, 180.f));
+		const double CosMaxBend = FMath::Cos(MaxBend);
+		const double SinMaxBend = FMath::Sin(MaxBend);
+		const double InvFlowScale = 1.0 / FMath::Max(Desc.FlowScale, 1.f);
+		const double FlowTime = double(Time) * Desc.FlowSpeed;
+		const float FlowAccel = Desc.FlowStrength * Inputs.SwayScale;
 
 		Set.RigSeen[Rig] = true;
 
@@ -112,11 +169,12 @@ namespace MechSwarm::Tentacles
 			Set.WidthScales[Ribbon] = bLayOut ? 0.f : 1.f;
 			Set.Glow[Ribbon] = Inputs.Glow;
 
-			FVector RestPoint = Root;
+			// The root keeps last frame's position as its previous one: the catch-up damping needs the root's motion.
+			Set.PrevPositions[Base] = bLayOut ? Root : Set.Positions[Base];
 			Set.Positions[Base] = Root;
-			Set.PrevPositions[Base] = Root;
 			Set.FrameBounds += Root;
 
+			FVector RestPoint = Root;
 			for (int32 Point = 1; Point < NumPoints; ++Point)
 			{
 				const float T = float(Point) * InvLastPoint;
@@ -137,20 +195,45 @@ namespace MechSwarm::Tentacles
 				const float Wave = FMath::Sin(SwayAngle + Phase - Desc.SwayPhasePerPoint * float(Point)) * Desc.SwayAmplitude * Inputs.SwayScale * T;
 				const FVector Target = RestPoint + Side * Wave + Up * (0.3f * Wave * FMath::Cos(Phase));
 
-				// Verlet step: inertia (with drag) + gravity.
+				// Verlet step: inertia (with drag), gravity and the current (0 at the root, full at the tip).
+				const FVector Flow = FlowAccel > 0.f ? FlowAt(Position, InvFlowScale, FlowTime) * (FlowAccel * T) : FVector::ZeroVector;
 				const FVector Velocity = (Position - PrevPosition) * Retain;
 				PrevPosition = Position;
-				Position += Velocity + GravityStep;
+				Position += Velocity + (GravityAccel + Flow) * DeltaTimeSq;
 
-				// Pull toward the trailing pose, softer toward the tip so the ends lag and whip.
+				// Spring toward the trailing pose, softer toward the tip so the ends lag and whip. Applied to the predicted
+				// position, like the pose it pulls toward (both are this frame's).
 				const float Stiffness = Desc.Stiffness * Inputs.StiffnessScale * FMath::Lerp(1.f, Desc.TipStiffnessScale, T);
-				Position += (Target - Position) * (1.f - FMath::Exp(-Stiffness * DeltaTime));
+				Position += (Target - Position) * FMath::Min(Stiffness * DeltaTimeSq, 1.f);
 
-				// Length constraint against the (already solved) previous point: the chain never stretches.
+				// Straightening: ease toward the continuation of the segment before. The previous position moves too, so
+				// it smooths the shape without adding speed.
 				const FVector& Parent = Set.Positions[Base + Point - 1];
+				const FVector ParentDirection = Point > 1
+					? (Parent - Set.Positions[Base + Point - 2]).GetSafeNormal(UE_SMALL_NUMBER, RootDirection)
+					: RootDirection;
+				const FVector Smooth = (Parent + ParentDirection * Segment - Position) * Straighten;
+				Position += Smooth;
+				PrevPosition += Smooth;
+
+				// Tie to the point before: bend at most MaxBendAngle, length between SegmentLength and MaxSegment, a
+				// stretched segment springing back toward SegmentLength.
 				const FVector Delta = Position - Parent;
-				const double Length = Delta.Size();
-				Position = Parent + (Length > UE_KINDA_SMALL_NUMBER ? Delta / Length : RestDirection) * Segment;
+				double Length = Delta.Size();
+				const FVector Direction = LimitBend(Length > UE_KINDA_SMALL_NUMBER ? Delta / Length : RestDirection, ParentDirection, RestDirection, CosMaxBend, SinMaxBend);
+				if (Length > Segment)
+				{
+					Length = FMath::Min(Length - (Length - Segment) * CatchUp, double(MaxSegment));
+				}
+				Length = FMath::Max(Length, double(Segment));
+				Position = Parent + Direction * Length;
+
+				if (Length > Segment)
+				{
+					const FVector ParentMotion = Parent - Set.PrevPositions[Base + Point - 1];
+					const double StretchSpeed = FVector::DotProduct((Position - PrevPosition) - ParentMotion, Direction);
+					PrevPosition += Direction * (StretchSpeed * CatchUpDamping);
+				}
 
 				Set.FrameBounds += Position;
 			}
