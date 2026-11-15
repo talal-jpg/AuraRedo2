@@ -207,6 +207,8 @@ void AMyPlayerController2::Move(const FInputActionValue& Value)
 {
 	if (!GetMyASC() || !GetCharacter())return;
 	if (GetMyASC()->HasMatchingGameplayTag(MyTags::State_BlockTranslate))return;
+	// State_Dead is a loose tag AMyCharPlayer::MulticastHandlePlayerDeath adds on every machine: no movement once dead
+	if (GetMyASC()->HasMatchingGameplayTag(MyTags::State_Dead))return;
 	
 	const FVector2d InputVal= Value.Get<FVector2d>();
 	
@@ -239,6 +241,7 @@ void AMyPlayerController2::MoveCompleted(const FInputActionValue& Value)
 void AMyPlayerController2::Rotate(const FInputActionValue& Value)
 {
 	if (!GetPawn())return;
+	if (GetMyASC() && GetMyASC()->HasMatchingGameplayTag(MyTags::State_Dead))return;
 	FVector2d Val=Value.Get<FVector2d>();
 	// Options > Controls: look sensitivity and invert X / Y
 	if (const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings())

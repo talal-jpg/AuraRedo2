@@ -125,7 +125,15 @@ void AMyCharPlayer::BeginPlay()
 	
 	UE_LOG(LogTemp, Warning, TEXT("%s"), *MP->GetName());
 	MP->StartHeadlessLogic2();
+
+	RefreshEdgeFogTimer();
 	
+	// TEMP death test (disintegrate FX): set DebugDieAfterBeginPlaySeconds to 0 to turn it off
+	if (HasAuthority() && DebugDieAfterBeginPlaySeconds>0.f)
+	{
+		GetWorldTimerManager().SetTimer(DebugDieTimerHandle,this,&ThisClass::Die,DebugDieAfterBeginPlaySeconds,false);
+	}
+
 	
 	
 	
@@ -448,7 +456,21 @@ void AMyCharPlayer::Die()
 {
 	//Intensionally not calling super here , because CharBase Holds Die Imple
 	//Super::Die();
-	
+	// Later fatal hits call Die again; only broadcast death once
+	if (bIsDead)return;
+	MulticastHandlePlayerDeath();
+}
+
+void AMyCharPlayer::MulticastHandlePlayerDeath_Implementation()
+{
+	// Set before broadcasting, so listeners that call IsDead() see true
+	bIsDead=true;
+	// Every machine adds it locally: the owning client's controller ignores move and rotate input from now on
+	if (UAbilitySystemComponent* DeadASC=GetAbilitySystemComponent())
+	{
+		DeadASC->AddLooseGameplayTag(MyTags::State_Dead);
+	}
+	OnDeathDelegate.Broadcast(this);
 }
 
 void AMyCharPlayer::LerpChestRotToRot()

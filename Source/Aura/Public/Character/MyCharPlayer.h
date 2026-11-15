@@ -142,6 +142,16 @@ public:
 	
 	virtual void Die() override;
 	
+	// Player death is anim only: no ragdoll or dissolve, just flags and broadcasts death on every machine
+	UFUNCTION(NetMulticast,Reliable)
+	void MulticastHandlePlayerDeath();
+	
+	// TEMP death test: the server calls Die() this many seconds after BeginPlay (0 = off)
+	UPROPERTY(EditDefaultsOnly, Category="Debug")
+	float DebugDieAfterBeginPlaySeconds=3.f;
+	
+	FTimerHandle DebugDieTimerHandle;
+	
 	// AimRot&Location
 	UPROPERTY(BlueprintReadWrite)
 	FVector ForwardVecChest=FVector::ZeroVector;
