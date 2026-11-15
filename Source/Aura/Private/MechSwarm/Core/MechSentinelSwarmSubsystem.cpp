@@ -33,6 +33,22 @@ DEFINE_LOG_CATEGORY_STATIC(LogMechSentinel, Log, All);
 
 namespace MechSwarm::SubsystemPrivate
 {
+	/**
+	 * True while a Mass phase may be running next to the game thread: from TG_PrePhysics to TG_PostPhysics, and in
+	 * TG_LastDemotable (FrameEnd). IsProcessing() alone is not enough: it reads false between two processors of a phase.
+	 * Timers (after TG_PostPhysics), TG_PostUpdateWork and the network receive at the start of the frame are outside.
+	 */
+	bool MayRunNextToMassPhase(const FMassEntityManager& EntityManager)
+	{
+		if (EntityManager.IsProcessing())
+		{
+			return true;
+		}
+		const UWorld* World = EntityManager.GetWorld();
+		const ETickingGroup Group = World ? ETickingGroup(World->TickGroup) : TG_NewlySpawned;
+		return Group <= TG_PostPhysics || Group == TG_LastDemotable;
+	}
+
 	template<typename TTag>
 	void SetMassTag(FMassEntityManager& EntityManager, const FMassEntityHandle Entity, const bool bPresent)
 	{
@@ -42,8 +58,9 @@ namespace MechSwarm::SubsystemPrivate
 			return;
 		}
 
-		// Structural changes are not allowed while processors run: go through the command buffer then.
-		if (EntityManager.IsProcessing())
+		// Structural changes are not allowed while processors run: go through the command buffer then. Hits can come
+		// from game-thread code ticking next to a phase (input, actor ticks, anim notifies), so that counts too.
+		if (MayRunNextToMassPhase(EntityManager))
 		{
 			if (bPresent)
 			{
@@ -74,6 +91,13 @@ namespace MechSwarm::SubsystemPrivate
 
 	/** Avoids walking millions of cells for absurdly large queries; falls back to brute force. */
 	constexpr int64 MaxCellsPerQuery = 4096;
+
+	/**
+	 * Largest coordinate (cm) a query walks the cell hash with, so cell indices stay far inside int32. Queries beyond it,
+	 * or with NaN, test every capsule instead (bounded by the capsule count). Shots come from client target data, so
+	 * the coordinates cannot be trusted.
+	 */
+	constexpr double MaxHashedCoordinate = 1.0e9;
 
 	/**
 	 * Drops the stored effects GAS removed after LoadEntity re-created them (a cleanse or "remove other effects"
@@ -278,7 +302,8 @@ bool UMechSentinelSwarmSubsystem::ValidateEntityConfig(const UMassEntityConfigAs
 
 	// The engine asserts on both of these while building the template, so catch them here with a readable message.
 	const FMassReplicationParameters& Params = ReplicationTrait->Params;
-	if (Params.BubbleInfoClass.Get() != AMechSentinelClientBubbleInfo::StaticClass() || !Params.ReplicatorClass || !Params.ReplicatorClass->IsChildOf(UMechSentinelReplicator::StaticClass()))
+	// The exact replicator class: UMechSentinelReplicationProcessor runs only that one (a subclass may need more fragments).
+	if (Params.BubbleInfoClass.Get() != AMechSentinelClientBubbleInfo::StaticClass() || Params.ReplicatorClass.Get() != UMechSentinelReplicator::StaticClass())
 	{
 		UE_LOG(LogMechSentinel, Error,
 			TEXT("%s: set its Replication trait to Bubble Info Class = MechSentinelClientBubbleInfo and Replicator Class = MechSentinelReplicator. The config is ignored until then."),
@@ -726,14 +751,30 @@ int32 UMechSentinelSwarmSubsystem::QueryCapsule(const FVector& SegmentStart, con
 	const float Inflate = Radius + MaxCollisionExtent;
 	const FVector Min = SegmentStart.ComponentMin(SegmentEnd) - FVector(Inflate);
 	const FVector Max = SegmentStart.ComponentMax(SegmentEnd) + FVector(Inflate);
-	const float InvCellSize = 1.f / CollisionCellSize;
-	const FIntVector MinCell = ToCell(Min, InvCellSize);
-	const FIntVector MaxCell = ToCell(Max, InvCellSize);
-	const int64 NumCells = int64(MaxCell.X - MinCell.X + 1) * int64(MaxCell.Y - MinCell.Y + 1) * int64(MaxCell.Z - MinCell.Z + 1);
+	const bool bHashable = !Min.ContainsNaN() && !Max.ContainsNaN()
+		&& Min.GetAbsMax() < MaxHashedCoordinate && Max.GetAbsMax() < MaxHashedCoordinate;
 
-	if (NumCells > MaxCellsPerQuery || NumCells > CollisionCells.Num() * 4)
+	const float InvCellSize = 1.f / CollisionCellSize;
+	FIntVector MinCell = FIntVector::ZeroValue;
+	FIntVector MaxCell = FIntVector::ZeroValue;
+	int64 NumCells = TNumericLimits<int64>::Max();
+	if (bHashable)
 	{
-		// Huge query (or sparse hash): testing every capsule is cheaper than walking empty cells.
+		MinCell = ToCell(Min, InvCellSize);
+		MaxCell = ToCell(Max, InvCellSize);
+		// Each axis is checked before multiplying, so the product (at most MaxCellsPerQuery^3) cannot overflow.
+		const int64 SpanX = FMath::Max<int64>(0, int64(MaxCell.X) - MinCell.X + 1);
+		const int64 SpanY = FMath::Max<int64>(0, int64(MaxCell.Y) - MinCell.Y + 1);
+		const int64 SpanZ = FMath::Max<int64>(0, int64(MaxCell.Z) - MinCell.Z + 1);
+		if (SpanX <= MaxCellsPerQuery && SpanY <= MaxCellsPerQuery && SpanZ <= MaxCellsPerQuery)
+		{
+			NumCells = SpanX * SpanY * SpanZ;
+		}
+	}
+
+	if (NumCells > MaxCellsPerQuery || NumCells > int64(CollisionCells.Num()) * 4)
+	{
+		// Huge or invalid query (or sparse hash): testing every capsule is cheaper than walking empty cells.
 		for (int32 EntryIndex = 0; EntryIndex < CollisionEntries.Num(); ++EntryIndex)
 		{
 			TestEntry(EntryIndex);
@@ -741,11 +782,12 @@ int32 UMechSentinelSwarmSubsystem::QueryCapsule(const FVector& SegmentStart, con
 	}
 	else
 	{
-		for (int32 Z = MinCell.Z; Z <= MaxCell.Z; ++Z)
-		for (int32 Y = MinCell.Y; Y <= MaxCell.Y; ++Y)
-		for (int32 X = MinCell.X; X <= MaxCell.X; ++X)
+		// int64 counters: the loops end even at the edge of the int32 range.
+		for (int64 Z = MinCell.Z; Z <= MaxCell.Z; ++Z)
+		for (int64 Y = MinCell.Y; Y <= MaxCell.Y; ++Y)
+		for (int64 X = MinCell.X; X <= MaxCell.X; ++X)
 		{
-			if (const TArray<int32>* Cell = CollisionCells.Find(FIntVector(X, Y, Z)))
+			if (const TArray<int32>* Cell = CollisionCells.Find(FIntVector(int32(X), int32(Y), int32(Z))))
 			{
 				for (const int32 EntryIndex : *Cell)
 				{

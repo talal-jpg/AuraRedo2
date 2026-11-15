@@ -122,11 +122,22 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void SetWaveCount(int32 WaveIndex, int32 NewCount);
 
-	/** Spawns sentinels right away, outside the wave flow (they still count as alive for the current wave). */
+	/**
+	 * Spawns sentinels outside the wave flow (they still count as alive for the current wave). They are created by the
+	 * spawner's own tick later this frame, after the Mass phases, because Mass cannot create entities while a phase runs:
+	 * at most SpawnBatchSize per frame, within MaxAlive and the rules' MaxAliveSentinels. What the caps leave out is
+	 * dropped. Returns the number queued: 0 from the spawner's end of play (destroyed or unloaded) until its level is
+	 * shown again.
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	int32 SpawnSentinelsNow(int32 Count);
 
-	/** Removes every sentinel this spawner created. bKill plays the death fall, otherwise they vanish. */
+	/**
+	 * Removes every sentinel this spawner created, on the spawner's own tick later this frame (after the Mass phases).
+	 * Once the spawner has ended play (destroyed or unloaded), on the next timer tick instead, so it also works from the
+	 * spawner's End Play and Destroyed events. bKill plays the death fall, otherwise they vanish. Cancels the
+	 * SpawnSentinelsNow requests made before it.
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void DespawnAll(bool bKill = true);
 
@@ -262,6 +273,18 @@ private:
 	/** Drops destroyed handles and recounts the alive sentinels. */
 	void RefreshAlive();
 
+	/** DespawnAll's work, run from Tick. */
+	void DespawnAllNow(bool bKill);
+
+	/** DespawnAll's work for a spawner that ended play: hands the sentinels to a timer (next tick, outside the phases). */
+	void QueueDespawnOnTimer(bool bKill);
+
+	/** Kills (bKill) or destroys the given entities; drops the destroyed ones from the array. Outside the Mass phases. */
+	static void DespawnEntities(UWorld& World, TArray<FMassEntityHandle>& Entities, bool bKill);
+
+	/** False on the server once play began: building a template then waits for Tick (see the .cpp). */
+	bool CanBuildTemplateNow() const;
+
 	/** Entities created by this spawner since the swarm last rebuilt its alive set (soft global cap). */
 	int32 SpawnedSinceHashRefresh() const;
 
@@ -281,4 +304,14 @@ private:
 	float SpawnAccumulator = 0.f;
 	bool bStopped = false;
 	bool bFallbacksRegistered = false;
+
+	/** SpawnSentinelsNow / DespawnAll requests, carried out by the next Tick. */
+	int32 PendingManualSpawns = 0;
+	bool bPendingDespawn = false;
+	bool bPendingDespawnKill = true;
+	/**
+	 * Set in EndPlay (Destroyed, RemovedFromWorld) on the authority, cleared when the spawner initializes again (its
+	 * level shown again): Tick will not run until then, so DespawnAll uses a timer and SpawnSentinelsNow does nothing.
+	 */
+	bool bSpawnerEndedPlay = false;
 };

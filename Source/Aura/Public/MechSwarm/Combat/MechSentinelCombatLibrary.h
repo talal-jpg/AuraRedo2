@@ -68,6 +68,8 @@ public:
 	/**
 	 * THE hit function: every sentinel whose simple collision capsule touches the given capsule takes Damage through GAS
 	 * (DamageEffect, or the rules' DefaultSentinelDamageEffect: armor mitigation, Shielded, Dead...).
+	 * Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for
+	 * Next Tick.
 	 * @param Instigator    Who dealt the damage (its ASC is the effect source when it has one).
 	 * @param MaxTargets    0 = everyone in the capsule, otherwise the closest N.
 	 * @return number of sentinels hit. OutTotalDamage is the health actually removed.
@@ -76,21 +78,21 @@ public:
 	static int32 ApplyDamageToSentinelsInCapsule(const UObject* WorldContextObject, AActor* Instigator, FVector Center, FRotator Rotation, float Radius, float HalfHeight,
 		float Damage, TSubclassOf<UGameplayEffect> DamageEffect, int32 MaxTargets, TArray<FMechSentinelHit>& OutHits, float& OutTotalDamage);
 
-	/** Same as ApplyDamageToSentinelsInCapsule but for a sweep (sphere of Radius from Start to End). */
+	/** Same as ApplyDamageToSentinelsInCapsule but for a sweep (sphere of Radius from Start to End). Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for Next Tick. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Combat", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "DamageEffect,MaxTargets"))
 	static int32 ApplyDamageToSentinelsInSweep(const UObject* WorldContextObject, AActor* Instigator, FVector Start, FVector End, float Radius,
 		float Damage, TSubclassOf<UGameplayEffect> DamageEffect, int32 MaxTargets, TArray<FMechSentinelHit>& OutHits, float& OutTotalDamage);
 
-	/** Applies any gameplay effect (stun, shield, slow, buff...) to the sentinels in a capsule. */
+	/** Applies any gameplay effect (stun, shield, slow, buff...) to the sentinels in a capsule. Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for Next Tick. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Combat", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "Level,MaxTargets"))
 	static int32 ApplyEffectToSentinelsInCapsule(const UObject* WorldContextObject, AActor* Instigator, FVector Center, FRotator Rotation, float Radius, float HalfHeight,
 		TSubclassOf<UGameplayEffect> Effect, float Level, int32 MaxTargets);
 
-	/** Damages one sentinel. Returns the health removed. */
+	/** Damages one sentinel. Returns the health removed. Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for Next Tick. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Combat", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "DamageEffect"))
 	static float ApplyDamageToSentinel(const UObject* WorldContextObject, AActor* Instigator, FMechSentinelHandle Sentinel, float Damage, FVector HitLocation, TSubclassOf<UGameplayEffect> DamageEffect);
 
-	/** Runs an existing spec (e.g. from an ability) against one sentinel. Returns the health removed. */
+	/** Runs an existing spec (e.g. from an ability) against one sentinel. Returns the health removed. Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for Next Tick. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Combat", meta = (WorldContext = "WorldContextObject"))
 	static float ApplyGameplayEffectSpecToSentinel(const UObject* WorldContextObject, const FGameplayEffectSpecHandle& SpecHandle, FMechSentinelHandle Sentinel, FVector HitLocation);
 

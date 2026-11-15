@@ -14,8 +14,10 @@ UMechSentinelHitCapsuleComponent::UMechSentinelHitCapsuleComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
-	// After the owner moved this frame (projectile movement runs before).
-	PrimaryComponentTick.TickGroup = TG_PostPhysics;
+	// After the owner moved this frame (projectile movement runs before), and outside the Mass phases: a hit writes
+	// sentinel fragments and can change their tags, which must not happen while Mass processors run on worker tasks
+	// (TG_PrePhysics..TG_PostPhysics, and TG_LastDemotable).
+	PrimaryComponentTick.TickGroup = TG_PostUpdateWork;
 
 	// Sentinels are Mass entities, not physics bodies: no engine collision needed.
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
@@ -26,6 +28,9 @@ UMechSentinelHitCapsuleComponent::UMechSentinelHitCapsuleComponent()
 
 void UMechSentinelHitCapsuleComponent::BeginPlay()
 {
+	// Also for components saved with another group: see the constructor.
+	SetTickGroup(TG_PostUpdateWork);
+
 	Super::BeginPlay();
 
 	// Only the server resolves hits; clients see the result through replication.

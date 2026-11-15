@@ -1,8 +1,9 @@
 // Mech Sentinel Swarm - Niagara ribbon tentacles: shared data types.
 //
-// Every near sentinel gets NumTentacles verlet chains (PointsPerTentacle points, SegmentLength apart) that hang from
-// the sockets of the head mesh and trail behind it. The chains are simulated by UMechSentinelTentacleProcessor and
-// pushed every frame into one Niagara system per tentacle set, which draws one ribbon per chain.
+// Every near sentinel gets NumTentacles verlet chains (PointsPerTentacle points, about SegmentLength apart) that hang
+// from the sockets of the head mesh and flow behind it: each point is dragged by the one before it, so the tentacles
+// lag, stream out and catch up with the head. The chains are simulated by UMechSentinelTentacleProcessor and pushed
+// every frame into one Niagara system per tentacle set, which draws one ribbon per chain.
 // See MyMechEntitySystemReadme.md, section "Tentacles".
 
 #pragma once
@@ -82,22 +83,69 @@ struct AURA_API FMechSentinelTentacleDesc
 
 	/** World gravity on the chain points (cm/s^2). Lower than real gravity reads as "floating in a current". */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simulation", meta = (ClampMin = "0"))
-	float Gravity = 300.f;
+	float Gravity = 200.f;
 
-	/** Velocity lost per 1/60 s (0 = no drag, 1 = no inertia). */
+	/**
+	 * Velocity lost per 1/60 s, like moving through water (0 = no drag, 1 = no inertia). It is what makes the tentacles
+	 * trail: lower keeps them swinging longer after a turn or a stop, higher stretches them more at speed.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simulation", meta = (ClampMin = "0", ClampMax = "1"))
-	float Damping = 0.06f;
+	float Damping = 0.05f;
 
-	/** Pull (1/s) toward the head-relative rest pose at the root; the tip uses Stiffness * TipStiffnessScale. */
+	/**
+	 * Spring rate (1/s^2) pulling each point toward the head-relative trailing pose, at the root; the tip uses
+	 * Stiffness * TipStiffnessScale. Kept low so the pose is only where the tentacles settle while the head holds still;
+	 * while it moves they are dragged along its path. Its square root is about the swing speed in rad/s (90: ~1.5 Hz at
+	 * the root, 18: ~0.7 Hz at the tip). Frame rate independent.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simulation", meta = (ClampMin = "0"))
-	float Stiffness = 5.f;
+	float Stiffness = 90.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simulation", meta = (ClampMin = "0", ClampMax = "1"))
-	float TipStiffnessScale = 0.3f;
+	float TipStiffnessScale = 0.2f;
+
+	/**
+	 * How fast (rad/s) a stretched tentacle springs back to its length, critically damped: the speed at which the
+	 * tentacles catch up with the head after it stops or turns. With Damping it also sets how far they stream out at
+	 * speed (about 20% longer at 9 m/s with the defaults). Lower lags and stretches more.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flow", meta = (ClampMin = "0"))
+	float CatchUpRate = 20.f;
+
+	/** Longest a segment may stretch, as a multiple of SegmentLength (1 = fixed length, never stretches). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flow", meta = (ClampMin = "1", ClampMax = "2"))
+	float StretchRatio = 1.3f;
+
+	/** How fast (1/s) bends along a tentacle smooth out, toward a straight continuation of the segment before. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flow", meta = (ClampMin = "0"))
+	float Straightening = 10.f;
+
+	/**
+	 * Sharpest angle between two segments (and between the first segment and its socket direction). Keeps the ribbons
+	 * curling instead of folding into corners when the head stops hard.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flow", meta = (ClampMin = "5", ClampMax = "180", ForceUnits = "deg"))
+	float MaxBendAngle = 30.f;
+
+	/**
+	 * Strength (cm/s^2) of the swirling current the tentacles drift in: a smooth, divergence free field in world space,
+	 * shared by all sentinels, so neighbours sway together and a sentinel flying through it ripples. 0 at the root,
+	 * full at the tip.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flow", meta = (ClampMin = "0"))
+	float FlowStrength = 300.f;
+
+	/** Size of the current's swirls (a full swirl is about 6 times this). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flow", meta = (ClampMin = "10", ForceUnits = "cm"))
+	float FlowScale = 220.f;
+
+	/** How fast the current changes over time. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flow", meta = (ClampMin = "0"))
+	float FlowSpeed = 0.6f;
 
 	/** Swimming wave travelling down the chain: side amplitude at the tip (cm), frequency, phase step per point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simulation", meta = (ClampMin = "0", ForceUnits = "cm"))
-	float SwayAmplitude = 12.f;
+	float SwayAmplitude = 14.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simulation", meta = (ClampMin = "0", ForceUnits = "Hz"))
 	float SwayFrequency = 0.7f;
@@ -131,7 +179,10 @@ struct AURA_API FMechSentinelTentacleDesc
 			&& MaxRiggedSentinels == Other.MaxRiggedSentinels && MaxDistance == Other.MaxDistance
 			&& FanAngle == Other.FanAngle && TrailSpread == Other.TrailSpread && TrailDroop == Other.TrailDroop
 			&& Gravity == Other.Gravity && Damping == Other.Damping && Stiffness == Other.Stiffness
-			&& TipStiffnessScale == Other.TipStiffnessScale && SwayAmplitude == Other.SwayAmplitude
+			&& TipStiffnessScale == Other.TipStiffnessScale && CatchUpRate == Other.CatchUpRate
+			&& StretchRatio == Other.StretchRatio && Straightening == Other.Straightening && MaxBendAngle == Other.MaxBendAngle
+			&& FlowStrength == Other.FlowStrength && FlowScale == Other.FlowScale && FlowSpeed == Other.FlowSpeed
+			&& SwayAmplitude == Other.SwayAmplitude
 			&& SwayFrequency == Other.SwayFrequency && SwayPhasePerPoint == Other.SwayPhasePerPoint
 			&& AttackSwayMultiplier == Other.AttackSwayMultiplier && DeadStiffnessScale == Other.DeadStiffnessScale
 			&& TeleportDistance == Other.TeleportDistance && bCastShadows == Other.bCastShadows;

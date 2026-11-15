@@ -101,6 +101,13 @@ void UMechSentinelAttackProcessor::Execute(FMassEntityManager& EntityManager, FM
 			FMechSentinelStateFragment& State = StateList[EntityIndex];
 			const FVector Position = TransformList[EntityIndex].GetTransform().GetLocation();
 
+			// A kill or stun from a hit made next to this phase sets State at once, but its tags only arrive when the
+			// phase's commands are flushed: until then, no attack, and State is not overwritten.
+			if (State.State == EMechSentinelState::Dead || State.State == EMechSentinelState::Stunned)
+			{
+				continue;
+			}
+
 			Attack.Cooldown -= DeltaTime;
 
 			// Only players can be attacked; fallback points are just gathering places.

@@ -42,4 +42,7 @@ protected:
 	/** Scratch, in query order (the processor is game-thread only). */
 	TArray<FCandidate> Candidates;
 	TArray<int32> SortScratch;
+
+	/** Last frame's delta time, unclamped (0 before the first frame): the chains' velocity is scaled by the ratio. */
+	float PreviousDeltaTime = 0.f;
 };
