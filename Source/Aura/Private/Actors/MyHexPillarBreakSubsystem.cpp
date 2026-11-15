@@ -22,7 +22,7 @@ namespace
 	TAutoConsoleVariable<int32> CVarPillarBreakLumen(
 		TEXT("Aura.PillarBreak.Lumen"),
 		-1,
-		TEXT("Top pillar Geometry Collections in Lumen's scene: -1 = the platform's TopPillarBreak.bAffectLumen, 0 = never, 1 = always (new pieces only)"),
+		TEXT("Pillar Geometry Collections in Lumen's scene: -1 = the platform's TopPillarBreak / BottomPillarBreak bAffectLumen, 0 = never, 1 = always (new pieces only)"),
 		ECVF_Default
 	);
 }
@@ -70,7 +70,8 @@ bool UMyHexPillarBreakSubsystem::IsTickable() const
 // =============================================================================
 
 void UMyHexPillarBreakSubsystem::QueueBreak(AMyHexPlatform* Platform, UGeometryCollection* Collection, const FTransform& WorldTransform,
-	const TArray<FVector>& OpenSides, const FHexPillarBreakSettings& Settings, float LengthScale, float RemoveAfter)
+	const TArray<FVector>& OpenSides, const FHexPillarBreakSettings& Settings, float LengthScale, float RemoveAfter,
+	const TArray<float>& CustomPrimitiveData)
 {
 	if (!Platform || !Collection)
 	{
@@ -82,6 +83,7 @@ void UMyHexPillarBreakSubsystem::QueueBreak(AMyHexPlatform* Platform, UGeometryC
 	Break.Collection = Collection;
 	Break.WorldTransform = WorldTransform;
 	Break.OpenSides = OpenSides;
+	Break.CustomPrimitiveData = CustomPrimitiveData;
 	Break.Settings = Settings;
 	Break.LengthScale = LengthScale;
 	Break.RemoveAfter = RemoveAfter;
@@ -497,6 +499,12 @@ UGeometryCollectionComponent* UMyHexPillarBreakSubsystem::SpawnBreak(const FPend
 		Component->SetCollisionResponseToChannel(ECC_Destructible, ECR_Block);
 	}
 
+	// The tile's custom data, for the material. Set while unregistered, so the scene proxy starts with it
+	for (int32 Index = 0; Index < Break.CustomPrimitiveData.Num(); ++Index)
+	{
+		Component->SetCustomPrimitiveDataFloat(Index, Break.CustomPrimitiveData[Index]);
+	}
+
 	// Also copies the asset's damage settings
 	Component->SetRestCollection(Collection);
 
@@ -694,7 +702,7 @@ namespace
 {
 	FAutoConsoleCommandWithWorld GPillarBreakStatsCommand(
 		TEXT("Aura.PillarBreakStats"),
-		TEXT("Aura.PillarBreakStats - log this world's top pillar Geometry Collection counts"),
+		TEXT("Aura.PillarBreakStats - log this world's pillar Geometry Collection counts"),
 		FConsoleCommandWithWorldDelegate::CreateLambda([](UWorld* World)
 		{
 			if (const UMyHexPillarBreakSubsystem* PillarBreaks = World ? World->GetSubsystem<UMyHexPillarBreakSubsystem>() : nullptr)

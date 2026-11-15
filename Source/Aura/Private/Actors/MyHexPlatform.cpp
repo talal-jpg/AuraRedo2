@@ -215,11 +215,15 @@ void AMyHexPlatform::BeginPlay()
 		ApplyActivatedTiles(/*bPlayEffect=*/false);
 	}
 
-	// Top tiles break into Geometry Collections: get their shaders compiling before the first break.
-	// The variants share their material, so one of them covers the rest.
-	if (!bIsBottomPlatform)
+	// Tiles break into Geometry Collections: get their shaders compiling before the first break.
+	// The top variants share their material, so one of them covers the rest.
+	if (UMyHexPillarBreakSubsystem* PillarBreaks = GetWorld()->GetSubsystem<UMyHexPillarBreakSubsystem>())
 	{
-		if (UMyHexPillarBreakSubsystem* PillarBreaks = GetWorld()->GetSubsystem<UMyHexPillarBreakSubsystem>())
+		if (bIsBottomPlatform)
+		{
+			PillarBreaks->PrecacheCollection(this, BottomPillarGeometryCollection);
+		}
+		else
 		{
 			PillarBreaks->PrecacheCollection(this, TopPillarGeometryCollection);
 
@@ -1800,6 +1804,16 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 		return;
 	}
 
+	// And its custom data (falloff, tile XY, edge and path words): a broken pillar gets it as custom
+	// primitive data at the same indices, so its material can give the pieces the tile's look
+	TArray<float> InstanceCustomData;
+	const int32 NumCustomData = HexPillarsISM->NumCustomDataFloats;
+
+	if (NumCustomData > 0 && HexPillarsISM->PerInstanceSMCustomData.IsValidIndex((*InstanceIndexPtr + 1) * NumCustomData - 1))
+	{
+		InstanceCustomData.Append(&HexPillarsISM->PerInstanceSMCustomData[*InstanceIndexPtr * NumCustomData], NumCustomData);
+	}
+
 	// -------------------------------------------------------------------------
 	// Remove static instance
 	// -------------------------------------------------------------------------
@@ -1851,10 +1865,11 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 		return;
 	}
 
-	// Top platforms break into a Geometry Collection instead of the skeletal mesh fall. Every machine
-	// makes its own from the replicated ActivatedTiles, under one world-wide budget.
+	// The tile breaks into a Geometry Collection instead of the skeletal mesh fall (top and bottom
+	// platforms, each with its own). Every machine makes its own from the replicated ActivatedTiles,
+	// under one world-wide budget.
 	FTransform PillarSpawnTransform;
-	UGeometryCollection* PillarCollection = bIsBottomPlatform ? nullptr : GetTopPillarCollection(InstanceTransform, PillarSpawnTransform);
+	UGeometryCollection* PillarCollection = GetPillarCollection(InstanceTransform, PillarSpawnTransform);
 
 	if (PillarCollection)
 	{
@@ -1872,16 +1887,19 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 				}
 			}
 
-			// Gone after the same delay as the tile prop debris (BrokenPropLifeSpan), all at once
-			const float RemoveAfter = TopPillarBreak.bMatchTilePropLifeSpan ? BrokenPropLifeSpan : TopPillarBreak.LifeSpan;
+			const FHexPillarBreakSettings BreakSettings = GetPillarBreakSettings();
 
-			PillarBreaks->QueueBreak(this, PillarCollection, PillarSpawnTransform, OpenSides, TopPillarBreak, HexRadius / 100.f, RemoveAfter);
+			// Gone after the same delay as the tile prop debris (BrokenPropLifeSpan), all at once
+			const float RemoveAfter = BreakSettings.bMatchTilePropLifeSpan ? BrokenPropLifeSpan : BreakSettings.LifeSpan;
+
+			PillarBreaks->QueueBreak(this, PillarCollection, PillarSpawnTransform, OpenSides, BreakSettings, HexRadius / 100.f, RemoveAfter, InstanceCustomData);
 		}
 
 		return;
 	}
 
-	// Bottom platforms fall with the bottom assets; until both are set their tiles just disappear
+	// Without a Geometry Collection bottom platforms fall with the bottom assets; until both are set their
+	// tiles just disappear
 	USkeletalMesh* FallMesh = bIsBottomPlatform ? HexPillarBottomSkeletalMesh.Get() : HexPillarSkeletalMesh.Get();
 	UAnimSequence* FallAnim = bIsBottomPlatform ? BottomRbdAnimSeq.Get() : RbdAnimSeq.Get();
 
@@ -2139,6 +2157,35 @@ UGeometryCollection* AMyHexPlatform::GetTopPillarCollection(const FTransform& In
 	}
 
 	return TopPillarGeometryCollection;
+}
+
+UGeometryCollection* AMyHexPlatform::GetPillarCollection(const FTransform& InstanceTransform, FTransform& OutSpawnTransform) const
+{
+	if (bIsBottomPlatform)
+	{
+		// One uniform scale on every bottom tile, so one collection at the tile's own transform
+		OutSpawnTransform = InstanceTransform;
+		return BottomPillarGeometryCollection;
+	}
+
+	return GetTopPillarCollection(InstanceTransform, OutSpawnTransform);
+}
+
+FHexPillarBreakSettings AMyHexPlatform::GetPillarBreakSettings() const
+{
+	if (!bIsBottomPlatform)
+	{
+		return TopPillarBreak;
+	}
+
+	// The subsystem reads the budget from each queued break: give the bottom ones the top budget, so
+	// both queue under the same caps
+	FHexPillarBreakSettings Settings = BottomPillarBreak;
+	Settings.MaxActive = TopPillarBreak.MaxActive;
+	Settings.MaxSpawnsPerFrame = TopPillarBreak.MaxSpawnsPerFrame;
+	Settings.MaxQueueTime = TopPillarBreak.MaxQueueTime;
+	Settings.MinAgeToRecycle = TopPillarBreak.MinAgeToRecycle;
+	return Settings;
 }
 
 UStaticMesh* AMyHexPlatform::GetTileMesh() const
