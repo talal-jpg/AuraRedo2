@@ -209,6 +209,35 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Bridge|Collapse", meta = (ClampMin = "0.0"))
 	float DebrisMaxDistance = 5000.f;
 
+	/**
+	 * Pieces more than this far (cm) below the bridge spline spawn no debris: they just vanish when the
+	 * front reaches them. For the deep rock layers under the stone bridges. 0 = every depth.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Bridge|Collapse", meta = (ClampMin = "0.0"))
+	float DebrisMaxDepth = 0.f;
+
+	/** Pieces smaller than this (bounds radius, cm, scaled) spawn no debris. 0 = every size. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Bridge|Collapse", meta = (ClampMin = "0.0"))
+	float DebrisMinRadius = 0.f;
+
+	/**
+	 * Most debris pieces (Geometry Collections or physics meshes) one collapse spawns, spread evenly
+	 * along the bridge; the other pieces just vanish. 0 = no limit.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Bridge|Collapse", meta = (ClampMin = "0"))
+	int32 MaxDebrisPieces = 0;
+
+	/** Debris casts dynamic shadows. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Bridge|Collapse")
+	bool bDebrisCastShadow = false;
+
+	/**
+	 * Desired Max Draw Distance (cm) put on every ISM the graph spawns, once it has generated: the
+	 * bridge is not drawn when its pieces' bounds are further away. 0 = always drawn.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hex Bridge|Optimization", meta = (ClampMin = "0.0"))
+	float MaxDrawDistance = 0.f;
+
 private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_Ends)
@@ -259,6 +288,9 @@ private:
 		FTransform WorldTransform;
 
 		TWeakObjectPtr<AActor> Actor;
+
+		/** Spawns debris when the front reaches it (DebrisMaxDepth, DebrisMinRadius, MaxDebrisPieces). */
+		bool bDebris = true;
 	};
 
 	struct FCollapseISM
@@ -290,6 +322,9 @@ private:
 
 	/** True if any point of the bridge is within DebrisMaxDistance of the local player. */
 	bool IsNearLocalPlayer() const;
+
+	/** PCGComponent finished: applies MaxDrawDistance to the ISMs it spawned. */
+	void OnGraphGenerated(UPCGComponent* InComponent);
 
 	TArray<FCollapsePiece> CollapsePieces;
 

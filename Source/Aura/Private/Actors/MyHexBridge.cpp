@@ -109,6 +109,10 @@ void AMyHexBridge::BeginPlay()
 	// Not when an end tile had already collapsed (a late join): the bridge is on its way out
 	if (bGenerateOnBeginPlay && !bEndTileCollapsed && PCGComponent && PCGComponent->GetGraph())
 	{
+		// OnGraphGenerated puts MaxDrawDistance on the ISMs the graph spawned
+		PCGComponent->OnPCGGraphGeneratedDelegate.RemoveAll(this);
+		PCGComponent->OnPCGGraphGeneratedDelegate.AddUObject(this, &ThisClass::OnGraphGenerated);
+
 		// Local on every machine: PCG output is not replicated
 		PCGComponent->GenerateLocal(/*bForce=*/true);
 	}
@@ -352,6 +356,29 @@ void AMyHexBridge::StartCollapse(bool bWithDebris)
 		return FMath::Max(FromBrokenEnd, 0.f) / CollapseSpeed + Stream.FRandRange(0.f, CollapseJitter);
 	};
 
+	// Deep or tiny pieces just vanish (DebrisMaxDepth, DebrisMinRadius)
+	auto WantsDebris = [&](const FTransform& WorldTransform, const UStaticMesh* Mesh)
+	{
+		if (DebrisMinRadius > 0.f && Mesh->GetBounds().SphereRadius * WorldTransform.GetMaximumAxisScale() < DebrisMinRadius)
+		{
+			return false;
+		}
+
+		if (DebrisMaxDepth > 0.f)
+		{
+			const FVector WorldLoc = WorldTransform.GetLocation();
+			const float Key = BridgeSpline->FindInputKeyClosestToWorldLocation(WorldLoc);
+			const double DeckZ = BridgeSpline->GetLocationAtSplineInputKey(Key, ESplineCoordinateSpace::World).Z;
+
+			if (WorldLoc.Z < DeckZ - DebrisMaxDepth)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	};
+
 	TInlineComponentArray<UInstancedStaticMeshComponent*> ISMs(this);
 
 	for (UInstancedStaticMeshComponent* ISM : ISMs)
@@ -391,6 +418,7 @@ void AMyHexBridge::StartCollapse(bool bWithDebris)
 			Piece.Instance = Instance;
 			ISM->GetInstanceTransform(Instance, Piece.WorldTransform, /*bWorldSpace=*/true);
 			Piece.Time = TimeAt(Piece.WorldTransform.GetLocation());
+			Piece.bDebris = Entry.bDebris && WantsDebris(Piece.WorldTransform, ISM->GetStaticMesh());
 
 			Entry.PieceAtInstance.Add(CollapsePieces.Add(Piece));
 		}
@@ -420,6 +448,34 @@ void AMyHexBridge::StartCollapse(bool bWithDebris)
 	}
 
 	CollapseOrder.Sort([this](int32 A, int32 B) { return CollapsePieces[A].Time < CollapsePieces[B].Time; });
+
+	// Over the limit: keep every Nth debris piece along the collapse order, so debris falls all the way along
+	if (MaxDebrisPieces > 0)
+	{
+		int32 NumDebris = 0;
+
+		for (const int32 PieceIndex : CollapseOrder)
+		{
+			NumDebris += CollapsePieces[PieceIndex].Owner != INDEX_NONE && CollapsePieces[PieceIndex].bDebris ? 1 : 0;
+		}
+
+		if (NumDebris > MaxDebrisPieces)
+		{
+			int32 Seen = 0;
+
+			for (const int32 PieceIndex : CollapseOrder)
+			{
+				FCollapsePiece& Piece = CollapsePieces[PieceIndex];
+
+				if (Piece.Owner != INDEX_NONE && Piece.bDebris)
+				{
+					// Keeps MaxDebrisPieces of NumDebris, evenly spaced
+					Piece.bDebris = (Seen * MaxDebrisPieces) % NumDebris < MaxDebrisPieces;
+					++Seen;
+				}
+			}
+		}
+	}
 
 	// Physics mesh debris outlives the bridge: a holder actor owns it
 	if (bWithDebris && !CollapsePieces.IsEmpty())
@@ -497,7 +553,7 @@ void AMyHexBridge::AdvanceCollapse()
 		{
 			Instances.Add(CollapsePieces[PieceIndex].Instance);
 
-			if (Entry.bDebris)
+			if (Entry.bDebris && CollapsePieces[PieceIndex].bDebris)
 			{
 				SpawnDebris(Entry, CollapsePieces[PieceIndex].WorldTransform);
 			}
@@ -618,6 +674,7 @@ void AMyHexBridge::SpawnDebrisCollection(UGeometryCollection* Collection, const 
 		GC->InitialLinearVelocity = Velocity;
 		GC->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 		GC->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+		GC->SetCastShadow(bDebrisCastShadow);
 		GC->SetRestCollection(Collection);
 	}
 
@@ -666,7 +723,7 @@ void AMyHexBridge::SpawnDebrisMesh(UInstancedStaticMeshComponent* Source, const 
 		Piece->SetMaterial(Slot, Source->GetMaterial(Slot));
 	}
 
-	Piece->SetCastShadow(Source->CastShadow);
+	Piece->SetCastShadow(Source->CastShadow && bDebrisCastShadow);
 	Piece->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
 	Piece->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	Piece->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
@@ -680,6 +737,21 @@ void AMyHexBridge::SpawnDebrisMesh(UInstancedStaticMeshComponent* Source, const 
 	const FVector Spin(FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f));
 	Piece->SetPhysicsLinearVelocity(Velocity);
 	Piece->SetPhysicsAngularVelocityInDegrees(Spin * DebrisMaxSpin);
+}
+
+void AMyHexBridge::OnGraphGenerated(UPCGComponent* InComponent)
+{
+	if (MaxDrawDistance <= 0.f)
+	{
+		return;
+	}
+
+	TInlineComponentArray<UInstancedStaticMeshComponent*> ISMs(this);
+
+	for (UInstancedStaticMeshComponent* ISM : ISMs)
+	{
+		ISM->SetCullDistance(MaxDrawDistance);
+	}
 }
 
 bool AMyHexBridge::IsNearLocalPlayer() const
