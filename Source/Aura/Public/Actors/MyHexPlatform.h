@@ -68,7 +68,7 @@ struct FHexTileInfo
 	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
 	int32 EdgeDepth = 0;
 
-	/** Bit i set = no tile on side i (AMyHexPlatform::GetHexSideDirection). Same bits as the edge mask. */
+	/** Bit i set = no tile on side i (AMyHexPlatform::GetHexSideDirection), in actor space. The edge mask gets them turned with the pillar. */
 	UPROPERTY(BlueprintReadOnly, Category = "Hex Tile")
 	int32 OpenSideBits = 0;
 
