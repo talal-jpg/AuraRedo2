@@ -59,6 +59,7 @@ void AMechSentinelWaveSpawner::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(AMechSentinelWaveSpawner, WaveState);
 	DOREPLIFETIME(AMechSentinelWaveSpawner, AliveCount);
 	DOREPLIFETIME(AMechSentinelWaveSpawner, RemainingToSpawn);
+	DOREPLIFETIME(AMechSentinelWaveSpawner, CurrentWaveTotal);
 }
 
 //----------------------------------------------------------------------//
@@ -187,6 +188,13 @@ void AMechSentinelWaveSpawner::StartWaves(const bool bRestartFromFirstWave)
 	bStopped = false;
 	SetActorTickEnabled(true);
 
+	// Nothing to run: report the waves as finished right away instead of sitting in a countdown forever.
+	if (Waves.IsEmpty())
+	{
+		FinishWaves();
+		return;
+	}
+
 	if (bRestartFromFirstWave || CurrentWaveNumber == 0 || WaveState == EMechSentinelWaveState::Idle || WaveState == EMechSentinelWaveState::Finished)
 	{
 		BeginCountdown(1);
@@ -223,6 +231,7 @@ void AMechSentinelWaveSpawner::SetCountMultiplier(const float NewMultiplier)
 	{
 		const int32 NewTotal = ResolveCount(ActiveWave, CurrentWaveNumber);
 		RemainingToSpawn = FMath::Max(0, NewTotal - ActiveWaveSpawned);
+		CurrentWaveTotal = ActiveWaveSpawned + RemainingToSpawn;
 		if (RemainingToSpawn > 0)
 		{
 			WaveState = EMechSentinelWaveState::Spawning;
@@ -264,13 +273,14 @@ void AMechSentinelWaveSpawner::BeginWave(const int32 WaveNumber)
 	CurrentWaveNumber = WaveNumber;
 	ActiveWaveSpawned = 0;
 	RemainingToSpawn = ResolveCount(ActiveWave, WaveNumber);
+	CurrentWaveTotal = RemainingToSpawn;
 	SpawnAccumulator = 0.f;
 	WaveElapsed = 0.f;
 	bClearedThisWave = false;
 	WaveState = EMechSentinelWaveState::Spawning;
 
 	// Server side broadcast; clients broadcast from OnRep_CurrentWaveNumber.
-	OnWaveStarted.Broadcast(CurrentWaveNumber, RemainingToSpawn);
+	OnWaveStarted.Broadcast(CurrentWaveNumber, CurrentWaveTotal);
 }
 
 void AMechSentinelWaveSpawner::FinishWaves()
@@ -281,7 +291,9 @@ void AMechSentinelWaveSpawner::FinishWaves()
 
 void AMechSentinelWaveSpawner::OnRep_CurrentWaveNumber()
 {
-	OnWaveStarted.Broadcast(CurrentWaveNumber, RemainingToSpawn);
+	// CurrentWaveTotal is declared after CurrentWaveNumber but replicated in the same bunch (both change in BeginWave),
+	// and OnRep functions run after every property of the bunch is applied.
+	OnWaveStarted.Broadcast(CurrentWaveNumber, CurrentWaveTotal);
 }
 
 void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)

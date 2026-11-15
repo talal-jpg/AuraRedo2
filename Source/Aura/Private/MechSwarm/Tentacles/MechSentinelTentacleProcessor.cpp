@@ -183,7 +183,8 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 	UWorld* World = EntityManager.GetWorld();
 	UMechSentinelTentacleSubsystem* TentacleSubsystem = World ? World->GetSubsystem<UMechSentinelTentacleSubsystem>() : nullptr;
 	const UMassRepresentationSubsystem_Copy* RepresentationSubsystem = World ? World->GetSubsystem<UMassRepresentationSubsystem_Copy>() : nullptr;
-	if (!TentacleSubsystem || TentacleSubsystem->GetNumSets() == 0)
+	// No early out on "no sets": configs without a Niagara system still need bForceLowLODMesh written below.
+	if (!TentacleSubsystem)
 	{
 		return;
 	}
@@ -201,6 +202,8 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 		const FMechSentinelTentacleParams& Params = Context.GetConstSharedFragment<FMechSentinelTentacleParams>();
 		const FMechSentinelTentacleSet* Set = TentacleSubsystem->GetMutableSet(Params.SetIndex);
 		const float MaxDistanceSq = Set ? FMath::Square(Set->Desc.MaxDistance) : 0.f;
+		// Hysteresis: a sentinel keeps its ribbons until 10% past MaxDistance, so it does not flicker at the edge.
+		const float KeepDistanceSq = MaxDistanceSq * 1.21f;
 
 		const TConstArrayView<FMassViewerInfoFragment_Copy> ViewerList = Context.GetFragmentView<FMassViewerInfoFragment_Copy>();
 		const TConstArrayView<FMassRepresentationLODFragment_Copy> LODList = Context.GetFragmentView<FMassRepresentationLODFragment_Copy>();
@@ -217,7 +220,8 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 			Candidate.DistanceSq = DistanceSq;
 			Candidate.SetIndex = Params.SetIndex;
 			Candidate.RigIndex = TentacleList[EntityIndex].RigIndex;
-			Candidate.bWants = Set != nullptr && LOD <= EMassLOD::Medium && DistanceSq < MaxDistanceSq;
+			const bool bOwnsRig = TentacleSubsystem->IsRigOwnedBy(Params.SetIndex, Candidate.RigIndex, Candidate.Entity);
+			Candidate.bWants = Set != nullptr && LOD <= EMassLOD::Medium && DistanceSq < (bOwnsRig ? KeepDistanceSq : MaxDistanceSq);
 		}
 	});
 

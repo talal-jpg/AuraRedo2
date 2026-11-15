@@ -161,6 +161,10 @@ struct AURA_API FMechSentinelActiveEffect
 	UPROPERTY()
 	TMap<FGameplayTag, float> SetByCallerMagnitudes;
 
+	/** Stacks GAS resolved for this effect (stacking GEs). */
+	UPROPERTY()
+	int32 StackCount = 1;
+
 	TWeakObjectPtr<UAbilitySystemComponent> InstigatorASC;
 };
 
@@ -317,6 +321,13 @@ struct AURA_API FMechSentinelParameters : public FMassConstSharedFragment
 	/** Stunned sentinels sink at this fraction of gravity (they hover, but badly). */
 	UPROPERTY(EditAnywhere, Category = "Death", meta = (ClampMin = "0", ClampMax = "1"))
 	float StunnedGravityScale = 0.25f;
+
+	/**
+	 * Stunned sentinels sink at the start of the stun, slowing to a stop over this many seconds, then hover in place
+	 * (alive sentinels have no ground check, so they must not keep sinking during a long stun).
+	 */
+	UPROPERTY(EditAnywhere, Category = "Death", meta = (ClampMin = "0", ForceUnits = "s"))
+	float StunnedSinkDuration = 0.6f;
 
 	/** Wrecks stop on WorldStatic geometry (one short line trace per falling wreck per frame) instead of falling through the floor. */
 	UPROPERTY(EditAnywhere, Category = "Death")

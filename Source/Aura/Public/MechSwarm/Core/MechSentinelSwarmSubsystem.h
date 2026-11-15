@@ -186,7 +186,11 @@ public:
 	 */
 	int32 QueryCapsule(const FVector& SegmentStart, const FVector& SegmentEnd, float Radius, TArray<FMechSentinelHit>& OutHits) const;
 
-	/** Alive (not dead) sentinels this frame. */
+	/**
+	 * Alive (not dead) sentinels this frame, from the collision hash. Authority only (standalone / server): the hash is
+	 * built by the server-side collision processor, so this is 0 on clients. Clients read the wave spawner's replicated
+	 * counts instead.
+	 */
 	UFUNCTION(BlueprintPure, Category = "Mech Sentinels")
 	int32 GetNumAliveSentinels() const { return CollisionEntries.Num(); }
 

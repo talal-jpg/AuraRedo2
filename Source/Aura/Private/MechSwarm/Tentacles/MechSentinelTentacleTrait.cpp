@@ -22,12 +22,6 @@ void UMechSentinelTentacleTrait::BuildTemplate(FMassEntityTemplateBuildContext& 
 		return;
 	}
 
-	if (!Tentacles.NiagaraSystem && !bInspecting)
-	{
-		UE_LOG(LogMechSentinelTentacleTrait, Warning, TEXT("%s: no Niagara system set, sentinels keep the baked-tentacle LOD mesh."), *GetPathNameSafe(GetOuter()));
-		return;
-	}
-
 	FMassEntityManager& EntityManager = UE::Mass::Utils::GetEntityManagerChecked(World);
 
 	// Provided by UMassVisualizationTrait_Copy: the ribbons follow its LOD and draw from its head mesh sockets.
@@ -37,10 +31,16 @@ void UMechSentinelTentacleTrait::BuildTemplate(FMassEntityTemplateBuildContext& 
 
 	BuildContext.AddFragment<FMechSentinelTentacleFragment>();
 
+	// Without a Niagara system the fragments are still added, with no set: the processor then never gives these
+	// sentinels a rig and forces the LowLODMesh (baked tentacles) at every LOD, so they never show a bare head.
 	FMechSentinelTentacleParams Params;
 	if (!bInspecting)
 	{
-		if (UMechSentinelTentacleSubsystem* TentacleSubsystem = World.GetSubsystem<UMechSentinelTentacleSubsystem>())
+		if (!Tentacles.NiagaraSystem)
+		{
+			UE_LOG(LogMechSentinelTentacleTrait, Warning, TEXT("%s: no Niagara system set, sentinels use the baked-tentacle LowLODMesh at every LOD."), *GetPathNameSafe(GetOuter()));
+		}
+		else if (UMechSentinelTentacleSubsystem* TentacleSubsystem = World.GetSubsystem<UMechSentinelTentacleSubsystem>())
 		{
 			Params.SetIndex = TentacleSubsystem->FindOrAddSet(Tentacles);
 		}

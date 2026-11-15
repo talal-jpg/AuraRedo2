@@ -74,6 +74,26 @@ namespace MechSwarm::SubsystemPrivate
 
 	/** Avoids walking millions of cells for absurdly large queries; falls back to brute force. */
 	constexpr int64 MaxCellsPerQuery = 4096;
+
+	/**
+	 * Drops the stored effects that are no longer active on the loaded proxy (removed by another effect, blocked by
+	 * immunity or application requirements, failed to re-apply). StoredHandles is index-aligned with GAS.ActiveEffects,
+	 * as built by AMechSentinelGASProxy::LoadEntity. Returns true when something was dropped.
+	 */
+	bool PruneRemovedEffects(const UAbilitySystemComponent& ASC, const TArray<FActiveGameplayEffectHandle>& StoredHandles, FMechSentinelGASFragment& GAS)
+	{
+		bool bPruned = false;
+		for (int32 Index = FMath::Min(StoredHandles.Num(), GAS.ActiveEffects.Num()) - 1; Index >= 0; --Index)
+		{
+			const FActiveGameplayEffect* Stored = ASC.GetActiveGameplayEffect(StoredHandles[Index]);
+			if (!Stored || Stored->IsPendingRemove)
+			{
+				GAS.ActiveEffects.RemoveAt(Index);
+				bPruned = true;
+			}
+		}
+		return bPruned;
+	}
 }
 
 //----------------------------------------------------------------------//
@@ -387,7 +407,16 @@ float UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(const FMass
 	Proxy->LoadEntity(*Attributes, *GAS, bAttacking);
 	const FActiveGameplayEffectHandle AppliedHandle = Proxy->ApplySpec(Spec);
 
-	bool bStoredDurationEffect = false;
+	// Pass 2 is needed whenever the stored effect list changed or the read would include something that is not stored.
+	bool bReevaluate = false;
+
+	// The incoming effect may have removed stored ones (cleanse / remove-effects components, immunity...): drop them from
+	// Mass too, otherwise they would come back on the next evaluation.
+	if (MechSwarm::SubsystemPrivate::PruneRemovedEffects(*ProxyASC, Proxy->GetStoredHandles(), *GAS))
+	{
+		bReevaluate = true;
+	}
+
 	if (Spec.Def->DurationPolicy != EGameplayEffectDurationType::Instant && AppliedHandle.IsValid())
 	{
 		if (const FActiveGameplayEffect* ActiveEffect = ProxyASC->GetActiveGameplayEffect(AppliedHandle))
@@ -395,6 +424,8 @@ float UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(const FMass
 			if (ActiveEffect->GetPeriod() > 0.f)
 			{
 				UE_LOG(LogMechSentinel, Warning, TEXT("%s is periodic. Periodic effects are not persisted on sentinels; use an instant effect applied repeatedly for damage over time."), *GetNameSafe(Spec.Def));
+				// Not stored: its tags / modifiers must not stay in Mass either, so rebuild them from the stored list.
+				bReevaluate = true;
 			}
 			else
 			{
@@ -414,8 +445,9 @@ float UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(const FMass
 				Entry->Level = ActiveEffect->Spec.GetLevel();
 				Entry->RemainingTime = ActiveEffect->GetTimeRemaining(World ? World->GetTimeSeconds() : 0.f);
 				Entry->SetByCallerMagnitudes = ActiveEffect->Spec.SetByCallerTagMagnitudes;
+				Entry->StackCount = FMath::Max(1, ActiveEffect->Spec.GetStackCount());
 				Entry->InstigatorASC = Spec.GetEffectContext().GetInstigatorAbilitySystemComponent();
-				bStoredDurationEffect = true;
+				bReevaluate = true;
 			}
 		}
 	}
@@ -424,7 +456,7 @@ float UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(const FMass
 	Proxy->Unload();
 
 	// Pass 2: re-evaluate the current values from the updated effect list (no double counting of a refreshed effect).
-	if (bStoredDurationEffect)
+	if (bReevaluate)
 	{
 		Proxy->LoadEntity(*Attributes, *GAS, bAttacking);
 		Proxy->ReadBack(*Attributes, *GAS);
@@ -467,7 +499,15 @@ void UMechSentinelSwarmSubsystem::RecomputeSentinel(const FMassEntityHandle Enti
 		return;
 	}
 
-	Proxy->LoadEntity(*Attributes, *GAS, View.HasTag<FMechSentinelAttackingTag>());
+	const bool bAttacking = View.HasTag<FMechSentinelAttackingTag>();
+	Proxy->LoadEntity(*Attributes, *GAS, bAttacking);
+	// Stored effects that can no longer be applied (immunity, requirements) or that removed each other are dropped.
+	const bool bPruned = MechSwarm::SubsystemPrivate::PruneRemovedEffects(*Proxy->GetAbilitySystemComponent(), Proxy->GetStoredHandles(), *GAS);
+	if (bPruned)
+	{
+		Proxy->Unload();
+		Proxy->LoadEntity(*Attributes, *GAS, bAttacking);
+	}
 	Proxy->ReadBack(*Attributes, *GAS);
 	Proxy->Unload();
 
@@ -493,51 +533,75 @@ void UMechSentinelSwarmSubsystem::SyncStateFromGAS(FMassEntityManager& EntityMan
 {
 	using namespace MechSwarm::SubsystemPrivate;
 
-	const FMassEntityView View(EntityManager, Entity);
-	FMechSentinelAttributesFragment* Attributes = View.GetFragmentDataPtr<FMechSentinelAttributesFragment>();
-	FMechSentinelGASFragment* GAS = View.GetFragmentDataPtr<FMechSentinelGASFragment>();
-	FMechSentinelStateFragment* State = View.GetFragmentDataPtr<FMechSentinelStateFragment>();
-	if (!Attributes || !GAS || !State)
+	if (!EntityManager.IsEntityActive(Entity))
 	{
 		return;
 	}
 
-	if (Attributes->Health <= 0.f)
+	// Every fragment read / write happens first: outside processing, a tag change below moves the entity to another
+	// archetype right away, which invalidates the view and the fragment pointers.
+	bool bKilled = false;
+	bool bStunned = false;
+	bool bEnteredStun = false;
+	FVector Location = FVector::ZeroVector;
 	{
-		if (State->State != EMechSentinelState::Dead)
+		const FMassEntityView View(EntityManager, Entity);
+		FMechSentinelAttributesFragment* Attributes = View.GetFragmentDataPtr<FMechSentinelAttributesFragment>();
+		FMechSentinelGASFragment* GAS = View.GetFragmentDataPtr<FMechSentinelGASFragment>();
+		FMechSentinelStateFragment* State = View.GetFragmentDataPtr<FMechSentinelStateFragment>();
+		if (!Attributes || !GAS || !State)
 		{
+			return;
+		}
+
+		if (Attributes->Health <= 0.f)
+		{
+			if (State->State == EMechSentinelState::Dead)
+			{
+				return;
+			}
 			const FMechSentinelParameters* Params = View.GetConstSharedFragmentDataPtr<FMechSentinelParameters>();
 			State->State = EMechSentinelState::Dead;
 			State->TimeInState = 0.f;
 			State->DeathTimeRemaining = Params ? Params->DeathFallDuration : 2.f;
 			GAS->OwnedTags.AddTag(MechSentinelTags::State_Sentinel_Dead);
-			// Death owns the position from now on (fall), default movement must leave it alone.
-			SetMassTag<FMechSentinelDeadTag>(EntityManager, Entity, true);
-			SetMassTag<FMassCustomMovementTag_Copy>(EntityManager, Entity, true);
-			SetMassTag<FMechSentinelAttackingTag>(EntityManager, Entity, false);
-			SetMassTag<FMechSentinelStunnedTag>(EntityManager, Entity, false);
-
-			const FVector Location = View.GetFragmentData<FTransformFragment>().GetTransform().GetLocation();
-			OnSentinelKilled.Broadcast(FMechSentinelHandle(Entity), Location, Instigator);
+			Location = View.GetFragmentData<FTransformFragment>().GetTransform().GetLocation();
+			bKilled = true;
 		}
+		else
+		{
+			bStunned = GAS->OwnedTags.HasTagExact(MechSentinelTags::State_Sentinel_Stunned);
+			const bool bWasStunned = State->State == EMechSentinelState::Stunned;
+			if (bStunned && !bWasStunned)
+			{
+				State->State = EMechSentinelState::Stunned;
+				State->TimeInState = 0.f;
+				bEnteredStun = true;
+			}
+			else if (!bStunned && bWasStunned)
+			{
+				State->State = EMechSentinelState::Seeking;
+				State->TimeInState = 0.f;
+			}
+		}
+	}
+
+	// Tag changes only from here on (no fragment access).
+	if (bKilled)
+	{
+		// Death owns the position from now on (fall), default movement must leave it alone.
+		SetMassTag<FMechSentinelDeadTag>(EntityManager, Entity, true);
+		SetMassTag<FMassCustomMovementTag_Copy>(EntityManager, Entity, true);
+		SetMassTag<FMechSentinelAttackingTag>(EntityManager, Entity, false);
+		SetMassTag<FMechSentinelStunnedTag>(EntityManager, Entity, false);
+		OnSentinelKilled.Broadcast(FMechSentinelHandle(Entity), Location, Instigator);
 		return;
 	}
 
-	const bool bStunned = GAS->OwnedTags.HasTagExact(MechSentinelTags::State_Sentinel_Stunned);
 	SetMassTag<FMechSentinelStunnedTag>(EntityManager, Entity, bStunned);
-	if (bStunned)
+	if (bEnteredStun)
 	{
-		if (State->State != EMechSentinelState::Stunned)
-		{
-			State->State = EMechSentinelState::Stunned;
-			State->TimeInState = 0.f;
-			SetMassTag<FMechSentinelAttackingTag>(EntityManager, Entity, false);
-		}
-	}
-	else if (State->State == EMechSentinelState::Stunned)
-	{
-		State->State = EMechSentinelState::Seeking;
-		State->TimeInState = 0.f;
+		SetMassTag<FMechSentinelAttackingTag>(EntityManager, Entity, false);
 	}
 }
 

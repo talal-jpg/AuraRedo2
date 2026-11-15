@@ -384,6 +384,7 @@ void UMechSentinelSteeringProcessor::ConfigureQueries(const TSharedRef<FMassEnti
 	EntityQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FMechSentinelTargetFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FMechSentinelAttributesFragment>(EMassFragmentAccess::ReadOnly);
+	EntityQuery.AddRequirement<FMechSentinelStateFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FMassDesiredMovementFragment_Copy>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddConstSharedRequirement<FMechSentinelParameters>(EMassFragmentPresence::All);
 	EntityQuery.AddSharedRequirement<FMechSentinelSharedAttributesFragment>(EMassFragmentAccess::ReadOnly);
@@ -408,6 +409,7 @@ void UMechSentinelSteeringProcessor::Execute(FMassEntityManager& EntityManager, 
 		const TConstArrayView<FTransformFragment> TransformList = Context.GetFragmentView<FTransformFragment>();
 		const TArrayView<FMechSentinelTargetFragment> TargetList = Context.GetMutableFragmentView<FMechSentinelTargetFragment>();
 		const TConstArrayView<FMechSentinelAttributesFragment> AttributeList = Context.GetFragmentView<FMechSentinelAttributesFragment>();
+		const TConstArrayView<FMechSentinelStateFragment> StateList = Context.GetFragmentView<FMechSentinelStateFragment>();
 		const TArrayView<FMassDesiredMovementFragment_Copy> DesiredList = Context.GetMutableFragmentView<FMassDesiredMovementFragment_Copy>();
 
 		const int32 NumEntities = Context.GetNumEntities();
@@ -420,8 +422,12 @@ void UMechSentinelSteeringProcessor::Execute(FMassEntityManager& EntityManager, 
 
 			if (bStunned)
 			{
-				// Systems offline: sink slowly, no steering.
-				Desired.DesiredVelocity = FVector(0.f, 0.f, -Params.FallGravity * Params.StunnedGravityScale);
+				// Systems offline: no steering, a short sink that fades out, then a dead hover. Alive sentinels have no
+				// ground check, so a long stun must not keep them sinking (through the floor).
+				const float SinkAlpha = Params.StunnedSinkDuration > KINDA_SMALL_NUMBER
+					? FMath::Clamp(1.f - StateList[EntityIndex].TimeInState / Params.StunnedSinkDuration, 0.f, 1.f)
+					: 0.f;
+				Desired.DesiredVelocity = FVector(0.f, 0.f, -Params.FallGravity * Params.StunnedGravityScale * SinkAlpha);
 				Desired.DesiredFacing = FQuat::Identity;
 				Desired.DesiredMaxSpeedOverride = FMath::Max(50.f, Speed * 0.35f);
 				continue;

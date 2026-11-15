@@ -149,6 +149,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mech Sentinels|Waves")
 	int32 GetRemainingToSpawn() const { return RemainingToSpawn; }
 
+	/** Planned size of the current wave (follows SetCountMultiplier / SetWaveCount). */
+	UFUNCTION(BlueprintPure, Category = "Mech Sentinels|Waves")
+	int32 GetCurrentWaveTotal() const { return CurrentWaveTotal; }
+
 	UFUNCTION(BlueprintPure, Category = "Mech Sentinels|Waves")
 	FName GetSwarmGroup() const;
 
@@ -238,6 +242,10 @@ protected:
 
 	UPROPERTY(Replicated, Transient)
 	int32 RemainingToSpawn = 0;
+
+	/** Replicated with the wave number so the client side OnWaveStarted reports the same count as the server. */
+	UPROPERTY(Replicated, Transient)
+	int32 CurrentWaveTotal = 0;
 
 private:
 	/** Wave definition for a 1 based wave number (repeats the last one with growth). */

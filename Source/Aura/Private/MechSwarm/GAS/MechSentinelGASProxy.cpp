@@ -67,17 +67,20 @@ void AMechSentinelGASProxy::LoadEntity(const FMechSentinelAttributesFragment& At
 	}
 
 	// Re-create the sentinel's active buffs / debuffs so GAS aggregates them (modifiers + granted tags).
+	StoredHandles.Reset(GAS.ActiveEffects.Num());
 	for (const FMechSentinelActiveEffect& Active : GAS.ActiveEffects)
 	{
+		FActiveGameplayEffectHandle& StoredHandle = StoredHandles.AddDefaulted_GetRef();
 		if (!Active.EffectClass)
 		{
 			continue;
 		}
 
 		FGameplayEffectContextHandle Context = ASC->MakeEffectContext();
-		if (UAbilitySystemComponent* Instigator = Active.InstigatorASC.Get())
+		// Not "Instigator": that name would shadow AActor::Instigator (shadow warnings are errors).
+		if (UAbilitySystemComponent* SourceASC = Active.InstigatorASC.Get())
 		{
-			Context.AddInstigator(Instigator->GetOwnerActor(), Instigator->GetAvatarActor());
+			Context.AddInstigator(SourceASC->GetOwnerActor(), SourceASC->GetAvatarActor());
 		}
 
 		const FGameplayEffectSpecHandle SpecHandle = ASC->MakeOutgoingSpec(Active.EffectClass, Active.Level, Context);
@@ -94,11 +97,16 @@ void AMechSentinelGASProxy::LoadEntity(const FMechSentinelAttributesFragment& At
 		{
 			SpecHandle.Data->SetDuration(Active.RemainingTime, /*bLockDuration*/true);
 		}
+		if (Active.StackCount > 1)
+		{
+			SpecHandle.Data->SetStackCount(Active.StackCount);
+		}
 
 		const FActiveGameplayEffectHandle Handle = ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 		if (Handle.IsValid())
 		{
 			TemporaryHandles.Add(Handle);
+			StoredHandle = Handle;
 		}
 	}
 }
@@ -150,6 +158,16 @@ void AMechSentinelGASProxy::Unload()
 		ASC->RemoveActiveGameplayEffect(Handle);
 	}
 	TemporaryHandles.Reset();
+	StoredHandles.Reset();
+
+	// GAS can apply effects on its own (additional "on application" effects, on-complete effects fired by the removals
+	// above...). The proxy is shared by every sentinel, so nothing may survive the unload: an empty query matches every
+	// active effect. A few passes because each removal can apply further on-complete effects.
+	const FGameplayEffectQuery MatchAll;
+	for (int32 Pass = 0; Pass < 4 && ASC->GetActiveEffects(MatchAll).Num() > 0; ++Pass)
+	{
+		ASC->RemoveActiveEffects(MatchAll);
+	}
 
 	if (bAttackingTagAdded)
 	{

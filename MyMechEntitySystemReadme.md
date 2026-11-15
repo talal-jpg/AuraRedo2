@@ -347,7 +347,9 @@ even when sentinels die, players leave or the board changes.
         |                                UMechSentinelAttributeSet::PostGameplayEffectExecute: IncomingDamage -> Health
         |          Proxy.ReadBack    : bases + currents + owned tags -> Mass
         |          Proxy.Unload      : remove every temporary effect / loose tag (proxy is blank again)
-        |  pass 2  (only if a duration effect was stored) Load / ReadBack / Unload to re-evaluate currents
+        |                              + anything GAS applied on its own (on-application / on-complete effects)
+        |          prune             : stored effects the spec removed (cleanse, immunity) are dropped from Mass
+        |  pass 2  (when the stored list changed or the spec was periodic) Load / ReadBack / Unload to re-evaluate
         v
  Mass: FMechSentinelAttributesFragment, FMechSentinelGASFragment updated
         | HitFlash = 1, ++HitSerial, OnSentinelDamaged
@@ -439,7 +441,9 @@ Amount control:
 * Pacing: `SpawnDuration`, `SpawnBatchSize`, `DelayBefore`, `TimeLimit`.
 * Per-wave stat multipliers scale the trait's attribute defaults at spawn.
 * `SpawnSentinelsNow(n)`, `StartNextWave()`, `StopWaves()`, `DespawnAll(bKill)`.
-* Events: `OnWaveStarted(wave, count)` (server + clients), `OnWaveCleared(wave)` (server).
+* Events: `OnWaveStarted(wave, count)` (server + clients; `count` is the replicated `GetCurrentWaveTotal()`, so both
+  sides report the same number), `OnWaveCleared(wave)` (server).
+* `StartWaves` with an empty `Waves` array goes straight to Finished.
 
 The spawner also registers its `FallbackTargets` (and itself, when `bSpawnerIsFallbackTarget`) for its swarm group.
 
@@ -537,17 +541,23 @@ the Replication trait, client bubble base classes), which the custom agent / bub
   runs real GAS (execs, modifiers, tag requirements, immunity, stacking), writes the result back to Mass and unloads.
   Cost is paid only on combat events, not per frame.
 * **Duration / infinite effects** are stored on the entity (`FMechSentinelGASFragment::ActiveEffects`: class, level,
-  remaining time, SetByCaller values) and re-applied on the proxy when the entity is evaluated. Re-applying the same
-  class refreshes it. Limitations: periodic effects are not persisted (a warning is logged; apply an instant effect
-  repeatedly for damage over time), MaxHealth is base-only, and GE "application" side effects (cues, ability grants,
-  execution of on-application components) of stored effects re-run each time the proxy reloads them. Cues are suppressed
-  on the proxy; sentinel visuals come from Mass.
+  remaining time, stack count, SetByCaller values) and re-applied on the proxy when the entity is evaluated. Re-applying
+  the same class refreshes it with what GAS resolved (stacking rules included). Stored effects that GAS removes during an
+  evaluation (a cleanse, immunity, application requirements no longer met) are dropped from the entity. The proxy is
+  shared, so `Unload` also removes every effect GAS applied on its own (additional on-application effects, on-complete
+  effects of the removals). Limitations: periodic effects are not persisted (a warning is logged, their tags and
+  modifiers are not kept; apply an instant effect repeatedly for damage over time), MaxHealth is base-only, and GE
+  "application" side effects (cues, ability grants, execution of on-application components) of stored effects re-run
+  each time the proxy reloads them. Cues are suppressed on the proxy; sentinel visuals come from Mass.
+* **Stunned sentinels** stop steering, sink for `StunnedSinkDuration` (slowing to a stop) and then hover in place: live
+  sentinels have no ground check, so a long stun must not drag them through the floor.
 * **Players as source of sentinel attacks**: the proxy ASC is the source. It carries a default `UMyAttributeSet` so the
   project's `ExecCalc_Damage` can capture source attributes (CritChance = 0).
 * **Targeting is server side**; clients only see positions and states.
 * **Replication**: positions are throttled by replication LOD, discrete events are immediate. Bandwidth grows with the
   number of relevant sentinels per client: tune the Replication trait LOD distances / max counts and `MaxAliveSentinels`
-  for your player count. Clients have no hit queries (the collision hash is built on the server only).
+  for your player count. Clients have no hit queries (the collision hash is built on the server only), and
+  `GetNumAliveSentinels` is server only for the same reason; clients read the wave spawner's replicated counts.
 * **The global alive cap is soft**: it uses the alive count of the last collision-hash rebuild plus what a spawner created
   this frame, so several spawners in the same frame can overshoot by a batch.
 * **Wrecks**: dead sentinels fall with gravity, stop on WorldStatic geometry (one line trace per falling wreck per frame),
@@ -592,7 +602,7 @@ and checks triangle counts, size, slots and sockets.
  ---------------------------------------------------------                    ------------------------------------
  UMassVisualizationLODProcessor_Copy  -> LOD per sentinel
  UMechSentinelTentacleProcessor
-   pass 1: wants ribbons = LOD High/Medium and distance < MaxDistance
+   pass 1: wants ribbons = LOD High/Medium and distance < MaxDistance (owners keep them to 1.1 x MaxDistance)
    budget: closest MaxRiggedSentinels keep / get a rig (owners get a bonus)
    pass 2: no rig -> bForceLowLODMesh (ISM draws SM_MechSentinel_Far)
            rig    -> 8 chains x 12 points, 18 cm apart:                       NS_MechSentinelTentacles
@@ -659,6 +669,9 @@ set (one set per distinct trait description) draws every rigged sentinel, so the
    Renderer Visibility tag 1 bound to `Particles.VisibilityTag`.
 9. System properties: no Effect Type distance culling (the component sits at the world origin). Save.
 10. On the entity config add the **Mech Sentinel Tentacles (Niagara)** trait and set Niagara System to it.
+
+Without a Niagara system on the trait, sentinels of that config never get ribbons and draw `SM_MechSentinel_Far` (baked
+tentacles) at every LOD, so a config is never left with bare heads.
 
 Tuning: `MaxDistance` should be close to the Medium LOD distance of the visualization trait (beyond it the far mesh is
 used anyway); raise `MaxRiggedSentinels` for big close swarms. The roots come from the head mesh sockets `Tentacle_XX`

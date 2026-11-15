@@ -43,8 +43,14 @@ public:
 	/** Writes the evaluated values back. Returns the damage removed from Health since LoadEntity. */
 	float ReadBack(FMechSentinelAttributesFragment& OutAttributes, FMechSentinelGASFragment& OutGAS) const;
 
-	/** Removes every effect / loose tag added since LoadEntity. */
+	/** Removes every effect / loose tag added since LoadEntity, including effects GAS applied on its own. */
 	void Unload();
+
+	/**
+	 * Handles of the stored effects re-applied by LoadEntity, index-aligned with FMechSentinelGASFragment::ActiveEffects
+	 * (invalid where the re-application failed). Lets the bridge see which stored effects GAS removed.
+	 */
+	const TArray<FActiveGameplayEffectHandle>& GetStoredHandles() const { return StoredHandles; }
 
 	bool IsLoaded() const { return bLoaded; }
 
@@ -67,6 +73,7 @@ protected:
 
 private:
 	TArray<FActiveGameplayEffectHandle> TemporaryHandles;
+	TArray<FActiveGameplayEffectHandle> StoredHandles;
 	bool bLoaded = false;
 	bool bAttackingTagAdded = false;
 };
