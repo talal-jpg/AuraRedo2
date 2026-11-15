@@ -230,7 +230,11 @@ void AMyPlayerController2::Rotate(const FInputActionValue& Value)
 
 void AMyPlayerController2::Jump(const FInputActionValue& Value)
 {
-	Cast<AMyCharBase>(GetPawn())->Jump();
+	// No pawn between falling out of the world and the respawn
+	if (AMyCharBase* MyCharBase=Cast<AMyCharBase>(GetPawn()))
+	{
+		MyCharBase->Jump();
+	}
 	
 }
 

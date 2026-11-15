@@ -28,14 +28,20 @@ void AMyHUD::InitOverlay()
 			UE_LOG(LogTemp, Error, TEXT("OverlayUserWidgetClass is not set in MyHUD!"));
 			return;
 		}
-		OverlayWidget=CreateWidget<UMyUserWidget>(PlayerController, OverlayUserWidgetClass);
-		UMyOverlayWidgetController* OverlayWidgetController= NewObject<UMyOverlayWidgetController>(this,OverlayWidgetControllerClass);
+		// Every new pawn calls this (respawns too). The overlay listens to the PlayerState, its ASC and attributes,
+		// which outlive the pawn, so the first one carries on
+		if (OverlayWidget)
+		{
+			return;
+		}
 		AMyPlayerState* PlayerState=PlayerController->GetPlayerState<AMyPlayerState>();
 		if (PlayerState == nullptr)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("PlayerState is null in InitOverlay"));
 			return;
 		}
+		OverlayWidget=CreateWidget<UMyUserWidget>(PlayerController, OverlayUserWidgetClass);
+		UMyOverlayWidgetController* OverlayWidgetController= NewObject<UMyOverlayWidgetController>(this,OverlayWidgetControllerClass);
 		UMyAbilitySystemComponent* MyAbilitySystemComponent=PlayerState->MyAbilitySystemComponent;
 		UMyAttributeSet* AttributeSet=PlayerState->MyAttributeSet;
 	

@@ -12,6 +12,7 @@ class UGameplayEffect;
 class UCameraComponent;
 class USpringArmComponent;
 class UInputMappingContext;
+struct FGameplayTag;
 
 UCLASS()
 class AURA_API AMyCharPlayer : public AMyCharBase , public IMyPlayerInterface
@@ -23,6 +24,9 @@ public:
 	AMyCharPlayer();
 	
 	void RegisterToBoostingState();
+	
+	/** State.Boosting on the ASC: jets on while it is there. */
+	void OnBoostingTagChanged(const FGameplayTag Tag, int32 Count);
 	
 	UFUNCTION(BlueprintImplementableEvent)
 	void InitJets();
@@ -88,6 +92,12 @@ public:
 	
 	
 	void InitializeAttributes();
+	
+	/**
+	 * A respawned pawn (AMyGameMode): the PlayerState's ASC already has its abilities and attribute effects
+	 * from the first pawn. Clears State.Dead and, on the server, refills health and mana.
+	 */
+	void InitAbilitySystemAfterRespawn();
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UGameplayEffect> PrimaryAttributesEffect;
