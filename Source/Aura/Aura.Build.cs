@@ -12,6 +12,9 @@ public class Aura : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "GameplayTags","GameplayTasks","NetCore", "OnlineSubsystemUtils", "PCG","ApplicationCore","DeveloperSettings","GeometryCollectionEngine","Chaos" });
 
+		// Mech Sentinel swarm (Source/Aura/*/MechSwarm). Needs the MassGameplay plugin (enabled in Aura.uproject).
+		PublicDependencyModuleNames.AddRange(new string[] { "MassEntity", "MassCore", "MassCommon", "MassSpawner", "MassSimulation", "MassLOD", "MassReplication" });
+
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		

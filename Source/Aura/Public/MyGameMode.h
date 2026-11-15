@@ -10,6 +10,7 @@ class UDA_MyAbilityInfo;
 class UMyLevelUpInfo;
 class UDA_MyEnemyCharacterClassInfo;
 class UMySpellMenuWidgetController;
+class UMechSentinelSwarmRules;
 /**
  * 
  */
@@ -34,5 +35,9 @@ public:
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UMySpellMenuWidgetController> SpellMenuWidgetControllerClass;
+	
+	/** Global, server side rules of the Mass sentinel swarm (targeting caps, armor formula, damage effects). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mech Sentinels")
+	TObjectPtr<UMechSentinelSwarmRules> SentinelSwarmRules;
 	
 };
