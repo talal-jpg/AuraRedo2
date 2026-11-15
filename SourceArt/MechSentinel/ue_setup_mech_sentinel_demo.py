@@ -14,8 +14,6 @@ DEMO_DIR = ROOT + "/Demo"
 MAP_PATH = DEMO_DIR + "/L_MechSentinelDemo"
 TEMPLATE_MAP = "/Engine/Maps/Templates/Template_Default"  # the "Basic" level template
 PROJECT_GAME_MODE = "/Game/Level/BP_MyGameMode"  # the GameMode Blueprint the project's maps use (AMyGameMode)
-# The project's player damage effect: ExecCalc_Damage reads SetByCaller SetDamageByCaller and writes IncomingDamage.
-PLAYER_DAMAGE_EFFECT = "/Game/Level/GAS/GameplayEffects/GE_ProjectileDamage"
 
 asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
 EAL = unreal.EditorAssetLibrary
@@ -75,6 +73,23 @@ def make_damage_effect():
     execution = import_struct(unreal.GameplayEffectExecutionDefinition,
                               "(CalculationClass=\"/Script/CoreUObject.Class'/Script/Aura.ExecCalc_SentinelDamage'\")")
     ge.set_editor_property("executions", [execution])
+    save(bp)
+    return bp
+
+
+def make_attack_effect():
+    """GE_SentinelAttack: Instant, MyAttributeSet.IncomingDamage Add (Base), Set by Caller tag SetDamageByCaller.
+    The sentinel attack sets that magnitude to its AttackDamage; MyAttributeSet turns IncomingDamage into Health loss."""
+    bp = blueprint("GE_SentinelAttack", GAS_DIR, unreal.GameplayEffect)
+    ge = cdo(bp)
+    ge.set_editor_property("duration_policy", unreal.GameplayEffectDurationType.INSTANT)
+    # Built from text: FGameplayAttribute (a field path) and the EditDefaultsOnly magnitude fields can't be set from Python.
+    modifier = import_struct(
+        unreal.GameplayModifierInfo,
+        "(Attribute=(AttributeName=\"IncomingDamage\",Attribute=/Script/Aura.MyAttributeSet:IncomingDamage,"
+        "AttributeOwner=\"/Script/CoreUObject.Class'/Script/Aura.MyAttributeSet'\"),ModifierOp=AddBase,"
+        "ModifierMagnitude=(MagnitudeCalculationType=SetByCaller,SetByCallerMagnitude=(DataTag=(TagName=\"SetDamageByCaller\"))))")
+    ge.set_editor_property("modifiers", [modifier])
     save(bp)
     return bp
 
@@ -267,8 +282,8 @@ def make_map(game_mode, entity_config):
 
 def main():
     damage = make_damage_effect()
+    attack = make_attack_effect()
     make_stun_effect()
-    attack = unreal.load_asset(PLAYER_DAMAGE_EFFECT)
     rules = make_rules(damage, attack.generated_class())
     config = make_entity_config()
     game_mode = make_game_mode(rules)
@@ -276,4 +291,6 @@ def main():
     log("done: open %s and press Play" % MAP_PATH)
 
 
-main()
+# Tools > Execute Python Script runs this as __main__; import it (or exec with another __name__) to call single steps.
+if __name__ == "__main__":
+    main()
