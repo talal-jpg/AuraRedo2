@@ -146,10 +146,11 @@ damage per second before the player's own defences, 32 per second in W4. A senti
 
 **At runtime** (spawner, server, Blueprint callable): `StartWaves`, `StopWaves`, `StartNextWave`, `SetCountMultiplier`,
 `SetWaveCount`, `SpawnSentinelsNow(n)`, `DespawnAll` (these two are carried out by the spawner's tick later the same
-frame); read `GetCurrentWaveNumber`, `GetCurrentWaveTotal`, `GetAliveCount`, `GetRemainingToSpawn`; bind
-`OnWaveStarted(wave, count)` / `OnWaveCleared(wave)`. Buffs and debuffs are gameplay effects on the sentinels
-(modifiers on `MechSentinelAttributeSet.Armor`, `AttackDamage`, `AttackSpeed`, `MoveSpeedMultiplier`, or
-`State.Sentinel.Stunned` / `Shielded` tags); the swarm speed is `UMechSentinelSwarmSubsystem::SetSwarmMovementSpeed`.
+frame, and `DespawnAll` cancels spawn requests made before it); read `GetCurrentWaveNumber`, `GetCurrentWaveTotal`,
+`GetAliveCount`, `GetRemainingToSpawn`; bind `OnWaveStarted(wave, count)` / `OnWaveCleared(wave)`. Buffs and debuffs
+are gameplay effects on the sentinels (modifiers on `MechSentinelAttributeSet.Armor`, `AttackDamage`, `AttackSpeed`,
+`MoveSpeedMultiplier`, or `State.Sentinel.Stunned` / `Shielded` tags); the swarm speed is
+`UMechSentinelSwarmSubsystem::SetSwarmMovementSpeed`.
 
 **Shooting them**: `GA_GunShoot` deals `SentinelDamage` (40) to the first sentinel on the shot's line. After armor that
 is 4 shots per sentinel in W1, 5 in W2, 7 in W3 and 9 in W4. Projectiles need a `MechSentinelHitCapsuleComponent`
@@ -502,6 +503,11 @@ player's `MyAttributeSet.IncomingDamage`, which the attribute set turns into hea
 `GE_SentinelAttack` in the demo does the same. Neither runs the project's `ExecCalc_Damage` (no block / crit rolls, no
 debug prints); assign a GE that executes it to get those. An empty `SentinelAttackEffect` makes attacks visual only.
 
+Rules assets saved before these defaults existed, with `SentinelAttackEffect` left empty, now load the built-in attack:
+an empty value that matched the old default was never saved. To keep attacks visual only, clear it again and re-save the
+asset, which saves the empty value. `DefaultSentinelDamageEffect` works the same way. The repository's
+`DA_MechSentinelSwarmRules` sets both explicitly.
+
 ---
 
 ## 9. Replication data flow
@@ -541,9 +547,11 @@ Why it works on clients:
   (`bAutoRegisterWithProcessingPhases=False`) and `UMechSentinelReplicationProcessor` on. It is a subclass with the same
   steps (client sync, LOD, replication, sync back), but it runs the replicator through `ClientReplicationQuery`, a
   registered member query with the engine's requirements plus `UMechSentinelReplicator`'s, so the queue also knows
-  which fragments it reads and writes. It only runs `UMechSentinelReplicator`: an entity config with another replicator
-  is logged once and not replicated. The debug LOD display (`mass.debug.ClientReplicationLOD`) is left out because it
-  ran the same unregistered queries. Remove the class and the two ini sections once the engine registers its query.
+  which fragments it reads and writes. It only runs `UMechSentinelReplicator` itself, not subclasses, which could need
+  fragments the query lacks: the swarm refuses a sentinel config with another replicator class (with an error), and an
+  entity type of anything else that uses another replicator is logged once and not replicated. The debug LOD display
+  (`mass.debug.ClientReplicationLOD`) is left out because it ran the same unregistered queries. Remove the class and the
+  two ini sections once the engine registers its query.
 * Entities destroyed on the server are removed from every client bubble by `UMechSentinelReplicationDestroyObserver`
   in the same frame. The engine only removes agents of entities it still finds in a client's range; when a whole wave
   in range dies in one frame it would otherwise leave stale agents and hit its cleanup assert.
@@ -577,6 +585,8 @@ Amount control:
   `DespawnAll` only queue the request, because the caller may run next to a Mass phase: the spawner's tick carries it
   out later the same frame. Manual spawns are created at most `SpawnBatchSize` per frame within `MaxAlive` and the
   rules' `MaxAliveSentinels`, and whatever the caps leave out is dropped. `SpawnSentinelsNow` returns how many it queued.
+  `DespawnAll` cancels the spawn requests queued before it, so the order of calls in a frame is kept. A spawner
+  destroyed (or unloaded) right after `DespawnAll` still despawns its sentinels, on the next timer tick.
 * Events: `OnWaveStarted(wave, count)` (server + clients; `count` is the replicated `GetCurrentWaveTotal()`, so both
   sides report the same number), `OnWaveCleared(wave)` (server).
 * `StartWaves` with an empty `Waves` array goes straight to Finished.
@@ -584,6 +594,8 @@ Amount control:
 The spawner also registers its `FallbackTargets` (and itself, when `bSpawnerIsFallbackTarget`) for its swarm group.
 It ticks in TG_PostUpdateWork, after the Mass phases, because Mass cannot create entities while a phase runs
 ([section 6](#6-one-frame-step-by-step), timing rule); `BeginPlay` also sets that group on instances saved with another.
+For the same reason, a spawner spawned on the server during play builds its entity template on its first spawn, in its
+tick, instead of when it is created.
 
 ---
 
@@ -608,7 +620,10 @@ Also available (all Blueprint callable): `FindSentinelsInCapsule`, `SweepSentine
 
 Call the hit functions outside the Mass phases ([section 6](#6-one-frame-step-by-step), timing rule). An ability
 activated by input runs in TG_PrePhysics, next to a running phase, so defer the hit with **Set Timer for Next Tick**
-(timers run after TG_PostPhysics), like `GA_GunShoot` does.
+(timers run after TG_PostPhysics), like `GA_GunShoot` does. The same goes for `ApplyHitsNow` from a melee swing's anim
+notify, and for handlers of the player damage and death events, which fire inside the attack processor. A hit that
+does land during a phase cannot crash it: kills and stuns change Mass tags, and those are deferred whenever a phase may
+be running. Its damage, though, is written at once, while the phase's worker threads may read the same sentinel.
 
 `UMechSentinelHitCapsuleComponent` wraps this for projectiles: every server tick it tests its capsule plus the path
 since last frame (no tunnelling), hits each sentinel once, supports piercing (`MaxSentinelsHit`), extra effects,
@@ -621,11 +636,13 @@ The project's gun ability damages sentinels on the server, on top of what it alr
 no engine collision), so the ability sweeps the shot against their capsules itself:
 
 ```
- ActivateAbility (server)       listen for the shot's target data on the ASC, before the Blueprint runs: the listen
-                                server host sends it from inside ActivateAbility, a remote client's arrives later
- shot target data arrives       once per shot (AT_SendMouseCursorData replays cached data: the same shot is skipped)
+ AT_SendMouseCursorData         hands each shot's target data to UMyGameplayAbility::OnServerMouseCursorData, then
+ (server)                       broadcasts it to the Blueprint (which may end the ability): the listen server host's
+                                own shot from Activate, a remote client's when it arrives
+ OnServerMouseCursorData        once per shot (a shot the task replays, or that two waiting tasks both get, is skipped)
    segment                      from the character along the aim (camera through crosshair), up to the trace's first
-                                blocking hit (wall, character) or SentinelShotRange
+                                blocking hit (wall, character) or SentinelShotRange. The client sends the aim: an
+                                origin over 50 m from the character is ignored, and the shot follows the pawn's view
    spec                         SentinelDamageEffect or the rules' DefaultSentinelDamageEffect, at the ability level,
                                 SetByCaller SetDamageByCaller = SentinelDamage
  next timer tick (same frame)   QueryCapsule(segment, SentinelShotRadius) -> ApplySpecToHits(closest SentinelMaxTargets)
@@ -739,17 +756,22 @@ its place, to work around a UE 5.8.2 bug ([section 9](#9-replication-data-flow))
 * **Avoidance** is entity-entity only (3D separation with prediction, applied as an acceleration on the velocity after the
   steering approach, so it is not cancelled by the acceleration limit). There is no level-geometry avoidance for live
   sentinels; keep the play space open or add fallback points away from walls.
-* **Movement speed** is a shared fragment per swarm group (change it with `SetSwarmMovementSpeed`), scaled per entity by
-  the `MoveSpeedMultiplier` attribute (slows / hastes through GAS).
+* **Movement speed** is a shared fragment per swarm group (change it with `SetSwarmMovementSpeed`, outside the Mass
+  phases), scaled per entity by the `MoveSpeedMultiplier` attribute (slows / hastes through GAS).
 * **No DeveloperSettings**: global data is the rules asset referenced by the GameMode, runtime state is in the world subsystem.
 * **Built-in damage effects**: the rules default to C++ effects, so damage works with no assets and no rules asset.
   The built-in sentinel attack skips the project's `ExecCalc_Damage` (no block / crit rolls on players).
 * **Engine workaround (UE 5.8.2)**: the engine's replication processor is replaced through `Config/DefaultMass.ini`
-  ([section 9](#9-replication-data-flow)). The replacement only runs `UMechSentinelReplicator`, and
+  ([section 9](#9-replication-data-flow)). The replacement only runs `UMechSentinelReplicator` itself, and
   `mass.debug.ClientReplicationLOD` draws nothing. Remove both once the engine is fixed.
 * **Timing rule**: spawning, despawning and hits run outside the Mass phases ([section 6](#6-one-frame-step-by-step)).
   The spawner and the hit capsule tick in TG_PostUpdateWork, `GA_GunShoot` defers its hit to a timer, and
   `SpawnSentinelsNow` / `DespawnAll` are queued. Blueprint callers of the hit functions must follow the same rule.
+  Tag changes from a hit (kills, stuns) are deferred whenever a phase may be running, so a hit from the wrong place
+  cannot crash; its damage write can still race the phase's worker threads.
+* **Client aim is checked**: the gun's aim comes from the client, so the server ignores an aim origin over 50 m from
+  the shooter. `QueryCapsule` counts hash cells in 64 bits and scans every sentinel instead when the bounds are huge
+  or not finite, so no shot can hang the server.
 * **Gun hits are not lag compensated**: the server sweeps the shot against where the sentinels are when the shot
   arrives, and what the shooting client saw is about one round trip (plus smoothing) older than that.
   `SentinelShotRadius` gives some slack. The hit lands later in the frame the shot arrives in (timer).
@@ -822,7 +844,8 @@ root to the tip, goes through these steps:
 1. **Inertia, drag, gravity, current.** It keeps last frame's motion minus `Damping` (water drag), and gains `Gravity`
    and the swirling current. The current is one smooth, divergence free field in world space (two layers of an ABC
    flow), 0 at the root and `FlowStrength` at the tip, so neighbouring sentinels sway together and one flying through
-   it ripples.
+   it ripples. Its swirls are metres wide, so it is computed at the root, the middle and the tip of each chain only,
+   and interpolated in between.
 2. **Pose spring.** A weak spring (`Stiffness`, `x TipStiffnessScale` at the tip) pulls it toward the trailing pose,
    which is the rest shape behind the head plus the swimming wave. It only decides where the tentacles settle while
    the head holds still.
@@ -834,8 +857,10 @@ root to the tip, goes through these steps:
    pulls, never pushes, which is why a fast head drags its tentacles into long streams.
 
 Every rate is per second, so the motion does not depend on the frame rate. An offline test of these exact steps at
-15 to 240 fps gave the same shapes. At 9 m/s the tentacles stream about 20% longer than at rest (1.17 x at 30 fps, 1.20 x
-at 60, 1.22 x at 144), and nothing folds or explodes after hard stops.
+15 to 240 fps gave the same shapes. At 9 m/s the tentacles stream about 20% longer than at rest (1.17 x at 30 fps,
+1.20 x at 60, 1.22 x at 144), and nothing folds or explodes after hard stops. The inertia is time corrected: last
+frame's motion is carried on at the speed it was made at, so a long frame (a hitch) does not fling the tentacles
+forward over the head on the frame after it.
 
 Settings (entity config > **Mech Sentinel Tentacles (Niagara)** trait):
 

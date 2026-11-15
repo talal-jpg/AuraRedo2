@@ -85,6 +85,14 @@ namespace MechSwarm::Tentacles
 			FMath::Cos(A.Y + 0.89 * Time) + 0.5 * FMath::Cos(B.X - 1.21 * Time + 2.3)) * (1.0 / 1.37);
 	}
 
+	/** The current at a point of a chain, from samples at the root, the middle point and the tip (linear in between). */
+	FORCEINLINE FVector InterpolateFlow(const FVector (&Samples)[3], const int32 Point, const int32 MidPoint, const int32 LastPoint)
+	{
+		return Point <= MidPoint
+			? FMath::Lerp(Samples[0], Samples[1], float(Point) / float(MidPoint))
+			: FMath::Lerp(Samples[1], Samples[2], float(Point - MidPoint) / float(LastPoint - MidPoint));
+	}
+
 	/** Direction turned toward Reference until it is at most the max bend angle away from it. */
 	FORCEINLINE FVector LimitBend(const FVector& Direction, const FVector& Reference, const FVector& Fallback, const double CosMax, const double SinMax)
 	{
@@ -115,10 +123,11 @@ namespace MechSwarm::Tentacles
 	 * Then, from the root to the tip, it is tied to the point before it: it may bend at most MaxBendAngle, and a stretched
 	 * segment springs back toward SegmentLength (XPBD, critically damped) up to StretchRatio. Because the tie only pulls,
 	 * a fast head drags its tentacles into long streams that catch up when it slows down. Every rate is frame rate
-	 * independent (checked offline at 15 to 240 fps).
+	 * independent (checked offline at 15 to 240 fps). VelocityScale is this frame's time over last frame's (time-corrected
+	 * verlet): the motion a long frame made is carried on at the speed it was made at, so a hitch does not fling the chains.
 	 */
 	bool SimulateRig(FMechSentinelTentacleSet& Set, const int32 Rig, const FTransform& MeshTransform, const bool bReset,
-		const FRigInputs& Inputs, const float DeltaTime, const float Time)
+		const FRigInputs& Inputs, const float DeltaTime, const float VelocityScale, const float Time)
 	{
 		const FMechSentinelTentacleDesc& Desc = Set.Desc;
 		const int32 NumPoints = Desc.PointsPerTentacle;
@@ -131,7 +140,7 @@ namespace MechSwarm::Tentacles
 		const FVector Forward = Rotation.GetAxisX();
 		const FVector Up = Rotation.GetAxisZ();
 		const FVector GravityAccel(0.f, 0.f, -Desc.Gravity * Inputs.GravityScale);
-		const float Retain = FMath::Pow(1.f - FMath::Clamp(Desc.Damping, 0.f, 1.f), DeltaTime * 60.f);
+		const float Retain = FMath::Pow(1.f - FMath::Clamp(Desc.Damping, 0.f, 1.f), DeltaTime * 60.f) * VelocityScale;
 		const float SwayAngle = UE_TWO_PI * Desc.SwayFrequency * Inputs.SwaySpeedScale * Time;
 		const float TeleportSq = FMath::Square(Desc.TeleportDistance);
 
@@ -147,6 +156,7 @@ namespace MechSwarm::Tentacles
 		const double InvFlowScale = 1.0 / FMath::Max(Desc.FlowScale, 1.f);
 		const double FlowTime = double(Time) * Desc.FlowSpeed;
 		const float FlowAccel = Desc.FlowStrength * Inputs.SwayScale;
+		const int32 MidPoint = (NumPoints - 1) / 2;
 
 		Set.RigSeen[Rig] = true;
 
@@ -174,6 +184,18 @@ namespace MechSwarm::Tentacles
 			Set.Positions[Base] = Root;
 			Set.FrameBounds += Root;
 
+			// The current is sampled at the root, the middle and the tip (where the points were last frame) and
+			// interpolated in between: its wavelengths are metres, the points centimetres apart, and it is the costliest
+			// part of a step.
+			const bool bFlow = FlowAccel > 0.f && !bLayOut;
+			FVector FlowSamples[3] = { FVector::ZeroVector, FVector::ZeroVector, FVector::ZeroVector };
+			if (bFlow)
+			{
+				FlowSamples[0] = FlowAt(Root, InvFlowScale, FlowTime);
+				FlowSamples[1] = FlowAt(Set.Positions[Base + MidPoint], InvFlowScale, FlowTime);
+				FlowSamples[2] = FlowAt(Set.Positions[Base + NumPoints - 1], InvFlowScale, FlowTime);
+			}
+
 			FVector RestPoint = Root;
 			for (int32 Point = 1; Point < NumPoints; ++Point)
 			{
@@ -196,7 +218,7 @@ namespace MechSwarm::Tentacles
 				const FVector Target = RestPoint + Side * Wave + Up * (0.3f * Wave * FMath::Cos(Phase));
 
 				// Verlet step: inertia (with drag), gravity and the current (0 at the root, full at the tip).
-				const FVector Flow = FlowAccel > 0.f ? FlowAt(Position, InvFlowScale, FlowTime) * (FlowAccel * T) : FVector::ZeroVector;
+				const FVector Flow = bFlow ? InterpolateFlow(FlowSamples, Point, MidPoint, NumPoints - 1) * (FlowAccel * T) : FVector::ZeroVector;
 				const FVector Velocity = (Position - PrevPosition) * Retain;
 				PrevPosition = Position;
 				Position += Velocity + (GravityAccel + Flow) * DeltaTimeSq;
@@ -281,7 +303,11 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 	}
 
 	// Large hitches would explode the verlet step; the chains just lag a little instead.
-	const float DeltaTime = FMath::Clamp(Context.GetDeltaTimeSeconds(), 1.e-4f, 1.f / 15.f);
+	const float RawDeltaTime = Context.GetDeltaTimeSeconds();
+	const float DeltaTime = FMath::Clamp(RawDeltaTime, 1.e-4f, 1.f / 15.f);
+	// Last frame's motion covered last frame's real time (a hitch's included): carry it on at that speed.
+	const float VelocityScale = PreviousDeltaTime > 0.f ? FMath::Min(DeltaTime / FMath::Max(PreviousDeltaTime, 1.e-4f), 4.f) : 1.f;
+	PreviousDeltaTime = RawDeltaTime;
 	const float Time = float(World->GetTimeSeconds());
 
 	TentacleSubsystem->BeginFrame();
@@ -358,7 +384,7 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 
 	// Pass 2: same query order, so a running index maps every entity back to its candidate.
 	int32 RunningIndex = 0;
-	EntityQuery.ForEachEntityChunk(Context, [this, TentacleSubsystem, RepresentationSubsystem, &RunningIndex, DeltaTime, Time](FMassExecutionContext& Context)
+	EntityQuery.ForEachEntityChunk(Context, [this, TentacleSubsystem, RepresentationSubsystem, &RunningIndex, DeltaTime, VelocityScale, Time](FMassExecutionContext& Context)
 	{
 		const FMechSentinelTentacleParams& Params = Context.GetConstSharedFragment<FMechSentinelTentacleParams>();
 		FMechSentinelTentacleSet* Set = TentacleSubsystem->GetMutableSet(Params.SetIndex);
@@ -404,7 +430,7 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 				StateList.Num() > 0 ? &StateList[EntityIndex] : nullptr,
 				AttackList.Num() > 0 ? &AttackList[EntityIndex] : nullptr);
 			const FTransform MeshTransform = MeshRelativeTransform * TransformList[EntityIndex].GetTransform();
-			const bool bLaidOut = SimulateRig(*Set, Rig, MeshTransform, bNewRig, Inputs, DeltaTime, Time);
+			const bool bLaidOut = SimulateRig(*Set, Rig, MeshTransform, bNewRig, Inputs, DeltaTime, VelocityScale, Time);
 			// The ribbons show from the frame after the layout; until then the far mesh stays.
 			LODList[EntityIndex].bForceLowLODMesh = bLaidOut;
 		}

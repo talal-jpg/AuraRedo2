@@ -132,8 +132,9 @@ public:
 	int32 SpawnSentinelsNow(int32 Count);
 
 	/**
-	 * Removes every sentinel this spawner created, on the spawner's own tick later this frame (after the Mass phases).
-	 * bKill plays the death fall, otherwise they vanish.
+	 * Removes every sentinel this spawner created, on the spawner's own tick later this frame (after the Mass phases),
+	 * or right after the frame's Mass phases if the spawner is destroyed first. bKill plays the death fall, otherwise
+	 * they vanish. Cancels the SpawnSentinelsNow requests made before it.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void DespawnAll(bool bKill = true);
@@ -272,6 +273,12 @@ private:
 
 	/** DespawnAll's work, run from Tick. */
 	void DespawnAllNow(bool bKill);
+
+	/** Kills (bKill) or destroys the given entities; drops the destroyed ones from the array. Outside the Mass phases. */
+	static void DespawnEntities(UWorld& World, TArray<FMassEntityHandle>& Entities, bool bKill);
+
+	/** False on the server once play began: building a template then waits for Tick (see the .cpp). */
+	bool CanBuildTemplateNow() const;
 
 	/** Entities created by this spawner since the swarm last rebuilt its alive set (soft global cap). */
 	int32 SpawnedSinceHashRefresh() const;

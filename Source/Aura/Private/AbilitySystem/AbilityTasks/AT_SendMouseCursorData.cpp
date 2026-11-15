@@ -3,6 +3,7 @@
 
 #include "AbilitySystem/AbilityTasks/AT_SendMouseCursorData.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "Character/MyCharPlayer.h"
 #include "GameFramework/GameSession.h"
 #include "PlayerInput/MyPlayerController2.h"
@@ -32,6 +33,7 @@ void UAT_SendMouseCursorData::Activate()
 		
 		if (ShouldBroadcastAbilityTaskDelegates())
 		{
+			NotifyAbilityOnServer(TargetDataHandle);
 			OnReplicatedDataSetSendMouseCursorDataDelegate.Broadcast(TargetDataHandle);
 		}
 	}
@@ -52,6 +54,7 @@ void UAT_SendMouseCursorData::OnTargetDataSetBroadcastMouseCursorDataDelegateCal
 
 	if (ShouldBroadcastAbilityTaskDelegates())
 	{
+		NotifyAbilityOnServer(TargetDataHandle);
 		OnReplicatedDataSetSendMouseCursorDataDelegate.Broadcast(TargetDataHandle);
 	}
 	
@@ -60,6 +63,15 @@ void UAT_SendMouseCursorData::OnTargetDataSetBroadcastMouseCursorDataDelegateCal
 		GetActivationPredictionKey());
 
 	EndTask();
+}
+
+void UAT_SendMouseCursorData::NotifyAbilityOnServer(const FGameplayAbilityTargetDataHandle& TargetDataHandle) const
+{
+	UMyGameplayAbility* MyAbility = Cast<UMyGameplayAbility>(Ability);
+	if (MyAbility && AbilitySystemComponent.IsValid() && AbilitySystemComponent->IsOwnerActorAuthoritative())
+	{
+		MyAbility->OnServerMouseCursorData(TargetDataHandle);
+	}
 }
 
 void UAT_SendMouseCursorData::OnDestroy(bool bInOwnerFinished)

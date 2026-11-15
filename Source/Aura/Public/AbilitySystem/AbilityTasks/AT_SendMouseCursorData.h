@@ -29,4 +29,7 @@ public:
 	UFUNCTION()
 	void OnTargetDataSetBroadcastMouseCursorDataDelegateCallback(const FGameplayAbilityTargetDataHandle& TargetDataHandle, FGameplayTag GameplayTag);
 
+private:
+	/** Server: hands the data to the owning ability first (UMyGameplayAbility::OnServerMouseCursorData). */
+	void NotifyAbilityOnServer(const FGameplayAbilityTargetDataHandle& TargetDataHandle) const;
 };

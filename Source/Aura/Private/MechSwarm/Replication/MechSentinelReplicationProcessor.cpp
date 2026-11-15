@@ -39,6 +39,12 @@ void UMechSentinelReplicationProcessor::ConfigureQueries(const TSharedRef<FMassE
 	GetMutableDefault<UMechSentinelReplicator>()->AddRequirements(ClientReplicationQuery);
 }
 
+bool UMechSentinelReplicationProcessor::IsSupportedReplicator(const UMassReplicatorBase& Replicator)
+{
+	// The exact class: ClientReplicationQuery has UMechSentinelReplicator's requirements, and a subclass could add more.
+	return Replicator.GetClass() == UMechSentinelReplicator::StaticClass();
+}
+
 void UMechSentinelReplicationProcessor::ReportUnsupportedReplicators(FMassEntityManager& EntityManager)
 {
 	if (bReportedUnsupportedReplicator)
@@ -48,11 +54,11 @@ void UMechSentinelReplicationProcessor::ReportUnsupportedReplicators(FMassEntity
 
 	EntityManager.ForEachSharedFragment<FMassReplicationSharedFragment>([this](FMassReplicationSharedFragment& RepSharedFragment)
 	{
-		if (!bReportedUnsupportedReplicator && RepSharedFragment.CachedReplicator && !RepSharedFragment.CachedReplicator->IsA<UMechSentinelReplicator>())
+		if (!bReportedUnsupportedReplicator && RepSharedFragment.CachedReplicator && !IsSupportedReplicator(*RepSharedFragment.CachedReplicator))
 		{
 			bReportedUnsupportedReplicator = true;
 			UE_LOG(LogMechSentinelReplicationProcessor, Error,
-				TEXT("%s replaces UMassReplicationProcessor (see Config/DefaultMass.ini) and only runs UMechSentinelReplicator. Entities using %s are not replicated."),
+				TEXT("%s replaces UMassReplicationProcessor (see Config/DefaultMass.ini) and only runs UMechSentinelReplicator itself, not subclasses. Entities using %s are not replicated."),
 				*GetName(), *RepSharedFragment.CachedReplicator->GetClass()->GetName());
 		}
 	});
@@ -217,7 +223,9 @@ void UMechSentinelReplicationProcessor::Execute(FMassEntityManager& EntityManage
 				{
 					FMassReplicationSharedFragment& RepSharedFragment = Context.GetMutableSharedFragment<FMassReplicationSharedFragment>();
 					// PrepareExecution skipped (and reported) fragments without a bubble class; their bubbles were never cached.
-					if (!RepSharedFragment.BubbleInfoClassHandle.IsValid() || !RepSharedFragment.CachedReplicator)
+					// Other replicators, subclasses included, may need fragments this query does not have (reported above).
+					if (!RepSharedFragment.BubbleInfoClassHandle.IsValid() || !RepSharedFragment.CachedReplicator
+						|| !IsSupportedReplicator(*RepSharedFragment.CachedReplicator))
 					{
 						return;
 					}

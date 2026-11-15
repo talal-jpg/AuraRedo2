@@ -19,7 +19,7 @@
  * runs through ClientReplicationQuery, a member query registered with this processor: the engine's per-replicator
  * requirements plus UMechSentinelReplicator's. Registered queries also tell the queue which fragments this processor
  * reads, so it is not run alongside processors that write them. Only UMechSentinelReplicator is supported, which is the
- * only replicator in this project; others are reported once and skipped.
+ * only replicator in this project; others, subclasses included, are reported once and skipped.
  *
  * Remove this class and the DefaultMass.ini lines once the engine registers its replication query.
  */
@@ -41,6 +41,7 @@ protected:
 private:
 	/** Logs once when an entity type replicates through another replicator, which this processor cannot run. */
 	void ReportUnsupportedReplicators(FMassEntityManager& EntityManager);
+	static bool IsSupportedReplicator(const UMassReplicatorBase& Replicator);
 
 	bool bReportedUnsupportedReplicator = false;
 };

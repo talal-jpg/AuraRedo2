@@ -119,7 +119,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mech Sentinels")
 	void SetRulesOverride(UMechSentinelSwarmRules* NewRules);
 
-	/** Changes the swarm-wide movement speed shared fragment of a swarm group. Server only (replicated movement follows). */
+	/**
+	 * Changes the swarm-wide movement speed shared fragment of a swarm group. Server only (replicated movement follows).
+	 * Steering reads it on worker threads during the Mass phases: call it from a timer (Set Timer for Next Tick) or a
+	 * tick in Post Update Work; from input, a few sentinels may move at the old speed for one frame.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Mech Sentinels")
 	void SetSwarmMovementSpeed(FName SwarmGroup, float NewMovementSpeed);
 

@@ -28,7 +28,8 @@ public:
 	/**
 	 * Mech Sentinels: the server also damages the sentinels along each shot. Sentinels are Mass entities without engine
 	 * collision, so the crosshair trace (AT_SendMouseCursorData) passes through them; the shot is swept against their hit
-	 * capsules instead, from the character along the aim, up to the first wall or character the trace hit.
+	 * capsules instead, from the character along the aim, up to the first wall or character the trace hit. The task hands
+	 * each shot to OnServerMouseCursorData before the graph sees it, so ending the ability on a shot still damages.
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels")
 	bool bDamageSentinels = true;
@@ -53,14 +54,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels", ClampMin = "0"))
 	int32 SentinelMaxTargets = 1;
 
-protected:
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	/** Server: a shot's target data from AT_SendMouseCursorData; damages the sentinels along it (later this frame). */
+	virtual void OnServerMouseCursorData(const FGameplayAbilityTargetDataHandle& Data) override;
 
 private:
-	/** Server: the shot's target data, from AT_SendMouseCursorData. */
-	void OnShotTargetData(const FGameplayAbilityTargetDataHandle& Data, FGameplayTag ApplicationTag);
-
 	/** The segment swept against the sentinels for an aim trace. False when there is nothing to shoot along. */
 	bool GetSentinelShotSegment(const FHitResult& AimHit, const AActor& Avatar, FVector& OutStart, FVector& OutEnd) const;
 

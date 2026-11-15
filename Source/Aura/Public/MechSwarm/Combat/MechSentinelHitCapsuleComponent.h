@@ -25,7 +25,11 @@ class AURA_API UMechSentinelHitCapsuleComponent : public UCapsuleComponent
 public:
 	UMechSentinelHitCapsuleComponent();
 
-	/** Tests now (e.g. on a melee swing frame). Returns the number of sentinels newly hit. */
+	/**
+	 * Tests now. Returns the number of sentinels newly hit. Call it outside the Mass phases: from a melee swing's anim
+	 * notify, input or an actor tick, go through Set Timer for Next Tick and call it from there. Kills and stuns are
+	 * deferred if a phase may be running, but the damage itself is written at once.
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Hit")
 	int32 ApplyHitsNow();
 
@@ -60,7 +64,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mech Sentinels|Hit")
 	bool bDestroyOwnerWhenSpent = true;
 
-	/** Test every tick (projectiles). Off: only ApplyHitsNow (melee). */
+	/** Test every tick, in TG_PostUpdateWork (projectiles). Off: only ApplyHitsNow (melee). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mech Sentinels|Hit")
 	bool bHitEveryTick = true;
 

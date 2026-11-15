@@ -21,36 +21,32 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGunShoot, Log, All);
 
-void UGA_GunShoot::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+namespace MechSwarm::GunShootPrivate
 {
-	// Server: listen for the shot's target data before the Blueprint runs. A listen server host (and standalone) sends it
-	// from inside ActivateAbility (AT_SendMouseCursorData), a remote client's arrives later through the ASC.
-	UAbilitySystemComponent* ASC = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
-	if (bDamageSentinels && ASC && ActorInfo->IsNetAuthority())
-	{
-		FAbilityTargetDataSetDelegate& ShotDelegate = ASC->AbilityTargetDataSetDelegate(Handle, ActivationInfo.GetActivationPredictionKey());
-		// Without a prediction key (host, standalone) every activation shares one entry: listen only once. Ending the
-		// ability removes the entry, and the binding with it; it is not removed here because the Blueprint may end the
-		// ability from the task's callback, in the same broadcast, before this one runs.
-		if (!ShotDelegate.IsBoundToObject(this))
-		{
-			ShotDelegate.AddUObject(this, &UGA_GunShoot::OnShotTargetData);
-		}
-	}
-
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	/**
+	 * Farthest the aim trace may start from the shooter (cm). The aim comes from the client's target data: an origin
+	 * beyond any camera distance (a modified client, or a broken trace) shoots from the pawn's own view instead.
+	 */
+	constexpr double MaxAimOriginDistance = 5000.0;
 }
 
-void UGA_GunShoot::OnShotTargetData(const FGameplayAbilityTargetDataHandle& Data, FGameplayTag ApplicationTag)
+void UGA_GunShoot::OnServerMouseCursorData(const FGameplayAbilityTargetDataHandle& Data)
 {
+	Super::OnServerMouseCursorData(Data);
+
+	if (!bDamageSentinels)
+	{
+		return;
+	}
+
 	TSharedPtr<FGameplayAbilityTargetData> Shot;
 	if (Data.Num() > 0)
 	{
 		Shot = Data.Data[0];
 	}
 	const FHitResult* AimHit = Shot.IsValid() ? Shot->GetHitResult() : nullptr;
-	// AT_SendMouseCursorData replays target data that arrived before it listened: damage each shot once.
+	// AT_SendMouseCursorData replays target data that arrived before it listened, and every one of its tasks waiting
+	// when a shot arrives gets that shot: damage each shot once.
 	if (!AimHit || Shot == LastSentinelShot)
 	{
 		return;
@@ -117,7 +113,10 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 		? (Direction / Largest).GetSafeNormal()
 		: FVector::ZeroVector;
 
-	if (Direction.IsNearlyZero() || Origin.ContainsNaN())
+	const bool bOriginNearShooter = !Origin.ContainsNaN()
+		&& FVector::DistSquared(Origin, Avatar.GetActorLocation()) <= FMath::Square(MechSwarm::GunShootPrivate::MaxAimOriginDistance);
+	const bool bUseAimTrace = bOriginNearShooter && !Direction.IsNearlyZero();
+	if (!bUseAimTrace)
 	{
 		// No usable aim trace: shoot where the pawn looks.
 		const APawn* Pawn = Cast<APawn>(&Avatar);
@@ -135,7 +134,7 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 
 	// Walls and characters stop the shot: end at the aim trace's blocking hit when it lies ahead of the shooter.
 	double Range = SentinelShotRange;
-	if (AimHit.bBlockingHit)
+	if (bUseAimTrace && AimHit.bBlockingHit)
 	{
 		const double BlockAlongShot = FVector::DotProduct(FVector(AimHit.Location) - OutStart, Direction);
 		if (BlockAlongShot > 0.0)

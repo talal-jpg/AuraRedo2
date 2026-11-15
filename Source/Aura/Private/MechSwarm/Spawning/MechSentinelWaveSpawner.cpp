@@ -17,6 +17,7 @@
 #include "MechSwarm/Sentinel/MechSentinelFragments.h"
 #include "MechSwarm/Sentinel/MechSentinelTrait.h"
 #include "Net/UnrealNetwork.h"
+#include "TimerManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelWaveSpawner)
 
@@ -76,7 +77,7 @@ void AMechSentinelWaveSpawner::PostInitializeComponents()
 
 	// As early as possible on clients: replicated sentinels need this template to spawn.
 	const UWorld* World = GetWorld();
-	if (World && World->IsGameWorld())
+	if (World && World->IsGameWorld() && CanBuildTemplateNow())
 	{
 		EnsureTemplateBuilt();
 	}
@@ -89,7 +90,10 @@ void AMechSentinelWaveSpawner::BeginPlay()
 
 	Super::BeginPlay();
 
-	EnsureTemplateBuilt();
+	if (CanBuildTemplateNow())
+	{
+		EnsureTemplateBuilt();
+	}
 
 	if (!HasAuthority())
 	{
@@ -121,6 +125,24 @@ void AMechSentinelWaveSpawner::BeginPlay()
 
 void AMechSentinelWaveSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	// A DespawnAll queued this frame would be lost with the actor's tick, and the sentinels outlive the spawner: finish
+	// it on a timer instead, which also runs outside the Mass phases.
+	UWorld* World = GetWorld();
+	if (bPendingDespawn && World && HasAuthority()
+		&& (EndPlayReason == EEndPlayReason::Destroyed || EndPlayReason == EEndPlayReason::RemovedFromWorld))
+	{
+		bPendingDespawn = false;
+		const TWeakObjectPtr<UWorld> WeakWorld(World);
+		World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda(
+			[WeakWorld, Entities = SpawnedEntities, bKill = bPendingDespawnKill]() mutable
+			{
+				if (UWorld* WorldNow = WeakWorld.Get())
+				{
+					DespawnEntities(*WorldNow, Entities, bKill);
+				}
+			}));
+	}
+
 	if (bFallbacksRegistered)
 	{
 		if (UMechSentinelSwarmSubsystem* Swarm = UMechSentinelSwarmSubsystem::Get(this))
@@ -131,6 +153,15 @@ void AMechSentinelWaveSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 
 	Super::EndPlay(EndPlayReason);
+}
+
+bool AMechSentinelWaveSpawner::CanBuildTemplateNow() const
+{
+	// Building a template creates a Mass archetype, which must not happen while a phase runs. Before play, and on
+	// clients (replicated spawners are created during network receive, before the tick groups), it is safe. A spawner
+	// spawned on the server during play may be spawned next to a phase: SpawnBatch builds the template from Tick.
+	const UWorld* World = GetWorld();
+	return !HasAuthority() || !World || !World->HasBegunPlay();
 }
 
 void AMechSentinelWaveSpawner::EnsureTemplateBuilt()
@@ -571,27 +602,42 @@ void AMechSentinelWaveSpawner::DespawnAll(const bool bKill)
 		return;
 	}
 
-	// Like SpawnSentinelsNow: done by Tick, outside the Mass phases.
+	// Like SpawnSentinelsNow: done by Tick, outside the Mass phases. Manual spawns queued before this call are cancelled
+	// (they would otherwise appear right after the despawn); the ones queued after it still run after it.
 	bPendingDespawn = true;
 	bPendingDespawnKill = bKill;
+	PendingManualSpawns = 0;
 	SetActorTickEnabled(true);
 }
 
 void AMechSentinelWaveSpawner::DespawnAllNow(const bool bKill)
 {
-	FMassEntityManager* EntityManager = GetEntityManager();
-	UMechSentinelSwarmSubsystem* Swarm = UMechSentinelSwarmSubsystem::Get(this);
-	UMassSpawnerSubsystem* SpawnerSubsystem = GetWorld() ? GetWorld()->GetSubsystem<UMassSpawnerSubsystem>() : nullptr;
-	if (!EntityManager)
+	UWorld* World = GetWorld();
+	if (!World || !GetEntityManager())
 	{
 		return;
 	}
 
 	RefreshAlive();
+	DespawnEntities(*World, SpawnedEntities, bKill);
+	AliveCount = 0;
+}
 
+void AMechSentinelWaveSpawner::DespawnEntities(UWorld& World, TArray<FMassEntityHandle>& Entities, const bool bKill)
+{
+	FMassEntityManager* EntityManager = UE::Mass::Utils::GetEntityManager(&World);
+	if (!EntityManager)
+	{
+		return;
+	}
+
+	// Already destroyed ones are dropped (wrecks of killed sentinels destroy themselves after their fall).
+	Entities.RemoveAllSwap([EntityManager](const FMassEntityHandle Entity) { return !EntityManager->IsEntityActive(Entity); });
+
+	UMechSentinelSwarmSubsystem* Swarm = World.GetSubsystem<UMechSentinelSwarmSubsystem>();
 	if (bKill && Swarm)
 	{
-		for (const FMassEntityHandle Entity : SpawnedEntities)
+		for (const FMassEntityHandle Entity : Entities)
 		{
 			Swarm->KillSentinel(Entity, nullptr);
 		}
@@ -601,17 +647,15 @@ void AMechSentinelWaveSpawner::DespawnAllNow(const bool bKill)
 	{
 		if (EntityManager->IsProcessing())
 		{
-			for (const FMassEntityHandle Entity : SpawnedEntities)
+			for (const FMassEntityHandle Entity : Entities)
 			{
 				EntityManager->Defer().DestroyEntity(Entity);
 			}
 		}
-		else if (SpawnerSubsystem)
+		else if (UMassSpawnerSubsystem* SpawnerSubsystem = World.GetSubsystem<UMassSpawnerSubsystem>())
 		{
-			SpawnerSubsystem->DestroyEntities(SpawnedEntities);
+			SpawnerSubsystem->DestroyEntities(Entities);
 		}
-		SpawnedEntities.Reset();
+		Entities.Reset();
 	}
-
-	AliveCount = 0;
 }
