@@ -15,6 +15,9 @@ public class Aura : ModuleRules
 		// Mech Sentinel swarm (Source/Aura/*/MechSwarm). Needs the MassGameplay plugin (enabled in Aura.uproject).
 		PublicDependencyModuleNames.AddRange(new string[] { "MassEntity", "MassCore", "MassCommon", "MassSpawner", "MassSimulation", "MassLOD", "MassReplication" });
 
+		// Burrower (Source/Aura/*/Burrower): AAIController possesses it so its movement runs on the server.
+		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });
+
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		

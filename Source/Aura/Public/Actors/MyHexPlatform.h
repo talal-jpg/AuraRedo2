@@ -258,6 +258,21 @@ public:
 
 	/** Server, for tests (Aura.BreakTopPlatform): collapses NumChains chains now, or every tile at once when NumChains <= 0. */
 	void DebugBreakTiles(int32 NumChains);
+
+	/**
+	 * Server. Collapses now every standing tile whose pillar touches the box, through ActivateHex like the
+	 * platform's own chains, so it replicates and the props, bridges and minimap follow. BoxExtent is the box's
+	 * half size in world cm (a UBoxComponent's GetScaledBoxExtent); only BoxToWorld's location and rotation are
+	 * used. Tiles a running chain has reserved go now too. Does nothing until the bridges are built (they are
+	 * planned from the untouched edges). Returns how many tiles it collapsed. Used by the Burrower's rotor.
+	 */
+	int32 ActivateTilesInWorldBox(const FTransform& BoxToWorld, const FVector& BoxExtent);
+
+	/**
+	 * Cheap test: false when the box can't touch any tile (the bounds of the grid as built). ActivateTilesInWorldBox
+	 * does it first itself. Any machine.
+	 */
+	bool CouldWorldBoxTouchTiles(const FTransform& BoxToWorld, const FVector& BoxExtent) const;
 	
 	TArray<FIntVector> GetOriginalEdgeHexes() const;
 
@@ -1198,6 +1213,9 @@ private:
 	double BreakingTileDistance = 0.0;
 
 	TMap<FIntVector, FHexTileInfo> TileInfos;
+
+	/** Every tile's LocalBounds together, as built (BuildTileInfos). Doesn't shrink as tiles fall. */
+	FBox TilesLocalBounds = FBox(ForceInit);
 
 	/**
 	 * TileIndex -> prop ISMs (from both tile prop components) that have instances on that tile. The
