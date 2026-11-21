@@ -131,7 +131,7 @@ void AMechSentinelGASProxy::SetBaseValues(const FMechSentinelAttributesFragment&
 	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetAttackSpeedAttribute(), Attributes.BaseAttackSpeed);
 	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetMoveSpeedMultiplierAttribute(), Attributes.BaseMoveSpeedMultiplier);
 	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetIncomingDamageAttribute(), 0.f);
-	AttributeSet->ConsumeLastResolvedDamage();
+	AttributeSet->ResetDamageTracking();
 }
 
 void AMechSentinelGASProxy::StripReapplicationSideEffects(const FMechSentinelAttributesFragment& Attributes)
@@ -168,7 +168,7 @@ FActiveGameplayEffectHandle AMechSentinelGASProxy::ApplySpec(const FGameplayEffe
 	return Handle;
 }
 
-float AMechSentinelGASProxy::ReadBack(FMechSentinelAttributesFragment& OutAttributes, FMechSentinelGASFragment& OutGAS) const
+float AMechSentinelGASProxy::ReadBack(FMechSentinelAttributesFragment& OutAttributes, FMechSentinelGASFragment& OutGAS, float* OutIncomingDamage) const
 {
 	const UAbilitySystemComponent* ASC = AbilitySystemComponent;
 
@@ -194,6 +194,11 @@ float AMechSentinelGASProxy::ReadBack(FMechSentinelAttributesFragment& OutAttrib
 	OutGAS.OwnedTags.RemoveTag(MechSentinelTags::Unit_Sentinel);
 	OutGAS.OwnedTags.RemoveTag(MechSentinelTags::State_Sentinel_Attacking);
 
+	const float IncomingDamage = AttributeSet->ConsumeLastIncomingDamage();
+	if (OutIncomingDamage)
+	{
+		*OutIncomingDamage = IncomingDamage;
+	}
 	return AttributeSet->ConsumeLastResolvedDamage();
 }
 
@@ -223,6 +228,6 @@ void AMechSentinelGASProxy::Unload()
 	}
 
 	ASC->SetNumericAttributeBase(UMechSentinelAttributeSet::GetIncomingDamageAttribute(), 0.f);
-	AttributeSet->ConsumeLastResolvedDamage();
+	AttributeSet->ResetDamageTracking();
 	bLoaded = false;
 }

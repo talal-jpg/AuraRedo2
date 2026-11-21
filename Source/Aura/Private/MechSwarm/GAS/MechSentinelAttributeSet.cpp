@@ -64,6 +64,7 @@ void UMechSentinelAttributeSet::PostGameplayEffectExecute(const FGameplayEffectM
 			const float NewHealth = FMath::Clamp(OldHealth - Damage, 0.f, GetMaxHealth());
 			SetHealth(NewHealth);
 			LastResolvedDamage += OldHealth - NewHealth;
+			LastIncomingDamage += Damage;
 		}
 	}
 	else if (Data.EvaluatedData.Attribute == GetHealthAttribute())
@@ -78,4 +79,17 @@ float UMechSentinelAttributeSet::ConsumeLastResolvedDamage()
 	const float Value = LastResolvedDamage;
 	LastResolvedDamage = 0.f;
 	return Value;
+}
+
+float UMechSentinelAttributeSet::ConsumeLastIncomingDamage()
+{
+	const float Value = LastIncomingDamage;
+	LastIncomingDamage = 0.f;
+	return Value;
+}
+
+void UMechSentinelAttributeSet::ResetDamageTracking()
+{
+	LastResolvedDamage = 0.f;
+	LastIncomingDamage = 0.f;
 }

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/TimerHandle.h"
 #include "GameFramework/Actor.h"
+#include "GameplayEffectTypes.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "Mass/EntityHandle.h"
 #include "MechSwarm/Sentinel/MechSentinelFragments.h"
@@ -19,6 +20,32 @@ struct FMassEntityManager;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FOnMechSentinelDamaged, FMechSentinelHandle, Sentinel, float, Damage, FVector, Location, AActor*, Instigator);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMechSentinelKilled, FMechSentinelHandle, Sentinel, FVector, Location, AActor*, Instigator);
+
+/** One damaging hit on a sentinel (server), with more detail than OnSentinelDamaged. C++ only; used for damage numbers. */
+struct FMechSentinelDamageEvent
+{
+	FMechSentinelHandle Sentinel;
+
+	/** Health removed, clipped at the sentinel's remaining health (the value OnSentinelDamaged sends). */
+	float Damage = 0.f;
+
+	/** Damage after armor and shield, before Health was clamped: what a character's damage number shows. */
+	float IncomingDamage = 0.f;
+
+	/** The hit point (FMechSentinelHit::ImpactPoint for traces), else the sentinel's location. */
+	FVector Location = FVector::ZeroVector;
+
+	/** The effect context's instigator (a player's AMyPlayerState for player hits). */
+	AActor* Instigator = nullptr;
+
+	/** The spec's effect context; the project's crit / blocked flags live in its hit result (UMyBPFuncLib::IsCrit / IsBlocked). */
+	FGameplayEffectContextHandle EffectContext;
+
+	/** The sentinel had State.Sentinel.Shielded after the hit (its damage was scaled by ShieldedDamageMultiplier). */
+	bool bShielded = false;
+};
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnMechSentinelDamagedNative, const FMechSentinelDamageEvent&);
 
 /** A fallback location sentinels go to when every player is already crowded. */
 USTRUCT(BlueprintType)
@@ -214,6 +241,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Mech Sentinels")
 	FOnMechSentinelDamaged OnSentinelDamaged;
+
+	/** C++ twin of OnSentinelDamaged with the unclipped damage, the effect context and the shield state. */
+	FOnMechSentinelDamagedNative OnSentinelDamagedNative;
 
 	UPROPERTY(BlueprintAssignable, Category = "Mech Sentinels")
 	FOnMechSentinelKilled OnSentinelKilled;

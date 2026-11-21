@@ -689,7 +689,8 @@ float UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(const FMass
 		}
 	}
 
-	const float Damage = Proxy->ReadBack(*Attributes, *GAS);
+	float IncomingDamage = 0.f;
+	const float Damage = Proxy->ReadBack(*Attributes, *GAS, &IncomingDamage);
 	Proxy->Unload();
 
 	// Pass 2: re-evaluate the current values from the updated effect list (no double counting of a refreshed effect).
@@ -707,6 +708,19 @@ float UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(const FMass
 		++State->HitSerial;
 		const FVector Location = HitLocation ? *HitLocation : View.GetFragmentData<FTransformFragment>().GetTransform().GetLocation();
 		OnSentinelDamaged.Broadcast(FMechSentinelHandle(Entity), Damage, Location, Instigator);
+
+		if (OnSentinelDamagedNative.IsBound())
+		{
+			FMechSentinelDamageEvent Event;
+			Event.Sentinel = FMechSentinelHandle(Entity);
+			Event.Damage = Damage;
+			Event.IncomingDamage = FMath::Max(Damage, IncomingDamage);
+			Event.Location = Location;
+			Event.Instigator = Instigator;
+			Event.EffectContext = Spec.GetEffectContext();
+			Event.bShielded = GAS->OwnedTags.HasTagExact(MechSentinelTags::State_Sentinel_Shielded);
+			OnSentinelDamagedNative.Broadcast(Event);
+		}
 	}
 
 	SyncStateFromGAS(*EntityManager, Entity, Instigator);

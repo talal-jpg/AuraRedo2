@@ -40,6 +40,12 @@
 #include "EOS/MultiplayerSessionsSubsystem.h"
 #include "EOS/PauseMenu3.h"
 #include "UI/Settings/MyGameUserSettings.h"
+#include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
+#include "StaticLib/MyBPFuncLib.h"
+#include "TimerManager.h"
+
+// "log LogSentinelDamageNumbers Verbose" shows the server batches and the client writes
+DEFINE_LOG_CATEGORY_STATIC(LogSentinelDamageNumbers,Log,All);
 
 
 class UEnhancedPlayerInput;
@@ -154,6 +160,19 @@ void AMyPlayerController2::SetupInputComponent()
 void AMyPlayerController2::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Mech Sentinel damage numbers: every hit on a sentinel is resolved on the server in
+	// UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel, which broadcasts OnSentinelDamagedNative.
+	// Each player's controller (server copy) keeps the hits it dealt and sends them to its client
+	if (HasAuthority())
+	{
+		if (UMechSentinelSwarmSubsystem* Swarm=UMechSentinelSwarmSubsystem::Get(this))
+		{
+			SentinelDamagedHandle=Swarm->OnSentinelDamagedNative.AddUObject(this,&AMyPlayerController2::HandleSentinelDamaged);
+			SentinelDamageSwarm=Swarm;
+		}
+	}
+
 	FInputModeGameAndUI InputMode;
 	FInputModeGameOnly InputMode2;
 	InputMode.SetHideCursorDuringCapture(false);
@@ -491,16 +510,101 @@ void AMyPlayerController2::ShowDamageNumber_2_Implementation(float InDamage,ACha
 {
 	const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings();
 	if (Settings && !Settings->GetShowDamageNumbers()) return;
-	
+
 	if (!IsValid(TargetCharacter) || !DamageNumberDataChannel) return;
-	
+
 	FVector Location=TargetCharacter->GetActorLocation();
 	if (const UCapsuleComponent* Capsule=TargetCharacter->GetCapsuleComponent())
 	{
 		Location.Z+=Capsule->GetScaledCapsuleHalfHeight();
 	}
 	Location.Z+=DamageNumberHeightOffset;
+
+	WriteDamageNumber(Location,InDamage,bIsCrit,bIsBlocked,TEXT("ShowDamageNumber_2"));
+}
+
+void AMyPlayerController2::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UMechSentinelSwarmSubsystem* Swarm=SentinelDamageSwarm.Get())
+	{
+		Swarm->OnSentinelDamagedNative.Remove(SentinelDamagedHandle);
+	}
+	SentinelDamagedHandle.Reset();
+	SentinelDamageSwarm.Reset();
+	GetWorldTimerManager().ClearTimer(SentinelDamageNumberFlushTimer);
+	PendingSentinelDamageNumbers.Reset();
+	Super::EndPlay(EndPlayReason);
+}
+
+bool AMyPlayerController2::IsSentinelDamageInstigator(const AActor* DamageInstigator) const
+{
+	if (!DamageInstigator) return false;
+
+	// The effect context's instigator is the source ASC's owner: the player state for players. A pawn or a
+	// projectile works too, through the owner chain (player state and possessed pawn are owned by this controller)
+	int32 Depth=0;
+	for (const AActor* Actor=DamageInstigator; Actor && Depth<8; Actor=Actor->GetOwner(),++Depth)
+	{
+		if (Actor==this) return true;
+	}
+	const APawn* InstigatorPawn=Cast<APawn>(DamageInstigator);
+	return InstigatorPawn && InstigatorPawn->GetController()==this;
+}
+
+void AMyPlayerController2::HandleSentinelDamaged(const FMechSentinelDamageEvent& Event)
+{
+	if (!bShowSentinelDamageNumbers || Event.IncomingDamage<=0.f || !IsSentinelDamageInstigator(Event.Instigator)) return;
 	
+	if (PendingSentinelDamageNumbers.Num()>=FMath::Max(1,MaxSentinelDamageNumbersPerFrame))
+	{
+		UE_LOG(LogSentinelDamageNumbers,Verbose,TEXT("%s: more than %d sentinel hits this frame, number dropped."),*GetName(),MaxSentinelDamageNumbersPerFrame);
+		return;
+	}
+	
+	// Same flags as the character path (UMyAttributeSet::PostGameplayEffectExecute); a shielded sentinel shows as blocked
+	FGameplayEffectContextHandle Context=Event.EffectContext;
+	const bool bIsCrit=Context.IsValid() && UMyBPFuncLib::IsCrit(Context,this);
+	const bool bIsBlocked=Event.bShielded || (Context.IsValid() && UMyBPFuncLib::IsBlocked(Context));
+	
+	FSentinelDamageNumberEntry& Entry=PendingSentinelDamageNumbers.AddDefaulted_GetRef();
+	Entry.Location=Event.Location+FVector(0.f,0.f,SentinelDamageNumberHeightOffset);
+	Entry.Damage=Event.IncomingDamage;
+	Entry.Flags=(bIsCrit ? FSentinelDamageNumberEntry::Crit : 0) | (bIsBlocked ? FSentinelDamageNumberEntry::Blocked : 0);
+	
+	// One RPC per frame for all of this frame's hits (a shot can hit several sentinels). This can run from a hit timer
+	// or next to a Mass phase, so it only queues; the flush is a plain game thread timer
+	if (!SentinelDamageNumberFlushTimer.IsValid())
+	{
+		SentinelDamageNumberFlushTimer=GetWorldTimerManager().SetTimerForNextTick(this,&AMyPlayerController2::FlushSentinelDamageNumbers);
+	}
+}
+
+void AMyPlayerController2::FlushSentinelDamageNumbers()
+{
+	SentinelDamageNumberFlushTimer.Invalidate();
+	if (PendingSentinelDamageNumbers.IsEmpty()) return;
+	
+	UE_LOG(LogSentinelDamageNumbers,Verbose,TEXT("%s (%s): sending %d sentinel damage number(s)."),*GetName(),IsLocalController() ? TEXT("local") : TEXT("remote"),PendingSentinelDamageNumbers.Num());
+	Client_ShowSentinelDamageNumbers(PendingSentinelDamageNumbers);
+	PendingSentinelDamageNumbers.Reset();
+}
+
+void AMyPlayerController2::Client_ShowSentinelDamageNumbers_Implementation(const TArray<FSentinelDamageNumberEntry>& Numbers)
+{
+	const UMyGameUserSettings* Settings=UMyGameUserSettings::GetMyGameUserSettings();
+	if (Settings && !Settings->GetShowDamageNumbers()) return;
+
+	for (const FSentinelDamageNumberEntry& Number : Numbers)
+	{
+		WriteDamageNumber(Number.Location,Number.Damage,(Number.Flags&FSentinelDamageNumberEntry::Crit)!=0,(Number.Flags&FSentinelDamageNumberEntry::Blocked)!=0,TEXT("SentinelDamageNumbers"));
+	}
+	UE_LOG(LogSentinelDamageNumbers,Verbose,TEXT("%s (%s): wrote %d sentinel damage number(s), first %.1f."),*GetName(),GetNetMode()==NM_Client ? TEXT("client") : TEXT("server/standalone"),Numbers.Num(),Numbers.Num()>0 ? Numbers[0].Damage : 0.f);
+}
+
+void AMyPlayerController2::WriteDamageNumber(const FVector& Location,float InDamage,bool bIsCrit,bool bIsBlocked,const TCHAR* DebugSource)
+{
+	if (!DamageNumberDataChannel) return;
+
 	// Alpha carries the size scale, NS_DamageNumbers splits it back out
 	FLinearColor Color= bIsBlocked ? BlockedDamageColor : (bIsCrit ? CritDamageColor : NormalDamageColor);
 	Color.A= bIsCrit ? DamageNumberSize*CritDamageScale : DamageNumberSize;
@@ -512,7 +616,7 @@ void AMyPlayerController2::ShowDamageNumber_2_Implementation(float InDamage,ACha
 		Context->Location=Location;
 		Context->bOverrideLocation=true;
 	}
-	UNiagaraDataChannelWriter* Writer=UNiagaraDataChannelLibrary::WriteToNiagaraDataChannel_WithContext(this,DamageNumberDataChannel,AccessContext,1,false,true,true,TEXT("ShowDamageNumber_2"));
+	UNiagaraDataChannelWriter* Writer=UNiagaraDataChannelLibrary::WriteToNiagaraDataChannel_WithContext(this,DamageNumberDataChannel,AccessContext,1,false,true,true,DebugSource);
 	if (!Writer) return;
 	
 	// How far the local camera is from the number, NS_DamageNumbers grows the sprites with it

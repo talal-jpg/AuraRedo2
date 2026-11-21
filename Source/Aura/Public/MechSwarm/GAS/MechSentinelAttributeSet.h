@@ -26,6 +26,15 @@ public:
 	/** Damage actually removed from Health by the last executed effect (after armor / shield). Reset by the bridge. */
 	float ConsumeLastResolvedDamage();
 
+	/**
+	 * IncomingDamage the last executed effect(s) dealt (after armor / shield) before Health was clamped, so a killing
+	 * blow keeps its full value. Damage numbers show this, like UMyAttributeSet does for characters. Reset by the bridge.
+	 */
+	float ConsumeLastIncomingDamage();
+
+	/** Forgets both damage totals; the bridge calls it when it loads and unloads a sentinel. */
+	void ResetDamageTracking();
+
 	// Vital
 	UPROPERTY(BlueprintReadOnly, Category = "Sentinel|Vital")
 	FGameplayAttributeData Health;
@@ -65,4 +74,5 @@ public:
 
 private:
 	float LastResolvedDamage = 0.f;
+	float LastIncomingDamage = 0.f;
 };

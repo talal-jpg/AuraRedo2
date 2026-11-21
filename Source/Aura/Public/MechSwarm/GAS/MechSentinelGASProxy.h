@@ -44,8 +44,11 @@ public:
 	/** Applies an incoming spec to the loaded sentinel. Returned handle is valid for duration / infinite effects that were applied. */
 	FActiveGameplayEffectHandle ApplySpec(const FGameplayEffectSpec& Spec);
 
-	/** Writes the evaluated values back. Returns the damage removed from Health since LoadEntity. */
-	float ReadBack(FMechSentinelAttributesFragment& OutAttributes, FMechSentinelGASFragment& OutGAS) const;
+	/**
+	 * Writes the evaluated values back. Returns the damage removed from Health since LoadEntity. OutIncomingDamage, if
+	 * given, gets the damage dealt before Health was clamped (see UMechSentinelAttributeSet::ConsumeLastIncomingDamage).
+	 */
+	float ReadBack(FMechSentinelAttributesFragment& OutAttributes, FMechSentinelGASFragment& OutGAS, float* OutIncomingDamage = nullptr) const;
 
 	/** Removes every effect / loose tag added since LoadEntity, including effects GAS applied on its own. */
 	void Unload();

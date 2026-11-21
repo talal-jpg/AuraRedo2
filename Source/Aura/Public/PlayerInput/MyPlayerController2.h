@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/NetSerialization.h"
+#include "Engine/TimerHandle.h"
 #include "GameFramework/PlayerController.h"
 #include "MyPlayerController2.generated.h"
 
@@ -24,11 +26,35 @@ struct FInputActionValue;
 class UInputMappingContext;
 class UInputAction;
 struct FHitResult;
+struct FMechSentinelDamageEvent;
+class UMechSentinelSwarmSubsystem;
 /**
- * 
+ *
  */
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMenuButtonPressedDelegateSignature, bool, bIsAttribMenuButton);
+
+// One damage number for a hit on a Mech Sentinel, sent from the server to the player who dealt it
+USTRUCT()
+struct FSentinelDamageNumberEntry
+{
+	GENERATED_BODY()
+
+	// Where the number starts (the hit point plus SentinelDamageNumberHeightOffset)
+	UPROPERTY()
+	FVector_NetQuantize Location=FVector::ZeroVector;
+
+	// The hit's damage after armor and shield, before the sentinel's health was clamped (like the character numbers)
+	UPROPERTY()
+	float Damage=0.f;
+
+	// FSentinelDamageNumberEntry::Crit / Blocked bits
+	UPROPERTY()
+	uint8 Flags=0;
+
+	static constexpr uint8 Crit=1;
+	static constexpr uint8 Blocked=2;
+};
 
 UCLASS()
 class AURA_API AMyPlayerController2 : public APlayerController
@@ -40,7 +66,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupInputComponent() override;
 	virtual void BeginPlay() override;
-	
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 	UPROPERTY()
 	UMyAbilitySystemComponent* MyAbilitySystemComponent;
 	
@@ -162,7 +189,24 @@ public:
 	// When true MyAttributeSet calls ShowDamageNumber_2 (Niagara), otherwise the widget based ShowDamageNumber
 	UPROPERTY(EditAnywhere,Category="DamageNumbers")
 	bool bUseNiagaraDamageNumbers=true;
-	
+
+	// Mech Sentinel hits this player dealt, batched by the server once per frame; drawn through DamageNumberDataChannel like ShowDamageNumber_2.
+	// Unreliable: the numbers are cosmetic and one shot can hit several sentinels
+	UFUNCTION(Client,Unreliable)
+	void Client_ShowSentinelDamageNumbers(const TArray<FSentinelDamageNumberEntry>& Numbers);
+
+	// Damage numbers for Mech Sentinel hits (Niagara only, sentinels have no actor for the widget version)
+	UPROPERTY(EditAnywhere,Category="DamageNumbers")
+	bool bShowSentinelDamageNumbers=true;
+
+	// Height above the hit point where a sentinel's number starts (the sentinel hit capsule's half height is 140)
+	UPROPERTY(EditAnywhere,Category="DamageNumbers")
+	float SentinelDamageNumberHeightOffset=100.f;
+
+	// Server side cap per frame and player, extra numbers that frame are dropped
+	UPROPERTY(EditAnywhere,Category="DamageNumbers",meta=(ClampMin="1"))
+	int32 MaxSentinelDamageNumbersPerFrame=32;
+
 	// Sent by UGA_Beam to the player the beam hit (bCaster false) or to the player who cast it (bCaster true), settings come from BeamClass's defaults
 	UFUNCTION(Client,Reliable)
 	void Client_PlayBeamImpact(TSubclassOf<UGA_Beam> BeamClass,bool bCaster);
@@ -238,7 +282,25 @@ public:
 	// Extra height above the capsule top where the number starts
 	UPROPERTY(EditAnywhere,Category="DamageNumbers")
 	float DamageNumberHeightOffset=20.f;
+
+	// Writes one entry to DamageNumberDataChannel (local only). Used by ShowDamageNumber_2 and Client_ShowSentinelDamageNumbers;
+	// DebugSource names the writer in Niagara's data channel debugging
+	void WriteDamageNumber(const FVector& Location,float InDamage,bool bIsCrit,bool bIsBlocked,const TCHAR* DebugSource);
 	
+	// Server: UMechSentinelSwarmSubsystem::OnSentinelDamagedNative, queues the hits this player dealt
+	void HandleSentinelDamaged(const FMechSentinelDamageEvent& Event);
+	
+	// Server, next tick after the first queued hit: sends the queued sentinel numbers in one Client_ShowSentinelDamageNumbers
+	void FlushSentinelDamageNumbers();
+	
+	// True when DamageInstigator is this controller or owned by it (its player state, its pawn, actors they own)
+	bool IsSentinelDamageInstigator(const AActor* DamageInstigator) const;
+	
+	TArray<FSentinelDamageNumberEntry> PendingSentinelDamageNumbers;
+	FTimerHandle SentinelDamageNumberFlushTimer;
+	FDelegateHandle SentinelDamagedHandle;
+	TWeakObjectPtr<UMechSentinelSwarmSubsystem> SentinelDamageSwarm;
+
 	
 	UPROPERTY(EditAnywhere)
 	AMyTargetDecalActor* TargetDecalActor;
