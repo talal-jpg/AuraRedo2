@@ -4,7 +4,8 @@
 //   Behavior : UMechSentinelEffectsProcessor -> UMechSentinelTargetSelectionProcessor -> UMechSentinelSelfBuffProcessor
 //              (casts are applied by the swarm subsystem in a timer, after the phases)
 //   Tasks    : UMechSentinelSteeringProcessor
-//   (Avoidance -> ApplyForces -> Movement from the _Copy processors)
+//   Avoidance: UMassMovingAvoidanceProcessor_Copy -> UMechSentinelObstacleAvoidanceProcessor (MechSentinelObstacleAvoidanceProcessor.h)
+//   (ApplyForces -> Movement from the _Copy processors)
 //   Combat   : UMechSentinelAttackProcessor, UMechSentinelDeathProcessor -> UMechSentinelCollisionHashProcessor
 // Where frames are rendered (client / listen / standalone):
 //   UMechSentinelNetSmoothingProcessor (clients only, PrePhysics)
