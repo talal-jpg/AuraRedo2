@@ -57,6 +57,66 @@ void AMyHexPathSegment::SetLayout(float InHexRadius, const FVector& InLayoutOrig
 	LayoutDownOffset = InLayoutOrigin - InLayoutOrigin * LayoutDownScale;
 }
 
+
+// =============================================================================
+// Assumed bounds
+// =============================================================================
+
+void AMyHexPathSegment::SetSegmentBounds(const FVector& Center, const FVector& Extent, const FRotator& Rotation)
+{
+	SegmentBoundsCenter = Center;
+	SegmentBoundsExtent = Extent.GetAbs();
+	SegmentBoundsRotation = Rotation;
+	bHasSegmentBounds = true;
+}
+
+void AMyHexPathSegment::GetSegmentBounds(FVector& OutCenter, FVector& OutExtent, FRotator& OutRotation) const
+{
+	OutCenter = SegmentBoundsCenter;
+	OutExtent = SegmentBoundsExtent;
+	OutRotation = SegmentBoundsRotation;
+}
+
+TArray<FVector> AMyHexPathSegment::GetSegmentBoundsCorners(bool bTop, bool bBottom) const
+{
+	TArray<FVector> Corners;
+
+	if (!bHasSegmentBounds)
+	{
+		return Corners;
+	}
+
+	// Box space (-X,-Y), (+X,-Y), (+X,+Y), (-X,+Y): X is along the path, so start, end, end, start
+	static constexpr double SignX[4] = { -1.0, 1.0, 1.0, -1.0 };
+	static constexpr double SignY[4] = { -1.0, -1.0, 1.0, 1.0 };
+
+	const FQuat Rotation = SegmentBoundsRotation.Quaternion();
+	const FVector& Extent = SegmentBoundsExtent;
+
+	auto AddLayer = [&](double SignZ)
+	{
+		for (int32 Index = 0; Index < 4; ++Index)
+		{
+			const FVector Local(SignX[Index] * Extent.X, SignY[Index] * Extent.Y, SignZ * Extent.Z);
+			Corners.Add(SegmentBoundsCenter + Rotation.RotateVector(Local));
+		}
+	};
+
+	Corners.Reserve((bTop ? 4 : 0) + (bBottom ? 4 : 0));
+
+	if (bTop)
+	{
+		AddLayer(1.0);
+	}
+
+	if (bBottom)
+	{
+		AddLayer(-1.0);
+	}
+
+	return Corners;
+}
+
 void AMyHexPathSegment::InitSegment(int32 InSegmentIndex, const TArray<FVector>& Points, const TArray<FVector>& Tangents)
 {
 	SegmentIndex = InSegmentIndex;

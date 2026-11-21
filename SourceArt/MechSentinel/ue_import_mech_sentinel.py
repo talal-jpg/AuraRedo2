@@ -6,10 +6,13 @@
 #    static mesh sockets Tentacle_XX on SM_MechSentinel_Head).
 # 2. Creates /Game/MechSentinel/Materials/M_MechSentinelTentacle, the ribbon tube material used by the Niagara
 #    tentacle system (sleeve bands along the ribbon, glow from the particle color), also usable by the claw meshes.
-# 3. Creates M_MechSentinelBody (dark gunmetal, darker when damaged, white hit flash) and M_MechSentinelEyes (red
-#    emissive: brighter when attacking, flickering when stunned, off when dead). Both read the per-instance custom data
-#    written by UMechSentinelVisualDataProcessor (README section 12) and are assigned to the mesh slots.
-# Re-running is safe: existing materials are left as they are, only the mesh slot assignment is redone.
+# 3. Creates M_MechSentinelBody (dark gunmetal, darker when damaged, white hit flash, a coloured rim per active
+#    self-buff) and M_MechSentinelEyes (red emissive: brighter when attacking, flickering when stunned, off when dead,
+#    tinted toward the active self-buff's colour). Both read the per-instance custom data written by
+#    UMechSentinelVisualDataProcessor (README section 12) and are assigned to the mesh slots.
+# Re-running is safe: existing materials are left as they are, only the mesh slot assignment is redone. To bring
+# existing materials up to date with the graphs below, run ue_update_mech_sentinel_buff_visuals.py (it rebuilds them in
+# place). Importing this file as a module (import ue_import_mech_sentinel) runs nothing; call main().
 # The Niagara system itself is built with the recipe in MyMechEntitySystemReadme.md ("Tentacles").
 
 import os
@@ -21,6 +24,19 @@ EXPORT_DIR = os.path.join(HERE, "Export")
 MESH_DIR = "/Game/MechSentinel/Meshes"
 MATERIAL_DIR = "/Game/MechSentinel/Materials"
 ASSETS = ["SM_MechSentinel_Head", "SM_MechSentinel_Far", "SM_MechSentinel_Tentacle", "SM_MechSentinel_TentacleTip"]
+
+# Self-buffs: custom data 4 armor, 5 speed, 6 damage, each a 0..1 fade (UMechSentinelVisualDataProcessor). Their
+# PerInstanceCustomData default is 0, which is also what an ISM with fewer floats reads, and with all three at 0 both
+# materials compute exactly what they did before the buffs.
+BUFF_CUSTOM_DATA = (4, 5, 6)
+# Body rim colours, emissive on top of the hit flash: armor steel blue, speed cyan-white, damage orange.
+BODY_BUFF_COLORS = ((0.25, 0.45, 1.0), (0.55, 1.0, 1.0), (1.0, 0.35, 0.04))
+BODY_BUFF_RIM_INTENSITY = 3.0
+BODY_BUFF_RIM_FLOOR = 0.12  # share of the rim colour on surfaces facing the camera (the silhouette gets all of it)
+BODY_BUFF_RIM_EXPONENT = 3.0
+# Colours the eye red tints toward (same brightness range as the red 6 / 0.18 / 0.06), same buff order.
+EYE_BUFF_COLORS = ((0.6, 1.5, 6.0), (2.2, 5.0, 6.0), (6.0, 1.9, 0.08))
+EYE_BUFF_TINT = 0.85  # how far the red goes toward the buff colour at full fade
 
 asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
 MEL = unreal.MaterialEditingLibrary
@@ -150,11 +166,65 @@ def _finish(material):
     unreal.log("Created %s" % material.get_path_name())
 
 
+def _color(rgb):
+    return unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0)
+
+
+def _buff_fades(material, x, y):
+    """The three self-buff fades: PerInstanceCustomData 4 / 5 / 6, default 0."""
+    return [_picd(material, index, x, y + 150 * i, 0.0) for i, index in enumerate(BUFF_CUSTOM_DATA)]
+
+
+def _sum(material, nodes, x, y):
+    """nodes[0] + nodes[1] + ... as a chain of Add nodes."""
+    total = nodes[0]
+    for i, node in enumerate(nodes[1:]):
+        add = _expr(material, unreal.MaterialExpressionAdd, x + 150 * i, y)
+        MEL.connect_material_expressions(total, "", add, "A")
+        MEL.connect_material_expressions(node, "", add, "B")
+        total = add
+    return total
+
+
+def _buff_color_sum(material, fades, colors, x, y):
+    """sum(fade_i * colour_i): black while no buff is on."""
+    tinted = []
+    for i, (fade, rgb) in enumerate(zip(fades, colors)):
+        color = _expr(material, unreal.MaterialExpressionConstant3Vector, x, y + 150 * i + 60, constant=_color(rgb))
+        tint = _expr(material, unreal.MaterialExpressionMultiply, x + 200, y + 150 * i)
+        MEL.connect_material_expressions(fade, "", tint, "A")
+        MEL.connect_material_expressions(color, "", tint, "B")
+        tinted.append(tint)
+    return _sum(material, tinted, x + 400, y + 150)
+
+
+def _body_buff_rim(material, x, y):
+    """Self-buff rim: sum(fade x colour) x lerp(floor, 1, fresnel) x intensity. 0 while no buff is on."""
+    fades = _buff_fades(material, x, y)
+    colors = _buff_color_sum(material, fades, BODY_BUFF_COLORS, x + 200, y)
+    fresnel = _expr(material, unreal.MaterialExpressionFresnel, x + 500, y + 550,
+                    exponent=BODY_BUFF_RIM_EXPONENT, base_reflect_fraction=0.0)
+    rim = _expr(material, unreal.MaterialExpressionLinearInterpolate, x + 700, y + 550, const_a=BODY_BUFF_RIM_FLOOR, const_b=1.0)
+    MEL.connect_material_expressions(fresnel, "", rim, "Alpha")
+    rim_color = _expr(material, unreal.MaterialExpressionMultiply, x + 950, y + 300)
+    MEL.connect_material_expressions(colors, "", rim_color, "A")
+    MEL.connect_material_expressions(rim, "", rim_color, "B")
+    lit = _expr(material, unreal.MaterialExpressionMultiply, x + 1100, y + 300, const_b=BODY_BUFF_RIM_INTENSITY)
+    MEL.connect_material_expressions(rim_color, "", lit, "A")
+    return lit
+
+
 def create_body_material():
     material, created = _new_material("M_MechSentinelBody")
     if not created:
         return material
+    build_body_graph(material)
+    _finish(material)
+    return material
 
+
+def build_body_graph(material):
+    """The body graph, built into a material without expressions (ue_update_mech_sentinel_buff_visuals.py uses it too)."""
     # Custom data 1 = health fraction (1 = full), 2 = hit flash (1 -> 0 in ~0.25 s).
     health = _picd(material, 1, -900, -100, 1.0)
     flash = _picd(material, 2, -900, 350, 0.0)
@@ -176,10 +246,13 @@ def create_body_material():
 
     flash_emissive = _expr(material, unreal.MaterialExpressionMultiply, -400, 350, const_b=4.0)
     MEL.connect_material_expressions(flash, "", flash_emissive, "A")
-    MEL.connect_material_property(flash_emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
 
-    _finish(material)
-    return material
+    # Custom data 4 / 5 / 6 = self-buff fades: a coloured rim added to the flash (adds 0 while no buff is on).
+    buff_rim = _body_buff_rim(material, -1700, 550)
+    emissive = _expr(material, unreal.MaterialExpressionAdd, -200, 450)
+    MEL.connect_material_expressions(flash_emissive, "", emissive, "A")
+    MEL.connect_material_expressions(buff_rim, "", emissive, "B")
+    MEL.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
 
 
 def _state_is(material, state, value, x, y):
@@ -195,11 +268,39 @@ def _state_is(material, state, value, x, y):
     return result
 
 
+def _eye_buff_tint(material, red, x, y):
+    """lerp(red, fade-weighted average of the active buffs' colours, saturate(sum of fades) x tint). Red while no buff is on."""
+    fades = _buff_fades(material, x, y)
+    colors = _buff_color_sum(material, fades, EYE_BUFF_COLORS, x + 200, y)
+    total = _sum(material, fades, x + 200, y + 550)
+    # Max: no 0 / 0 while no buff is on (colors is 0 then, so the average is 0 and the lerp keeps the red).
+    safe_total = _expr(material, unreal.MaterialExpressionMax, x + 550, y + 550, const_b=0.0001)
+    MEL.connect_material_expressions(total, "", safe_total, "A")
+    average = _expr(material, unreal.MaterialExpressionDivide, x + 750, y + 300)
+    MEL.connect_material_expressions(colors, "", average, "A")
+    MEL.connect_material_expressions(safe_total, "", average, "B")
+    amount = _expr(material, unreal.MaterialExpressionSaturate, x + 550, y + 700)
+    MEL.connect_material_expressions(total, "", amount, "")
+    tint = _expr(material, unreal.MaterialExpressionMultiply, x + 750, y + 700, const_b=EYE_BUFF_TINT)
+    MEL.connect_material_expressions(amount, "", tint, "A")
+    color = _expr(material, unreal.MaterialExpressionLinearInterpolate, x + 950, y + 300)
+    MEL.connect_material_expressions(red, "", color, "A")
+    MEL.connect_material_expressions(average, "", color, "B")
+    MEL.connect_material_expressions(tint, "", color, "Alpha")
+    return color
+
+
 def create_eyes_material():
     material, created = _new_material("M_MechSentinelEyes")
     if not created:
         return material
+    build_eyes_graph(material)
+    _finish(material)
+    return material
 
+
+def build_eyes_graph(material):
+    """The eye graph, built into a material without expressions (ue_update_mech_sentinel_buff_visuals.py uses it too)."""
     # Custom data 0 = state, 3 = attack glow (1 -> 0 in ~0.4 s).
     state = _picd(material, 0, -1700, 0, 0.0)
     attack_glow = _picd(material, 3, -1700, 300, 0.0)
@@ -243,8 +344,10 @@ def create_eyes_material():
     MEL.connect_material_expressions(alive, "", glow, "B")
 
     red = _expr(material, unreal.MaterialExpressionConstant3Vector, -300, -150, constant=unreal.LinearColor(6.0, 0.18, 0.06, 1.0))
+    # Custom data 4 / 5 / 6 = self-buff fades: the red tints toward the active buff's colour (stays red while none is on).
+    eye_color = _eye_buff_tint(material, red, -1400, -1100)
     emissive = _expr(material, unreal.MaterialExpressionMultiply, -100, 0)
-    MEL.connect_material_expressions(red, "", emissive, "A")
+    MEL.connect_material_expressions(eye_color, "", emissive, "A")
     MEL.connect_material_expressions(glow, "", emissive, "B")
     MEL.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
 
@@ -252,9 +355,6 @@ def create_eyes_material():
     MEL.connect_material_property(lens, "", unreal.MaterialProperty.MP_BASE_COLOR)
     roughness = _expr(material, unreal.MaterialExpressionConstant, -100, 250, r=0.2)
     MEL.connect_material_property(roughness, "", unreal.MaterialProperty.MP_ROUGHNESS)
-
-    _finish(material)
-    return material
 
 
 def assign_mesh_materials(body, eyes):
@@ -274,7 +374,15 @@ def assign_mesh_materials(body, eyes):
         unreal.log("%s: body -> slot %d, eyes -> slot %d" % (name, body_index, eyes_index))
 
 
-import_meshes()
-create_tentacle_material()
-assign_mesh_materials(create_body_material(), create_eyes_material())
-unreal.log("MechSentinel: next, build NS_MechSentinelTentacles (README section 15) and the entity config (README section 1).")
+def main():
+    import_meshes()
+    create_tentacle_material()
+    assign_mesh_materials(create_body_material(), create_eyes_material())
+    unreal.log("MechSentinel: next, build NS_MechSentinelTentacles (README section 15) and the entity config (README section 1).")
+
+
+# Run as a script (Tools > Execute Python Script, -run=pythonscript, or executed by a tool): do the import.
+# ue_update_mech_sentinel_buff_visuals.py loads this file as the module "ue_import_mech_sentinel" for its graph builders,
+# and then nothing runs.
+if __name__ != "ue_import_mech_sentinel":
+    main()

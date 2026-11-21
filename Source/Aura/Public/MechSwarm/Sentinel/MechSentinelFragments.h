@@ -25,6 +25,20 @@ enum class EMechSentinelState : uint8
 	Dead
 };
 
+/** Self-buff slots, also the bit index in FMechSentinelStateFragment::BuffMask. */
+enum class EMechSentinelSelfBuff : uint8 { Armor = 0, Speed = 1, Damage = 2, Num = 3 };
+
+namespace MechSentinelSelfBuff
+{
+	constexpr int32 Num = int32(EMechSentinelSelfBuff::Num);
+
+	/** BuffMask with the bit of every slot. */
+	constexpr uint8 AllBits = uint8((1u << Num) - 1u);
+
+	/** ISM custom data index of slot 0's fade (0..1, UMechSentinelVisualDataProcessor): 4 armor, 5 speed, 6 damage. */
+	constexpr int32 FirstFadeCustomDataIndex = 4;
+}
+
 /** Blueprint friendly wrapper of FMassEntityHandle. */
 USTRUCT(BlueprintType)
 struct AURA_API FMechSentinelHandle
@@ -220,6 +234,10 @@ struct AURA_API FMechSentinelStateFragment : public FMassFragment
 
 	/** Incremented by the server on every damaging hit; clients flash when the replicated value changes. */
 	uint8 HitSerial = 0;
+
+	/** Active self-buffs, bit (1 << EMechSentinelSelfBuff). Server computes it, replicated to clients. */
+	UPROPERTY(VisibleAnywhere, Category = "State")
+	uint8 BuffMask = 0;
 };
 
 /** Per-entity target assignment, chosen from the swarm's shared targeting board. */
@@ -373,6 +391,32 @@ struct AURA_API FMechSentinelTargetingSharedFragment : public FMassSharedFragmen
 
 	/** Bumped whenever the set of valid slots changes. */
 	uint32 BoardSerial = 1;
+};
+
+//----------------------------------------------------------------------//
+// Server only
+//----------------------------------------------------------------------//
+
+/**
+ * Server-only self-buff timers, read and written by UMechSentinelSelfBuffProcessor. Added by UMechSentinelTrait where the
+ * swarm is simulated (not on NM_Client); the wave spawner jitters the timers at spawn.
+ */
+USTRUCT()
+struct AURA_API FMechSentinelSelfBuffFragment : public FMassFragment
+{
+	GENERATED_BODY()
+
+	/** Seconds until each buff (EMechSentinelSelfBuff order) may be cast again. */
+	UPROPERTY(VisibleAnywhere, Category = "Self Buff")
+	float Cooldown[3] = { 0.f, 0.f, 0.f };
+
+	/** Seconds until the next buff decision. */
+	UPROPERTY(VisibleAnywhere, Category = "Self Buff")
+	float DecisionTimer = 0.f;
+
+	/** The wave's SelfBuffChanceMultiplier: scales the rules' SelfBuffChance for this sentinel. */
+	UPROPERTY(VisibleAnywhere, Category = "Self Buff")
+	float ChanceScale = 1.f;
 };
 
 //----------------------------------------------------------------------//

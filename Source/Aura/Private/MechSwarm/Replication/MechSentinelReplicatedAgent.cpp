@@ -28,6 +28,7 @@ FMechSentinelReplicatedData FMechSentinelReplicatedData::FromEntity(const FTrans
 	}
 	Data.HitSerial = StateFragment.HitSerial;
 	Data.AttackSerial = Attack.AttackSerial;
+	Data.BuffMask = StateFragment.BuffMask;
 	return Data;
 }
 
@@ -61,5 +62,6 @@ bool FMechSentinelReplicatedData::HasDiscreteChange(const FMechSentinelReplicate
 	return State != Other.State
 		|| HealthByte != Other.HealthByte
 		|| HitSerial != Other.HitSerial
-		|| AttackSerial != Other.AttackSerial;
+		|| AttackSerial != Other.AttackSerial
+		|| BuffMask != Other.BuffMask;
 }

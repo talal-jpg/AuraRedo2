@@ -18,4 +18,5 @@ void UMassObstacleAvoidanceTrait_Copy::BuildTemplate(FMassEntityTemplateBuildCon
 	BuildContext.RequireFragment<FMassForceFragment_Copy>();
 
 	BuildContext.AddConstSharedFragment(EntityManager.GetOrCreateConstSharedFragment(Avoidance));
+	BuildContext.AddConstSharedFragment(EntityManager.GetOrCreateConstSharedFragment(Obstacles));
 }

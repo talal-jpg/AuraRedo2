@@ -9,9 +9,13 @@
 
 class AMyHexAtmosphereFX;
 class AMyHexPathSegment;
+class AMyHexPathSpawner;
 class UNiagaraSystem;
 class UPCGGraphInterface;
 class USplineComponent;
+
+/** A segment was added to the path (server). Its path distances and assumed bounds are set and its PCG has started. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHexPathSegmentSpawned, AMyHexPathSpawner*, PathSpawner, AMyHexPathSegment*, Segment);
 
 /** A Niagara effect kept on the local camera, with its own spawn rate and slow gusts. */
 USTRUCT(BlueprintType)
@@ -103,6 +107,8 @@ struct FMyHexAtmosphereVariant
  *
  * PathSpline holds the whole path. Each extension also spawns a SegmentClass actor with its own
  * copy of that piece, and that actor's PCG graph samples it to spawn the AMyHexPlatforms.
+ * The segment also gets the world box its platforms are assumed to fill (Segment bounds below), then
+ * OnSegmentSpawned fires: a wave spawner in External mode starts a sentinel wave at the box's corners.
  */
 UCLASS()
 class AURA_API AMyHexPathSpawner : public AActor
@@ -137,6 +143,20 @@ public:
 	/** HexRadius / 100: how much bigger than the original layout everything horizontal is. */
 	UFUNCTION(BlueprintPure, Category = "Hex Path|Scale")
 	float GetLayoutScale() const { return HexRadius / 100.f; }
+
+	/**
+	 * Server: fires in ExtendPath for every new segment (the InitialSegments too, during BeginPlay), once its assumed
+	 * bounds are set. Listeners bound later catch up with GetSegments(). It runs wherever ExtendPath is called from
+	 * (BeginPlay, the player check timer), so listeners should only queue work.
+	 */
+	UPROPERTY(BlueprintAssignable, Category = "Path")
+	FOnHexPathSegmentSpawned OnSegmentSpawned;
+
+	UFUNCTION(BlueprintPure, Category = "Sentinel Waves")
+	bool ShouldSpawnSentinelWaves() const { return bSpawnSentinelWaves; }
+
+	UFUNCTION(BlueprintPure, Category = "Sentinel Waves")
+	int32 GetFirstSegmentWithSentinelWave() const { return FirstSegmentWithSentinelWave; }
 
 protected:
 
@@ -232,6 +252,53 @@ protected:
 
 
 	// -------------------------------------------------------------------------
+	// Segment bounds
+	//
+	// When a segment spawns, before its PCG has run, it gets the world box its platforms are assumed to fill
+	// (AMyHexPathSegment::GetSegmentBounds): the world path from the segment's start to its end, widened across it,
+	// with the box X axis from start to end. The defaults mirror PCG_SplineIHexPlatformsFromSpline (platforms within
+	// 9975 layout cm of the path, tile tops -1620..+4620 around it) and must follow it when the graph changes.
+	// -------------------------------------------------------------------------
+
+	/** Reach across the path on each side, in cm (for HexRadius 100). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Path|Segment Bounds", meta = (ClampMin = "0.0"))
+	float SegmentBoundsHalfWidth = 10000.f;
+
+	/** Reach back past the segment's start, in cm (for HexRadius 100), for platforms that start behind it. 0 = none. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Path|Segment Bounds", meta = (ClampMin = "0.0"))
+	float SegmentBoundsBackReach = 0.f;
+
+	/** Below the lowest path point of the segment, in cm (not scaled). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Path|Segment Bounds")
+	float SegmentBoundsBelow = 1620.f;
+
+	/** Above the highest path point of the segment, in cm (not scaled). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Path|Segment Bounds")
+	float SegmentBoundsAbove = 4620.f;
+
+	/** The path is sampled this often (cm along it, for HexRadius 100), plus its end. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Path|Segment Bounds", meta = (ClampMin = "50.0"))
+	float SegmentBoundsSampleSpacing = 500.f;
+
+	/** Draw each new segment's bounds for about 15 s (server; not in shipping builds). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Path|Segment Bounds")
+	bool bDrawSegmentBounds = false;
+
+
+	// -------------------------------------------------------------------------
+	// Sentinel waves (read by AMechSentinelWaveSpawner in External mode)
+	// -------------------------------------------------------------------------
+
+	/** This lane starts a sentinel wave for each new segment, when the level's wave spawner is in External mode. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sentinel Waves")
+	bool bSpawnSentinelWaves = true;
+
+	/** Segment index that gets wave 1; earlier segments get none. Wave number = SegmentIndex - this + 1. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sentinel Waves", meta = (ClampMin = "0"))
+	int32 FirstSegmentWithSentinelWave = 1;
+
+
+	// -------------------------------------------------------------------------
 	// Path-end fog
 	//
 	// Fog banks across the end of the path hide the platforms of a new segment while they spawn.
@@ -305,6 +372,9 @@ private:
 
 	/** Destroys segments that are DestroySegmentsBehindDistance behind the lead along the path. */
 	void DestroyPassedSegments();
+
+	/** The assumed bounds (see Segment bounds) of the path between two distances along PathSpline, in world space. */
+	void ComputeSegmentBounds(float StartDistance, float EndDistance, FVector& OutCenter, FVector& OutExtent, FRotator& OutRotation) const;
 
 	/** Noise in roughly -1..1, stretched because Perlin noise rarely gets past +-0.6. */
 	float SampleNoise(float Value) const;
