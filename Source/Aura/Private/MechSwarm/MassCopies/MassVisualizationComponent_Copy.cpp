@@ -39,7 +39,7 @@ int32 UMassVisualizationComponent_Copy::GetOrCreateSlot(const int32 DescIndex, c
 
 	FSlot& NewSlot = Slots.AddDefaulted_GetRef();
 	NewSlot.ISM = ISM;
-	NewSlot.NumCustomFloats = FMath::Clamp(Desc.NumCustomDataFloats, 0, 4);
+	NewSlot.NumCustomFloats = FMath::Clamp(Desc.NumCustomDataFloats, 0, MechSwarm::Representation::MaxCustomDataFloats);
 
 	const int32 SlotIndex = Slots.Num() - 1;
 	DescLODToSlot.Add(Key, SlotIndex);
@@ -69,7 +69,7 @@ UInstancedStaticMeshComponent* UMassVisualizationComponent_Copy::CreateISM(const
 	ISM->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	ISM->SetCanEverAffectNavigation(false);
 	ISM->SetCastShadow(Desc.bCastShadows);
-	ISM->SetNumCustomDataFloats(FMath::Clamp(Desc.NumCustomDataFloats, 0, 4));
+	ISM->SetNumCustomDataFloats(FMath::Clamp(Desc.NumCustomDataFloats, 0, MechSwarm::Representation::MaxCustomDataFloats));
 	ISM->SetupAttachment(Owner->GetRootComponent());
 	ISM->RegisterComponent();
 	Owner->AddInstanceComponent(ISM);

@@ -69,6 +69,9 @@ void UMechSentinelEffectsProcessor::ConfigureQueries(const TSharedRef<FMassEntit
 {
 	EntityQuery.AddRequirement<FMechSentinelGASFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FMechSentinelStateFragment>(EMassFragmentAccess::ReadWrite);
+	// Not read in the chunk loop, but RecomputeSentinel writes it for every expiry (buff ends): declared so the
+	// processing queue knows.
+	EntityQuery.AddRequirement<FMechSentinelAttributesFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddTagRequirement<FMechSentinelTag>(EMassFragmentPresence::All);
 	EntityQuery.AddTagRequirement<FMechSentinelDeadTag>(EMassFragmentPresence::None);
 }
@@ -366,6 +369,164 @@ void UMechSentinelTargetSelectionProcessor::Execute(FMassEntityManager& EntityMa
 			{
 				Target.TargetLocation = Fallback->Location;
 			}
+		}
+	});
+}
+
+//----------------------------------------------------------------------//
+// UMechSentinelSelfBuffProcessor
+//----------------------------------------------------------------------//
+UMechSentinelSelfBuffProcessor::UMechSentinelSelfBuffProcessor()
+	: EntityQuery(*this)
+{
+	ExecutionFlags = MechSwarm::Behavior::AuthorityFlags;
+	ExecutionOrder.ExecuteInGroup = UE::Mass::ProcessorGroupNames::Behavior;
+	// Sees this frame's expiries (BuffMask) and targets.
+	ExecutionOrder.ExecuteAfter.Add(UMechSentinelEffectsProcessor::StaticClass()->GetFName());
+	ExecutionOrder.ExecuteAfter.Add(UMechSentinelTargetSelectionProcessor::StaticClass()->GetFName());
+	// Writes the swarm subsystem's cast queue and arms its timer (game thread only).
+	bRequiresGameThreadExecution = true;
+}
+
+void UMechSentinelSelfBuffProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
+{
+	EntityQuery.AddRequirement<FMechSentinelSelfBuffFragment>(EMassFragmentAccess::ReadWrite);
+	EntityQuery.AddRequirement<FMechSentinelStateFragment>(EMassFragmentAccess::ReadOnly);
+	EntityQuery.AddRequirement<FMechSentinelTargetFragment>(EMassFragmentAccess::ReadOnly);
+	EntityQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+	EntityQuery.AddTagRequirement<FMechSentinelTag>(EMassFragmentPresence::All);
+	EntityQuery.AddTagRequirement<FMechSentinelDeadTag>(EMassFragmentPresence::None);
+}
+
+void UMechSentinelSelfBuffProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
+{
+	UMechSentinelSwarmSubsystem* Swarm = UWorld::GetSubsystem<UMechSentinelSwarmSubsystem>(EntityManager.GetWorld());
+	if (!Swarm)
+	{
+		return;
+	}
+	const UMechSentinelSwarmRules* Rules = Swarm->GetRules();
+	if (!Rules->bEnableSelfBuffs)
+	{
+		return;
+	}
+
+	// The per-frame part of each buff's eligibility (the rules' ClampMin are editor-only).
+	struct FBuffChoice
+	{
+		int32 BuffIndex = 0;
+		float Weight = 0.f;
+		float Cooldown = 0.f;
+		float MinDistanceSq = 0.f;
+		float MaxDistanceSq = 0.f;
+		bool bNeedsTarget = false;
+	};
+	FBuffChoice Choices[MechSentinelSelfBuff::Num];
+	int32 NumChoices = 0;
+	for (int32 BuffIndex = 0; BuffIndex < MechSentinelSelfBuff::Num; ++BuffIndex)
+	{
+		const FMechSentinelSelfBuffDef& Def = Rules->GetSelfBuffDef(BuffIndex);
+		if (!Def.Effect || Def.Weight <= 0.f)
+		{
+			continue;
+		}
+		FBuffChoice& Choice = Choices[NumChoices++];
+		Choice.BuffIndex = BuffIndex;
+		Choice.Weight = Def.Weight;
+		Choice.Cooldown = FMath::Max(0.f, Def.Cooldown);
+		Choice.MinDistanceSq = Def.MinTargetDistance > 0.f ? FMath::Square(Def.MinTargetDistance) : 0.f;
+		Choice.MaxDistanceSq = Def.MaxTargetDistance > 0.f ? FMath::Square(Def.MaxTargetDistance) : FLT_MAX;
+		Choice.bNeedsTarget = Def.MinTargetDistance > 0.f || Def.MaxTargetDistance > 0.f;
+	}
+
+	const float Interval = FMath::Max(0.05f, Rules->SelfBuffDecisionInterval);
+	const float BaseChance = FMath::Max(0.f, Rules->SelfBuffChance);
+
+	EntityQuery.ForEachEntityChunk(Context, [Swarm, &Choices, NumChoices, Interval, BaseChance](FMassExecutionContext& Context)
+	{
+		const float DeltaTime = Context.GetDeltaTimeSeconds();
+		const TArrayView<FMechSentinelSelfBuffFragment> SelfBuffList = Context.GetMutableFragmentView<FMechSentinelSelfBuffFragment>();
+		const TConstArrayView<FMechSentinelStateFragment> StateList = Context.GetFragmentView<FMechSentinelStateFragment>();
+		const TConstArrayView<FMechSentinelTargetFragment> TargetList = Context.GetFragmentView<FMechSentinelTargetFragment>();
+		const TConstArrayView<FTransformFragment> TransformList = Context.GetFragmentView<FTransformFragment>();
+
+		const int32 NumEntities = Context.GetNumEntities();
+		for (int32 EntityIndex = 0; EntityIndex < NumEntities; ++EntityIndex)
+		{
+			// Timers run on while stunned: a stun only skips decisions.
+			FMechSentinelSelfBuffFragment& SelfBuff = SelfBuffList[EntityIndex];
+			for (float& CooldownLeft : SelfBuff.Cooldown)
+			{
+				CooldownLeft = FMath::Max(0.f, CooldownLeft - DeltaTime);
+			}
+			SelfBuff.DecisionTimer -= DeltaTime;
+			if (SelfBuff.DecisionTimer > 0.f)
+			{
+				continue;
+			}
+			SelfBuff.DecisionTimer = Interval * FMath::FRandRange(0.7f, 1.3f);
+
+			const FMechSentinelStateFragment& State = StateList[EntityIndex];
+			if (State.State == EMechSentinelState::Stunned || State.State == EMechSentinelState::Dead)
+			{
+				continue;
+			}
+			const float Chance = FMath::Min(1.f, BaseChance * FMath::Max(0.f, SelfBuff.ChanceScale));
+			if (Chance <= 0.f || FMath::FRand() >= Chance)
+			{
+				continue;
+			}
+
+			// Ready: off cooldown, not already active (the same GE again would only refresh it), distance window met.
+			const FMechSentinelTargetFragment& Target = TargetList[EntityIndex];
+			const bool bHasTarget = Target.HasTarget();
+			const float TargetDistanceSq = bHasTarget
+				? float(FVector::DistSquared(TransformList[EntityIndex].GetTransform().GetLocation(), Target.TargetLocation))
+				: 0.f;
+
+			float Weights[MechSentinelSelfBuff::Num] = {};
+			float TotalWeight = 0.f;
+			for (int32 ChoiceIndex = 0; ChoiceIndex < NumChoices; ++ChoiceIndex)
+			{
+				const FBuffChoice& Choice = Choices[ChoiceIndex];
+				const bool bInWindow = !Choice.bNeedsTarget
+					|| (bHasTarget && TargetDistanceSq >= Choice.MinDistanceSq && TargetDistanceSq <= Choice.MaxDistanceSq);
+				if (bInWindow && SelfBuff.Cooldown[Choice.BuffIndex] <= 0.f && (State.BuffMask & (1u << Choice.BuffIndex)) == 0)
+				{
+					Weights[ChoiceIndex] = Choice.Weight;
+					TotalWeight += Choice.Weight;
+				}
+			}
+			if (TotalWeight <= 0.f)
+			{
+				continue;
+			}
+
+			// Weighted pick; float rounding at the very end falls back to the last ready buff.
+			float Roll = FMath::FRand() * TotalWeight;
+			int32 Picked = INDEX_NONE;
+			for (int32 ChoiceIndex = 0; ChoiceIndex < NumChoices; ++ChoiceIndex)
+			{
+				if (Weights[ChoiceIndex] <= 0.f)
+				{
+					continue;
+				}
+				Picked = ChoiceIndex;
+				Roll -= Weights[ChoiceIndex];
+				if (Roll < 0.f)
+				{
+					break;
+				}
+			}
+			if (Picked == INDEX_NONE)
+			{
+				continue;
+			}
+
+			// The cooldown counts from the cast. The GE is applied later this frame, outside the Mass phases.
+			const FBuffChoice& PickedBuff = Choices[Picked];
+			SelfBuff.Cooldown[PickedBuff.BuffIndex] = PickedBuff.Cooldown;
+			Swarm->QueueSelfBuff(Context.GetEntity(EntityIndex), PickedBuff.BuffIndex);
 		}
 	});
 }

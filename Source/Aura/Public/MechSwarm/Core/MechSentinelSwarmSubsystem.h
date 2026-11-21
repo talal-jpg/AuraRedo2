@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/TimerHandle.h"
 #include "GameFramework/Actor.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "Mass/EntityHandle.h"
@@ -176,6 +177,14 @@ public:
 	/** The ASC used as source when sentinels attack players. */
 	UAbilitySystemComponent* GetSentinelSourceASC();
 
+	/**
+	 * Queues self-buff BuffIndex (EMechSentinelSelfBuff) on a sentinel; UMechSentinelSelfBuffProcessor calls it. It is
+	 * applied by a next-tick timer, after this frame's Mass phases, at most the rules' MaxSelfBuffsPerFrame per frame (the
+	 * rest waits for the next frames), and skipped when by then the sentinel is gone, dead, stunned or already has it.
+	 * Game thread, server only.
+	 */
+	void QueueSelfBuff(FMassEntityHandle Entity, int32 BuffIndex);
+
 	//----------------------------------------------------------------------//
 	// Collision hash (filled by UMechSentinelCollisionHashProcessor)
 	//----------------------------------------------------------------------//
@@ -213,8 +222,17 @@ protected:
 
 	AMechSentinelGASProxy* GetOrCreateProxy();
 
-	/** Mirrors gameplay tags / health into Mass tags and the state fragment. */
+	/** Mirrors gameplay tags / health / self-buffs into Mass tags and the state fragment. */
 	void SyncStateFromGAS(FMassEntityManager& EntityManager, FMassEntityHandle Entity, AActor* Instigator);
+
+	/** Applies the queued self-buffs, up to the rules' MaxSelfBuffsPerFrame (next-tick timer, outside the Mass phases). */
+	void FlushSelfBuffs();
+
+	/** Arms the flush timer once (next tick). */
+	void ScheduleSelfBuffFlush();
+
+	/** Makes the buff's spec (the rules' effect, Magnitude, locked Duration) and applies it. False when skipped. */
+	bool ApplySelfBuff(FMassEntityManager& EntityManager, UAbilitySystemComponent& SourceASC, const UMechSentinelSwarmRules& Rules, FMassEntityHandle Entity, int32 BuffIndex);
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMechSentinelSwarmRules> RulesOverride;
@@ -258,4 +276,14 @@ protected:
 	float MaxCollisionExtent = 0.f;
 
 	void RebuildFallbackMap();
+
+	/** A self-buff cast waiting for the flush (in cast order). */
+	struct FPendingSelfBuff
+	{
+		FMassEntityHandle Entity;
+		int32 BuffIndex = 0;
+	};
+	TArray<FPendingSelfBuff> PendingSelfBuffs;
+	FTimerHandle SelfBuffFlushTimer;
+	bool bSelfBuffFlushScheduled = false;
 };

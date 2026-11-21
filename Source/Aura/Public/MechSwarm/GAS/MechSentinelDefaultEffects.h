@@ -1,4 +1,4 @@
-// Mech Sentinel Swarm - built-in damage effects, the defaults of UMechSentinelSwarmRules.
+// Mech Sentinel Swarm - built-in damage and self-buff effects, the defaults of UMechSentinelSwarmRules.
 
 #pragma once
 
@@ -33,4 +33,42 @@ class AURA_API UMechSentinelAttackEffect : public UGameplayEffect
 
 public:
 	UMechSentinelAttackEffect();
+};
+
+/**
+ * Self-buffs a sentinel casts on itself (UMechSentinelSelfBuffProcessor, the rules' ArmorBuff / SpeedBuff / DamageBuff).
+ * Has Duration (a 5 s placeholder: the swarm locks the rules' Duration on the spec), one Multiply (Additive) modifier
+ * with the SetByCaller magnitude MechSentinelTags::SetByCaller_SelfBuffMagnitude (the rules' Magnitude, e.g. 1.75 = x1.75
+ * on top of the wave-scaled base). Nothing else on purpose: no granted tags (the swarm recognises the class), no chance,
+ * stacking, period or cues, which the sentinel GAS bridge would re-run or drop on every evaluation.
+ * Three classes, because a sentinel stores one active effect per class. A replacement GE in the rules should follow the
+ * same rules; it counts as the buff when its class is (a child of) the rules' one or it grants State.Sentinel.Buff.*.
+ */
+UCLASS(meta = (DisplayName = "Mech Sentinel Armor Buff (built-in)"))
+class AURA_API UMechSentinelArmorBuffEffect : public UGameplayEffect
+{
+	GENERATED_BODY()
+
+public:
+	UMechSentinelArmorBuffEffect();
+};
+
+/** Self-buff on UMechSentinelAttributeSet::MoveSpeedMultiplier, same setup as UMechSentinelArmorBuffEffect. */
+UCLASS(meta = (DisplayName = "Mech Sentinel Speed Buff (built-in)"))
+class AURA_API UMechSentinelSpeedBuffEffect : public UGameplayEffect
+{
+	GENERATED_BODY()
+
+public:
+	UMechSentinelSpeedBuffEffect();
+};
+
+/** Self-buff on UMechSentinelAttributeSet::AttackDamage (the damage of its attacks on players), same setup as UMechSentinelArmorBuffEffect. */
+UCLASS(meta = (DisplayName = "Mech Sentinel Damage Buff (built-in)"))
+class AURA_API UMechSentinelDamageBuffEffect : public UGameplayEffect
+{
+	GENERATED_BODY()
+
+public:
+	UMechSentinelDamageBuffEffect();
 };
