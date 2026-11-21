@@ -606,7 +606,33 @@ class RigGraph(object):
         got = n.get_name()
         if got != name:
             warn('node %r was created as %r (name taken)' % (name, got))
+        self._force_float_permutation(struct_path, got)
         return got
+
+    def _force_float_permutation(self, struct_path, name):
+        """5.8 (run 2026-11-21): template math nodes such as RigVMFunction_MathFloatSin/Cos are resolved to their
+        *Double* permutation by add_unit_node_from_struct_path. Put them back on the float permutation that was
+        asked for: unresolve the template, then resolve its first data pin to 'float' (RigVMController.h:438/550)."""
+        want = struct_path.rsplit('.', 1)[-1]
+        if 'MathFloat' not in want:
+            return
+        got = self.struct_of(name)
+        if not got or got == want:
+            return
+        try:
+            self.c.unresolve_template_nodes([name], False, False)
+            data = [p for p in self.node_obj(name).get_pins() if not p.is_execute_context()]
+            if not data:
+                raise BwError('no data pin')
+            self.c.resolve_wild_card_pin('%s.%s' % (name, data[0].get_name()), 'float', '', False, False)
+        except Exception as e:  # noqa: BLE001
+            warn('could not move %s from %s back to %s: %s' % (name, got, want, e))
+            return
+        now = self.struct_of(name)
+        if now == want:
+            info('%s: template resolved to %s, moved back to %s' % (name, got, want))
+        else:
+            warn('%s: template is %s after re-resolve (wanted %s)' % (name, now, want))
 
     def remove(self, name):
         if self.has_node(name):
