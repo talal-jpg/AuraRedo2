@@ -153,7 +153,8 @@ def make_entity_config():
     desc = visualization.get_editor_property("static_mesh_instance_desc")
     desc.set_editor_property("mesh", unreal.load_asset(meshes + "SM_MechSentinel_Head"))
     desc.set_editor_property("low_lod_mesh", unreal.load_asset(meshes + "SM_MechSentinel_Far"))
-    desc.set_editor_property("num_custom_data_floats", 4)
+    # [0] state, [1] health, [2] hit flash, [3] attack glow, [4..6] armor / speed / damage self-buff fades.
+    desc.set_editor_property("num_custom_data_floats", 7)
     desc.set_editor_property("cast_shadows", True)
     visualization.set_editor_property("static_mesh_instance_desc", desc)
     set_json(visualization, {"LODParams": {"HighDistance": 4000.0, "MediumDistance": 9000.0, "LowDistance": 25000.0}})

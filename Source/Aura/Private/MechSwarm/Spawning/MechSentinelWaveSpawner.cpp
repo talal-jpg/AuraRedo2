@@ -2,8 +2,12 @@
 
 #include "MechSwarm/Spawning/MechSentinelWaveSpawner.h"
 
+#include "Actors/MyHexPathSegment.h"
+#include "Actors/MyHexPathSpawner.h"
 #include "Components/SceneComponent.h"
+#include "Curves/RichCurve.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "MassCommandBuffer.h"
 #include "MassEntityConfigAsset.h"
 #include "MassEntityManager.h"
@@ -11,6 +15,7 @@
 #include "MassEntityUtils.h"
 #include "MassSpawnerSubsystem.h"
 #include "Mass/EntityFragments.h"
+#include "MechSwarm/Core/MechSentinelObstacleSubsystem.h"
 #include "MechSwarm/Core/MechSentinelSwarmRules.h"
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 #include "MechSwarm/MassCopies/MassMovementFragments_Copy.h"
@@ -20,6 +25,44 @@
 #include "TimerManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelWaveSpawner)
+
+namespace MechSwarm::WaveSpawnerPrivate
+{
+	/** Linear keys (X wave number, Y factor), flat before the first key and growing on past the last one at its slope. */
+	void SetGrowthCurve(FRuntimeFloatCurve& Curve, const TArray<FVector2f>& Keys)
+	{
+		FRichCurve& RichCurve = Curve.EditorCurveData;
+		for (const FVector2f& Key : Keys)
+		{
+			const FKeyHandle Handle = RichCurve.AddKey(Key.X, Key.Y);
+			RichCurve.SetKeyInterpMode(Handle, RCIM_Linear);
+		}
+		RichCurve.PreInfinityExtrap = RCCE_Constant;
+		RichCurve.PostInfinityExtrap = RCCE_Linear;
+	}
+
+	/** A wave curve's factor at a wave number: 1 when the curve has no keys. */
+	float EvalWaveCurve(const FRuntimeFloatCurve& Curve, const int32 WaveNumber)
+	{
+		const FRichCurve* RichCurve = Curve.GetRichCurveConst();
+		return RichCurve && RichCurve->GetNumKeys() > 0 ? RichCurve->Eval(float(WaveNumber)) : 1.f;
+	}
+}
+
+FMechSentinelWaveCurves::FMechSentinelWaveCurves()
+{
+	using MechSwarm::WaveSpawnerPrivate::SetGrowthCurve;
+
+	// Easy first waves, stronger toward wave 40, and on past it at the last slope: the level is endless.
+	SetGrowthCurve(Count, { FVector2f(1.f, 1.f), FVector2f(5.f, 1.5f), FVector2f(10.f, 2.2f), FVector2f(20.f, 3.5f), FVector2f(40.f, 5.5f) });
+	SetGrowthCurve(Health, { FVector2f(1.f, 1.f), FVector2f(5.f, 1.4f), FVector2f(10.f, 2.f), FVector2f(20.f, 3.5f), FVector2f(40.f, 7.f) });
+	SetGrowthCurve(Armor, { FVector2f(1.f, 1.f), FVector2f(10.f, 1.5f), FVector2f(20.f, 2.25f), FVector2f(40.f, 3.5f) });
+	SetGrowthCurve(Damage, { FVector2f(1.f, 1.f), FVector2f(10.f, 1.5f), FVector2f(20.f, 2.3f), FVector2f(40.f, 4.f) });
+	SetGrowthCurve(AttackSpeed, { FVector2f(1.f, 1.f), FVector2f(20.f, 1.3f), FVector2f(40.f, 1.5f) });
+	SetGrowthCurve(MoveSpeed, { FVector2f(1.f, 1.f), FVector2f(20.f, 1.2f), FVector2f(40.f, 1.35f) });
+	// No self-buffs in waves 1 and 2, then more and more often.
+	SetGrowthCurve(SelfBuffChance, { FVector2f(1.f, 0.f), FVector2f(2.f, 0.f), FVector2f(3.f, 0.5f), FVector2f(6.f, 1.f), FVector2f(20.f, 1.5f) });
+}
 
 AMechSentinelWaveSpawner::AMechSentinelWaveSpawner()
 {
@@ -55,6 +98,12 @@ AMechSentinelWaveSpawner::AMechSentinelWaveSpawner()
 	Third.ArmorMultiplier = 1.5f;
 	Third.DamageMultiplier = 1.3f;
 	Third.AttackSpeedMultiplier = 1.1f;
+
+	// Wave 1 of curve mode; WaveCurves scale it for the later waves.
+	CurveBaseWave.Count = 20;
+	CurveBaseWave.SpawnDuration = 8.f;
+	CurveBaseWave.DelayBefore = 2.f;
+	CurveBaseWave.TimeLimit = 0.f;
 }
 
 void AMechSentinelWaveSpawner::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -106,10 +155,13 @@ void AMechSentinelWaveSpawner::BeginPlay()
 		return;
 	}
 
+	const bool bExternal = AdvanceMode == EMechSentinelWaveAdvance::External;
+
 	if (UMechSentinelSwarmSubsystem* Swarm = UMechSentinelSwarmSubsystem::Get(this))
 	{
 		TArray<FMechSentinelFallbackPoint> Points = FallbackTargets;
-		if (bSpawnerIsFallbackTarget)
+		// Not in External mode: the spawner stays behind at the start of an endless level, the overflow would go back there.
+		if (bSpawnerIsFallbackTarget && !bExternal)
 		{
 			FMechSentinelFallbackPoint& Self = Points.AddDefaulted_GetRef();
 			Self.Actor = this;
@@ -123,7 +175,16 @@ void AMechSentinelWaveSpawner::BeginPlay()
 	}
 
 	SetActorTickEnabled(true);
-	if (bAutoStart)
+	if (bExternal)
+	{
+		// The waves come from the path segments and StartWaveAtPoints: armed now, or waiting for StartWaves.
+		bStopped = !bAutoStart;
+		if (bBindToPathSpawners)
+		{
+			BindToPathSpawners();
+		}
+	}
+	else if (bAutoStart)
 	{
 		StartWaves(/*bRestartFromFirstWave*/true);
 	}
@@ -146,6 +207,11 @@ void AMechSentinelWaveSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			QueueDespawnOnTimer(bPendingDespawnKill);
 		}
 	}
+
+	// The waves started at points end here too; their sentinels stay in SpawnedEntities like every other one.
+	PendingWaveRequests.Reset();
+	Runs.Reset();
+	UnbindFromPathSpawners();
 
 	if (bFallbacksRegistered)
 	{
@@ -196,29 +262,85 @@ FMassEntityManager* AMechSentinelWaveSpawner::GetEntityManager() const
 //----------------------------------------------------------------------//
 FMechSentinelWave AMechSentinelWaveSpawner::ResolveWave(const int32 WaveNumber, float& OutStatScale) const
 {
+	using MechSwarm::WaveSpawnerPrivate::EvalWaveCurve;
+
 	OutStatScale = 1.f;
-	if (Waves.IsEmpty() || WaveNumber < 1)
+	FMechSentinelWave Wave;
+
+	if (bUseWaveCurves)
 	{
-		return FMechSentinelWave();
+		// Every field follows its curve over the wave number; the hand-made Waves are ignored.
+		Wave = CurveBaseWave;
+		Wave.Count = FMath::RoundToInt32(float(CurveBaseWave.Count) * EvalWaveCurve(WaveCurves.Count, WaveNumber));
+		Wave.HealthMultiplier *= EvalWaveCurve(WaveCurves.Health, WaveNumber);
+		Wave.ArmorMultiplier *= EvalWaveCurve(WaveCurves.Armor, WaveNumber);
+		Wave.DamageMultiplier *= EvalWaveCurve(WaveCurves.Damage, WaveNumber);
+		Wave.AttackSpeedMultiplier *= EvalWaveCurve(WaveCurves.AttackSpeed, WaveNumber);
+		Wave.MoveSpeedMultiplier *= EvalWaveCurve(WaveCurves.MoveSpeed, WaveNumber);
+		Wave.SelfBuffChanceMultiplier *= EvalWaveCurve(WaveCurves.SelfBuffChance, WaveNumber);
+	}
+	else if (!Waves.IsEmpty() && WaveNumber >= 1)
+	{
+		const int32 Index = WaveNumber - 1;
+		if (Index < Waves.Num())
+		{
+			Wave = Waves[Index];
+		}
+		else
+		{
+			// Endless mode: the last wave again, bigger and tougher each time.
+			const int32 Repeats = Index - (Waves.Num() - 1);
+			Wave = Waves.Last();
+			Wave.Count += ExtraCountPerRepeat * Repeats;
+			OutStatScale = FMath::Pow(StatScalePerRepeat, float(Repeats));
+		}
 	}
 
-	const int32 Index = WaveNumber - 1;
-	if (Index < Waves.Num())
-	{
-		return Waves[Index];
-	}
-
-	// Endless mode: the last wave again, bigger and tougher each time.
-	const int32 Repeats = Index - (Waves.Num() - 1);
-	FMechSentinelWave Wave = Waves.Last();
-	Wave.Count += ExtraCountPerRepeat * Repeats;
-	OutStatScale = FMath::Pow(StatScalePerRepeat, float(Repeats));
+	ClampWave(Wave);
 	return Wave;
+}
+
+void AMechSentinelWaveSpawner::ClampWave(FMechSentinelWave& Wave) const
+{
+	// The ClampMin metadata only binds the editor; curves and Blueprint writes can go past it. In the auto-advancing
+	// modes a wave of 0 would clear at once and push the wave number on.
+	Wave.Count = FMath::Max(Wave.Count, AdvanceMode == EMechSentinelWaveAdvance::External ? 0 : 1);
+	Wave.SpawnDuration = FMath::Max(Wave.SpawnDuration, 0.f);
+	Wave.DelayBefore = FMath::Max(Wave.DelayBefore, 0.f);
+	Wave.TimeLimit = FMath::Max(Wave.TimeLimit, 0.f);
+	Wave.HealthMultiplier = FMath::Max(Wave.HealthMultiplier, 0.01f);
+	Wave.ArmorMultiplier = FMath::Max(Wave.ArmorMultiplier, 0.f);
+	Wave.DamageMultiplier = FMath::Max(Wave.DamageMultiplier, 0.f);
+	Wave.AttackSpeedMultiplier = FMath::Max(Wave.AttackSpeedMultiplier, 0.05f);
+	Wave.MoveSpeedMultiplier = FMath::Max(Wave.MoveSpeedMultiplier, 0.f);
+	Wave.SelfBuffChanceMultiplier = FMath::Max(Wave.SelfBuffChanceMultiplier, 0.f);
+}
+
+FMechSentinelWave AMechSentinelWaveSpawner::ResolveWaveFolded(const int32 WaveNumber) const
+{
+	float StatScale = 1.f;
+	FMechSentinelWave Wave = ResolveWave(WaveNumber, StatScale);
+	Wave.HealthMultiplier *= StatScale;
+	Wave.ArmorMultiplier *= StatScale;
+	Wave.DamageMultiplier *= StatScale;
+	// StatScalePerRepeat may have been set out of the editor's range at runtime.
+	ClampWave(Wave);
+	return Wave;
+}
+
+FMechSentinelWave AMechSentinelWaveSpawner::GetWaveDefinition(const int32 WaveNumber) const
+{
+	return ResolveWaveFolded(WaveNumber);
 }
 
 int32 AMechSentinelWaveSpawner::ResolveCount(const FMechSentinelWave& Wave, const int32 WaveNumber) const
 {
 	return FMath::Max(0, FMath::RoundToInt32(float(Wave.Count) * CountMultiplier));
+}
+
+bool AMechSentinelWaveSpawner::HasWave(const int32 WaveNumber) const
+{
+	return bUseWaveCurves || WaveNumber <= Waves.Num() || (bRepeatLastWave && Waves.Num() > 0);
 }
 
 void AMechSentinelWaveSpawner::StartWaves(const bool bRestartFromFirstWave)
@@ -231,8 +353,14 @@ void AMechSentinelWaveSpawner::StartWaves(const bool bRestartFromFirstWave)
 	bStopped = false;
 	SetActorTickEnabled(true);
 
+	// The waves come from the path segments and StartWaveAtPoints: nothing to count down, nothing to finish.
+	if (AdvanceMode == EMechSentinelWaveAdvance::External)
+	{
+		return;
+	}
+
 	// Nothing to run: report the waves as finished right away instead of sitting in a countdown forever.
-	if (Waves.IsEmpty())
+	if (!HasWave(1))
 	{
 		FinishWaves();
 		return;
@@ -252,13 +380,20 @@ void AMechSentinelWaveSpawner::StopWaves()
 
 void AMechSentinelWaveSpawner::StartNextWave()
 {
-	if (!HasAuthority() || Waves.IsEmpty())
+	if (!HasAuthority())
 	{
 		return;
 	}
 
+	if (AdvanceMode == EMechSentinelWaveAdvance::External)
+	{
+		bStopped = false;
+		QueueWaveRun(TArray<FVector>(), 0, nullptr, /*bSkipDelay*/true);
+		return;
+	}
+
 	const int32 Next = (WaveState == EMechSentinelWaveState::Countdown) ? PendingWaveNumber : CurrentWaveNumber + 1;
-	if (Next <= Waves.Num() || bRepeatLastWave)
+	if (HasWave(Next))
 	{
 		bStopped = false;
 		BeginWave(Next);
@@ -270,7 +405,8 @@ void AMechSentinelWaveSpawner::SetCountMultiplier(const float NewMultiplier)
 	CountMultiplier = FMath::Max(0.f, NewMultiplier);
 
 	// Re-plan what is left of the current wave.
-	if (WaveState == EMechSentinelWaveState::Spawning || WaveState == EMechSentinelWaveState::Fighting)
+	if (AdvanceMode != EMechSentinelWaveAdvance::External
+		&& (WaveState == EMechSentinelWaveState::Spawning || WaveState == EMechSentinelWaveState::Fighting))
 	{
 		const int32 NewTotal = ResolveCount(ActiveWave, CurrentWaveNumber);
 		RemainingToSpawn = FMath::Max(0, NewTotal - ActiveWaveSpawned);
@@ -280,6 +416,9 @@ void AMechSentinelWaveSpawner::SetCountMultiplier(const float NewMultiplier)
 			WaveState = EMechSentinelWaveState::Spawning;
 		}
 	}
+
+	// And of the waves started at points.
+	ReplanRuns();
 }
 
 void AMechSentinelWaveSpawner::SetWaveCount(const int32 WaveIndex, const int32 NewCount)
@@ -291,12 +430,25 @@ void AMechSentinelWaveSpawner::SetWaveCount(const int32 WaveIndex, const int32 N
 
 	Waves[WaveIndex].Count = FMath::Max(0, NewCount);
 
-	const bool bIsCurrent = WaveIndex == CurrentWaveNumber - 1
+	// The waves started at points take their new count (the last entry also sizes the repeats after it).
+	for (FWaveRun& Run : Runs)
+	{
+		Run.Def.Count = ResolveWaveFolded(Run.WaveNumber).Count;
+	}
+
+	const bool bIsCurrent = AdvanceMode != EMechSentinelWaveAdvance::External
+		&& WaveIndex == CurrentWaveNumber - 1
 		&& (WaveState == EMechSentinelWaveState::Spawning || WaveState == EMechSentinelWaveState::Fighting);
 	if (bIsCurrent)
 	{
-		ActiveWave.Count = Waves[WaveIndex].Count;
+		// Re-resolved, not copied: the runtime clamps (and curves, which ignore the entry) apply as at the wave's start.
+		float StatScale = 1.f;
+		ActiveWave.Count = ResolveWave(CurrentWaveNumber, StatScale).Count;
 		SetCountMultiplier(CountMultiplier);
+	}
+	else
+	{
+		ReplanRuns();
 	}
 }
 
@@ -348,6 +500,13 @@ void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)
 		return;
 	}
 
+	// Overlapping waves started from outside: a flow of its own (below). The other modes run the single-wave flow.
+	if (AdvanceMode == EMechSentinelWaveAdvance::External)
+	{
+		TickExternal(DeltaSeconds);
+		return;
+	}
+
 	if (bPendingDespawn)
 	{
 		bPendingDespawn = false;
@@ -355,14 +514,19 @@ void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)
 	}
 
 	RefreshAlive();
+	RefreshRunsAlive();
 
+	// What the manual spawns and the regular wave leave of this frame's batch goes to the waves started at points.
+	int32 RunBudget = SpawnBatchSize;
 	if (PendingManualSpawns > 0)
 	{
 		const int32 Requested = FMath::Min(PendingManualSpawns, SpawnBatchSize);
-		SpawnBatch(Requested);
+		RunBudget -= SpawnBatch(Requested, ActiveWave, ActiveStatScale, TConstArrayView<FVector>(), nullptr, SpawnExtent, nullptr);
 		// Whatever the caps did not allow is dropped, not retried.
 		PendingManualSpawns -= Requested;
 	}
+
+	AcceptWaveRequests();
 
 	if (bStopped)
 	{
@@ -397,10 +561,11 @@ void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)
 			const int32 Wanted = FMath::Min3(FMath::FloorToInt32(SpawnAccumulator), SpawnBatchSize, RemainingToSpawn);
 			if (Wanted > 0)
 			{
-				const int32 Spawned = SpawnBatch(Wanted);
+				const int32 Spawned = SpawnBatch(Wanted, ActiveWave, ActiveStatScale, TConstArrayView<FVector>(), nullptr, SpawnExtent, nullptr);
 				SpawnAccumulator -= float(Spawned);
 				RemainingToSpawn -= Spawned;
 				ActiveWaveSpawned += Spawned;
+				RunBudget -= Spawned;
 			}
 		}
 		if (RemainingToSpawn <= 0)
@@ -429,12 +594,14 @@ void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)
 		case EMechSentinelWaveAdvance::ClearedOrTimer:
 			bAdvance = bCleared || bTimerDone;
 			break;
+		default:
+			break;
 		}
 
 		if (bAdvance)
 		{
 			const int32 Next = CurrentWaveNumber + 1;
-			if (Next <= Waves.Num() || (bRepeatLastWave && !Waves.IsEmpty()))
+			if (HasWave(Next))
 			{
 				BeginCountdown(Next);
 			}
@@ -450,6 +617,480 @@ void AMechSentinelWaveSpawner::Tick(const float DeltaSeconds)
 	case EMechSentinelWaveState::Finished:
 	default:
 		break;
+	}
+
+	// Waves started at points run next to the regular ones and leave their replicated state alone.
+	TickRuns(DeltaSeconds, RunBudget, /*bExternal*/false);
+}
+
+//----------------------------------------------------------------------//
+// External mode: overlapping waves started at points
+//----------------------------------------------------------------------//
+void AMechSentinelWaveSpawner::TickExternal(const float DeltaSeconds)
+{
+	if (bPendingDespawn)
+	{
+		bPendingDespawn = false;
+		DespawnAllNow(bPendingDespawnKill);
+	}
+
+	RefreshAlive();
+	RefreshRunsAlive();
+
+	// One batch per frame for the manual spawns and every wave together.
+	int32 Budget = FMath::Max(SpawnBatchSize, 1);
+	if (PendingManualSpawns > 0)
+	{
+		const int32 Requested = FMath::Min(PendingManualSpawns, Budget);
+		Budget -= SpawnBatch(Requested, ActiveWave, ActiveStatScale, TConstArrayView<FVector>(), nullptr, SpawnExtent, nullptr);
+		// Whatever the caps did not allow is dropped, not retried.
+		PendingManualSpawns -= Requested;
+	}
+
+	AcceptWaveRequests();
+
+	TickRuns(DeltaSeconds, Budget, /*bExternal*/true);
+}
+
+int32 AMechSentinelWaveSpawner::StartWaveAtPoints(const TArray<FVector>& SpawnPoints, const int32 WaveNumber, AActor* Source)
+{
+	return QueueWaveRun(SpawnPoints, WaveNumber, Source, /*bSkipDelay*/false);
+}
+
+int32 AMechSentinelWaveSpawner::QueueWaveRun(const TArray<FVector>& SpawnPoints, const int32 WaveNumber, AActor* Source, const bool bSkipDelay)
+{
+	// After end play the tick that would run it does not come.
+	if (!HasAuthority() || bSpawnerEndedPlay)
+	{
+		return 0;
+	}
+
+	const int32 Number = WaveNumber > 0 ? WaveNumber : FMath::Max(HighestRunWaveNumber, CurrentWaveNumber) + 1;
+	HighestRunWaveNumber = FMath::Max(HighestRunWaveNumber, Number);
+
+	// Like SpawnSentinelsNow: the caller may be ticking next to a running Mass phase, so Tick (TG_PostUpdateWork) runs it.
+	FWaveRequest& Request = PendingWaveRequests.AddDefaulted_GetRef();
+	Request.SpawnPoints = SpawnPoints;
+	Request.WaveNumber = Number;
+	Request.Source = Source;
+	Request.bHadSource = Source != nullptr;
+	Request.bSkipDelay = bSkipDelay;
+
+	SetActorTickEnabled(true);
+	return Number;
+}
+
+void AMechSentinelWaveSpawner::AcceptWaveRequests()
+{
+	if (PendingWaveRequests.IsEmpty())
+	{
+		return;
+	}
+
+	for (FWaveRequest& Request : PendingWaveRequests)
+	{
+		FWaveRun& Run = Runs.AddDefaulted_GetRef();
+		Run.WaveNumber = Request.WaveNumber;
+		Run.Def = ResolveWaveFolded(Request.WaveNumber);
+		Run.SpawnPoints = MoveTemp(Request.SpawnPoints);
+		Run.Source = Request.Source;
+		Run.bHadSource = Request.bHadSource;
+		Run.DelayRemaining = Request.bSkipDelay ? 0.f : Run.Def.DelayBefore;
+		Run.Total = ResolveCount(Run.Def, Run.WaveNumber);
+		Run.Remaining = Run.Total;
+	}
+	PendingWaveRequests.Reset();
+
+	EnforceMaxActiveWaves();
+}
+
+void AMechSentinelWaveSpawner::EnforceMaxActiveWaves()
+{
+	if (MaxActiveWaves <= 0)
+	{
+		return;
+	}
+
+	int32 WithRemainder = 0;
+	for (const FWaveRun& Run : Runs)
+	{
+		WithRemainder += Run.Remaining > 0 ? 1 : 0;
+	}
+
+	// Oldest first: the newest waves are the ones near the players.
+	for (int32 Index = 0; Index < Runs.Num() && WithRemainder > MaxActiveWaves; ++Index)
+	{
+		if (Runs[Index].Remaining > 0)
+		{
+			DropRunRemainder(Runs[Index]);
+			--WithRemainder;
+		}
+	}
+}
+
+void AMechSentinelWaveSpawner::DropRunRemainder(FWaveRun& Run)
+{
+	Run.Remaining = 0;
+	Run.Total = Run.Spawned;
+	Run.Accumulator = 0.f;
+	Run.bDropped = true;
+}
+
+void AMechSentinelWaveSpawner::TickRuns(const float DeltaSeconds, int32 Budget, const bool bExternal)
+{
+	TArray<TPair<int32, int32>, TInlineAllocator<4>> StartedWaves;
+	TArray<int32, TInlineAllocator<4>> ClearedWaves;
+
+	if (!bStopped)
+	{
+		for (int32 Index = 0; Index < Runs.Num(); ++Index)
+		{
+			FWaveRun& Run = Runs[Index];
+
+			// Its segment was destroyed behind the lead: nobody is near those points any more.
+			if (Run.bHadSource && !Run.bDropped && !Run.Source.IsValid())
+			{
+				DropRunRemainder(Run);
+			}
+
+			if (!Run.bStarted)
+			{
+				// Cancelled before it started: it never was a wave, so no events.
+				if (Run.bDropped)
+				{
+					Runs.RemoveAt(Index--);
+					continue;
+				}
+
+				Run.DelayRemaining -= DeltaSeconds;
+				if (Run.DelayRemaining > 0.f)
+				{
+					continue;
+				}
+
+				Run.bStarted = true;
+				StartedWaves.Emplace(Run.WaveNumber, Run.Total);
+
+				if (bExternal)
+				{
+					// The replicated wave number is the highest one started (clients broadcast OnWaveStarted from it).
+					if (Run.WaveNumber > CurrentWaveNumber)
+					{
+						CurrentWaveNumber = Run.WaveNumber;
+					}
+					if (Run.WaveNumber == CurrentWaveNumber)
+					{
+						// SpawnSentinelsNow uses the latest wave's scaling, as in the other modes.
+						ActiveWave = Run.Def;
+						ActiveStatScale = 1.f;
+					}
+					ForceNetUpdate();
+				}
+
+				// Spawning starts on the next tick, as for a regular wave.
+				continue;
+			}
+
+			Run.Elapsed += DeltaSeconds;
+
+			if (Run.Remaining > 0)
+			{
+				// The pacing of a regular wave: Total / SpawnDuration per second, or everything at once.
+				const int32 RunTotal = Run.Spawned + Run.Remaining;
+				const bool bAllAtOnce = Run.Def.SpawnDuration <= KINDA_SMALL_NUMBER;
+				const float Rate = bAllAtOnce ? float(RunTotal) : float(RunTotal) / Run.Def.SpawnDuration;
+				Run.Accumulator = bAllAtOnce ? float(Run.Remaining) : FMath::Min(Run.Accumulator + Rate * DeltaSeconds, float(Run.Remaining));
+
+				// The oldest waves take the frame's batch first.
+				const int32 Wanted = FMath::Min3(FMath::FloorToInt32(Run.Accumulator), Budget, Run.Remaining);
+				if (Wanted > 0)
+				{
+					const FVector& Extent = Run.SpawnPoints.IsEmpty() ? SpawnExtent : CornerSpawnExtent;
+					const int32 Spawned = SpawnBatch(Wanted, Run.Def, 1.f, Run.SpawnPoints, &Run.NextPointIndex, Extent, &Run.Entities);
+					Run.Accumulator -= float(Spawned);
+					Run.Remaining -= Spawned;
+					Run.Spawned += Spawned;
+					Run.Alive += Spawned;
+					Budget -= Spawned;
+				}
+			}
+
+			if (Run.Remaining <= 0 && Run.Alive <= 0)
+			{
+				ClearedWaves.Add(Run.WaveNumber);
+				Runs.RemoveAt(Index--);
+			}
+		}
+	}
+
+	if (bExternal)
+	{
+		UpdateExternalAggregates();
+	}
+
+	// Last, so the handlers may start, stop or despawn waves, or destroy the spawner.
+	for (const TPair<int32, int32>& Started : StartedWaves)
+	{
+		OnWaveStarted.Broadcast(Started.Key, Started.Value);
+	}
+	for (const int32 WaveNumber : ClearedWaves)
+	{
+		OnWaveCleared.Broadcast(WaveNumber);
+	}
+}
+
+void AMechSentinelWaveSpawner::UpdateExternalAggregates()
+{
+	int32 Remaining = 0;
+	int32 CurrentTotal = 0;
+	bool bCurrentFound = false;
+	bool bAnySpawning = false;
+	bool bAnyCountdown = false;
+
+	for (const FWaveRun& Run : Runs)
+	{
+		if (!Run.bStarted)
+		{
+			bAnyCountdown |= !Run.bDropped;
+			continue;
+		}
+
+		Remaining += Run.Remaining;
+		bAnySpawning |= Run.Remaining > 0;
+
+		// Every lane's part of the current wave.
+		if (Run.WaveNumber == CurrentWaveNumber)
+		{
+			CurrentTotal += Run.Total;
+			bCurrentFound = true;
+		}
+	}
+
+	RemainingToSpawn = Remaining;
+	if (bCurrentFound)
+	{
+		CurrentWaveTotal = CurrentTotal;
+	}
+
+	if (bAnySpawning)
+	{
+		WaveState = EMechSentinelWaveState::Spawning;
+	}
+	else if (AliveCount > 0)
+	{
+		WaveState = EMechSentinelWaveState::Fighting;
+	}
+	else if (bAnyCountdown)
+	{
+		WaveState = EMechSentinelWaveState::Countdown;
+	}
+	else
+	{
+		WaveState = EMechSentinelWaveState::Idle;
+	}
+}
+
+void AMechSentinelWaveSpawner::ReplanRuns()
+{
+	if (Runs.IsEmpty())
+	{
+		return;
+	}
+
+	for (FWaveRun& Run : Runs)
+	{
+		// What was dropped stays dropped.
+		if (Run.bDropped)
+		{
+			continue;
+		}
+
+		const int32 NewTotal = ResolveCount(Run.Def, Run.WaveNumber);
+		Run.Remaining = FMath::Max(0, NewTotal - Run.Spawned);
+		Run.Total = Run.Spawned + Run.Remaining;
+	}
+
+	EnforceMaxActiveWaves();
+
+	if (AdvanceMode == EMechSentinelWaveAdvance::External)
+	{
+		UpdateExternalAggregates();
+	}
+}
+
+void AMechSentinelWaveSpawner::CancelRuns()
+{
+	PendingWaveRequests.Reset();
+
+	for (FWaveRun& Run : Runs)
+	{
+		DropRunRemainder(Run);
+	}
+}
+
+int32 AMechSentinelWaveSpawner::GetNumActiveWaves() const
+{
+	int32 Num = PendingWaveRequests.Num();
+	for (const FWaveRun& Run : Runs)
+	{
+		// One cancelled before it started is only waiting to be removed.
+		Num += (Run.bStarted || !Run.bDropped) ? 1 : 0;
+	}
+	return Num;
+}
+
+void AMechSentinelWaveSpawner::RefreshRunsAlive()
+{
+	if (Runs.IsEmpty())
+	{
+		return;
+	}
+
+	FMassEntityManager* EntityManager = GetEntityManager();
+	for (FWaveRun& Run : Runs)
+	{
+		if (!EntityManager)
+		{
+			Run.Entities.Reset();
+			Run.Alive = 0;
+			continue;
+		}
+
+		int32 Alive = 0;
+		for (int32 Index = Run.Entities.Num() - 1; Index >= 0; --Index)
+		{
+			const FMassEntityHandle Entity = Run.Entities[Index];
+			if (!EntityManager->IsEntityActive(Entity))
+			{
+				Run.Entities.RemoveAtSwap(Index, EAllowShrinking::No);
+				continue;
+			}
+
+			const FMechSentinelStateFragment* State = EntityManager->GetFragmentDataPtr<FMechSentinelStateFragment>(Entity);
+			if (State && State->State != EMechSentinelState::Dead)
+			{
+				++Alive;
+			}
+		}
+		Run.Alive = Alive;
+	}
+}
+
+//----------------------------------------------------------------------//
+// External mode: path segments
+//----------------------------------------------------------------------//
+void AMechSentinelWaveSpawner::BindToPathSpawners()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<AMyHexPathSpawner> It(World); It; ++It)
+	{
+		AMyHexPathSpawner* PathSpawner = *It;
+		if (!IsValid(PathSpawner))
+		{
+			continue;
+		}
+
+		PathSpawner->OnSegmentSpawned.AddUniqueDynamic(this, &ThisClass::HandlePathSegmentSpawned);
+		BoundPathSpawners.AddUnique(PathSpawner);
+
+		// The path spawners that began play first have built their InitialSegments already.
+		for (AMyHexPathSegment* Segment : PathSpawner->GetSegments())
+		{
+			HandlePathSegmentSpawned(PathSpawner, Segment);
+		}
+	}
+}
+
+void AMechSentinelWaveSpawner::UnbindFromPathSpawners()
+{
+	for (const TWeakObjectPtr<AMyHexPathSpawner>& WeakPathSpawner : BoundPathSpawners)
+	{
+		if (AMyHexPathSpawner* PathSpawner = WeakPathSpawner.Get())
+		{
+			PathSpawner->OnSegmentSpawned.RemoveDynamic(this, &ThisClass::HandlePathSegmentSpawned);
+		}
+	}
+	BoundPathSpawners.Reset();
+}
+
+void AMechSentinelWaveSpawner::HandlePathSegmentSpawned(AMyHexPathSpawner* PathSpawner, AMyHexPathSegment* Segment)
+{
+	if (AdvanceMode != EMechSentinelWaveAdvance::External || !HasAuthority() || !IsValid(PathSpawner) || !IsValid(Segment))
+	{
+		return;
+	}
+
+	// Each segment once: the catch-up in BeginPlay and the event can both report it.
+	const TWeakObjectPtr<AMyHexPathSegment> WeakSegment(Segment);
+	if (HandledSegments.Contains(WeakSegment))
+	{
+		return;
+	}
+
+	// Segments left behind are destroyed: forget them now and then.
+	if (HandledSegments.Num() >= 64)
+	{
+		for (auto It = HandledSegments.CreateIterator(); It; ++It)
+		{
+			if (!It->IsValid())
+			{
+				It.RemoveCurrent();
+			}
+		}
+	}
+	HandledSegments.Add(WeakSegment);
+
+	if (!PathSpawner->ShouldSpawnSentinelWaves())
+	{
+		return;
+	}
+
+	// Every lane counts from its own first segment, so the lanes' segment k all get wave k.
+	const int32 WaveNumber = Segment->GetSegmentIndex() - PathSpawner->GetFirstSegmentWithSentinelWave() + 1;
+	if (WaveNumber < 1)
+	{
+		return;
+	}
+
+	TArray<FVector> Points;
+	GetSegmentSpawnPoints(*Segment, Points);
+	StartWaveAtPoints(Points, WaveNumber, Segment);
+}
+
+void AMechSentinelWaveSpawner::GetSegmentSpawnPoints(const AMyHexPathSegment& Segment, TArray<FVector>& OutPoints) const
+{
+	const FVector Lift(0.0, 0.0, double(CornerHeightOffset));
+
+	if (!Segment.HasSegmentBounds())
+	{
+		// A segment from a spawner that sets no bounds: its start.
+		OutPoints.Add(Segment.GetActorLocation() + Lift);
+		return;
+	}
+
+	FVector Center;
+	FVector Extent;
+	FRotator Rotation;
+	Segment.GetSegmentBounds(Center, Extent, Rotation);
+
+	OutPoints = Segment.GetSegmentBoundsCorners(
+		/*bTop*/SegmentCorners != EMechSentinelSegmentCorners::Bottom,
+		/*bBottom*/SegmentCorners != EMechSentinelSegmentCorners::Top);
+
+	// Toward the centre along both horizontal box axes, never past it.
+	const FQuat BoxRotation = Rotation.Quaternion();
+	const double Inset = FMath::Max(double(CornerInset), 0.0);
+	for (FVector& Point : OutPoints)
+	{
+		FVector Local = BoxRotation.UnrotateVector(Point - Center);
+		Local.X = FMath::Sign(Local.X) * FMath::Max(FMath::Abs(Local.X) - Inset, 0.0);
+		Local.Y = FMath::Sign(Local.Y) * FMath::Max(FMath::Abs(Local.Y) - Inset, 0.0);
+		Point = Center + BoxRotation.RotateVector(Local) + Lift;
 	}
 }
 
@@ -470,7 +1111,7 @@ int32 AMechSentinelWaveSpawner::SpawnSentinelsNow(const int32 Count)
 	return Count;
 }
 
-int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count)
+int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count, const FMechSentinelWave& Def, const float StatScale, const TConstArrayView<FVector> SpawnPoints, int32* PointCursor, const FVector& Extent, TArray<FMassEntityHandle>* RunEntities)
 {
 	UWorld* World = GetWorld();
 	FMassEntityManager* EntityManager = GetEntityManager();
@@ -487,13 +1128,15 @@ int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count)
 		return 0;
 	}
 
+	const UMechSentinelSwarmRules* Rules = Swarm->GetRules();
+
 	// Caps: this spawner's MaxAlive and the global MaxAliveSentinels (soft: counted from last frame's alive set).
 	int32 Allowed = Count;
 	if (MaxAlive > 0)
 	{
 		Allowed = FMath::Min(Allowed, MaxAlive - AliveCount);
 	}
-	Allowed = FMath::Min(Allowed, Swarm->GetRules()->MaxAliveSentinels - Swarm->GetNumAliveSentinels() - SpawnedSinceHashRefresh());
+	Allowed = FMath::Min(Allowed, Rules->MaxAliveSentinels - Swarm->GetNumAliveSentinels() - SpawnedSinceHashRefresh());
 	if (Allowed <= 0)
 	{
 		return 0;
@@ -505,20 +1148,40 @@ int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count)
 		return 0;
 	}
 
+	// A location inside a registered obstacle (a platform) grown by the clearance is rolled again.
+	const UMechSentinelObstacleSubsystem* Obstacles = SpawnObstacleClearance > 0.f ? UMechSentinelObstacleSubsystem::Get(this) : nullptr;
+	if (Obstacles && Obstacles->GetNumObstacles() == 0)
+	{
+		Obstacles = nullptr;
+	}
+
 	TArray<FMassEntityHandle> NewEntities;
 	{
 		// Keep the creation context alive while initialising: observers run when it is released.
 		const TSharedPtr<FMassEntityManager::FEntityCreationContext> CreationContext = SpawnerSubsystem->SpawnEntities(Template, uint32(Allowed), NewEntities);
 
-		const FVector Origin = GetActorLocation();
-		const float Scale = ActiveStatScale;
+		const FVector ActorLocation = GetActorLocation();
+		int32 Cursor = PointCursor ? FMath::Max(*PointCursor, 0) : 0;
 
 		for (const FMassEntityHandle Entity : NewEntities)
 		{
 			if (FTransformFragment* TransformFragment = EntityManager->GetFragmentDataPtr<FTransformFragment>(Entity))
 			{
+				// Around the spawn points in turn, or around the spawner.
+				FVector Origin = ActorLocation;
+				if (!SpawnPoints.IsEmpty())
+				{
+					Origin = SpawnPoints[Cursor % SpawnPoints.Num()];
+					Cursor = (Cursor + 1) % SpawnPoints.Num();
+				}
+
 				// Uniform inside the ellipsoid.
-				const FVector Offset = FMath::VRand() * FMath::Pow(FMath::FRand(), 1.f / 3.f) * SpawnExtent;
+				FVector Offset = FMath::VRand() * FMath::Pow(FMath::FRand(), 1.f / 3.f) * Extent;
+				for (int32 Attempt = 0; Obstacles && Attempt < 4 && Obstacles->IsInsideObstacle(Origin + Offset, SpawnObstacleClearance); ++Attempt)
+				{
+					Offset = FMath::VRand() * FMath::Pow(FMath::FRand(), 1.f / 3.f) * Extent;
+				}
+
 				FTransform& Transform = TransformFragment->GetMutableTransform();
 				Transform.SetLocation(Origin + Offset);
 				Transform.SetRotation(FRotator(0.f, FMath::FRandRange(-180.f, 180.f), 0.f).Quaternion());
@@ -528,13 +1191,27 @@ int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count)
 			if (FMechSentinelAttributesFragment* Attributes = EntityManager->GetFragmentDataPtr<FMechSentinelAttributesFragment>(Entity))
 			{
 				// The fragment holds the trait defaults (template values); scale them for this wave.
-				Attributes->MaxHealth = FMath::Max(1.f, Attributes->MaxHealth * ActiveWave.HealthMultiplier * Scale);
+				Attributes->MaxHealth = FMath::Max(1.f, Attributes->MaxHealth * Def.HealthMultiplier * StatScale);
 				Attributes->Health = Attributes->MaxHealth;
-				Attributes->BaseArmor = Attributes->Armor = Attributes->BaseArmor * ActiveWave.ArmorMultiplier * Scale;
-				Attributes->BaseAttackDamage = Attributes->AttackDamage = Attributes->BaseAttackDamage * ActiveWave.DamageMultiplier * Scale;
-				Attributes->BaseAttackSpeed = Attributes->AttackSpeed = FMath::Max(0.05f, Attributes->BaseAttackSpeed * ActiveWave.AttackSpeedMultiplier);
-				Attributes->BaseMoveSpeedMultiplier = Attributes->MoveSpeedMultiplier = Attributes->BaseMoveSpeedMultiplier * ActiveWave.MoveSpeedMultiplier;
+				Attributes->BaseArmor = Attributes->Armor = Attributes->BaseArmor * Def.ArmorMultiplier * StatScale;
+				Attributes->BaseAttackDamage = Attributes->AttackDamage = Attributes->BaseAttackDamage * Def.DamageMultiplier * StatScale;
+				Attributes->BaseAttackSpeed = Attributes->AttackSpeed = FMath::Max(0.05f, Attributes->BaseAttackSpeed * Def.AttackSpeedMultiplier);
+				Attributes->BaseMoveSpeedMultiplier = Attributes->MoveSpeedMultiplier = Attributes->BaseMoveSpeedMultiplier * Def.MoveSpeedMultiplier;
 				AttackSpeed = Attributes->AttackSpeed;
+			}
+
+			// Self-buff timers (the fragment is server only): staggered, so a wave does not buff all at once.
+			if (FMechSentinelSelfBuffFragment* SelfBuff = EntityManager->GetFragmentDataPtr<FMechSentinelSelfBuffFragment>(Entity))
+			{
+				SelfBuff->ChanceScale = FMath::Max(0.f, Def.SelfBuffChanceMultiplier);
+				if (Rules)
+				{
+					SelfBuff->DecisionTimer = FMath::FRand() * Rules->SelfBuffDecisionInterval;
+					for (int32 BuffIndex = 0; BuffIndex < int32(UE_ARRAY_COUNT(SelfBuff->Cooldown)); ++BuffIndex)
+					{
+						SelfBuff->Cooldown[BuffIndex] = FMath::FRand() * 0.5f * Rules->GetSelfBuffDef(BuffIndex).Cooldown;
+					}
+				}
 			}
 
 			if (FMechSentinelTargetFragment* Target = EntityManager->GetFragmentDataPtr<FMechSentinelTargetFragment>(Entity))
@@ -551,9 +1228,18 @@ int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count)
 				Attack->Cooldown = FMath::FRandRange(0.f, 1.f / AttackSpeed);
 			}
 		}
+
+		if (PointCursor)
+		{
+			*PointCursor = Cursor;
+		}
 	}
 
 	SpawnedEntities.Append(NewEntities);
+	if (RunEntities)
+	{
+		RunEntities->Append(NewEntities);
+	}
 	AliveCount += NewEntities.Num();
 	SpawnedThisFrame += NewEntities.Num();
 	SpawnedFrameNumber = GFrameCounter;
@@ -608,8 +1294,10 @@ void AMechSentinelWaveSpawner::DespawnAll(const bool bKill)
 	}
 
 	// Manual spawns queued before this call are cancelled (they would otherwise appear right after the despawn); the
-	// ones queued after it still run after it, unless the spawner has ended play.
+	// ones queued after it still run after it, unless the spawner has ended play. The same goes for what the waves
+	// started at points have not spawned yet.
 	PendingManualSpawns = 0;
+	CancelRuns();
 
 	// Ended play (destroyed or unloaded): the tick will not run again.
 	if (bSpawnerEndedPlay)

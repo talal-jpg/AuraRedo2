@@ -26,6 +26,7 @@
 #include "MechSwarm/Replication/MechSentinelReplicator.h"
 #include "MechSwarm/Spawning/MechSentinelWaveSpawner.h"
 #include "MyGameMode.h"
+#include "TimerManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelSwarmSubsystem)
 
@@ -148,6 +149,37 @@ namespace MechSwarm::SubsystemPrivate
 		Entry->StackCount = FMath::Max(1, ActiveEffect.Spec.GetStackCount());
 		Entry->InstigatorASC = ActiveEffect.Spec.GetEffectContext().GetInstigatorAbilitySystemComponent();
 	}
+
+	/**
+	 * FMechSentinelStateFragment::BuffMask from the GAS view: bit i while a stored effect is (a child of) the rules' buff i
+	 * effect, or the owned tags have that buff's State.Sentinel.Buff.* tag (designer GEs).
+	 */
+	uint8 ComputeBuffMask(const FMechSentinelGASFragment& GAS, const UMechSentinelSwarmRules& Rules)
+	{
+		const FGameplayTag BuffTags[MechSentinelSelfBuff::Num] =
+		{
+			MechSentinelTags::State_Sentinel_Buff_Armor,
+			MechSentinelTags::State_Sentinel_Buff_Speed,
+			MechSentinelTags::State_Sentinel_Buff_Damage
+		};
+
+		uint8 Mask = 0;
+		for (int32 BuffIndex = 0; BuffIndex < MechSentinelSelfBuff::Num; ++BuffIndex)
+		{
+			bool bActive = GAS.OwnedTags.HasTag(BuffTags[BuffIndex]);
+			const UClass* BuffClass = Rules.GetSelfBuffDef(BuffIndex).Effect.Get();
+			for (int32 EffectIndex = 0; !bActive && BuffClass && EffectIndex < GAS.ActiveEffects.Num(); ++EffectIndex)
+			{
+				const UClass* EffectClass = GAS.ActiveEffects[EffectIndex].EffectClass.Get();
+				bActive = EffectClass && EffectClass->IsChildOf(BuffClass);
+			}
+			if (bActive)
+			{
+				Mask |= uint8(1u << BuffIndex);
+			}
+		}
+		return Mask;
+	}
 }
 
 //----------------------------------------------------------------------//
@@ -180,6 +212,14 @@ void UMechSentinelSwarmSubsystem::Initialize(FSubsystemCollectionBase& Collectio
 
 void UMechSentinelSwarmSubsystem::Deinitialize()
 {
+	// Timers live in the game instance's timer manager, which can outlive this world.
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(SelfBuffFlushTimer);
+	}
+	PendingSelfBuffs.Reset();
+	bSelfBuffFlushScheduled = false;
+
 	GASProxy = nullptr;
 	RegisteredConfigs.Reset();
 	RejectedConfigs.Reset();
@@ -428,6 +468,129 @@ UAbilitySystemComponent* UMechSentinelSwarmSubsystem::GetSentinelSourceASC()
 	return Proxy ? Proxy->GetAbilitySystemComponent() : nullptr;
 }
 
+//----------------------------------------------------------------------//
+// Self buffs
+//----------------------------------------------------------------------//
+bool UMechSentinelSwarmSubsystem::QueueSelfBuff(const FMassEntityHandle Entity, const int32 BuffIndex)
+{
+	if (!HasAuthority() || !Entity.IsSet() || BuffIndex < 0 || BuffIndex >= MechSentinelSelfBuff::Num)
+	{
+		return false;
+	}
+
+	// A longer backlog would cast long after the decision (and its target distance window), and keep growing while
+	// casts come faster than the flush budget.
+	const int32 MaxPending = FMath::Max(1, GetRules()->MaxSelfBuffsPerFrame) * 30;
+	if (PendingSelfBuffs.Num() >= MaxPending)
+	{
+		return false;
+	}
+
+	FPendingSelfBuff& Pending = PendingSelfBuffs.AddDefaulted_GetRef();
+	Pending.Entity = Entity;
+	Pending.BuffIndex = BuffIndex;
+	ScheduleSelfBuffFlush();
+	return true;
+}
+
+void UMechSentinelSwarmSubsystem::ScheduleSelfBuffFlush()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	FTimerManager& TimerManager = World->GetTimerManager();
+	// The handle check keeps the queue going should this object's timers ever be cleared from outside.
+	if (bSelfBuffFlushScheduled && TimerManager.TimerExists(SelfBuffFlushTimer))
+	{
+		return;
+	}
+
+	// Timers run after TG_PostPhysics: outside every Mass phase but FrameEnd, like GA_GunShoot's hits. Armed from the
+	// decision processor (PrePhysics), the flush runs later the same frame; armed from the flush, the next frame.
+	SelfBuffFlushTimer = TimerManager.SetTimerForNextTick(this, &UMechSentinelSwarmSubsystem::FlushSelfBuffs);
+	bSelfBuffFlushScheduled = true;
+}
+
+void UMechSentinelSwarmSubsystem::FlushSelfBuffs()
+{
+	QUICK_SCOPE_CYCLE_COUNTER(MechSentinelSwarm_FlushSelfBuffs);
+
+	bSelfBuffFlushScheduled = false;
+	SelfBuffFlushTimer.Invalidate();
+	if (PendingSelfBuffs.IsEmpty())
+	{
+		return;
+	}
+
+	FMassEntityManager* EntityManager = GetEntityManager();
+	UAbilitySystemComponent* SourceASC = HasAuthority() ? GetSentinelSourceASC() : nullptr;
+	const UMechSentinelSwarmRules* Rules = GetRules();
+	if (!EntityManager || !SourceASC || !Rules->bEnableSelfBuffs)
+	{
+		PendingSelfBuffs.Reset();
+		return;
+	}
+
+	// This frame's share, oldest first. Taken out before applying: GAS and the events it fires run game code.
+	const int32 NumToApply = FMath::Min(PendingSelfBuffs.Num(), FMath::Max(1, Rules->MaxSelfBuffsPerFrame));
+	TArray<FPendingSelfBuff> Batch;
+	Batch.Append(PendingSelfBuffs.GetData(), NumToApply);
+	PendingSelfBuffs.RemoveAt(0, NumToApply, EAllowShrinking::No);
+
+	for (const FPendingSelfBuff& Pending : Batch)
+	{
+		ApplySelfBuff(*EntityManager, *SourceASC, *Rules, Pending.Entity, Pending.BuffIndex);
+	}
+
+	if (!PendingSelfBuffs.IsEmpty())
+	{
+		ScheduleSelfBuffFlush();
+	}
+}
+
+bool UMechSentinelSwarmSubsystem::ApplySelfBuff(FMassEntityManager& EntityManager, UAbilitySystemComponent& SourceASC, const UMechSentinelSwarmRules& Rules,
+	const FMassEntityHandle Entity, const int32 BuffIndex)
+{
+	const FMechSentinelSelfBuffDef& Def = Rules.GetSelfBuffDef(BuffIndex);
+	if (!Def.Effect || !EntityManager.IsEntityActive(Entity))
+	{
+		return false;
+	}
+
+	// An instant GE would change the base value for good on every cast (and is not stored, so it would show nothing).
+	if (Def.Effect.GetDefaultObject()->DurationPolicy == EGameplayEffectDurationType::Instant)
+	{
+		static bool bWarned = false;
+		UE_CLOG(!bWarned, LogMechSentinel, Warning, TEXT("Self-buff effect %s is Instant and is never cast: self-buffs need a Has Duration effect."),
+			*GetNameSafe(Def.Effect.Get()));
+		bWarned = true;
+		return false;
+	}
+
+	// Re-checked: a hit or an expiry may have run between the decision and now.
+	const FMechSentinelStateFragment* State = EntityManager.GetFragmentDataPtr<FMechSentinelStateFragment>(Entity);
+	if (!State || State->State == EMechSentinelState::Dead || State->State == EMechSentinelState::Stunned
+		|| (State->BuffMask & (1u << BuffIndex)) != 0)
+	{
+		return false;
+	}
+
+	// Source = the proxy ASC, like sentinel attacks. The duration is locked on the spec, so the rules are the only knob.
+	const FGameplayEffectSpecHandle Spec = SourceASC.MakeOutgoingSpec(Def.Effect, 1.f, SourceASC.MakeEffectContext());
+	if (!Spec.IsValid())
+	{
+		return false;
+	}
+	Spec.Data->SetSetByCallerMagnitude(MechSentinelTags::SetByCaller_SelfBuffMagnitude, FMath::Max(0.f, Def.Magnitude));
+	Spec.Data->SetDuration(FMath::Max(0.1f, Def.Duration), /*bLockDuration*/true);
+
+	// Stores the effect, recomputes the attributes and sets the BuffMask bit (SyncStateFromGAS).
+	ApplyGameplayEffectSpecToSentinel(Entity, *Spec.Data.Get());
+	return true;
+}
+
 float UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(const FMassEntityHandle Entity, const FGameplayEffectSpec& Spec, const FVector* HitLocation)
 {
 	if (!HasAuthority() || !Spec.Def)
@@ -639,12 +802,15 @@ void UMechSentinelSwarmSubsystem::SyncStateFromGAS(FMassEntityManager& EntityMan
 			State->State = EMechSentinelState::Dead;
 			State->TimeInState = 0.f;
 			State->DeathTimeRemaining = Params ? Params->DeathFallDuration : 2.f;
+			State->BuffMask = 0;
 			GAS->OwnedTags.AddTag(MechSentinelTags::State_Sentinel_Dead);
 			Location = View.GetFragmentData<FTransformFragment>().GetTransform().GetLocation();
 			bKilled = true;
 		}
 		else
 		{
+			State->BuffMask = ComputeBuffMask(*GAS, *GetRules());
+
 			bStunned = GAS->OwnedTags.HasTagExact(MechSentinelTags::State_Sentinel_Stunned);
 			const bool bWasStunned = State->State == EMechSentinelState::Stunned;
 			if (bStunned && !bWasStunned)
