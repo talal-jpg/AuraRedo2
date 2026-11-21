@@ -190,9 +190,9 @@ map's GameMode override is not an `AMyGameMode`. Every value is a constant at th
    - `bSpawnerIsFallbackTarget` off
    - `MaxAlive` 500, `SpawnBatchSize` 25, `MaxActiveWaves` 0 (unlimited)
    - `SegmentCorners` Top, `CornerSpawnExtent` 800 x 800 x 300, `SpawnObstacleClearance` 200
-3. Both path spawners (`BP_MyHexPathSpawner`, `BP_MyHexPathSpawner2`): `bSpawnSentinelWaves`,
+3. Every path spawner (StartupMap has one lane, `BP_MyHexPathSpawner`): `bSpawnSentinelWaves`,
    `FirstSegmentWithSentinelWave` = 1. Each lane's segment k (k >= 1) starts wave k at the 4 top corners of its bounds;
-   segment 0 gets none. Every wave number therefore runs once per lane.
+   segment 0 gets none. With several lanes, every wave number runs once per lane.
 4. It saves what changed and prints every value, the first waves as the curves resolve them, and the files to expect in
    `git status`: `Content/Maps/StartupMap.umap` and `Content/Level/BP_MyGameMode.uasset`, nothing else. A re-run with
    everything already set changes and saves nothing (`SAVE = False` changes the loaded assets only).
@@ -327,7 +327,7 @@ SourceArt/MechSentinel/            low-poly model source (Blender 5.x, procedura
     mech_sentinel_{common,head,tentacle}.py
     ue_import_mech_sentinel.py     editor script: import the FBX files, create the tentacle material
     ue_setup_mech_sentinel_demo.py editor script: demo map, entity config, swarm rules, gameplay effects
-    ue_setup_mech_sentinel_startup.py  editor script: StartupMap swarm (External waves on the two path lanes)
+    ue_setup_mech_sentinel_startup.py  editor script: StartupMap swarm (External waves on the path lane)
     ue_update_mech_sentinel_buff_visuals.py  editor script: rebuild the existing body / eye materials in place (buff visuals)
     Export/*.fbx, Previews/*.png, MechSentinel.blend
 ```

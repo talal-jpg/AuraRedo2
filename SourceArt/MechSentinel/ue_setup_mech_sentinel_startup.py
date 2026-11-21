@@ -62,8 +62,8 @@ CURVE_BASE_WAVE = {}
 # e.g. {"count": [(1, 1.0), (10, 2.0), (40, 6.0)], "health": "/Game/MechSentinel/Data/C_SentinelHealth"}
 WAVE_CURVES = {}
 
-# Path spawners (AMyHexPathSpawner; StartupMap has two lanes).
-EXPECTED_PATH_SPAWNERS = 2  # another count only warns; none at all stops (External mode would never start a wave)
+# Path spawners (AMyHexPathSpawner; StartupMap has one lane, BP_MyHexPathSpawner).
+EXPECTED_PATH_SPAWNERS = 1  # another count only warns; none at all stops (External mode would never start a wave)
 PATH_SPAWN_SENTINEL_WAVES = True  # each new segment of the lane starts a wave at its corners
 PATH_FIRST_SEGMENT_WITH_SENTINEL_WAVE = 1  # segment index that gets wave 1; wave = index - this + 1
 # Any other path spawner property, e.g. {"draw_segment_bounds": True} to see the boxes the waves spawn on.
