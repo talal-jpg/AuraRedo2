@@ -10,6 +10,7 @@
 #include "Actors/MyHexBridgeSubsystem.h"
 #include "Actors/MyHexMinimapSubsystem.h"
 #include "Actors/MyHexPathSpawner.h"
+#include "MechSwarm/Core/MechSentinelObstacleSubsystem.h"
 #include "MyGameState.h"
 #include "Animation/AnimSequence.h"
 #include "Algo/BinarySearch.h"
@@ -277,6 +278,9 @@ void AMyHexPlatform::BeginPlay()
 		// Measured from the full grid, before any tile collapses
 		FootprintRadius = ComputeFootprintRadius();
 
+		// Live sentinels steer round the tiles (the start platform placed in a level goes the same way)
+		RefreshSentinelObstacle();
+
 		// The bridge subsystem builds this platform's bridges from its untouched edges, then calls
 		// NotifyBridgesReady(). Collapsing waits for that and for the lead player to land.
 		UMyHexBridgeSubsystem* BridgeSubsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>();
@@ -318,6 +322,11 @@ void AMyHexPlatform::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		// Lead check, collapse chain, per-tile and pillar timers. AActor::EndPlay doesn't clear them.
 		World->GetTimerManager().ClearAllTimersForObject(this);
+
+		if (UMechSentinelObstacleSubsystem* Obstacles = World->GetSubsystem<UMechSentinelObstacleSubsystem>())
+		{
+			Obstacles->UnregisterObstacles(this);
+		}
 
 		if (UMyHexBridgeSubsystem* BridgeSubsystem = World->GetSubsystem<UMyHexBridgeSubsystem>())
 		{
@@ -844,6 +853,70 @@ float AMyHexPlatform::ComputeFootprintRadius() const
 	}
 
 	return static_cast<float>((MaxRadius + HexRadius) * GetActorScale3D().GetAbsMax());
+}
+
+void AMyHexPlatform::RefreshSentinelObstacle()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	UMechSentinelObstacleSubsystem* Obstacles = UMechSentinelObstacleSubsystem::Get(this);
+
+	if (!Obstacles)
+	{
+		return;
+	}
+
+	// Each standing tile: its instance's world transform x the tile mesh's bounds (as the minimap measures the tile tops)
+	const UStaticMesh* Mesh = HexPillarsISM ? HexPillarsISM->GetStaticMesh() : nullptr;
+	const FBox MeshBox = Mesh ? Mesh->GetBounds().GetBox() : FBox(ForceInit);
+
+	TArray<FBox> TileBoxes;
+	TileBoxes.Reserve(HexMap.Num());
+	FBox Bounds(ForceInit);
+	FVector2D CentroidSum = FVector2D::ZeroVector;
+
+	if (MeshBox.IsValid)
+	{
+		for (const TPair<FIntVector, int32>& Pair : HexMap)
+		{
+			FTransform InstanceTransform;
+
+			if (HexPillarsISM->GetInstanceTransform(Pair.Value, InstanceTransform, /*bWorldSpace=*/true))
+			{
+				const FBox TileBox = MeshBox.TransformBy(InstanceTransform);
+				TileBoxes.Add(TileBox);
+				Bounds += TileBox;
+				CentroidSum += FVector2D(InstanceTransform.GetLocation());
+			}
+		}
+	}
+
+	if (TileBoxes.IsEmpty())
+	{
+		Obstacles->UnregisterObstacles(this);
+		return;
+	}
+
+	// A cylinder through the farthest tile, not the box: around a disc the box reaches 41% of the radius past the rim
+	// on the diagonals, which would close the gaps to the neighbouring platforms. A tile reaches its box's larger XY
+	// half extent from its centre (the hex's corner radius).
+	const FVector2D Centroid = CentroidSum / static_cast<double>(TileBoxes.Num());
+	double Radius = 0.0;
+
+	for (const FBox& TileBox : TileBoxes)
+	{
+		const FVector Extent = TileBox.GetExtent();
+		Radius = FMath::Max(Radius, FVector2D::Distance(FVector2D(TileBox.GetCenter()), Centroid) + FMath::Max(Extent.X, Extent.Y));
+	}
+
+	FMechSentinelObstacle Obstacle;
+	Obstacle.Bounds = Bounds;
+	Obstacle.FootprintCenter = Centroid;
+	Obstacle.FootprintRadius = static_cast<float>(Radius);
+	Obstacles->RegisterObstacle(this, Obstacle);
 }
 
 
@@ -1854,6 +1927,13 @@ void AMyHexPlatform::ActivateHexLocal(const FIntVector& Coord, bool bPlayEffect)
 	OnHexTileActivated.Broadcast(this, Coord);
 	bBreakingTileInEffectsRange = false;
 	bBreakingTileFar = false;
+
+	// Server: the sentinel obstacle follows the standing tiles, refreshed once per burst of collapsing tiles (at most
+	// 0.5 s late, and larger than the tiles until then, never smaller)
+	if (HasAuthority() && !IsActorBeingDestroyed() && !GetWorldTimerManager().IsTimerActive(SentinelObstacleTimer))
+	{
+		GetWorldTimerManager().SetTimer(SentinelObstacleTimer, this, &ThisClass::RefreshSentinelObstacle, 0.5f, false);
+	}
 
 	if (bFar)
 	{
