@@ -51,7 +51,7 @@ import traceback
 # ---------------------------------------------------------------------------------------------------------------------
 # Flags
 # ---------------------------------------------------------------------------------------------------------------------
-RAGDOLL_FALLBACK = True     # bUseMeshRagdollFallback. Set False (and re-run) once CR_Burrower's ragdoll is verified.
+RAGDOLL_FALLBACK = globals().get('BW06_RAGDOLL_FALLBACK', False)    # bUseMeshRagdollFallback. Set False (and re-run) once CR_Burrower's ragdoll is verified.
 RELOAD_AFTER_SAVE = True    # Reload the BP_Burrower package after saving and verify again (Asset > Reload path).
 DO_BLUEPRINT = True         # Create/update/save BP_Burrower.
 DO_CHECKS = True            # Read-only checks (DA_CharClassInfo, GameMode, BP_MyCharMech).

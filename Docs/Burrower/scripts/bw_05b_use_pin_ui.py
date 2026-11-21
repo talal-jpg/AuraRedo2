@@ -9,7 +9,7 @@
 #            clipped, size 0); if none is visible, types the first unticked variable name into the Input list's Search
 #            box (character events only, keyboard focus set directly on the box) so its row comes to the top.
 #            The node rebuilds after every tick and the filter clears. Repeat until it prints ALL_TICKED.
-#   save   : saves ABP_Burrower (explicit path), closes all asset editors (an open ABP editor crashed UE at shutdown)
+#   save   : saves ABP_Burrower (explicit path), closes the ABP editor (an open ABP editor crashed UE at shutdown)
 # Afterwards re-run bw_05_anim_bp.py: it wires the 9 Get nodes to the new pins, compiles and saves.
 import unreal, json, re
 
@@ -111,8 +111,8 @@ def _run(phase):
         return
     if phase == 'save':
         print('INFO: save', unreal.EditorAssetLibrary.save_asset(ABP, only_if_is_dirty=False))
-        unreal.get_editor_subsystem(unreal.AssetEditorSubsystem).close_all_asset_editors()
-        print('INFO: asset editors closed')
+        abp = unreal.load_asset(ABP)
+        print('INFO: asset editors closed', unreal.get_editor_subsystem(unreal.AssetEditorSubsystem).close_all_editors_for_asset(abp))
         return
     print('FAIL: unknown phase %r' % phase)
 

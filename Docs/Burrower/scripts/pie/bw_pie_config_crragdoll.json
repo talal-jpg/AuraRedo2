@@ -1,0 +1,7 @@
+{
+  "_doc": "Main test again with BP_Burrower bUseMeshRagdollFallback = false: death goes to the CR_Burrower rig ragdoll (bIsDead pin) instead of the C++ mesh ragdoll. Players hover 700 cm up so gunfire reaches the head (see bw_pie_config_gun.json).",
+  "run_name": "pie_cr_ragdoll",
+  "move": {"cut_hover_z": 700.0},
+  "damage": {"aim_bone": "J0_Head"},
+  "timeline": {"ragdoll_s": 6.0}
+}
