@@ -1,0 +1,14 @@
+{
+  "_doc": "Variant: the first Burrower comes from the spawner itself (bEnabled on, FirstSpawnDelay), not from Aura.Burrower.SpawnNow. SpawnNow is only a fallback for a player who got none after timeline.auto_spawn_timeout_s (that player then fails check a).",
+  "run_name": "pie_auto",
+  "spawn_mode": "auto",
+  "settings": {
+    "bEnabled": true,
+    "FirstSpawnDelay": 6.0,
+    "SpawnInterval": 8.0
+  },
+  "timeline": {
+    "warmup_s": 2.0,
+    "auto_spawn_timeout_s": 30.0
+  }
+}

@@ -1,0 +1,2 @@
+# The Burrower FBX is a plain git blob: the cloud session that made it cannot reach the LFS server.
+*.fbx -filter -diff -merge binary

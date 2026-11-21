@@ -1,0 +1,575 @@
+{
+ "rotor": {
+  "bone": "Rotor",
+  "parent": "root",
+  "centre_m": [
+   9.779,
+   0.0,
+   1.805
+  ],
+  "axis": "+X",
+  "radius_m": 1.058,
+  "depth_m": 0.558,
+  "bounds_min_m": [
+   9.5,
+   -1.058,
+   0.747
+  ],
+  "bounds_max_m": [
+   10.058,
+   1.058,
+   2.863
+  ],
+  "segment": "1.1.1",
+  "vertices": 16090
+ },
+ "chains": [
+  {
+   "name": "pipe_upperhose_l",
+   "segment": "3.3.1",
+   "type": "rigid_body",
+   "parent": "J1_Forequarters",
+   "bones": [
+    "pipe_upperhose_l_01",
+    "pipe_upperhose_l_02",
+    "pipe_upperhose_l_03",
+    "pipe_upperhose_l_04",
+    "pipe_upperhose_l_05",
+    "pipe_upperhose_l_06",
+    "pipe_upperhose_l_07"
+   ],
+   "end_bone": "pipe_upperhose_l_end",
+   "length_m": 2.029,
+   "radius_m": 0.11,
+   "bone_length_m": 0.29,
+   "start_m": [
+    7.0,
+    0.336,
+    3.838
+   ],
+   "end_m": [
+    5.072,
+    0.42,
+    4.247
+   ],
+   "hose_vertices": 1808,
+   "max_vertex_to_centreline_m": 0.11,
+   "riders": [
+    {
+     "comp": 2,
+     "verts": 16,
+     "at_m": 0.432
+    },
+    {
+     "comp": 3,
+     "verts": 16,
+     "at_m": 0.432
+    },
+    {
+     "comp": 4,
+     "verts": 16,
+     "at_m": 0.615
+    },
+    {
+     "comp": 5,
+     "verts": 16,
+     "at_m": 0.615
+    },
+    {
+     "comp": 6,
+     "verts": 16,
+     "at_m": 1.003
+    },
+    {
+     "comp": 7,
+     "verts": 16,
+     "at_m": 1.003
+    },
+    {
+     "comp": 8,
+     "verts": 16,
+     "at_m": 1.423
+    },
+    {
+     "comp": 9,
+     "verts": 16,
+     "at_m": 1.423
+    },
+    {
+     "comp": 31,
+     "verts": 108,
+     "at_m": 0.43
+    },
+    {
+     "comp": 32,
+     "verts": 64,
+     "at_m": 0.431
+    },
+    {
+     "comp": 33,
+     "verts": 108,
+     "at_m": 0.614
+    },
+    {
+     "comp": 34,
+     "verts": 64,
+     "at_m": 0.615
+    },
+    {
+     "comp": 35,
+     "verts": 108,
+     "at_m": 1.007
+    },
+    {
+     "comp": 36,
+     "verts": 64,
+     "at_m": 1.005
+    },
+    {
+     "comp": 37,
+     "verts": 108,
+     "at_m": 1.42
+    },
+    {
+     "comp": 38,
+     "verts": 64,
+     "at_m": 1.414
+    },
+    {
+     "comp": 39,
+     "verts": 108,
+     "at_m": 0.521
+    },
+    {
+     "comp": 40,
+     "verts": 108,
+     "at_m": 1.206
+    },
+    {
+     "comp": 116,
+     "verts": 18,
+     "at_m": 0.536
+    },
+    {
+     "comp": 121,
+     "verts": 18,
+     "at_m": 1.216
+    }
+   ]
+  },
+  {
+   "name": "pipe_upperhose_r",
+   "segment": "3.3.1",
+   "type": "rigid_body",
+   "parent": "J1_Forequarters",
+   "bones": [
+    "pipe_upperhose_r_01",
+    "pipe_upperhose_r_02",
+    "pipe_upperhose_r_03",
+    "pipe_upperhose_r_04",
+    "pipe_upperhose_r_05"
+   ],
+   "end_bone": "pipe_upperhose_r_end",
+   "length_m": 1.643,
+   "radius_m": 0.11,
+   "bone_length_m": 0.329,
+   "start_m": [
+    7.0,
+    -0.336,
+    3.838
+   ],
+   "end_m": [
+    5.426,
+    -0.403,
+    4.104
+   ],
+   "hose_vertices": 1488,
+   "max_vertex_to_centreline_m": 0.11,
+   "riders": [
+    {
+     "comp": 44,
+     "verts": 16,
+     "at_m": 0.433
+    },
+    {
+     "comp": 45,
+     "verts": 16,
+     "at_m": 0.433
+    },
+    {
+     "comp": 46,
+     "verts": 16,
+     "at_m": 0.616
+    },
+    {
+     "comp": 47,
+     "verts": 16,
+     "at_m": 0.616
+    },
+    {
+     "comp": 48,
+     "verts": 16,
+     "at_m": 1.003
+    },
+    {
+     "comp": 49,
+     "verts": 16,
+     "at_m": 1.003
+    },
+    {
+     "comp": 50,
+     "verts": 16,
+     "at_m": 1.423
+    },
+    {
+     "comp": 51,
+     "verts": 16,
+     "at_m": 1.423
+    },
+    {
+     "comp": 73,
+     "verts": 108,
+     "at_m": 0.429
+    },
+    {
+     "comp": 74,
+     "verts": 64,
+     "at_m": 0.432
+    },
+    {
+     "comp": 75,
+     "verts": 108,
+     "at_m": 0.613
+    },
+    {
+     "comp": 76,
+     "verts": 64,
+     "at_m": 0.617
+    },
+    {
+     "comp": 77,
+     "verts": 108,
+     "at_m": 1.004
+    },
+    {
+     "comp": 78,
+     "verts": 64,
+     "at_m": 1.008
+    },
+    {
+     "comp": 79,
+     "verts": 108,
+     "at_m": 1.423
+    },
+    {
+     "comp": 80,
+     "verts": 64,
+     "at_m": 1.424
+    },
+    {
+     "comp": 81,
+     "verts": 108,
+     "at_m": 0.522
+    },
+    {
+     "comp": 82,
+     "verts": 108,
+     "at_m": 1.205
+    },
+    {
+     "comp": 114,
+     "verts": 18,
+     "at_m": 0.536
+    },
+    {
+     "comp": 119,
+     "verts": 18,
+     "at_m": 1.216
+    }
+   ]
+  },
+  {
+   "name": "pipe_uppercable_l",
+   "segment": "3.3.1",
+   "type": "wire",
+   "parent": "J1_Forequarters",
+   "bones": [
+    "pipe_uppercable_l_01",
+    "pipe_uppercable_l_02",
+    "pipe_uppercable_l_03",
+    "pipe_uppercable_l_04",
+    "pipe_uppercable_l_05",
+    "pipe_uppercable_l_06",
+    "pipe_uppercable_l_07"
+   ],
+   "end_bone": "pipe_uppercable_l_end",
+   "length_m": 2.132,
+   "radius_m": 0.032,
+   "bone_length_m": 0.305,
+   "start_m": [
+    7.063,
+    0.476,
+    3.845
+   ],
+   "end_m": [
+    5.079,
+    0.661,
+    4.299
+   ],
+   "hose_vertices": 632,
+   "max_vertex_to_centreline_m": 0.046,
+   "riders": []
+  },
+  {
+   "name": "pipe_uppercable_r",
+   "segment": "3.3.1",
+   "type": "wire",
+   "parent": "J1_Forequarters",
+   "bones": [
+    "pipe_uppercable_r_01",
+    "pipe_uppercable_r_02",
+    "pipe_uppercable_r_03",
+    "pipe_uppercable_r_04",
+    "pipe_uppercable_r_05",
+    "pipe_uppercable_r_06",
+    "pipe_uppercable_r_07",
+    "pipe_uppercable_r_08",
+    "pipe_uppercable_r_09"
+   ],
+   "end_bone": "pipe_uppercable_r_end",
+   "length_m": 2.657,
+   "radius_m": 0.032,
+   "bone_length_m": 0.295,
+   "start_m": [
+    7.063,
+    -0.476,
+    3.845
+   ],
+   "end_m": [
+    4.792,
+    -0.661,
+    4.727
+   ],
+   "hose_vertices": 632,
+   "max_vertex_to_centreline_m": 0.046,
+   "riders": [
+    {
+     "comp": 92,
+     "verts": 18,
+     "at_m": 1.792
+    },
+    {
+     "comp": 97,
+     "verts": 18,
+     "at_m": 1.759
+    }
+   ]
+  },
+  {
+   "name": "pipe_side_l_a",
+   "segment": "2.3.2",
+   "type": "wire",
+   "parent": "J1_Forequarters",
+   "bones": [
+    "pipe_side_l_a_01",
+    "pipe_side_l_a_02",
+    "pipe_side_l_a_03",
+    "pipe_side_l_a_04",
+    "pipe_side_l_a_05",
+    "pipe_side_l_a_06",
+    "pipe_side_l_a_07"
+   ],
+   "end_bone": "pipe_side_l_a_end",
+   "length_m": 2.01,
+   "radius_m": 0.036,
+   "bone_length_m": 0.287,
+   "start_m": [
+    5.43,
+    1.697,
+    1.101
+   ],
+   "end_m": [
+    3.917,
+    1.583,
+    0.696
+   ],
+   "hose_vertices": 1080,
+   "max_vertex_to_centreline_m": 0.036,
+   "riders": []
+  },
+  {
+   "name": "pipe_side_l_b",
+   "segment": "2.3.2",
+   "type": "wire",
+   "parent": "J1_Forequarters",
+   "bones": [
+    "pipe_side_l_b_01",
+    "pipe_side_l_b_02",
+    "pipe_side_l_b_03",
+    "pipe_side_l_b_04",
+    "pipe_side_l_b_05",
+    "pipe_side_l_b_06",
+    "pipe_side_l_b_07"
+   ],
+   "end_bone": "pipe_side_l_b_end",
+   "length_m": 2.108,
+   "radius_m": 0.036,
+   "bone_length_m": 0.301,
+   "start_m": [
+    5.431,
+    1.8,
+    1.445
+   ],
+   "end_m": [
+    4.102,
+    1.657,
+    0.852
+   ],
+   "hose_vertices": 1134,
+   "max_vertex_to_centreline_m": 0.036,
+   "riders": []
+  },
+  {
+   "name": "pipe_side_r_a",
+   "segment": "2.3.2",
+   "type": "wire",
+   "parent": "J1_Forequarters",
+   "bones": [
+    "pipe_side_r_a_01",
+    "pipe_side_r_a_02",
+    "pipe_side_r_a_03",
+    "pipe_side_r_a_04",
+    "pipe_side_r_a_05",
+    "pipe_side_r_a_06",
+    "pipe_side_r_a_07"
+   ],
+   "end_bone": "pipe_side_r_a_end",
+   "length_m": 2.01,
+   "radius_m": 0.036,
+   "bone_length_m": 0.287,
+   "start_m": [
+    5.43,
+    -1.697,
+    1.101
+   ],
+   "end_m": [
+    3.917,
+    -1.583,
+    0.696
+   ],
+   "hose_vertices": 1080,
+   "max_vertex_to_centreline_m": 0.036,
+   "riders": []
+  },
+  {
+   "name": "pipe_side_r_b",
+   "segment": "2.3.2",
+   "type": "wire",
+   "parent": "J1_Forequarters",
+   "bones": [
+    "pipe_side_r_b_01",
+    "pipe_side_r_b_02",
+    "pipe_side_r_b_03",
+    "pipe_side_r_b_04",
+    "pipe_side_r_b_05",
+    "pipe_side_r_b_06",
+    "pipe_side_r_b_07"
+   ],
+   "end_bone": "pipe_side_r_b_end",
+   "length_m": 2.108,
+   "radius_m": 0.036,
+   "bone_length_m": 0.301,
+   "start_m": [
+    5.431,
+    -1.8,
+    1.445
+   ],
+   "end_m": [
+    4.102,
+    -1.657,
+    0.852
+   ],
+   "hose_vertices": 1134,
+   "max_vertex_to_centreline_m": 0.036,
+   "riders": []
+  }
+ ],
+ "weights": {
+  "worst_abs_sum_minus_1": 3.073364496231079e-08,
+  "max_influences": 3
+ },
+ "bones_total": 71,
+ "bone_order": [
+  "root",
+  "J0_Head",
+  "J1_Forequarters",
+  "J2_Midbody",
+  "J3_Hindbody",
+  "J4_Tail",
+  "pipe_upperhose_l_01",
+  "pipe_upperhose_l_02",
+  "pipe_upperhose_l_03",
+  "pipe_upperhose_l_04",
+  "pipe_upperhose_l_05",
+  "pipe_upperhose_l_06",
+  "pipe_upperhose_l_07",
+  "pipe_upperhose_l_end",
+  "pipe_upperhose_r_01",
+  "pipe_upperhose_r_02",
+  "pipe_upperhose_r_03",
+  "pipe_upperhose_r_04",
+  "pipe_upperhose_r_05",
+  "pipe_upperhose_r_end",
+  "pipe_uppercable_l_01",
+  "pipe_uppercable_l_02",
+  "pipe_uppercable_l_03",
+  "pipe_uppercable_l_04",
+  "pipe_uppercable_l_05",
+  "pipe_uppercable_l_06",
+  "pipe_uppercable_l_07",
+  "pipe_uppercable_l_end",
+  "pipe_uppercable_r_01",
+  "pipe_uppercable_r_02",
+  "pipe_uppercable_r_03",
+  "pipe_uppercable_r_04",
+  "pipe_uppercable_r_05",
+  "pipe_uppercable_r_06",
+  "pipe_uppercable_r_07",
+  "pipe_uppercable_r_08",
+  "pipe_uppercable_r_09",
+  "pipe_uppercable_r_end",
+  "pipe_side_l_a_01",
+  "pipe_side_l_a_02",
+  "pipe_side_l_a_03",
+  "pipe_side_l_a_04",
+  "pipe_side_l_a_05",
+  "pipe_side_l_a_06",
+  "pipe_side_l_a_07",
+  "pipe_side_l_a_end",
+  "pipe_side_l_b_01",
+  "pipe_side_l_b_02",
+  "pipe_side_l_b_03",
+  "pipe_side_l_b_04",
+  "pipe_side_l_b_05",
+  "pipe_side_l_b_06",
+  "pipe_side_l_b_07",
+  "pipe_side_l_b_end",
+  "pipe_side_r_a_01",
+  "pipe_side_r_a_02",
+  "pipe_side_r_a_03",
+  "pipe_side_r_a_04",
+  "pipe_side_r_a_05",
+  "pipe_side_r_a_06",
+  "pipe_side_r_a_07",
+  "pipe_side_r_a_end",
+  "pipe_side_r_b_01",
+  "pipe_side_r_b_02",
+  "pipe_side_r_b_03",
+  "pipe_side_r_b_04",
+  "pipe_side_r_b_05",
+  "pipe_side_r_b_06",
+  "pipe_side_r_b_07",
+  "pipe_side_r_b_end",
+  "Rotor"
+ ]
+}

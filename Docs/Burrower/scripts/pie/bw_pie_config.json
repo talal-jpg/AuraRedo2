@@ -1,0 +1,216 @@
+{
+  "_doc": "Burrower PIE test config (EDITOR_SESSION.md step 8). Merged over BW_DEFAULTS in bw_pie_test.py; README.md explains every key. Times are game seconds unless the key ends in _wall_s.",
+  "run_name": "pie_main",
+  "map": "/Game/Maps/StartupMap",
+  "expected_project_dir_contains": "_BurrowerWork",
+  "out_dir": "/mnt/new_partition/UnrealProjects/_BurrowerWork/Saved/Burrower",
+  "rig_info_json": "/mnt/new_partition/UnrealProjects/_BurrowerWork/SourceArt/Burrower/Burrower_rig_info.json",
+  "player_bp_class": "/Game/Level/MechChar/BP_MyCharMech.BP_MyCharMech_C",
+  "play": {
+    "net_mode": "PIE_ListenServer",
+    "num_clients": 2,
+    "run_under_one_process": true,
+    "force_in_memory": true
+  },
+  "fixed_frame_rate": 30.0,
+  "settings": {
+    "bEnabled": false,
+    "FirstSpawnDelay": 4.0,
+    "SpawnInterval": 8.0,
+    "burrower_class_if_unset": "/Game/Assets/Enemies/Burrower/BP_Burrower.BP_Burrower_C",
+    "allow_map_if_filtered": true
+  },
+  "spawn_mode": "spawnnow",
+  "spawn_indices": "all",
+  "enable_before_kill": true,
+  "debug_rotor_box": true,
+  "force_refresh_bones": true,
+  "timeline": {
+    "pie_start_timeout_wall_s": 180.0,
+    "pawn_timeout_s": 40.0,
+    "restart_missing_pawn_after_s": 3.0,
+    "warmup_s": 14.0,
+    "replication_wait_s": 1.5,
+    "auto_spawn_timeout_s": 20.0,
+    "follow_s": 16.0,
+    "cut_s": 12.0,
+    "damage_s": 8.0,
+    "ragdoll_s": 4.0,
+    "respawn_margin_s": 6.0,
+    "respawned_extra_s": 2.5,
+    "max_game_s": 300.0,
+    "max_wall_s": 2700.0,
+    "post_end_wall_s": 120.0
+  },
+  "move": {
+    "speed": 900.0,
+    "follow_z": 500.0,
+    "ahead": 2500.0,
+    "cut_hover_z": 140.0,
+    "cut_ahead": 600.0,
+    "braking_flying": 2000.0,
+    "hold_radius": 15.0,
+    "clear_radius": 120.0,
+    "lane_pitch": -12.0
+  },
+  "sampling": {
+    "dist_dt": 0.5,
+    "pose_dt": 0.1,
+    "tile_dt": 0.5,
+    "health_dt": 0.25,
+    "summary_dt": 1.0,
+    "ragdoll_dt": 0.2,
+    "rotor_window_start": 6.0,
+    "rotor_window_s": 2.0,
+    "tile_track_radius": 6000.0,
+    "log_scan_wall_s": 2.0,
+    "write_wall_s": 1.0
+  },
+  "thresholds": {
+    "spawn_dist_tol_frac": 0.1,
+    "spawn_z_tol_cm": 80.0,
+    "spawn_behind_dot_min": 0.9,
+    "client_pos_tol_cm": 400.0,
+    "follow_end_max_cm": 2500.0,
+    "follow_bound_extra_cm": 600.0,
+    "follow_min_travel_cm": 1000.0,
+    "wave_min_p2p_cm": 15.0,
+    "wave_min_crossings": 2,
+    "rotor_min_turn_deg": 90.0,
+    "rotor_loc_tol_cm": 3.0,
+    "rotor_axis_tol_deg": 3.0,
+    "rotor_alias_deg_per_sample": 150.0,
+    "pipe_anchor_tol_cm": 5.0,
+    "pipe_mid_min_std_cm": 0.5,
+    "tile_cut_extra_cm": 100.0,
+    "tiles_min_cut": 1,
+    "health_min_drop": 0.5,
+    "ragdoll_min_bone_move_cm": 30.0,
+    "ragdoll_max_actor_move_cm": 50.0,
+    "dead_wait_server_s": 1.0,
+    "dead_wait_client_s": 2.5,
+    "respawn_tol_early_s": 0.5,
+    "respawn_tol_late_s": 2.5
+  },
+  "damage": {
+    "fire_roles": [
+      "server"
+    ],
+    "aim_bone": "J2_Midbody",
+    "input_action": "/Game/Level/PlayerInput/IA_LMB",
+    "stop_after_drop": 3.0,
+    "fallback_ge": "/Game/Level/GAS/GameplayEffects/GE_GunShootDamage.GE_GunShootDamage_C",
+    "fallback_damage": 5.0,
+    "set_by_caller_tag": "SetDamageByCaller",
+    "fallback_wait_s": 2.0
+  },
+  "bones": {
+    "body": [
+      "J0_Head",
+      "J1_Forequarters",
+      "J2_Midbody",
+      "J3_Hindbody",
+      "J4_Tail"
+    ],
+    "rotor": "Rotor",
+    "pipe_anchor": "J1_Forequarters",
+    "rotor_rest_cm": [
+      977.9,
+      0.0,
+      180.5
+    ],
+    "j1_rest_cm": [
+      660.0,
+      0.0,
+      193.0
+    ]
+  },
+  "shots": {
+    "enabled": true,
+    "xgrab": true,
+    "width": 1280,
+    "height": 720,
+    "max_captures": 48,
+    "look_lead_s": 1.0,
+    "plan": [
+      {
+        "phase": "spawn",
+        "at": 1.0,
+        "label": "a_spawn",
+        "kinds": [
+          "side",
+          "player"
+        ]
+      },
+      {
+        "phase": "follow",
+        "at": 7.0,
+        "label": "d_rotor",
+        "kinds": [
+          "rotor"
+        ]
+      },
+      {
+        "phase": "follow",
+        "at": 10.0,
+        "label": "bcf_follow",
+        "kinds": [
+          "side",
+          "player"
+        ]
+      },
+      {
+        "phase": "cut",
+        "at": 6.0,
+        "label": "e_cut",
+        "kinds": [
+          "top",
+          "player"
+        ]
+      },
+      {
+        "phase": "cut",
+        "at": 11.0,
+        "label": "e_cut_end",
+        "kinds": [
+          "top"
+        ]
+      },
+      {
+        "phase": "damage",
+        "at": 4.0,
+        "label": "g_damage",
+        "kinds": [
+          "player",
+          "side"
+        ]
+      },
+      {
+        "phase": "kill",
+        "at": 1.5,
+        "label": "h_ragdoll",
+        "kinds": [
+          "side",
+          "player"
+        ]
+      },
+      {
+        "phase": "kill",
+        "at": 3.5,
+        "label": "h_ragdoll2",
+        "kinds": [
+          "side"
+        ]
+      },
+      {
+        "phase": "respawned",
+        "at": 1.5,
+        "label": "i_respawn",
+        "kinds": [
+          "side",
+          "player"
+        ]
+      }
+    ]
+  }
+}

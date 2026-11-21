@@ -2358,6 +2358,199 @@ bool AMyHexPlatform::IsTileCollapsed(
 }
 
 
+// =============================================================================
+// Activation by a box (server; the Burrower's rotor)
+// =============================================================================
+
+// Named, not anonymous: the unity build compiles this file together with others
+namespace HexBoxTest
+{
+	/** A world box in the platform's actor space (a parallelepiped there when the actor has a non-uniform scale). */
+	struct FBoxInActorSpace
+	{
+		FVector Centre = FVector::ZeroVector;
+
+		/** Centre to the middle of each face, one per box axis. */
+		FVector HalfAxes[3] = { FVector::ZeroVector, FVector::ZeroVector, FVector::ZeroVector };
+
+		/** Exact axis-aligned bounds of it. */
+		FBox Bounds = FBox(ForceInit);
+	};
+
+	/** A candidate separating axis: the box's reach along it, and a pillar's per cm of half side and of half height. */
+	struct FAxis
+	{
+		FVector Dir = FVector::ZeroVector;
+		double BoxReach = 0.0;
+		double SideReach = 0.0;
+		double UpReach = 0.0;
+	};
+
+	using FAxes = TArray<FAxis, TInlineAllocator<21>>;
+
+	static FBoxInActorSpace ToActorSpace(const FTransform& ActorToWorld, const FTransform& BoxToWorld, const FVector& BoxExtent)
+	{
+		static const EAxis::Type BoxAxes[3] = { EAxis::X, EAxis::Y, EAxis::Z };
+
+		FBoxInActorSpace Box;
+		Box.Centre = ActorToWorld.InverseTransformPosition(BoxToWorld.GetLocation());
+
+		FVector Reach = FVector::ZeroVector;
+
+		for (int32 Axis = 0; Axis < 3; ++Axis)
+		{
+			// Undoes the actor's rotation and scale, so it is exact whatever the actor transform
+			Box.HalfAxes[Axis] = ActorToWorld.InverseTransformVector(BoxToWorld.GetUnitAxis(BoxAxes[Axis]) * FMath::Abs(BoxExtent[Axis]));
+			Reach += Box.HalfAxes[Axis].GetAbs();
+		}
+
+		Box.Bounds = FBox(Box.Centre - Reach, Box.Centre + Reach);
+		return Box;
+	}
+
+	/**
+	 * Separating axes of the box against this platform's pillars. Both are sums of segments: the box of its three
+	 * half axes, a pillar of its height and of three horizontal segments, one along each pair of opposite sides
+	 * (a regular hexagon is the sum of three segments one side long). Two such shapes are apart exactly when the
+	 * cross product of some two of their segments separates them, so these are all the axes needed (21 at most).
+	 * Every pillar of a platform has the same directions; only the lengths differ.
+	 */
+	static void MakeAxes(const FBoxInActorSpace& Box, FAxes& OutAxes)
+	{
+		FVector Dirs[7];
+		int32 NumDirs = 0;
+
+		// The pillar: along each pair of opposite sides (the side's outward direction turned 90 degrees), then up
+		for (int32 Side = 0; Side < 3; ++Side)
+		{
+			const FVector2D Out = AMyHexPlatform::GetHexSideDirection(Side);
+			Dirs[NumDirs++] = FVector(-Out.Y, Out.X, 0.0);
+		}
+
+		Dirs[NumDirs++] = FVector::UpVector;
+
+		// The box (a zero extent adds nothing)
+		for (const FVector& HalfAxis : Box.HalfAxes)
+		{
+			if (!HalfAxis.IsNearlyZero())
+			{
+				Dirs[NumDirs++] = HalfAxis.GetUnsafeNormal();
+			}
+		}
+
+		for (int32 A = 0; A < NumDirs; ++A)
+		{
+			for (int32 B = A + 1; B < NumDirs; ++B)
+			{
+				const FVector Dir = FVector::CrossProduct(Dirs[A], Dirs[B]);
+
+				// Parallel: no face between them
+				if (Dir.SizeSquared() < 1.e-8)
+				{
+					continue;
+				}
+
+				FAxis& Axis = OutAxes.AddDefaulted_GetRef();
+				Axis.Dir = Dir;
+				Axis.UpReach = FMath::Abs(Dir.Z);
+
+				for (int32 Side = 0; Side < 3; ++Side)
+				{
+					Axis.SideReach += FMath::Abs(FVector::DotProduct(Dir, Dirs[Side]));
+				}
+
+				for (const FVector& HalfAxis : Box.HalfAxes)
+				{
+					Axis.BoxReach += FMath::Abs(FVector::DotProduct(Dir, HalfAxis));
+				}
+			}
+		}
+	}
+
+	/** Does the box touch the tile's pillar: a regular hexagon of Info.Apothem, as tall as Info.LocalBounds? */
+	static bool TouchesPillar(const FAxes& Axes, const FBoxInActorSpace& Box, const FHexTileInfo& Info)
+	{
+		const FVector Offset = Box.Centre - Info.LocalBounds.GetCenter();
+
+		// A side is 2 * Apothem / sqrt 3 long; each segment reaches half of it either way
+		const double HalfSide = Info.Apothem / FMath::Sqrt(3.0);
+		const double HalfHeight = Info.LocalBounds.GetExtent().Z;
+
+		for (const FAxis& Axis : Axes)
+		{
+			if (FMath::Abs(FVector::DotProduct(Axis.Dir, Offset)) > Axis.BoxReach + HalfSide * Axis.SideReach + HalfHeight * Axis.UpReach)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+}
+
+int32 AMyHexPlatform::ActivateTilesInWorldBox(const FTransform& BoxToWorld, const FVector& BoxExtent)
+{
+	// Server only. Not before the bridges are built: UMyHexBridgeSubsystem reads the edges through the instance
+	// indices BuildHexGrid cached (EdgeInstances), and a removed tile reorders them.
+	if (!HasAuthority() || !bBridgesReady || IsActorBeingDestroyed() || !HexPillarsISM || TileInfos.IsEmpty())
+	{
+		return 0;
+	}
+
+	const HexBoxTest::FBoxInActorSpace Box = HexBoxTest::ToActorSpace(HexPillarsISM->GetComponentTransform(), BoxToWorld, BoxExtent);
+
+	if (!Box.Bounds.Intersect(TilesLocalBounds))
+	{
+		return 0;
+	}
+
+	HexBoxTest::FAxes Axes;
+	HexBoxTest::MakeAxes(Box, Axes);
+
+	// Gathered first: ActivateHex takes the tile out of TileInfos (HandleTileActivated) and HexMap
+	TArray<FIntVector, TInlineAllocator<16>> Touched;
+
+	for (const TPair<FIntVector, FHexTileInfo>& Pair : TileInfos)
+	{
+		if (Pair.Value.LocalBounds.Intersect(Box.Bounds) && HexBoxTest::TouchesPillar(Axes, Box, Pair.Value))
+		{
+			Touched.Add(Pair.Key);
+		}
+	}
+
+	int32 NumActivated = 0;
+
+	for (const FIntVector& Coord : Touched)
+	{
+		// Already fallen, or already sent to the clients (ActivateHexLocal failed: a retry would only add it to
+		// ActivatedTiles again). A tile a chain has reserved goes now (ActivateHex takes it out of PendingActivationTiles).
+		if (IsTileCollapsed(Coord))
+		{
+			continue;
+		}
+
+		ActivateHex(Coord);
+
+		if (LocalActivatedTiles.Contains(Coord))
+		{
+			++NumActivated;
+		}
+	}
+
+	return NumActivated;
+}
+
+bool AMyHexPlatform::CouldWorldBoxTouchTiles(const FTransform& BoxToWorld, const FVector& BoxExtent) const
+{
+	if (!HexPillarsISM || TileInfos.IsEmpty())
+	{
+		return false;
+	}
+
+	return HexBoxTest::ToActorSpace(HexPillarsISM->GetComponentTransform(), BoxToWorld, BoxExtent).Bounds.Intersect(TilesLocalBounds);
+}
+
+
 // GetEdges
 
 TArray<FIntVector> AMyHexPlatform::GetOriginalEdgeHexes() const
@@ -2496,6 +2689,7 @@ FVector2D AMyHexPlatform::GetHexSideDirection(int32 Side)
 void AMyHexPlatform::BuildTileInfos()
 {
 	TileInfos.Reset();
+	TilesLocalBounds = FBox(ForceInit);
 
 	if (!HexPillarsISM || !HexPillarsISM->GetStaticMesh())
 	{
@@ -2524,6 +2718,7 @@ void AMyHexPlatform::BuildTileInfos()
 		Info.TileIndex = MakeTileIndex(Pair.Key);
 		Info.LocalTopCenter = FVector(Location.X, Location.Y, Box.Max.Z);
 		Info.LocalBounds = Box;
+		TilesLocalBounds += Box;
 		Info.Apothem = static_cast<float>(MeshBox.GetExtent().X * InstanceTransform.GetScale3D().X);
 		Info.OpenSideBits = GetOpenSideBits(Pair.Key);
 		Info.EdgeDepth = MAX_int32;

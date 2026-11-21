@@ -41,6 +41,10 @@
 			"Enabled": true
 		},
 		{
+			"Name": "ControlRigPhysics",
+			"Enabled": true
+		},
+		{
 			"Name": "OnlineServicesNull",
 			"Enabled": true
 		},

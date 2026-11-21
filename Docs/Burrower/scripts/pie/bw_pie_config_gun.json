@@ -1,0 +1,10 @@
+{
+  "_doc": "Variant for check (g) with real gunfire: in the main run the players hover 140 cm above a tile, the Burrower's goal is 150 cm below the pawn, so its body sits down in the tile pillars and the crosshair sweep (ECC_Visibility) hits the tiles first. Here the players hover 700 cm up and aim at the head body. (e) is not expected to pass in this variant (the rotor box stays above the tiles); it passed in pie_main.",
+  "run_name": "pie_gun",
+  "move": {
+    "cut_hover_z": 700.0
+  },
+  "damage": {
+    "aim_bone": "J0_Head"
+  }
+}
