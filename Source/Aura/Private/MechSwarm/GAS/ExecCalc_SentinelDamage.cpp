@@ -4,6 +4,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "AbilitySystem/MyAttributeSet.h"
 #include "Engine/World.h"
 #include "MechSwarm/Core/MechSentinelSwarmRules.h"
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
@@ -18,10 +19,16 @@ namespace MechSwarm::DamageCapture
 	{
 		DECLARE_ATTRIBUTE_CAPTUREDEF(Armor);
 
+		/** Source UMyAttributeSet::AttackDamage (not the macro: the sentinel set has an AttackDamage too). */
+		FGameplayEffectAttributeCaptureDefinition SourceAttackDamageDef;
+
 		FSentinelDamageStatics()
 		{
 			// Not snapshotted: the proxy holds the entity's live values at execution time.
 			DEFINE_ATTRIBUTE_CAPTUREDEF(UMechSentinelAttributeSet, Armor, Target, false);
+
+			// Snapshot when the spec is made, like MMC_ProjectileDamage (a gun shot: on the server, before its timer).
+			SourceAttackDamageDef = FGameplayEffectAttributeCaptureDefinition(UMyAttributeSet::GetAttackDamageAttribute(), EGameplayEffectAttributeCaptureSource::Source, true);
 		}
 	};
 
@@ -35,6 +42,12 @@ namespace MechSwarm::DamageCapture
 UExecCalc_SentinelDamage::UExecCalc_SentinelDamage()
 {
 	RelevantAttributesToCapture.Add(MechSwarm::DamageCapture::Statics().ArmorDef);
+	RelevantAttributesToCapture.Add(MechSwarm::DamageCapture::Statics().SourceAttackDamageDef);
+}
+
+float UExecCalc_SentinelDamage::ComputeRawDamage(const float BaseDamage, const float SourceAttackDamage, const float AttackDamageScale)
+{
+	return BaseDamage > 0.f ? BaseDamage + FMath::Max(0.f, AttackDamageScale) * FMath::Max(0.f, SourceAttackDamage) : 0.f;
 }
 
 float UExecCalc_SentinelDamage::MitigateDamage(const float RawDamage, const float Armor, const float ArmorPerPoint)
@@ -60,10 +73,18 @@ void UExecCalc_SentinelDamage::Execute_Implementation(const FGameplayEffectCusto
 	float Armor = 0.f;
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(MechSwarm::DamageCapture::Statics().ArmorDef, EvalParams, Armor);
 
-	const float RawDamage = FMath::Max(0.f, Spec.GetSetByCallerMagnitude(MyTags::SetDamageByCaller, /*WarnIfNotFound*/false, 0.f));
+	// No instigator ASC, or one without UMyAttributeSet: nothing was captured, the hit stays flat.
+	float SourceAttackDamage = 0.f;
+	if (!ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(MechSwarm::DamageCapture::Statics().SourceAttackDamageDef, EvalParams, SourceAttackDamage))
+	{
+		SourceAttackDamage = 0.f;
+	}
+
+	const float BaseDamage = FMath::Max(0.f, Spec.GetSetByCallerMagnitude(MyTags::SetDamageByCaller, /*WarnIfNotFound*/false, 0.f));
 
 	float ArmorPerPoint = 0.06f;
 	float ShieldMultiplier = 0.25f;
+	float AttackDamageScale = 1.f;
 	const UAbilitySystemComponent* TargetASC = ExecutionParams.GetTargetAbilitySystemComponent();
 	if (const UWorld* World = TargetASC ? TargetASC->GetWorld() : nullptr)
 	{
@@ -73,10 +94,12 @@ void UExecCalc_SentinelDamage::Execute_Implementation(const FGameplayEffectCusto
 			{
 				ArmorPerPoint = Rules->ArmorMitigationPerPoint;
 				ShieldMultiplier = Rules->ShieldedDamageMultiplier;
+				AttackDamageScale = Rules->SourceAttackDamageScale;
 			}
 		}
 	}
 
+	const float RawDamage = ComputeRawDamage(BaseDamage, SourceAttackDamage, AttackDamageScale);
 	float Damage = MitigateDamage(RawDamage, Armor, ArmorPerPoint);
 	if (TargetTags && TargetTags->HasTagExact(MechSentinelTags::State_Sentinel_Shielded))
 	{

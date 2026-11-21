@@ -44,7 +44,11 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Mech Sentinels|Hit")
 	FOnMechSentinelCapsuleHit OnSentinelHit;
 
-	/** Damage per hit, before armor (SetByCaller MyTags::SetDamageByCaller). */
+	/**
+	 * Base damage per hit (SetByCaller MyTags::SetDamageByCaller). The instigator's AttackDamage x the rules'
+	 * SourceAttackDamageScale is added when its ASC has UMyAttributeSet (the pawn that fired; read when the hit
+	 * lands, not when the projectile was fired), then armor applies.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mech Sentinels|Hit", meta = (ClampMin = "0"))
 	float Damage = 25.f;
 

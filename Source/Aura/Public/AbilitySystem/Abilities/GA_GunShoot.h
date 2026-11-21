@@ -36,7 +36,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels")
 	bool bDamageSentinels = true;
 
-	/** Damage per sentinel hit, before the sentinel's armor. Evaluated at the ability level. */
+	/**
+	 * Base damage per sentinel hit, evaluated at the ability level. The shooter's AttackDamage x the rules'
+	 * SourceAttackDamageScale is added to it, then the sentinel's armor applies. The mech starts with AttackDamage 0,
+	 * so 40 keeps the demo's 4 / 5 / 7 / 9 shots per W1-W4 sentinel until something raises AttackDamage.
+	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels"))
 	FScalableFloat SentinelDamage = FScalableFloat(40.f);
 

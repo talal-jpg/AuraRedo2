@@ -48,9 +48,18 @@ public:
 	float ShieldedDamageMultiplier = 0.25f;
 
 	/**
+	 * Share of the attacker's AttackDamage (UMyAttributeSet on the effect's source ASC, read when the spec is made,
+	 * buffs included) added to every hit on a sentinel, before armor: raw = base + this * AttackDamage. 0 = flat
+	 * damage (the hit's SetByCaller base only). Hits with a base of 0 stay 0; sources without that set add nothing.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (ClampMin = "0"))
+	float SourceAttackDamageScale = 1.f;
+
+	/**
 	 * Instant GE used to damage sentinels when callers do not pass their own (GA_GunShoot, the hit capsule, the combat
 	 * library). Defaults to the built-in UMechSentinelDamageEffect. A replacement should use UExecCalc_SentinelDamage and
-	 * read the SetByCaller magnitude MyTags::SetDamageByCaller ("SetDamageByCaller").
+	 * read the SetByCaller magnitude MyTags::SetDamageByCaller ("SetDamageByCaller"): only that execution applies armor
+	 * and adds the attacker's AttackDamage (SourceAttackDamageScale).
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TSubclassOf<UGameplayEffect> DefaultSentinelDamageEffect;
