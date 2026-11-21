@@ -374,8 +374,30 @@ void AMyHexPathSpawner::ExtendPath()
 		PathSpline->GetDistanceAlongSplineAtSplinePoint(FirstIndex),
 		PathSpline->GetDistanceAlongSplineAtSplinePoint(LastIndex)
 	);
+
+	// Where its platforms will be, before PCG has spawned any. From the world path: SegmentSpline is in layout space
+	FVector BoundsCenter;
+	FVector BoundsExtent;
+	FRotator BoundsRotation;
+	ComputeSegmentBounds(Segment->GetPathStartDistance(), Segment->GetPathEndDistance(), BoundsCenter, BoundsExtent, BoundsRotation);
+	Segment->SetSegmentBounds(BoundsCenter, BoundsExtent, BoundsRotation);
+
+#if ENABLE_DRAW_DEBUG
+	if (bDrawSegmentBounds)
+	{
+		DrawDebugBox(GetWorld(), BoundsCenter, BoundsExtent, BoundsRotation.Quaternion(), FColor::Orange, false, 15.f, 0, 30.f);
+	}
+#endif
+
 	Segment->InitSegment(NextSegmentIndex++, Points, Tangents);
 	Segments.Add(Segment);
+
+	// Server only: this actor is not replicated, so HasAuthority() alone does not rule out a client.
+	// Listeners should only queue work, as the wave spawner does (it spawns from its own tick)
+	if (GetNetMode() != NM_Client)
+	{
+		OnSegmentSpawned.Broadcast(this, Segment);
+	}
 
 	// The fog stays in front of the new platforms while they spawn, then moves on
 	if (!PathEndFogSystem.IsNull())
@@ -475,6 +497,114 @@ void AMyHexPathSpawner::DestroyPassedSegments()
 
 		Segments.RemoveAt(0);
 	}
+}
+
+
+// =============================================================================
+// Segment bounds
+// =============================================================================
+
+void AMyHexPathSpawner::ComputeSegmentBounds(float StartDistance, float EndDistance, FVector& OutCenter, FVector& OutExtent, FRotator& OutRotation) const
+{
+	const float Scale = GetLayoutScale();
+	const float D0 = StartDistance;
+	const float D1 = FMath::Max(EndDistance, StartDistance);
+
+	const FVector P0 = PathSpline->GetLocationAtDistanceAlongSpline(D0, ESplineCoordinateSpace::World);
+	const FVector P1 = PathSpline->GetLocationAtDistanceAlongSpline(D1, ESplineCoordinateSpace::World);
+
+	// Box X: from the segment's start to its end, horizontal
+	FVector Forward = (P1 - P0).GetSafeNormal2D();
+
+	if (Forward.IsNearlyZero())
+	{
+		Forward = PathSpline->GetTangentAtDistanceAlongSpline(D0, ESplineCoordinateSpace::World).GetSafeNormal2D();
+	}
+
+	if (Forward.IsNearlyZero())
+	{
+		Forward = GetActorForwardVector().GetSafeNormal2D();
+	}
+
+	if (Forward.IsNearlyZero())
+	{
+		Forward = FVector::ForwardVector;
+	}
+
+	// Box Y, the same across vector as the path-end fog's
+	const FVector Across(-Forward.Y, Forward.X, 0.0);
+
+	const double HalfWidth = double(SegmentBoundsHalfWidth) * Scale;
+	const double BackReach = double(SegmentBoundsBackReach) * Scale;
+
+	// Box-space extremes, relative to P0. P0 itself lies between its own two candidates, so it starts them
+	double MinU = 0.0;
+	double MaxU = 0.0;
+	double MinV = 0.0;
+	double MaxV = 0.0;
+	double MinZ = P0.Z;
+	double MaxZ = P0.Z;
+
+	auto AddCandidate = [&](const FVector& Candidate)
+	{
+		const FVector Offset = Candidate - P0;
+		const double U = FVector::DotProduct(Offset, Forward);
+		const double V = FVector::DotProduct(Offset, Across);
+
+		MinU = FMath::Min(MinU, U);
+		MaxU = FMath::Max(MaxU, U);
+		MinV = FMath::Min(MinV, V);
+		MaxV = FMath::Max(MaxV, V);
+	};
+
+	auto AddSample = [&](float Distance, bool bWithBackReach)
+	{
+		const FVector Location = PathSpline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
+		FVector Tangent = PathSpline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World).GetSafeNormal2D();
+
+		if (Tangent.IsNearlyZero())
+		{
+			Tangent = Forward;
+		}
+
+		// Across the path at this sample, both sides
+		const FVector Side = FVector(-Tangent.Y, Tangent.X, 0.0) * HalfWidth;
+
+		AddCandidate(Location + Side);
+		AddCandidate(Location - Side);
+
+		if (bWithBackReach)
+		{
+			const FVector Back = Location - Tangent * BackReach;
+
+			AddCandidate(Back + Side);
+			AddCandidate(Back - Side);
+		}
+
+		MinZ = FMath::Min(MinZ, double(Location.Z));
+		MaxZ = FMath::Max(MaxZ, double(Location.Z));
+	};
+
+	// Every spacing from the start, plus the end. At most 512 steps whatever the settings
+	const float Length = D1 - D0;
+	const float Step = FMath::Max3(FMath::Max(SegmentBoundsSampleSpacing, 50.f) * Scale, Length / 512.f, 1.f);
+	const int32 NumSteps = FMath::Clamp(FMath::CeilToInt32(Length / Step), 1, 512);
+
+	for (int32 Index = 0; Index <= NumSteps; ++Index)
+	{
+		const float Distance = Index < NumSteps ? D0 + Step * Index : D1;
+
+		AddSample(Distance, Index == 0 && BackReach > 0.0);
+	}
+
+	// Heights are not scaled. Min / max in case of negative settings
+	const double BottomZ = FMath::Min(MinZ - SegmentBoundsBelow, MaxZ + SegmentBoundsAbove);
+	const double TopZ = FMath::Max(MinZ - SegmentBoundsBelow, MaxZ + SegmentBoundsAbove);
+
+	OutCenter = P0 + Forward * ((MinU + MaxU) * 0.5) + Across * ((MinV + MaxV) * 0.5);
+	OutCenter.Z = (BottomZ + TopZ) * 0.5;
+	OutExtent = FVector((MaxU - MinU) * 0.5, (MaxV - MinV) * 0.5, (TopZ - BottomZ) * 0.5);
+	OutRotation = FRotator(0.0, Forward.Rotation().Yaw, 0.0);
 }
 
 

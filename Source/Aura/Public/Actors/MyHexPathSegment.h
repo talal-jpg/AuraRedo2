@@ -26,6 +26,9 @@ class USplineComponent;
  * back to the world (position * LayoutUpScale + LayoutUpOffset) and shrinks the obstacles it reads
  * from the world (position * LayoutDownScale + LayoutDownOffset, scale * LayoutDownScale).
  * At HexRadius 100 all of this is the identity.
+ *
+ * The spawner also stores the world box the segment's platforms are assumed to fill (SetSegmentBounds), worked out
+ * from the world path before PCG runs, so sentinel waves can spawn at its corners.
  */
 UCLASS(Blueprintable)
 class AURA_API AMyHexPathSegment : public AActor
@@ -64,6 +67,27 @@ public:
 	 * and the point layout space is scaled around (the start of the path).
 	 */
 	void SetLayout(float InHexRadius, const FVector& InLayoutOrigin);
+
+	/**
+	 * Set by the spawner when the segment spawns, before PCG has spawned anything: the world box its platforms are
+	 * assumed to fill (AMyHexPathSpawner, Path|Segment Bounds). Extent is the half size along the box's own axes, and
+	 * Rotation turns the box (yaw only): box X runs along the path from the segment's start to its end, box Y across it.
+	 */
+	void SetSegmentBounds(const FVector& Center, const FVector& Extent, const FRotator& Rotation);
+
+	UFUNCTION(BlueprintPure, Category = "Hex Path|Bounds")
+	bool HasSegmentBounds() const { return bHasSegmentBounds; }
+
+	/** World centre, half size along the box axes and rotation of the assumed bounds (zero without bounds). */
+	UFUNCTION(BlueprintPure, Category = "Hex Path|Bounds")
+	void GetSegmentBounds(FVector& OutCenter, FVector& OutExtent, FRotator& OutRotation) const;
+
+	/**
+	 * World corners of the assumed bounds, empty without bounds. Fixed order: the 4 top corners (bTop), then the 4
+	 * bottom ones (bBottom), each 4 in box space (-X,-Y), (+X,-Y), (+X,+Y), (-X,+Y): start, end, end, start of the segment.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Hex Path|Bounds")
+	TArray<FVector> GetSegmentBoundsCorners(bool bTop = true, bool bBottom = false) const;
 
 protected:
 
@@ -121,4 +145,22 @@ protected:
 	/** PathStartDistance / LayoutScale, the segment start in layout-space distance along the path. */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Hex Path|Scale")
 	float LayoutPathStartDistance = 0.f;
+
+	// -------------------------------------------------------------------------
+	// Assumed bounds (SetSegmentBounds), world space. Read them with the getters.
+	// -------------------------------------------------------------------------
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Hex Path|Bounds")
+	bool bHasSegmentBounds = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Hex Path|Bounds")
+	FVector SegmentBoundsCenter = FVector::ZeroVector;
+
+	/** Half size along the box axes. */
+	UPROPERTY(VisibleInstanceOnly, Category = "Hex Path|Bounds")
+	FVector SegmentBoundsExtent = FVector::ZeroVector;
+
+	/** Yaw only. */
+	UPROPERTY(VisibleInstanceOnly, Category = "Hex Path|Bounds")
+	FRotator SegmentBoundsRotation = FRotator::ZeroRotator;
 };
