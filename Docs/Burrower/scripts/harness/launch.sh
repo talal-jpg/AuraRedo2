@@ -5,6 +5,7 @@ W=/mnt/new_partition/UnrealProjects/_BurrowerWork
 H=$W/Docs/Burrower/scripts/harness
 MAP=${1:-/Engine/Maps/Templates/Template_Default}
 if [ -n "$(ps -C UnrealEditor -o pid=)" ]; then echo "an UnrealEditor is already running:"; ps -C UnrealEditor -o pid,args; exit 2; fi
+rm -f $W/Saved/ClaudeInbox/*.py   # stale requests from a run without an editor would execute at startup
 cd /mnt/new_partition/5.8/Engine/Binaries/Linux
 DISPLAY=:0 XAUTHORITY=/home/talal/.Xauthority setsid nohup ./UnrealEditor $W/Aura.uproject $MAP -norelativemousemode "-ExecCmds=ModelContextProtocol.StartServer,py $H/pt_boot.py" > $W/Saved/Burrower/editor_stdout.log 2>&1 < /dev/null & disown
 sleep 5
