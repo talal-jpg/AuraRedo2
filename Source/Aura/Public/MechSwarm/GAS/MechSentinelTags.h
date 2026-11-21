@@ -20,4 +20,16 @@ namespace MechSentinelTags
 
 	/** Every sentinel effect target carries this, handy for GE application requirements. */
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Unit_Sentinel)
+
+	/**
+	 * Self-buff states, one per EMechSentinelSelfBuff slot. A designer GE that grants one counts as that buff: the bit is
+	 * set in FMechSentinelStateFragment::BuffMask (buff visuals) and the sentinel does not cast that self-buff meanwhile.
+	 * The built-in buff effects grant none; they are recognised by class.
+	 */
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sentinel_Buff_Armor)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sentinel_Buff_Speed)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sentinel_Buff_Damage)
+
+	/** SetByCaller magnitude of the built-in self-buff effects: the attribute multiplier (the rules' buff Magnitude). */
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_SelfBuffMagnitude)
 }

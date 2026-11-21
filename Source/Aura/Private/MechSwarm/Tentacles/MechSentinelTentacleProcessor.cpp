@@ -12,23 +12,36 @@
 #include "MechSwarm/MassCopies/MassRepresentationProcessors_Copy.h"
 #include "MechSwarm/MassCopies/MassRepresentationSubsystem_Copy.h"
 #include "MechSwarm/Sentinel/MechSentinelFragments.h"
+#include "MechSwarm/Sentinel/MechSentinelProcessors.h"
 #include "MechSwarm/Tentacles/MechSentinelTentacleSubsystem.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelTentacleProcessor)
 
 namespace MechSwarm::Tentacles
 {
-	/** Per-sentinel modifiers derived from its state. */
+	/** Per-sentinel modifiers derived from its state and self-buffs. */
 	struct FRigInputs
 	{
 		float StiffnessScale = 1.f;
 		float GravityScale = 1.f;
 		float SwayScale = 1.f;
 		float SwaySpeedScale = 1.f;
+		float WidthScale = 1.f;
 		float Glow = 0.f;
 	};
 
-	FRigInputs MakeInputs(const FMechSentinelTentacleDesc& Desc, const FMechSentinelStateFragment* State, const FMechSentinelAttackFragment* Attack)
+	/** Self-buff looks at full fade: damage glows, speed streamlines (stiffer, less sway), armor thickens (claws too). */
+	constexpr float DamageBuffGlow = 0.45f;
+	constexpr float SpeedBuffStiffnessScale = 1.4f;
+	constexpr float SpeedBuffSwayScale = 0.6f;
+	constexpr float ArmorBuffWidthScale = 1.2f;
+
+	/**
+	 * CustomData (optional): the sentinel's ISM custom data, whose [4..6] are the self-buff fades written by
+	 * UMechSentinelVisualDataProcessor (0..1, from the replicated BuffMask).
+	 */
+	FRigInputs MakeInputs(const FMechSentinelTentacleDesc& Desc, const FMechSentinelStateFragment* State, const FMechSentinelAttackFragment* Attack,
+		const FMassRepresentationCustomDataFragment_Copy* CustomData)
 	{
 		FRigInputs Inputs;
 		if (State)
@@ -59,6 +72,26 @@ namespace MechSwarm::Tentacles
 		{
 			Inputs.Glow = FMath::Max(Inputs.Glow, Attack->AttackGlow);
 		}
+
+		// Self-buffs (none on wrecks). A stun's droop wins over the speed buff's streamlining. SwaySpeedScale is never
+		// touched: it multiplies the absolute time, so changing it would make the sway jump.
+		const EMechSentinelState SentinelState = State ? State->State : EMechSentinelState::Seeking;
+		if (CustomData && SentinelState != EMechSentinelState::Dead)
+		{
+			const float* BuffFades = CustomData->Values + MechSentinelSelfBuff::FirstFadeCustomDataIndex;
+			const float ArmorFade = FMath::Clamp(BuffFades[int32(EMechSentinelSelfBuff::Armor)], 0.f, 1.f);
+			const float SpeedFade = FMath::Clamp(BuffFades[int32(EMechSentinelSelfBuff::Speed)], 0.f, 1.f);
+			const float DamageFade = FMath::Clamp(BuffFades[int32(EMechSentinelSelfBuff::Damage)], 0.f, 1.f);
+
+			Inputs.WidthScale = FMath::Lerp(1.f, ArmorBuffWidthScale, ArmorFade);
+			Inputs.Glow = FMath::Max(Inputs.Glow, DamageBuffGlow * DamageFade);
+			if (SentinelState != EMechSentinelState::Stunned)
+			{
+				Inputs.StiffnessScale *= FMath::Lerp(1.f, SpeedBuffStiffnessScale, SpeedFade);
+				Inputs.SwayScale *= FMath::Lerp(1.f, SpeedBuffSwayScale, SpeedFade);
+			}
+		}
+
 		Inputs.Glow = FMath::Clamp(Inputs.Glow, 0.f, 1.f);
 		return Inputs;
 	}
@@ -176,7 +209,7 @@ namespace MechSwarm::Tentacles
 			const float Phase = Set.RigPhases[Rig] + 0.9f * float(Tentacle);
 
 			const int32 Ribbon = Set.RibbonIndex(Rig, Tentacle);
-			Set.WidthScales[Ribbon] = bLayOut ? 0.f : 1.f;
+			Set.WidthScales[Ribbon] = bLayOut ? 0.f : Inputs.WidthScale;
 			Set.Glow[Ribbon] = Inputs.Glow;
 
 			// The root keeps last frame's position as its previous one: the catch-up damping needs the root's motion.
@@ -271,6 +304,8 @@ UMechSentinelTentacleProcessor::UMechSentinelTentacleProcessor()
 	ProcessingPhase = EMassProcessingPhase::PostPhysics;
 	ExecutionOrder.ExecuteInGroup = MechSwarm::ProcessorGroups::Representation();
 	ExecutionOrder.ExecuteAfter.Add(UMassVisualizationLODProcessor_Copy::StaticClass()->GetFName());
+	// Reads this frame's self-buff fades from the ISM custom data.
+	ExecutionOrder.ExecuteAfter.Add(UMechSentinelVisualDataProcessor::StaticClass()->GetFName());
 	// The ISM update must see this frame's bForceLowLODMesh.
 	ExecutionOrder.ExecuteBefore.Add(UMassUpdateISMProcessor_Copy::StaticClass()->GetFName());
 	// Rig pool, member scratch arrays and the Niagara component.
@@ -285,6 +320,8 @@ void UMechSentinelTentacleProcessor::ConfigureQueries(const TSharedRef<FMassEnti
 	EntityQuery.AddRequirement<FMechSentinelTentacleFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FMechSentinelStateFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
 	EntityQuery.AddRequirement<FMechSentinelAttackFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
+	// Self-buff fades (written by UMechSentinelVisualDataProcessor just before).
+	EntityQuery.AddRequirement<FMassRepresentationCustomDataFragment_Copy>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
 	EntityQuery.AddConstSharedRequirement<FMechSentinelTentacleParams>(EMassFragmentPresence::All);
 	EntityQuery.AddConstSharedRequirement<FMassRepresentationParameters_Copy>(EMassFragmentPresence::All);
 }
@@ -403,6 +440,7 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 		const TArrayView<FMechSentinelTentacleFragment> TentacleList = Context.GetMutableFragmentView<FMechSentinelTentacleFragment>();
 		const TConstArrayView<FMechSentinelStateFragment> StateList = Context.GetFragmentView<FMechSentinelStateFragment>();
 		const TConstArrayView<FMechSentinelAttackFragment> AttackList = Context.GetFragmentView<FMechSentinelAttackFragment>();
+		const TConstArrayView<FMassRepresentationCustomDataFragment_Copy> CustomList = Context.GetFragmentView<FMassRepresentationCustomDataFragment_Copy>();
 
 		const int32 NumEntities = Context.GetNumEntities();
 		for (int32 EntityIndex = 0; EntityIndex < NumEntities; ++EntityIndex, ++RunningIndex)
@@ -428,7 +466,8 @@ void UMechSentinelTentacleProcessor::Execute(FMassEntityManager& EntityManager, 
 
 			const FRigInputs Inputs = MakeInputs(Set->Desc,
 				StateList.Num() > 0 ? &StateList[EntityIndex] : nullptr,
-				AttackList.Num() > 0 ? &AttackList[EntityIndex] : nullptr);
+				AttackList.Num() > 0 ? &AttackList[EntityIndex] : nullptr,
+				CustomList.Num() > 0 ? &CustomList[EntityIndex] : nullptr);
 			const FTransform MeshTransform = MeshRelativeTransform * TransformList[EntityIndex].GetTransform();
 			const bool bLaidOut = SimulateRig(*Set, Rig, MeshTransform, bNewRig, Inputs, DeltaTime, VelocityScale, Time);
 			// The ribbons show from the frame after the layout; until then the far mesh stays.

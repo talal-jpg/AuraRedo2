@@ -1,9 +1,11 @@
 // Mech Sentinel Swarm - sentinel processors.
 //
 // Authority (server / standalone), PrePhysics:
-//   Behavior : UMechSentinelEffectsProcessor -> UMechSentinelTargetSelectionProcessor
+//   Behavior : UMechSentinelEffectsProcessor -> UMechSentinelTargetSelectionProcessor -> UMechSentinelSelfBuffProcessor
+//              (casts are applied by the swarm subsystem in a timer, after the phases)
 //   Tasks    : UMechSentinelSteeringProcessor
-//   (Avoidance -> ApplyForces -> Movement from the _Copy processors)
+//   Avoidance: UMassMovingAvoidanceProcessor_Copy -> UMechSentinelObstacleAvoidanceProcessor (MechSentinelObstacleAvoidanceProcessor.h)
+//   (ApplyForces -> Movement from the _Copy processors)
 //   Combat   : UMechSentinelAttackProcessor, UMechSentinelDeathProcessor -> UMechSentinelCollisionHashProcessor
 // Where frames are rendered (client / listen / standalone):
 //   UMechSentinelNetSmoothingProcessor (clients only, PrePhysics)
@@ -24,6 +26,27 @@ class AURA_API UMechSentinelEffectsProcessor : public UMassProcessor
 
 public:
 	UMechSentinelEffectsProcessor();
+
+protected:
+	virtual void ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager) override;
+	virtual void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context) override;
+
+	FMassEntityQuery EntityQuery;
+};
+
+/**
+ * Self-buff decisions (server): ticks each sentinel's buff cooldowns and decision timer; at each decision a sentinel
+ * that is not stunned rolls the rules' SelfBuffChance and picks a ready buff by weight (off cooldown, not active, its
+ * target distance window met). The cast is only queued here: UMechSentinelSwarmSubsystem applies the buff's GE after
+ * the Mass phases (GAS writes fragments and may change tags), at most MaxSelfBuffsPerFrame per frame.
+ */
+UCLASS()
+class AURA_API UMechSentinelSelfBuffProcessor : public UMassProcessor
+{
+	GENERATED_BODY()
+
+public:
+	UMechSentinelSelfBuffProcessor();
 
 protected:
 	virtual void ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager) override;
@@ -115,7 +138,7 @@ protected:
 	FMassEntityQuery EntityQuery;
 };
 
-/** Writes state / health / hit flash / attack glow into the ISM custom data floats (and fades the flashes). */
+/** Writes state / health / hit flash / attack glow / buff fades into the ISM custom data floats (and fades the flashes). */
 UCLASS()
 class AURA_API UMechSentinelVisualDataProcessor : public UMassProcessor
 {

@@ -1,7 +1,8 @@
 // Mech Sentinel Swarm - processor group names used to order the swarm processors.
 //
 // Order inside one frame (authority side, PrePhysics):
-//   Behavior (effects, targeting) -> Tasks (steering) -> Avoidance -> ApplyForces -> Movement -> MechSwarm.Combat
+//   Behavior (effects, targeting) -> Tasks (steering) -> Avoidance (agents, then obstacles) -> ApplyForces -> Movement
+//   -> MechSwarm.Combat
 // Representation side (PostPhysics, where something is rendered):
 //   MechSwarm.LODCollector -> MechSwarm.Representation
 

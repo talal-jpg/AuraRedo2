@@ -209,6 +209,8 @@ void FMechSentinelClientBubbleHandler::ApplyToEntity(const FMassEntityView& Enti
 			State->HitFlash = 1.f;
 		}
 		State->HitSerial = Data.HitSerial;
+		// A level, not an event: always the server's current value (the visuals fade toward it).
+		State->BuffMask = uint8(Data.BuffMask & MechSentinelSelfBuff::AllBits);
 	}
 
 	if (FMechSentinelAttackFragment* Attack = EntityView.GetFragmentDataPtr<FMechSentinelAttackFragment>())

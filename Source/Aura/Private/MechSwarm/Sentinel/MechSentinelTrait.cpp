@@ -46,4 +46,10 @@ void UMechSentinelTrait::BuildTemplate(FMassEntityTemplateBuildContext& BuildCon
 	{
 		BuildContext.AddFragment<FMechSentinelNetSmoothingFragment>();
 	}
+
+	// Self-buffs are decided where the swarm is simulated; clients only get the resulting BuffMask.
+	if (World.GetNetMode() != NM_Client || BuildContext.IsInspectingData())
+	{
+		BuildContext.AddFragment<FMechSentinelSelfBuffFragment>();
+	}
 }

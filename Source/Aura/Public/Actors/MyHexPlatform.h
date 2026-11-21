@@ -370,6 +370,14 @@ public:
 	/** Measures TileFootprintRadius, TileFootprintCenter and TileFootprintCount from the tile instances. */
 	void UpdateTileFootprint();
 
+	/**
+	 * Server. Registers the standing tiles with the sentinel obstacle registry (UMechSentinelObstacleSubsystem), so live
+	 * sentinels steer round them: a vertical cylinder around the tiles' centroid through the farthest tile, from the
+	 * lowest pillar bottom to the highest top (the union of the tile instance boxes). No tile left = unregistered.
+	 * Runs in BeginPlay and 0.5 s after tiles start collapsing.
+	 */
+	void RefreshSentinelObstacle();
+
 protected:
 
 
@@ -1095,6 +1103,9 @@ private:
 
 	FTimerHandle LeadCheckTimerHandle;
 	FTimerHandle CollapseTimerHandle;
+
+	/** Server. One RefreshSentinelObstacle per burst of collapsing tiles. */
+	FTimerHandle SentinelObstacleTimer;
 
 	/** Server. Bridges ending on this platform, for PathStartTiles. */
 	TArray<TWeakObjectPtr<AMyHexBridge>> PathBridges;

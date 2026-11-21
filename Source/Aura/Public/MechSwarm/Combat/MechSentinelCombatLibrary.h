@@ -70,7 +70,10 @@ public:
 	 * (DamageEffect, or the rules' DefaultSentinelDamageEffect: armor mitigation, Shielded, Dead...).
 	 * Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for
 	 * Next Tick.
-	 * @param Instigator    Who dealt the damage (its ASC is the effect source when it has one).
+	 * @param Instigator    Who dealt the damage (its ASC is the effect source when it has one). Pass the pawn, not
+	 *                      its controller, which has no ASC: the player's AttackDamage would not be added.
+	 * @param Damage        Base damage per sentinel; UExecCalc_SentinelDamage adds the source's AttackDamage (x the
+	 *                      rules' SourceAttackDamageScale) to a base above 0, then applies armor.
 	 * @param MaxTargets    0 = everyone in the capsule, otherwise the closest N.
 	 * @return number of sentinels hit. OutTotalDamage is the health actually removed.
 	 */
@@ -88,7 +91,7 @@ public:
 	static int32 ApplyEffectToSentinelsInCapsule(const UObject* WorldContextObject, AActor* Instigator, FVector Center, FRotator Rotation, float Radius, float HalfHeight,
 		TSubclassOf<UGameplayEffect> Effect, float Level, int32 MaxTargets);
 
-	/** Damages one sentinel. Returns the health removed. Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for Next Tick. */
+	/** Damages one sentinel (Damage is the base, see ApplyDamageToSentinelsInCapsule). Returns the health removed. Server. Call it outside the Mass phases: from input, an anim notify or an actor tick, go through Set Timer for Next Tick. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Combat", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "DamageEffect"))
 	static float ApplyDamageToSentinel(const UObject* WorldContextObject, AActor* Instigator, FMechSentinelHandle Sentinel, float Damage, FVector HitLocation, TSubclassOf<UGameplayEffect> DamageEffect);
 
@@ -110,7 +113,12 @@ public:
 	// C++ helpers
 	//----------------------------------------------------------------------//
 
-	/** Damage spec for sentinels: Effect (or the rules default) with SetByCaller MyTags::SetDamageByCaller = Damage. Invalid handle when no effect is set up. */
+	/**
+	 * Damage spec for sentinels: Effect (or the rules default) with SetByCaller MyTags::SetDamageByCaller = Damage, the
+	 * base (UExecCalc_SentinelDamage adds the source's AttackDamage). The instigator's ASC is the source when it has
+	 * one; otherwise the proxy ASC makes the spec and nothing is captured (flat damage). Invalid handle when no effect
+	 * is set up.
+	 */
 	static FGameplayEffectSpecHandle MakeSentinelDamageSpec(const UObject* WorldContextObject, AActor* Instigator, float Damage, TSubclassOf<UGameplayEffect> Effect, float Level = 1.f);
 
 	/** Applies one spec to a list of hits (respecting MaxTargets). Returns the number of sentinels the spec was applied to. */

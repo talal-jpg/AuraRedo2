@@ -13,7 +13,7 @@ struct FMechSentinelAttributesFragment;
 struct FMechSentinelStateFragment;
 
 /**
- * Compact per-sentinel snapshot (~22 bytes before delta compression).
+ * Compact per-sentinel snapshot (~23 bytes before delta compression).
  * Clients do not simulate: they ease toward Position extrapolated with Velocity, and flash when a serial changes.
  */
 USTRUCT()
@@ -54,6 +54,10 @@ struct FMechSentinelReplicatedData
 	UPROPERTY(Transient)
 	uint8 AttackSerial = 0;
 
+	/** Active self-buffs (FMechSentinelStateFragment::BuffMask). A level, not an event: clients apply it on every update. */
+	UPROPERTY(Transient)
+	uint8 BuffMask = 0;
+
 	static FMechSentinelReplicatedData FromEntity(const FTransform& Transform, const FVector& InVelocity, const FMechSentinelStateFragment& StateFragment,
 		const FMechSentinelAttributesFragment& Attributes, const FMechSentinelAttackFragment& Attack);
 
@@ -63,7 +67,7 @@ struct FMechSentinelReplicatedData
 	/** Anything a client would notice (with small movement tolerances). */
 	bool DiffersFrom(const FMechSentinelReplicatedData& Other) const;
 
-	/** State / health / hit / attack changes: sent right away, not throttled by the LOD update interval. */
+	/** State / health / hit / attack / buff changes: sent right away, not throttled by the LOD update interval. */
 	bool HasDiscreteChange(const FMechSentinelReplicatedData& Other) const;
 };
 

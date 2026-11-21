@@ -14,6 +14,7 @@ All code is in `Source/Aura/Public/MechSwarm` and `Source/Aura/Private/MechSwarm
 
 1. [Quick setup in the editor](#1-quick-setup-in-the-editor)
    * [Spawning sentinels in a level (worked example)](#spawning-sentinels-in-a-level-worked-example)
+   * [StartupMap: waves on the endless path](#startupmap-waves-on-the-endless-path)
 2. [Architecture at a glance](#2-architecture-at-a-glance)
 3. [Folder and file map](#3-folder-and-file-map)
 4. [Structural dependencies](#4-structural-dependencies)
@@ -21,8 +22,11 @@ All code is in `Source/Aura/Public/MechSwarm` and `Source/Aura/Private/MechSwarm
 6. [One frame, step by step](#6-one-frame-step-by-step)
 7. [Targeting through the shared fragment](#7-targeting-through-the-shared-fragment)
 8. [Combat data flow (GAS logic, Mass storage)](#8-combat-data-flow-gas-logic-mass-storage)
+   * [Self-buffs (armor, speed, damage)](#self-buffs-armor-speed-damage)
 9. [Replication data flow](#9-replication-data-flow)
 10. [Waves](#10-waves)
+    * [Endless path levels: a wave per segment (External mode)](#endless-path-levels-a-wave-per-segment-external-mode)
+    * [Wave curves (endless difficulty)](#wave-curves-endless-difficulty)
 11. [Hitting sentinels from actors (the capsule function)](#11-hitting-sentinels-from-actors-the-capsule-function)
     * [Gun shots (GA_GunShoot)](#gun-shots-ga_gunshoot)
 12. [ISM representation and the material](#12-ism-representation-and-the-material)
@@ -43,34 +47,44 @@ The `MassGameplay` plugin is enabled in `Aura.uproject`, and the Mass modules ar
    and buffs:
    | Asset (suggested name) | Duration | What to put in it |
    |---|---|---|
-   | `GE_SentinelDamage` (optional, same as the built-in `UMechSentinelDamageEffect`) | Instant | Executions: `ExecCalc_SentinelDamage`. No modifiers are needed. |
+   | `GE_SentinelDamage` (optional, same as the built-in `UMechSentinelDamageEffect`) | Instant | Executions: `ExecCalc_SentinelDamage`. No modifiers are needed. Only this execution applies armor and adds the attacker's `AttackDamage` (rules `SourceAttackDamageScale`). |
    | `GE_SentinelAttack` (optional, sentinel hits a player; same as the built-in `UMechSentinelAttackEffect`) | Instant | Either a modifier on `MyAttributeSet.IncomingDamage`, Add, magnitude **Set by Caller** tag `SetDamageByCaller`, or Executions: the project's `ExecCalc_Damage` (adds its block / crit rolls). |
    | `GE_SentinelStun` (optional) | Has Duration, e.g. 2 s | Component "Grant Tags to Target Actor": `State.Sentinel.Stunned` |
    | `GE_SentinelShield` (optional) | Has Duration | Grant `State.Sentinel.Shielded` (damage x `ShieldedDamageMultiplier`) |
    | Buffs / debuffs (optional) | Duration / Infinite | Modifiers on `MechSentinelAttributeSet.Armor`, `AttackDamage`, `AttackSpeed`, `MoveSpeedMultiplier` |
+   | Self-buffs (built in: `UMechSentinelArmorBuffEffect`, `SpeedBuffEffect`, `DamageBuffEffect`; no asset needed) | Has Duration (locked to the rule's `Duration`) | One Multiply (Additive) modifier on `Armor` / `MoveSpeedMultiplier` / `AttackDamage`, magnitude **Set by Caller** `SetByCaller.MechSentinel.SelfBuffMagnitude` |
+
+   A designer replacement for a self-buff is a Has Duration effect (an Instant one is skipped with a warning), one class
+   per buff. It counts as that buff when its class is (a child of) the rule's `Effect` class, or when it grants
+   `State.Sentinel.Buff.Armor` / `.Speed` / `.Damage`.
 2. **Rules asset** (optional): create a `MechSentinelSwarmRules` data asset to tune the caps or pick other effects
    (`DefaultSentinelDamageEffect`, `SentinelAttackEffect`; they start as the built-in ones). Assign it on your GameMode
    Blueprint (`BP_MyGameMode` > **Mech Sentinels** > **Sentinel Swarm Rules**). Without one the C++ defaults apply.
+   **Self Buffs** (`bEnableSelfBuffs`, `ArmorBuff` / `SpeedBuff` / `DamageBuff`, decision interval, chance,
+   `MaxSelfBuffsPerFrame`) are on by default with the built-in effects, see
+   [Self-buffs](#self-buffs-armor-speed-damage).
 3. **Mesh / material**: run `SourceArt/MechSentinel/ue_import_mech_sentinel.py` in the editor. It imports the low-poly
    sentinel (`SM_MechSentinel_Head`, `SM_MechSentinel_Far` with baked tentacles, the tentacle and claw tip), creates the
-   tentacle ribbon material and the body / eye materials (they read `PerInstanceCustomData` 0..3, see
+   tentacle ribbon material and the body / eye materials (they read `PerInstanceCustomData` 0..6, see
    [section 12](#12-ism-representation-and-the-material)) and assigns them to the mesh slots. For the Niagara tentacles,
    build `NS_MechSentinelTentacles` with the recipe in [section 15](#15-sentinel-model-and-niagara-ribbon-tentacles)
-   (already built and committed under `Content/MechSentinel/FX`).
+   (already built and committed under `Content/MechSentinel/FX`). Materials made before the self-buffs: run
+   `ue_update_mech_sentinel_buff_visuals.py` once, after `git lfs pull` and with Play stopped. It rebuilds both graphs
+   in place with the import script's builders (importing that script as a module runs nothing; call its `main()`).
 4. **Entity config**: create a `MassEntityConfigAsset` (for example `DA_SentinelConfig`) with these traits:
    | Trait | Settings |
    |---|---|
    | **Mech Sentinel** | `SwarmGroup`, attribute defaults, shared `MovementSpeed`, `Parameters` (attack range, orbit, capsule size, death fall) |
    | **Movement (Copy)** | max speed / acceleration |
-   | **Avoidance (Copy)** | separation distance / strength, prediction time |
+   | **Avoidance (Copy)** | separation distance / strength, prediction time; `Obstacles`: avoidance of platforms and boxes (cushion, look-ahead, exit speed; the defaults fit the hex platforms) |
    | **Smooth Orientation (Copy)** | turn speed, max pitch, banking |
-   | **Visualization ISM (Copy)** | Mesh `SM_MechSentinel_Head`, LowLODMesh `SM_MechSentinel_Far`, materials, `NumCustomDataFloats = 4`, LOD distances |
+   | **Visualization ISM (Copy)** | Mesh `SM_MechSentinel_Head`, LowLODMesh `SM_MechSentinel_Far`, materials, `NumCustomDataFloats = 7`, LOD distances |
    | **Mech Sentinel Tentacles (Niagara)** (optional) | Niagara System `NS_MechSentinelTentacles`, budget (`MaxRiggedSentinels`, `MaxDistance`), sway / stiffness |
    | **Replication** (engine trait) | **Bubble Info Class = `MechSentinelClientBubbleInfo`**, **Replicator Class = `MechSentinelReplicator`**. Suggested LOD distances 0 / 2500 / 7000 / 20000, max count per viewer 150 / 300 / 1000, update interval 0.1 / 0.2 / 0.4 / 0.5 |
    If the Replication trait points at other classes, the swarm subsystem logs an error and ignores the config (instead of the engine asserting).
 5. **Spawner**: place a `MechSentinelWaveSpawner` in the level (it must be **level-placed**, so clients build the same
    entity template before replicated sentinels arrive). Assign `EntityConfig`, edit `Waves`, `CountMultiplier`, caps
-   and `FallbackTargets`.
+   and `FallbackTargets`. For an endless path level use External mode ([section 10](#10-waves)).
 6. **Weapons**: the project's gun ability (`GA_GunShoot`) already damages sentinels along each shot, see
    [section 11](#11-hitting-sentinels-from-actors-the-capsule-function). For other weapons add a
    `MechSentinelHitCapsuleComponent` to projectiles, or call `ApplyDamageToSentinelsInCapsule` from abilities / melee
@@ -152,9 +166,40 @@ are gameplay effects on the sentinels (modifiers on `MechSentinelAttributeSet.Ar
 `MoveSpeedMultiplier`, or `State.Sentinel.Stunned` / `Shielded` tags); the swarm speed is
 `UMechSentinelSwarmSubsystem::SetSwarmMovementSpeed`.
 
-**Shooting them**: `GA_GunShoot` deals `SentinelDamage` (40) to the first sentinel on the shot's line. After armor that
-is 4 shots per sentinel in W1, 5 in W2, 7 in W3 and 9 in W4. Projectiles need a `MechSentinelHitCapsuleComponent`
-([section 11](#11-hitting-sentinels-from-actors-the-capsule-function)).
+**Shooting them**: `GA_GunShoot` deals `SentinelDamage` (40) plus the shooter's `AttackDamage` (x the rules'
+`SourceAttackDamageScale`, 1) to the first sentinel on the shot's line. The mech starts with `AttackDamage` 0, so after
+armor that is 4 shots per sentinel in W1, 5 in W2, 7 in W3 and 9 in W4 until something raises it. Projectiles need a
+`MechSentinelHitCapsuleComponent` ([section 11](#11-hitting-sentinels-from-actors-the-capsule-function)).
+
+### StartupMap: waves on the endless path
+
+`SourceArt/MechSentinel/ue_setup_mech_sentinel_startup.py` sets the swarm up in `/Game/Maps/StartupMap` (the editor
+startup map and the server map). Run it in the editor with Play stopped (Tools > Execute Python Script..., or
+`-ExecutePythonScript=<file>`), after `git lfs pull`, with editor binaries built from the current source.
+
+It stops with a message, before changing anything, when the binaries predate the External wave mode, PIE is running, a
+needed asset is only an LFS pointer, a file it saves is read-only, the map does not open (it never creates one), or the
+map's GameMode override is not an `AMyGameMode`. Every value is a constant at the top of the script.
+
+1. `BP_MyGameMode` class defaults: **Sentinel Swarm Rules** = `DA_MechSentinelSwarmRules`.
+2. One level-placed `MechSentinelWaveSpawner` (label `MechSentinelWaveSpawner`, tag `SentinelWaveSpawner`). An existing
+   one is reused, extra ones are deleted, and a new one goes 30 m above the PlayerStart. Settings:
+   - `EntityConfig` = `DA_MechSentinelConfig`
+   - `AdvanceMode` = External, `bAutoStart`, `bBindToPathSpawners`
+   - `bUseWaveCurves`: `CurveBaseWave` and `WaveCurves` keep their C++ defaults
+   - `bSpawnerIsFallbackTarget` off
+   - `MaxAlive` 500, `SpawnBatchSize` 25, `MaxActiveWaves` 0 (unlimited)
+   - `SegmentCorners` Top, `CornerSpawnExtent` 800 x 800 x 300, `SpawnObstacleClearance` 200
+3. Both path spawners (`BP_MyHexPathSpawner`, `BP_MyHexPathSpawner2`): `bSpawnSentinelWaves`,
+   `FirstSegmentWithSentinelWave` = 1. Each lane's segment k (k >= 1) starts wave k at the 4 top corners of its bounds;
+   segment 0 gets none. Every wave number therefore runs once per lane.
+4. It saves what changed and prints every value, the first waves as the curves resolve them, and the files to expect in
+   `git status`: `Content/Maps/StartupMap.umap` and `Content/Level/BP_MyGameMode.uasset`, nothing else. A re-run with
+   everything already set changes and saves nothing (`SAVE = False` changes the loaded assets only).
+
+Keep the spawner level-placed: `EntityConfig` is not replicated, and clients build the sentinel template from the copy
+in the map file. If `StartupMap_BuiltData.uasset` is still an LFS pointer the script only warns. Pull it first, or the
+saved map may lose its build data reference.
 
 ---
 
@@ -219,20 +264,23 @@ Source/Aura/{Public,Private}/MechSwarm/
 +-- Core/
 |   MechSwarmProcessorGroups.h      processor group names (Combat, LODCollector, Representation)
 |   MechSentinelSwarmRules.h/.cpp   UMechSentinelSwarmRules: global rules (data asset, referenced by AMyGameMode)
-|   MechSentinelSwarmSubsystem.h/.cpp  the hub: rules, targets, templates, GAS bridge, collision hash
+|   MechSentinelSwarmSubsystem.h/.cpp  the hub: rules, targets, templates, GAS bridge, collision hash, self-buff casts
+|   MechSentinelObstacleSubsystem.h/.cpp  obstacles live sentinels avoid (hex platforms, boxes), server only
+|   MechSentinelObstacleComponent.h/.cpp  registers its owner's collision as a box (floor, airship, bridges)
 |
 +-- Sentinel/
 |   MechSentinelFragments.h         every sentinel fragment, tag and shared fragment
 |   MechSentinelTrait.h/.cpp        "Mech Sentinel" trait
 |   MechSentinelProcessors.h        declarations of the sentinel processors
-|   MechSentinelBehaviorProcessors.cpp   effects, target selection, steering
+|   MechSentinelBehaviorProcessors.cpp   effects, target selection, self-buff decisions, steering
+|   MechSentinelObstacleAvoidanceProcessor.h/.cpp  sentinel-vs-obstacle avoidance (cushion push, look-ahead slide, exit)
 |   MechSentinelCombatProcessors.cpp     attack, death, collision hash
 |   MechSentinelClientProcessors.cpp     visual data (ISM custom data), net smoothing
 |
 +-- GAS/
 |   MechSentinelTags.h/.cpp         State.Sentinel.{Stunned,Shielded,Dead,Attacking}, Unit.Sentinel
 |   MechSentinelAttributeSet.h/.cpp attributes + IncomingDamage meta attribute
-|   ExecCalc_SentinelDamage.h/.cpp  armor mitigation
+|   ExecCalc_SentinelDamage.h/.cpp  attacker's AttackDamage + armor mitigation
 |   MechSentinelDefaultEffects.h/.cpp  built-in damage effects, the rules' defaults (sentinel hit, sentinel attack)
 |   MechSentinelGASProxy.h/.cpp     flyweight ASC actor (server)
 |
@@ -243,7 +291,7 @@ Source/Aura/{Public,Private}/MechSwarm/
 |   MechSentinelReplicationProcessor.h/.cpp  server: runs the replicator in place of the engine's processor (section 9)
 |
 +-- Spawning/
-|   MechSentinelWaveSpawner.h/.cpp  replicated wave spawner
+|   MechSentinelWaveSpawner.h/.cpp  replicated wave spawner (regular waves, External mode: a wave per path segment)
 |
 +-- Combat/
 |   MechSentinelCombatLibrary.h/.cpp        capsule / sweep queries and hit functions (BP + C++)
@@ -271,12 +319,16 @@ Also touched:
     {Public,Private}/AbilitySystem/AbilityTasks/AT_SendMouseCursorData.h/.cpp   calls it before the Blueprint
     Config/DefaultMass.ini                      engine replication processor off, the project's on (section 9)
     Aura.Build.cs (Mass modules), Aura.uproject (MassGameplay)
+    {Public,Private}/Actors/MyHexPathSpawner.h/.cpp, MyHexPathSegment.h/.cpp   segment bounds, OnSegmentSpawned (section 10)
+    {Public,Private}/Actors/MyHexPlatform.h/.cpp  registers its tiles as an obstacle (section 14)
 
 SourceArt/MechSentinel/            low-poly model source (Blender 5.x, procedural, see section 15)
     build_mech_sentinel.py         entry point: build, export FBX, verify, save .blend, render previews
     mech_sentinel_{common,head,tentacle}.py
     ue_import_mech_sentinel.py     editor script: import the FBX files, create the tentacle material
     ue_setup_mech_sentinel_demo.py editor script: demo map, entity config, swarm rules, gameplay effects
+    ue_setup_mech_sentinel_startup.py  editor script: StartupMap swarm (External waves on the two path lanes)
+    ue_update_mech_sentinel_buff_visuals.py  editor script: rebuild the existing body / eye materials in place (buff visuals)
     Export/*.fbx, Previews/*.png, MechSentinel.blend
 ```
 
@@ -307,7 +359,8 @@ Arrows read "uses / depends on". Engine pieces are in `[brackets]`.
                           +--> Core/MechSentinelSwarmRules  <-- AMyGameMode (owns the asset reference)
                           +--> [GameplayAbilities], Interfaces/MyCombatInterface (skip dead players)
 
-  GAS/* --> AbilitySystem/Data/MyGameplayTags (MyTags::SetDamageByCaller), AbilitySystem/MyAttributeSet (proxy source set)
+  GAS/* --> AbilitySystem/Data/MyGameplayTags (MyTags::SetDamageByCaller), AbilitySystem/MyAttributeSet (proxy source set;
+           ExecCalc_SentinelDamage captures the attacker's AttackDamage)
   Core/MechSentinelSwarmRules.cpp --> GAS/MechSentinelDefaultEffects (the default effect classes; .cpp only)
   Replication/MechSentinelReplicationProcessor --> [UMassReplicationProcessor] (subclass), Replication/MechSentinelReplicator
   AbilitySystem/Abilities/GA_GunShoot --> Combat/MechSentinelCombatLibrary, Core/MechSentinelSwarmSubsystem (server hits)
@@ -334,10 +387,12 @@ Include rules that keep it acyclic:
                             FMechSentinelTargetFragment
                             FMechSentinelAttackFragment
                             FMechSentinelNetSmoothingFragment (clients only)
+                            FMechSentinelSelfBuffFragment (server / standalone only)
  Movement (Copy)            FMassVelocityFragment_Copy                FMassMovementParameters_Copy (const)    FMassCodeDrivenMovementTag_Copy
                             FMassForceFragment_Copy                                                           (runtime: CustomMovement_Copy
                             FMassDesiredMovementFragment_Copy                                                  when dead)
  Avoidance (Copy)           -                                         FMassMovingAvoidanceParameters_Copy
+                                                                      FMechSentinelObstacleAvoidanceParameters (const)
  Smooth Orientation (Copy)  -                                         FMassSmoothOrientationParameters_Copy
  Visualization ISM (Copy)   FMassViewerInfoFragment_Copy              FMassVisualizationLODParameters_Copy    FMassVisualizationTag_Copy
   (not on dedicated server) FMassRepresentationLODFragment_Copy       FMassRepresentationParameters_Copy
@@ -360,10 +415,14 @@ gets its **own** targeting board and its own movement speed. Two spawners whose 
  ----------------
  [Behavior]   UMechSentinelEffectsProcessor          tick effect durations; expired -> RecomputeSentinel (GAS)
       |       UMechSentinelTargetSelectionProcessor  refresh boards (players, fallbacks) -> count claims -> assign
+      |       UMechSentinelSelfBuffProcessor         buff cooldowns / decisions -> cast queue (swarm subsystem)
       v
  [Tasks]      UMechSentinelSteeringProcessor         target -> desired velocity / facing (orbit, arrive, wobble, sink if stunned)
       v
  [Avoidance]  UMassMovingAvoidanceProcessor_Copy     spatial hash (cells sized to the prediction reach) -> force
+              UMechSentinelObstacleAvoidanceProcessor  obstacles near each sentinel (game thread): cushion push into
+                                                     force (minus the agent push into the obstacle), look-ahead slide
+                                                     or go round into desired velocity, straight out from inside
       v
  [ApplyForces] UMassApplyForceProcessor_Copy         clamp desired velocity (speed / vertical); drop force if not code driven
       v
@@ -381,7 +440,7 @@ gets its **own** targeting board and its own movement speed. Two spawners whose 
  [server]     UMechSentinelReplicationProcessor (+ UMechSentinelReplicator)  only with clients connected (section 9)
  [MechSwarm.LODCollector]   UMassLODCollectorProcessor_Copy           standalone / listen server (Client flag)
  [MechSwarm.Representation] UMassVisualizationLODProcessor_Copy
-                            UMechSentinelVisualDataProcessor          state / health / flash / glow -> custom data
+                            UMechSentinelVisualDataProcessor          state / health / flash / glow / buff fades -> custom data
                             UMechSentinelTentacleProcessor            ribbon budget, verlet chains -> Niagara arrays
                             UMassUpdateISMProcessor_Copy              transforms + custom data -> ISM
  [Niagara, ForceTickLast]   NS_MechSentinelTentacles                  one ribbon per chain, built from this frame's arrays
@@ -389,6 +448,7 @@ gets its **own** targeting board and its own movement speed. Two spawners whose 
  Outside the Mass phases (game thread)
  -------------------------------------
  after TG_PostPhysics: timers   GA_GunShoot shot hits: capsule sweep + damage (queued by the shot earlier this frame)
+                                self-buff casts: UMechSentinelSwarmSubsystem::FlushSelfBuffs (<= MaxSelfBuffsPerFrame)
  TG_PostUpdateWork              AMechSentinelWaveSpawner::Tick: despawn / spawn requests, wave spawning
                                 UMechSentinelHitCapsuleComponent: projectile hits
  TG_LastDemotable               (Mass FrameEnd phase)
@@ -455,14 +515,16 @@ even when sentinels die, players leave or the board changes.
  QueryCapsule(segment, radius) on the subsystem's spatial hash   --> FMechSentinelHit[] (handle, impact point, distance)
         |
         | damage spec: the caller's GE or the rules' DefaultSentinelDamageEffect (built-in UMechSentinelDamageEffect
-        | unless the rules asset picks another), SetByCaller SetDamageByCaller = damage, instigator's ASC as source
+        | unless the rules asset picks another), SetByCaller SetDamageByCaller = base damage, instigator's ASC as
+        | source (its MyAttributeSet.AttackDamage is snapshotted here)
         v
  UMechSentinelSwarmSubsystem::ApplyGameplayEffectSpecToSentinel(entity, spec)
         |
         |  pass 1  Proxy.LoadEntity  : Mass attributes -> attribute BASE values, re-create stored duration effects in
         |                              application order, strip their re-application side effects, bases reset
         |          Proxy.ApplySpec   : GAS runs the effect
-        |                                ExecCalc_SentinelDamage: Armor (captured), Shielded, Dead -> IncomingDamage
+        |                                ExecCalc_SentinelDamage: base + S x source AttackDamage, Armor (captured),
+        |                                Shielded, Dead -> IncomingDamage
         |                                UMechSentinelAttributeSet::PostGameplayEffectExecute: IncomingDamage -> Health
         |          Proxy.ReadBack    : bases + currents + owned tags -> Mass
         |          Proxy.Unload      : remove every temporary effect / loose tag (proxy is blank again)
@@ -482,14 +544,27 @@ even when sentinels die, players leave or the board changes.
  replication: HitSerial / HealthByte / State changes are sent immediately -> clients flash
 ```
 
-Armor formula (all in `ExecCalc_SentinelDamage`, constants in the rules):
+Damage formula (all in `ExecCalc_SentinelDamage`, constants in the rules):
 
 ```
+ base       = SetByCaller SetDamageByCaller        GA_GunShoot: SentinelDamage (40); hit capsule: Damage (25)
+ attack     = the source's MyAttributeSet.AttackDamage, snapshot when the spec is made (buffs included);
+              0 when the instigator has no ASC or no MyAttributeSet (no warning)
+ raw        = base > 0 ? base + S * max(0, attack) : 0        S = SourceAttackDamageScale (1; 0 = flat damage)
  mitigation = k * Armor / (1 + k * |Armor|)        k = ArmorMitigationPerPoint (0.06)
  damage     = raw * (1 - mitigation)               armor 10 -> 37.5% less, armor 50 -> 75% less, negative armor amplifies
  Shielded   : damage *= ShieldedDamageMultiplier (0.25)
  Dead       : damage  = 0
 ```
+
+The attacker's stat counts once per hit: callers pass only the weapon's base in `SetDamageByCaller`, never a total that
+already includes `AttackDamage`. A base of 0 (effect-only specs: `ApplyEffectToSentinelsInCapsule`, the hit capsule's
+`ExtraEffects`) stays 0. Pass the pawn as the instigator: its ASC, on the player state, is the source. A controller has
+no ASC, so nothing is added. The mech's starting `AttackDamage` is 0 (the primary, secondary and vital attribute
+effects do not set it), so the numbers above hold until a buff or an effect raises it. To keep the same shots per
+sentinel once it starts at AD0, set `SentinelDamage` to 40 - S x AD0 (AD0 = 10 gives 30), or lower
+`SourceAttackDamageScale`. Only effects that run `ExecCalc_SentinelDamage` get this: `GE_SentinelDamage` and the
+built-in effect both do.
 
 ### A sentinel attacking a player
 
@@ -511,6 +586,51 @@ an empty value that matched the old default was never saved. To keep attacks vis
 asset, which saves the empty value. `DefaultSentinelDamageEffect` works the same way. The repository's
 `DA_MechSentinelSwarmRules` sets both explicitly.
 
+### Self-buffs (armor, speed, damage)
+
+Sentinels cast buffs on themselves at random, each with its own cooldown. The rules' **Self Buffs** category holds one
+definition per buff (`Effect`, `Magnitude`, `Duration`, `Cooldown`, `Weight`, `MinTargetDistance` /
+`MaxTargetDistance`; a distance window needs a target), plus `SelfBuffDecisionInterval` (1.5 s, +-30%),
+`SelfBuffChance` (0.25 per decision) and `MaxSelfBuffsPerFrame` (8):
+
+| Buff | Default | Duration | Cooldown | Only when the target is |
+|---|---|---|---|---|
+| `ArmorBuff` | Armor x1.75 | 6 s | 18 s | anywhere |
+| `SpeedBuff` | MoveSpeedMultiplier x1.5 | 4 s | 12 s | at least 1500 cm away |
+| `DamageBuff` | AttackDamage x1.5 | 5 s | 15 s | within 2500 cm |
+
+```
+ UMechSentinelSelfBuffProcessor (server, Behavior, after Effects + TargetSelection)
+   per sentinel: cooldowns and decision timer tick (also while stunned)
+   decision (every SelfBuffDecisionInterval +-30%), skipped if stunned:
+     roll SelfBuffChance x ChanceScale (the wave's SelfBuffChanceMultiplier), clamped to 1
+     pick by Weight among ready buffs: Effect set, off cooldown, BuffMask bit clear, target distance window met
+     cooldown = Cooldown (counted from the cast) -> QueueSelfBuff
+ timer (after TG_PostPhysics): FlushSelfBuffs, <= MaxSelfBuffsPerFrame, the rest next frame
+   re-check alive / not stunned / bit clear -> spec from the proxy ASC, SetByCaller = Magnitude,
+   SetDuration(Duration, locked) -> ApplyGameplayEffectSpecToSentinel (stored like any duration effect)
+ SyncStateFromGAS: BuffMask bit i = a stored effect of (a child of) the rule's class, or State.Sentinel.Buff.<i> owned
+ expiry: Effects processor -> RecomputeSentinel -> bit cleared
+```
+
+* Multiply (Additive) means x Magnitude on the wave-scaled base. Several multipliers on one attribute add up as
+  1 + sum(m - 1). A Magnitude of 0 sets the attribute to 0.
+* The speed buff is still capped by Movement (Copy) `MaxSpeed`. The armor buff multiplies `Armor`, so with Armor 0 in
+  the entity config it only shows the colour.
+* The wave spawner jitters each new sentinel's decision timer and cooldowns, so a fresh wave does not buff all at once.
+  The default wave curves keep waves 1 and 2 free of self-buffs ([wave curves](#wave-curves-endless-difficulty)).
+  Regular waves (L_MechSentinelDemo) use each wave's `SelfBuffChanceMultiplier` (1).
+* The cooldown is spent at decision time, even when the flush then skips the cast (the sentinel died, got stunned or
+  got the same buff in between). A queued cast does not re-check the target distance. When the queue already holds
+  `MaxSelfBuffsPerFrame` x 30 casts (a second at 30 fps), new casts are refused and those buffs stay ready for the
+  next decision.
+* Cost: each cast takes two proxy evaluations and each expiry one, and every hit on a buffed sentinel re-creates its
+  buffs on the proxy. Profile with the stat scope `MechSentinelSwarm_FlushSelfBuffs`.
+* Feedback ([section 12](#12-ism-representation-and-the-material)): custom data 4..6 fade toward the BuffMask bits;
+  the body gets a coloured rim (armor steel blue, speed cyan-white, damage orange), the eyes tint toward it and pulse
+  (damage steady, speed fast flicker, armor slow breathing). Tentacles glow (damage), stiffen with less sway (speed) or
+  get 20% wider ribbons and claws (armor).
+
 ---
 
 ## 9. Replication data flow
@@ -525,7 +645,7 @@ asset, which saves the empty value. `DefaultSentinelDamageEffect` works the same
  UMechSentinelReplicator::ProcessClientReplication
    AddEntity    : FMechSentinelReplicatedData::FromEntity -> bubble.AddAgent
    ModifyEntity : movement throttled by UpdateInterval[LOD];
-                  state / health / hit / attack changes sent at once      FMechSentinelClientBubbleHandler
+                  state / health / hit / attack / buff changes at once    FMechSentinelClientBubbleHandler
    RemoveEntity : bubble.RemoveAgentChecked                                PostReplicatedAdd   : make sure the template
  UMechSentinelReplicationDestroyObserver                                                 exists, spawn entities,
    entity destroyed -> bubble.RemoveAgent for every client that had it                   apply snapshot (snap)
@@ -535,11 +655,13 @@ asset, which saves the empty value. `DefaultSentinelDamageEffect` works the same
    FMechSentinelClientBubbleSerializer : fast array of           ----->   PreReplicatedRemove : destroy entities
    FMechSentinelFastArrayItem { NetID, TemplateID, Data }
                                                                           UMechSentinelNetSmoothingProcessor
- Data (~22 bytes): Position (0.1 cm), Velocity (1 cm/s),                    -> transform eases toward the samples
-   Yaw/Pitch/Roll (16 bit), State, HealthByte, HitSerial, AttackSerial     UMechSentinelVisualDataProcessor
-                                                                            -> flashes on serial changes
+ Data (~23 bytes): Position (0.1 cm), Velocity (1 cm/s),                    -> transform eases toward the samples
+   Yaw/Pitch/Roll (16 bit), State, HealthByte, HitSerial, AttackSerial,    UMechSentinelVisualDataProcessor
+   BuffMask                                                                 -> flashes on serial changes, buff fades
  AMechSentinelWaveSpawner: CurrentWaveNumber (RepNotify), WaveState, AliveCount, RemainingToSpawn (always relevant)
 ```
+
+`BuffMask` is a level, not an event: the client sets it on every update and the visuals fade toward it.
 
 Why it works on clients:
 * **The engine's replication processor is replaced (UE 5.8.2 bug).** `UMassReplicationProcessor` runs each replicator
@@ -603,6 +725,79 @@ It ticks in TG_PostUpdateWork, after the Mass phases, because Mass cannot create
 For the same reason, a spawner spawned on the server during play builds its entity template on its first spawn, in its
 tick, instead of when it is created.
 
+### Endless path levels: a wave per segment (External mode)
+
+`AMyHexPathSpawner` adds a segment whenever the leading player gets within `ExtendDistance` of the path's end, and the
+segment's PCG then builds its platforms. Before the PCG runs, the path spawner gives the segment the world box its
+platforms are assumed to fill and fires `OnSegmentSpawned` (server). A wave spawner with `AdvanceMode = External`
+listens to every path spawner in the level and starts one wave per new segment at the corners of that box:
+
+```
+ AMyHexPathSpawner::ExtendPath   (server: BeginPlay for the InitialSegments, then the player check timer)
+   spawn the segment, SetLayout, SetPathDistances
+   ComputeSegmentBounds          the world PathSpline from the segment's start to its end, sampled every
+                                 SegmentBoundsSampleSpacing: box X axis from start to end (horizontal),
+                                 +-SegmentBoundsHalfWidth across the path at every sample, SegmentBoundsBackReach
+                                 behind the start, SegmentBoundsBelow / SegmentBoundsAbove under the lowest / over the
+                                 highest path point (half width, back reach and spacing are for HexRadius 100 and scale)
+   Segment->SetSegmentBounds, InitSegment (PCG starts), OnSegmentSpawned
+        |
+        v
+ AMechSentinelWaveSpawner::HandlePathSegmentSpawned   (External mode, lanes with bSpawnSentinelWaves)
+   wave number   segment index - FirstSegmentWithSentinelWave + 1 (earlier segments get none; every lane counts
+                 from its own first segment, so the lanes' segment k all get wave k)
+   points        the box's Top / Bottom / All corners (SegmentCorners), CornerInset toward the centre,
+                 CornerHeightOffset up
+   StartWaveAtPoints(points, wave number, segment)   queued; the spawner's tick turns it into a run
+        |
+        v
+ run   DelayBefore countdown -> Count sentinels over SpawnDuration, round robin over the points, each inside
+       CornerSpawnExtent around its point (rolled again, up to 4 times, inside a registered platform grown by
+       SpawnObstacleClearance) -> cleared when they are all dead: OnWaveCleared(wave)
+```
+
+* Waves overlap: every segment's wave counts down, spawns and clears on its own. They share the per-frame
+  `SpawnBatchSize` (oldest first) and the caps (`MaxAlive`, the rules' `MaxAliveSentinels`).
+* A wave whose segment is destroyed (left behind) drops what it has not spawned yet; its sentinels fight on.
+  `MaxActiveWaves` (0 = unlimited) does the same to the oldest waves when more than that many still have sentinels to
+  spawn.
+* `StopWaves` pauses every countdown and spawn, `StartWaves` resumes. With `bAutoStart` off the spawner waits for
+  `StartWaves`; the segments that spawn meanwhile keep their waves queued. `StartNextWave` starts the next wave number
+  around the spawner itself (`SpawnExtent`), without a countdown.
+* `GetCurrentWaveNumber` is the highest wave started, `GetRemainingToSpawn` sums every wave, `GetNumActiveWaves` (server)
+  counts the waves queued, counting down, spawning or not cleared yet. Clients get one `OnWaveStarted` for the waves
+  that start within the same net update.
+* The spawner is no fallback point in External mode (`bSpawnerIsFallbackTarget` is ignored): a fixed point at the start
+  of an endless level would pull the overflow back there.
+* `StartWaveAtPoints(points, wave, source)` starts such a wave from anywhere, in every mode (wave <= 0: the next number).
+  In the other modes it runs next to the regular waves and leaves the replicated wave number and state alone.
+* The segments built before the wave spawner began play are caught up in its `BeginPlay`. Set `AdvanceMode` before
+  play: switching between External and the other modes during play is not supported.
+* `bDrawSegmentBounds` on the path spawner draws each new segment's box for about 15 s (server, not in shipping).
+  The bounds defaults mirror `PCG_SplineIHexPlatformsFromSpline` (platforms within 9975 layout cm of the path, tile
+  tops -1620..+4620 around it) and must follow the graph when it changes.
+
+### Wave curves (endless difficulty)
+
+With `bUseWaveCurves` on, wave N is `CurveBaseWave` with each field scaled by its curve in `WaveCurves` at N (X = wave
+number, Y = factor). The hand-made `Waves` and the repeat growth are ignored, and the waves never run out. A curve
+without keys is a factor of 1, and a float curve asset in a curve's External Curve slot replaces it (shareable between
+spawners). The default keys are linear, flat before wave 1 and growing on past the last key at its slope:
+
+```
+ Count           (1, 1)  (5, 1.5)   (10, 2.2)   (20, 3.5)   (40, 5.5)    x CurveBaseWave.Count (20), rounded
+ Health          (1, 1)  (5, 1.4)   (10, 2)     (20, 3.5)   (40, 7)      x HealthMultiplier
+ Armor           (1, 1)  (10, 1.5)  (20, 2.25)  (40, 3.5)                x ArmorMultiplier
+ Damage          (1, 1)  (10, 1.5)  (20, 2.3)   (40, 4)                  x DamageMultiplier
+ AttackSpeed     (1, 1)  (20, 1.3)  (40, 1.5)                            x AttackSpeedMultiplier
+ MoveSpeed       (1, 1)  (20, 1.2)  (40, 1.35)                           x MoveSpeedMultiplier
+ SelfBuffChance  (1, 0)  (2, 0)     (3, 0.5)    (6, 1)      (20, 1.5)    x SelfBuffChanceMultiplier (none in W1-2)
+```
+
+`CurveBaseWave` defaults to 20 sentinels over 8 s after a 2 s delay. `GetWaveDefinition(N)` returns what wave N spawns
+with (curves or hand-made entry, repeat growth and runtime clamps folded in, before `CountMultiplier`), handy for a
+HUD or for tuning in the editor.
+
 ---
 
 ## 11. Hitting sentinels from actors (the capsule function)
@@ -616,7 +811,7 @@ hash by `UMechSentinelCollisionHashProcessor`. Queries are segment-to-segment di
 TArray<FMechSentinelHit> Hits;
 float TotalDamage = 0.f;
 UMechSentinelCombatLibrary::ApplyDamageToSentinelsInCapsule(this, InstigatorPawn,
-    Center, Rotation, /*Radius*/ 40.f, /*HalfHeight*/ 90.f, /*Damage*/ 30.f,
+    Center, Rotation, /*Radius*/ 40.f, /*HalfHeight*/ 90.f, /*Damage (base, + AttackDamage)*/ 30.f,
     /*DamageEffect (null = rules default)*/ nullptr, /*MaxTargets (0 = all)*/ 0, Hits, TotalDamage);
 ```
 
@@ -635,6 +830,8 @@ Its damage, though, is written at once, while the phase's worker threads may rea
 `UMechSentinelHitCapsuleComponent` wraps this for projectiles: every server tick it tests its capsule plus the path
 since last frame (no tunnelling), hits each sentinel once, supports piercing (`MaxSentinelsHit`), extra effects,
 and destroys its owner when spent. It ticks in TG_PostUpdateWork: after the projectile moved, and outside the Mass phases.
+Its `Damage` (25) is a base: the instigator pawn's `AttackDamage` is added when the hit lands (not when the projectile
+was fired).
 
 ### Gun shots (GA_GunShoot)
 
@@ -656,14 +853,15 @@ no engine collision), so the ability sweeps the shot against their capsules itse
                                 trace's first hit when that is a character ahead of the shooter, or
                                 SentinelShotRange. Otherwise shots pass through characters (teammates included)
    spec                         SentinelDamageEffect or the rules' DefaultSentinelDamageEffect, at the ability level,
-                                SetByCaller SetDamageByCaller = SentinelDamage
+                                SetByCaller SetDamageByCaller = SentinelDamage; the shooter's AttackDamage is
+                                snapshotted here (server)
  next timer tick (same frame)   QueryCapsule(segment, SentinelShotRadius) -> ApplySpecToHits(closest SentinelMaxTargets)
 ```
 
 | Class Defaults > Mech Sentinels | Default | Meaning |
 |---|---|---|
 | `bDamageSentinels` | on | off: shots ignore sentinels |
-| `SentinelDamage` | 40 | damage per sentinel hit before armor (scalable float, read at the ability level). 4 shots kill a W1 sentinel, 9 a W4 one |
+| `SentinelDamage` | 40 | base damage per sentinel hit (scalable float, read at the ability level); the shooter's `AttackDamage` x the rules' `SourceAttackDamageScale` is added, then armor. With the mech's starting `AttackDamage` of 0, 4 shots kill a W1 sentinel, 9 a W4 one |
 | `SentinelDamageEffect` | empty | the GE for sentinel hits; empty uses the rules' `DefaultSentinelDamageEffect` |
 | `SentinelShotRadius` | 15 cm | thickness of the shot, added to the sentinel capsules (slack for latency) |
 | `SentinelShotRange` | 20000 cm | how far sentinels can be shot when no wall or character stops the shot |
@@ -684,9 +882,15 @@ Per-instance custom data written by `UMechSentinelVisualDataProcessor`:
 | 0 | state: 0 Seeking, 1 Attacking, 2 Stunned, 3 Dead | eye colour (red when attacking, flicker when stunned, off when dead) |
 | 1 | health fraction 0..1 | damage tint / sparks |
 | 2 | hit flash 1 -> 0 in ~0.25 s | white additive flash |
-| 3 | attack glow 1 -> 0 in ~0.4 s | emissive pulse / beam |
+| 3 | attack glow 1 -> 0 in ~0.4 s; while a self-buff is on, raised to a pulse floor (at most 0.3): damage steady, speed fast flicker, armor slow breathing | emissive pulse / beam |
+| 4 | armor self-buff 0..1 (fades in ~0.33 s toward BuffMask, 0 when dead) | steel blue Fresnel rim on the body, eyes tint blue |
+| 5 | speed self-buff 0..1 | cyan-white rim, eyes tint cyan-white |
+| 6 | damage self-buff 0..1 | orange rim, eyes tint orange |
 
-Read them with `PerInstanceCustomData` (index 0..3) in the material and enable "Used with Instanced Static Meshes".
+Read them with `PerInstanceCustomData` (index 0..6) in the material and enable "Used with Instanced Static Meshes".
+With 4..6 at 0 (or an ISM with fewer floats: the node's default 0 is read) the materials look exactly as without buffs.
+The tentacles follow the same fades: damage glows, speed is stiffer with less sway, armor makes ribbons and claws 20%
+wider.
 For the reference image's mood: dark metal, emissive red eyes (material slot 1 of the head, `MI_MechSentinel_Eyes`),
 Niagara ribbon tentacles near the camera ([section 15](#15-sentinel-model-and-niagara-ribbon-tentacles)), plus a light
 cone in the level.
@@ -765,9 +969,28 @@ its place, to work around a UE 5.8.2 bug ([section 9](#9-replication-data-flow))
   this frame, so several spawners in the same frame can overshoot by a batch.
 * **Wrecks**: dead sentinels fall with gravity, stop on WorldStatic geometry (one line trace per falling wreck per frame),
   tumble and are destroyed after `DeathFallDuration`.
-* **Avoidance** is entity-entity only (3D separation with prediction, applied as an acceleration on the velocity after the
-  steering approach, so it is not cancelled by the acceleration limit). There is no level-geometry avoidance for live
-  sentinels; keep the play space open or add fallback points away from walls.
+* **Avoidance** is entity-entity (3D separation with prediction, applied as an acceleration on the velocity after the
+  steering approach, so the acceleration limit does not cancel it) plus entity-obstacle. Live sentinels steer around
+  the obstacles registered in `UMechSentinelObstacleSubsystem` (server only, game thread):
+  - Hex platforms register themselves: a vertical cylinder around the standing tiles (each tile's transform x the
+    pillar mesh bounds), from the deepest pillar bottom to the tops, refreshed 0.5 s after tiles collapse.
+  - Other geometry (the floor, the airship, bridges) needs a `UMechSentinelObstacleComponent` on its Blueprint: a box
+    around the owner's pawn-blocking collision. Use `bOneBoxPerComponent` for actors made of separate parts and
+    `RefreshInterval` for moving ones. Blueprint can also call `RegisterObstacle` directly.
+  - Unregistered geometry is still flown through: props on platforms, actors without the component, falling pillars.
+  - Each sentinel keeps a cushion (250 cm, shrunk near its goal, at least 40 cm) around a hard shell of
+    `CapsuleHalfHeight`. It looks 0.8 s ahead and slides along what it would hit. It goes over the rim of a platform it
+    is under, and over or under a side when the goal is right behind it.
+  - The shapes are conservative: the cylinder can be wider than a trimmed tile outline, and its bottom is flat at the
+    deepest pillar. Gaps narrower than about 2 x (shell + cushion) close for sentinels.
+  - Goals inside a cushion are unreachable (players grappling under a platform, fallback points next to geometry):
+    those sentinels hover about 40 cm off the shell. Pockets between several boxes can still park a sentinel.
+  - The engine's `FMassNavigationEdgesFragment` is no help here: it feeds MassAI's 2D avoidance with up to 16 vertical,
+    infinitely tall walls, so a sentinel above or below a platform would still be pushed sideways.
+  - Debug: `mech.Sentinel.DebugObstacles 1` draws the registered shapes (magenta = not hashed) and shows counts; `2`
+    also draws a line per sentinel near an obstacle (red: inside, yellow: sliding, cyan: pushed). Non-shipping builds.
+* **Self-buffs** are on by default (rules `bEnableSelfBuffs`), in L_MechSentinelDemo too. Their casts go through the
+  GAS proxy like hits, outside the Mass phases ([Self-buffs](#self-buffs-armor-speed-damage)).
 * **Movement speed** is a shared fragment per swarm group (change it with `SetSwarmMovementSpeed`, outside the Mass
   phases), scaled per entity by the `MoveSpeedMultiplier` attribute (slows / hastes through GAS).
 * **No DeveloperSettings**: global data is the rules asset referenced by the GameMode, runtime state is in the world subsystem.

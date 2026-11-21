@@ -13,6 +13,12 @@
 class UStaticMesh;
 class UMaterialInterface;
 
+namespace MechSwarm::Representation
+{
+	/** Per-instance custom data floats an entity can carry (FMassRepresentationCustomDataFragment_Copy::Values). */
+	constexpr int32 MaxCustomDataFloats = 7;
+}
+
 /** How one kind of entity is drawn with instanced static meshes. */
 USTRUCT(BlueprintType)
 struct AURA_API FStaticMeshInstanceVisualizationDesc_Copy
@@ -39,10 +45,12 @@ struct AURA_API FStaticMeshInstanceVisualizationDesc_Copy
 
 	/**
 	 * Per-instance custom data floats sent to the material (PerInstanceCustomData).
-	 * Sentinels write: [0] state (0 seek, 1 attack, 2 stunned, 3 dead), [1] health 0..1, [2] hit flash 0..1, [3] attack glow 0..1.
+	 * Sentinels write: [0] state (0 seek, 1 attack, 2 stunned, 3 dead), [1] health 0..1, [2] hit flash 0..1, [3] attack glow 0..1,
+	 * [4] armor / [5] speed / [6] damage self-buff 0..1 (fades). Fewer floats just cut the list (materials read the
+	 * PerInstanceCustomData default for missing ones).
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visualization", meta = (ClampMin = "0", ClampMax = "4"))
-	int32 NumCustomDataFloats = 4;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visualization", meta = (ClampMin = "0", ClampMax = "7"))
+	int32 NumCustomDataFloats = 7;
 
 	bool IsValid() const { return Mesh != nullptr; }
 
@@ -117,7 +125,7 @@ struct AURA_API FMassRepresentationCustomDataFragment_Copy : public FMassFragmen
 {
 	GENERATED_BODY()
 
-	float Values[4] = { 0.f, 1.f, 0.f, 0.f };
+	float Values[MechSwarm::Representation::MaxCustomDataFloats] = { 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f };
 };
 
 /** Marks entities that are drawn by the ISM representation copy. */
