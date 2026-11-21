@@ -523,10 +523,13 @@ void UMechSentinelSelfBuffProcessor::Execute(FMassEntityManager& EntityManager, 
 				continue;
 			}
 
-			// The cooldown counts from the cast. The GE is applied later this frame, outside the Mass phases.
+			// The cooldown counts from the cast. The GE is applied later this frame, outside the Mass phases. A full
+			// queue refuses the cast: the buff stays ready for the next decision.
 			const FBuffChoice& PickedBuff = Choices[Picked];
-			SelfBuff.Cooldown[PickedBuff.BuffIndex] = PickedBuff.Cooldown;
-			Swarm->QueueSelfBuff(Context.GetEntity(EntityIndex), PickedBuff.BuffIndex);
+			if (Swarm->QueueSelfBuff(Context.GetEntity(EntityIndex), PickedBuff.BuffIndex))
+			{
+				SelfBuff.Cooldown[PickedBuff.BuffIndex] = PickedBuff.Cooldown;
+			}
 		}
 	});
 }

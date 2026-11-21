@@ -2,8 +2,9 @@
 # Run it inside the editor with Play stopped: Tools > Execute Python Script..., the Output Log's Python console,
 # -ExecutePythonScript=<this file> or an editor Python call. Needs the real assets (git lfs pull) and editor binaries
 # built from source that has the External wave mode; otherwise it stops with a message. It never creates a map.
-# Steps: DA_MechSentinelSwarmRules on BP_MyGameMode, open /Game/Maps/StartupMap, one MechSentinelWaveSpawner in External
-# + curve mode, sentinel waves on the AMyHexPathSpawner lanes, save, summary. Every check runs before the first change.
+# Steps: open /Game/Maps/StartupMap, one MechSentinelWaveSpawner in External + curve mode, sentinel waves on the
+# AMyHexPathSpawner lanes, save the map, then DA_MechSentinelSwarmRules on BP_MyGameMode, summary. Every check runs
+# before the first change.
 # Re-running is safe: the spawner is found again by its tag, every value is set again, files are saved only on change.
 
 import math
@@ -712,10 +713,8 @@ def run(report):
     for path in paths:
         check_properties(path, [name for name, _ in path_values], "path spawner '%s'" % label(path))
 
-    # Changes.
-    if SET_GAME_MODE_RULES:
-        set_game_mode_rules(game_mode, rules, report)
-
+    # Changes. The map first: its steps can still stop the run (spawning the spawner, a wrong level, a knob of the
+    # wrong type), and BP_MyGameMode must not be saved alone then.
     map_changed = False
     if override is not None:
         map_changed |= set_value(world.get_world_settings(), "World Settings", "default_game_mode", override, report)
@@ -735,6 +734,9 @@ def run(report):
         log("saved " + MAP_PATH)
     elif map_changed:
         report.notes.append("SAVE = False: %s was changed but not saved." % MAP_PATH)
+
+    if SET_GAME_MODE_RULES:
+        set_game_mode_rules(game_mode, rules, report)
 
     # Information only, after the save.
     try:

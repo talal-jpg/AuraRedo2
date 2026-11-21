@@ -873,43 +873,58 @@ void AMyHexPlatform::RefreshSentinelObstacle()
 	const UStaticMesh* Mesh = HexPillarsISM ? HexPillarsISM->GetStaticMesh() : nullptr;
 	const FBox MeshBox = Mesh ? Mesh->GetBounds().GetBox() : FBox(ForceInit);
 
-	TArray<FBox> TileBoxes;
-	TileBoxes.Reserve(HexMap.Num());
+	// Per tile: its hex centre (world XY) and corner radius
+	struct FTileReach
+	{
+		FVector2D Center;
+		double Reach = 0.0;
+	};
+
+	TArray<FTileReach> Tiles;
+	Tiles.Reserve(HexMap.Num());
 	FBox Bounds(ForceInit);
 	FVector2D CentroidSum = FVector2D::ZeroVector;
 
 	if (MeshBox.IsValid)
 	{
+		const FVector MeshCenter = MeshBox.GetCenter();
+		const FVector MeshExtent = MeshBox.GetExtent();
+
 		for (const TPair<FIntVector, int32>& Pair : HexMap)
 		{
 			FTransform InstanceTransform;
 
 			if (HexPillarsISM->GetInstanceTransform(Pair.Value, InstanceTransform, /*bWorldSpace=*/true))
 			{
-				const FBox TileBox = MeshBox.TransformBy(InstanceTransform);
-				TileBoxes.Add(TileBox);
-				Bounds += TileBox;
-				CentroidSum += FVector2D(InstanceTransform.GetLocation());
+				// The turned box bounds the shape (broad phase and Z range)
+				Bounds += MeshBox.TransformBy(InstanceTransform);
+
+				// The reach leaves out the pillar's 60 degree turn: the hex covers the same ground, but its turned box
+				// reaches up to 30% farther (as in BuildTileInfos)
+				const FVector Scale = InstanceTransform.GetScale3D().GetAbs();
+				FTileReach& Tile = Tiles.AddDefaulted_GetRef();
+				Tile.Center = FVector2D(InstanceTransform.TransformPosition(FVector(MeshCenter.X, MeshCenter.Y, 0.0)));
+				Tile.Reach = FMath::Max(MeshExtent.X * Scale.X, MeshExtent.Y * Scale.Y);
+				CentroidSum += Tile.Center;
 			}
 		}
 	}
 
-	if (TileBoxes.IsEmpty())
+	if (Tiles.IsEmpty())
 	{
 		Obstacles->UnregisterObstacles(this);
 		return;
 	}
 
 	// A cylinder through the farthest tile, not the box: around a disc the box reaches 41% of the radius past the rim
-	// on the diagonals, which would close the gaps to the neighbouring platforms. A tile reaches its box's larger XY
-	// half extent from its centre (the hex's corner radius).
-	const FVector2D Centroid = CentroidSum / static_cast<double>(TileBoxes.Num());
+	// on the diagonals, which would close the gaps to the neighbouring platforms. A tile reaches the hex's corner radius
+	// (the mesh's larger XY half extent) from its centre.
+	const FVector2D Centroid = CentroidSum / static_cast<double>(Tiles.Num());
 	double Radius = 0.0;
 
-	for (const FBox& TileBox : TileBoxes)
+	for (const FTileReach& Tile : Tiles)
 	{
-		const FVector Extent = TileBox.GetExtent();
-		Radius = FMath::Max(Radius, FVector2D::Distance(FVector2D(TileBox.GetCenter()), Centroid) + FMath::Max(Extent.X, Extent.Y));
+		Radius = FMath::Max(Radius, FVector2D::Distance(Tile.Center, Centroid) + Tile.Reach);
 	}
 
 	FMechSentinelObstacle Obstacle;

@@ -471,17 +471,26 @@ UAbilitySystemComponent* UMechSentinelSwarmSubsystem::GetSentinelSourceASC()
 //----------------------------------------------------------------------//
 // Self buffs
 //----------------------------------------------------------------------//
-void UMechSentinelSwarmSubsystem::QueueSelfBuff(const FMassEntityHandle Entity, const int32 BuffIndex)
+bool UMechSentinelSwarmSubsystem::QueueSelfBuff(const FMassEntityHandle Entity, const int32 BuffIndex)
 {
 	if (!HasAuthority() || !Entity.IsSet() || BuffIndex < 0 || BuffIndex >= MechSentinelSelfBuff::Num)
 	{
-		return;
+		return false;
+	}
+
+	// A longer backlog would cast long after the decision (and its target distance window), and keep growing while
+	// casts come faster than the flush budget.
+	const int32 MaxPending = FMath::Max(1, GetRules()->MaxSelfBuffsPerFrame) * 30;
+	if (PendingSelfBuffs.Num() >= MaxPending)
+	{
+		return false;
 	}
 
 	FPendingSelfBuff& Pending = PendingSelfBuffs.AddDefaulted_GetRef();
 	Pending.Entity = Entity;
 	Pending.BuffIndex = BuffIndex;
 	ScheduleSelfBuffFlush();
+	return true;
 }
 
 void UMechSentinelSwarmSubsystem::ScheduleSelfBuffFlush()

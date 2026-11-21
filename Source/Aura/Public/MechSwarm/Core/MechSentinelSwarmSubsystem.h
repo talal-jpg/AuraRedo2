@@ -181,9 +181,10 @@ public:
 	 * Queues self-buff BuffIndex (EMechSentinelSelfBuff) on a sentinel; UMechSentinelSelfBuffProcessor calls it. It is
 	 * applied by a next-tick timer, after this frame's Mass phases, at most the rules' MaxSelfBuffsPerFrame per frame (the
 	 * rest waits for the next frames), and skipped when by then the sentinel is gone, dead, stunned or already has it.
-	 * Game thread, server only.
+	 * Returns false, queueing nothing, when the queue already holds MaxSelfBuffsPerFrame x 30 casts (a second at 30 fps):
+	 * the caller keeps the buff ready and decides again later. Game thread, server only.
 	 */
-	void QueueSelfBuff(FMassEntityHandle Entity, int32 BuffIndex);
+	bool QueueSelfBuff(FMassEntityHandle Entity, int32 BuffIndex);
 
 	//----------------------------------------------------------------------//
 	// Collision hash (filled by UMechSentinelCollisionHashProcessor)

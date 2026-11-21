@@ -621,7 +621,9 @@ definition per buff (`Effect`, `Magnitude`, `Duration`, `Cooldown`, `Weight`, `M
   The default wave curves keep waves 1 and 2 free of self-buffs ([wave curves](#wave-curves-endless-difficulty)).
   Regular waves (L_MechSentinelDemo) use each wave's `SelfBuffChanceMultiplier` (1).
 * The cooldown is spent at decision time, even when the flush then skips the cast (the sentinel died, got stunned or
-  got the same buff in between). A queued cast does not re-check the target distance.
+  got the same buff in between). A queued cast does not re-check the target distance. When the queue already holds
+  `MaxSelfBuffsPerFrame` x 30 casts (a second at 30 fps), new casts are refused and those buffs stay ready for the
+  next decision.
 * Cost: each cast takes two proxy evaluations and each expiry one, and every hit on a buffed sentinel re-creates its
   buffs on the proxy. Profile with the stat scope `MechSentinelSwarm_FlushSelfBuffs`.
 * Feedback ([section 12](#12-ism-representation-and-the-material)): custom data 4..6 fade toward the BuffMask bits;
