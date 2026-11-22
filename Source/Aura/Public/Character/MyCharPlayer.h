@@ -48,9 +48,6 @@ public:
 	// GA_JumpHover: the hover (MOVE_Flying) keeps the jump count, only landing gives the air jump back
 	virtual void ResetJumpState() override;
 	
-	// Replays: a replayed jump press counts like the original one (see the cpp)
-	virtual void CheckJumpInput(float DeltaTime) override;
-	
 	UFUNCTION(BlueprintCallable,NetMulticast,Reliable)
 	void Multicast_HardLanding(float InYaw);
 	

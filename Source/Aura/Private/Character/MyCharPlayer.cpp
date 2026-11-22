@@ -90,18 +90,6 @@ void AMyCharPlayer::ResetJumpState()
 	}
 }
 
-void AMyCharPlayer::CheckJumpInput(float DeltaTime)
-{
-	// A replay after a correction restores bWasJumping as saved after the press move's own jump (SetInitialPosition runs
-	// after CheckJumpInput), so the replayed press would neither count nor be seen as a new air jump. A press move
-	// always starts with JumpKeyHoldTime 0, held moves after it don't.
-	if (bClientUpdating && bPressedJump && JumpKeyHoldTime<=0.f)
-	{
-		bWasJumping=false;
-	}
-	Super::CheckJumpInput(DeltaTime);
-}
-
 void AMyCharPlayer::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);

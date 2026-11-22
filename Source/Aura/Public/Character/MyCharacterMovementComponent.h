@@ -81,6 +81,9 @@ private:
 	// The wish of the previous move: a true -> false change drops out of MOVE_Flying. Saved and restored with the moves
 	bool bPrevWantsToHover=false;
 
+	// Character::bWasJumping at the start of the current local move, for FSavedMove_MyCharacter
+	bool bWasJumpingBeforeMove=false;
+
 	/**
 	 * Set by DoJump for an air jump and used in UpdateCharacterStateBeforeMovement of the same move. DoJump runs
 	 * before the move's acceleration is set (CheckJumpInput comes first in ControlledCharacterMove and MoveAutonomous),

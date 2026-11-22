@@ -13,11 +13,15 @@ public:
 
 	uint8 bSavedWantsToHover:1;
 	uint8 bSavedPrevWantsToHover:1;
+	// Character::bWasJumping before this move's CheckJumpInput. The engine saves it after (SetInitialPosition), which
+	// makes a replayed jump press look like the held part of a jump: no count, no air jump
+	uint8 bSavedWasJumpingBeforeMove:1;
 
 	FSavedMove_MyCharacter()
 	{
 		bSavedWantsToHover=false;
 		bSavedPrevWantsToHover=false;
+		bSavedWasJumpingBeforeMove=false;
 	}
 
 	virtual void Clear() override
@@ -25,6 +29,7 @@ public:
 		Super::Clear();
 		bSavedWantsToHover=false;
 		bSavedPrevWantsToHover=false;
+		bSavedWasJumpingBeforeMove=false;
 	}
 
 	virtual void SetMoveFor(ACharacter* C, float InDeltaTime, FVector const& NewAccel, FNetworkPredictionData_Client_Character& ClientData) override
@@ -34,6 +39,7 @@ public:
 		{
 			bSavedWantsToHover=Move->bWantsToHover;
 			bSavedPrevWantsToHover=Move->bPrevWantsToHover;
+			bSavedWasJumpingBeforeMove=Move->bWasJumpingBeforeMove;
 		}
 	}
 
@@ -45,12 +51,14 @@ public:
 		{
 			Move->bPrevWantsToHover=bSavedPrevWantsToHover;
 		}
+		C->bWasJumping=bSavedWasJumpingBeforeMove;
 	}
 
 	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* InCharacter, float MaxDelta) const override
 	{
 		const FSavedMove_MyCharacter* Other=static_cast<const FSavedMove_MyCharacter*>(NewMove.Get());
-		if (bSavedWantsToHover!=Other->bSavedWantsToHover || bSavedPrevWantsToHover!=Other->bSavedPrevWantsToHover)
+		if (bSavedWantsToHover!=Other->bSavedWantsToHover || bSavedPrevWantsToHover!=Other->bSavedPrevWantsToHover
+			|| bSavedWasJumpingBeforeMove!=Other->bSavedWasJumpingBeforeMove)
 		{
 			return false;
 		}
@@ -108,6 +116,8 @@ void UMyCharacterMovementComponent::ControlledCharacterMove(const FVector& Input
 {
 	// A new local move (owning client, listen server host, standalone): it carries the current request
 	bWantsToHover=bHoverRequest;
+	// Before CheckJumpInput (inside Super), for the saved move: replays restore it (FSavedMove_MyCharacter)
+	bWasJumpingBeforeMove=CharacterOwner && CharacterOwner->bWasJumping;
 	Super::ControlledCharacterMove(InputVector,DeltaSeconds);
 }
 
@@ -122,7 +132,8 @@ bool UMyCharacterMovementComponent::DoJump(bool bReplayingMoves, float DeltaTime
 	}
 
 	// An air jump starts on this move: already falling, and not the held part of an earlier jump (JumpMaxHoldTime).
-	// Read before Super, which switches to MOVE_Falling. AMyCharPlayer::CheckJumpInput keeps bWasJumping right in replays
+	// Read before Super, which switches to MOVE_Falling. Replays restore bWasJumping as it was before the move
+	// (FSavedMove_MyCharacter::PrepMoveFor), so a replayed press is an air jump again
 	const bool bAirJump=CharacterOwner && IsFalling() && !CharacterOwner->bWasJumping;
 
 	if (!Super::DoJump(bReplayingMoves,DeltaTime))
