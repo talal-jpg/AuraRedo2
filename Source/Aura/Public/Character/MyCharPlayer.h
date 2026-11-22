@@ -21,7 +21,8 @@ class AURA_API AMyCharPlayer : public AMyCharBase , public IMyPlayerInterface
 
 public:
 	// Sets default values for this character's properties
-	AMyCharPlayer();
+	// Uses UMyCharacterMovementComponent (air jump) and allows two jumps: ground jump + one air jump (GA_JumpHover)
+	AMyCharPlayer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	
 	void RegisterToBoostingState();
 	
@@ -43,6 +44,12 @@ public:
 	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
 	
 	virtual void Landed(const FHitResult& Hit) override;
+	
+	// GA_JumpHover: the hover (MOVE_Flying) keeps the jump count, only landing gives the air jump back
+	virtual void ResetJumpState() override;
+	
+	// Replays: a replayed jump press counts like the original one (see the cpp)
+	virtual void CheckJumpInput(float DeltaTime) override;
 	
 	UFUNCTION(BlueprintCallable,NetMulticast,Reliable)
 	void Multicast_HardLanding(float InYaw);

@@ -14,6 +14,7 @@
 #include "AbilitySystem/Abilities/MyGameplayAbility.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "AbilitySystem/Data/MyLevelUpInfo.h"
+#include "Character/MyCharacterMovementComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -30,8 +31,12 @@
 
 
 // Sets default values
-AMyCharPlayer::AMyCharPlayer()
+AMyCharPlayer::AMyCharPlayer(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UMyCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
+	// Ground jump + one air jump. GA_JumpHover jumps; UMyCharacterMovementComponent turns the air jump toward the input
+	JumpMaxCount=2;
+
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	// SpringArm= CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -68,6 +73,33 @@ void AMyCharPlayer::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 
 		// Flying again, or put on the ground without Landed (GA_BoostBP's end already rolls for Flying -> Walking)
 		bFallingFromFlight=false;
 	}
+}
+
+void AMyCharPlayer::ResetJumpState()
+{
+	const int32 CountBefore=JumpCurrentCount;
+	const int32 CountPreJumpBefore=JumpCurrentCountPreJump;
+	Super::ResetJumpState();
+	// The engine clears the jump count in every mode but falling, flying included (mode changes, and the replay after a
+	// correction in FSavedMove_Character::PrepMoveFor). GA_JumpHover's hover is MOVE_Flying: keep the count there, so
+	// dropping out of a hover doesn't give the air jump back. Only landing resets it.
+	if (GetCharacterMovement() && GetCharacterMovement()->MovementMode==MOVE_Flying)
+	{
+		JumpCurrentCount=CountBefore;
+		JumpCurrentCountPreJump=CountPreJumpBefore;
+	}
+}
+
+void AMyCharPlayer::CheckJumpInput(float DeltaTime)
+{
+	// A replay after a correction restores bWasJumping as saved after the press move's own jump (SetInitialPosition runs
+	// after CheckJumpInput), so the replayed press would neither count nor be seen as a new air jump. A press move
+	// always starts with JumpKeyHoldTime 0, held moves after it don't.
+	if (bClientUpdating && bPressedJump && JumpKeyHoldTime<=0.f)
+	{
+		bWasJumping=false;
+	}
+	Super::CheckJumpInput(DeltaTime);
 }
 
 void AMyCharPlayer::Landed(const FHitResult& Hit)
