@@ -10,6 +10,7 @@
 #include "Actors/MyHexBridgeSubsystem.h"
 #include "Actors/MyHexMinimapSubsystem.h"
 #include "Actors/MyHexPathSpawner.h"
+#include "Actors/MyHexTilePropsScheduler.h"
 #include "MechSwarm/Core/MechSentinelObstacleSubsystem.h"
 #include "MyGameState.h"
 #include "Animation/AnimSequence.h"
@@ -361,58 +362,130 @@ void AMyHexPlatform::StartCollapsing()
 	bCollapseStarted = true;
 	FreezePath();
 
-	// ---------------------------------------------------------------------
-	// Start chain activation timer
-	// ---------------------------------------------------------------------
+	// Every platform takes the same time whatever its size, so a small one gets short chains that it
+	// loses slowly instead of one chain that takes everything at once
+	CollapseTotalTiles = HexMap.Num();
+	CollapseChainLength = GetCollapseChainLength(CollapseTotalTiles);
+	CollapseProgress = 0.f;
 
-	// A small platform goes in one chain (GenerateAndActivateChainFromRandomSelectedGrid takes every
-	// tile when ChainLength or fewer are left), so it waits longer before that
-	const float FirstDelay = HexMap.Num() <= SmallPlatformMaxTiles ? SmallPlatformFirstCollapseDelay : FirstCollapseDelay;
+	// At least two chains, so a platform of two or more tiles loses one when it starts and its last
+	// one when the others at its distance do
+	if (CollapseTotalTiles > 1)
+	{
+		CollapseChainLength = FMath::Min(CollapseChainLength, FMath::Max(CollapseTotalTiles / 2, 1));
+	}
 
-	ScheduleNextCollapseChain(FirstDelay);
-}
+	// Timed from the moment the lead's platform moved past this one, so a platform whose bridges were
+	// built later catches up and still starts and finishes with the others at its distance
+	const double Now = GetWorld()->GetTimeSeconds();
+	const double Activated = LeadLandedTime >= 0.0 ? FMath::Min(LeadLandedTime, Now) : Now;
+	const double FirstChainTime = Activated + FMath::Max(FirstCollapseDelay, 0.f);
 
-void AMyHexPlatform::ScheduleNextCollapseChain(float Delay)
-{
+	CollapseProgressTime = FirstChainTime;
+
 	GetWorldTimerManager().SetTimer(
 		CollapseTimerHandle,
 		this,
-		&ThisClass::CollapseNextChain,
-		FMath::Max(Delay, 0.01f), // a rate <= 0 would clear the timer instead
-		false
+		&ThisClass::UpdateCollapse,
+		FMath::Max(CollapseUpdateInterval, 0.02f),
+		true,
+		FMath::Max(static_cast<float>(FirstChainTime - Now), 0.01f) // a first delay <= 0 would use the rate instead
 	);
 }
 
-void AMyHexPlatform::CollapseNextChain()
+void AMyHexPlatform::UpdateCollapse()
 {
-	GenerateAndActivateChainFromRandomSelectedGrid();
-
-	// Stop once every tile is gone. Tiles of the last chains are removed over the next second or so,
-	// so it keeps ticking (and finding nothing to reserve) until then.
-	if (HexMap.Num() > 0)
+	if (HexMap.Num() == 0)
 	{
-		ScheduleNextCollapseChain(GetCollapseInterval());
+		GetWorldTimerManager().ClearTimer(CollapseTimerHandle);
+		return;
+	}
+
+	const double Now = GetWorld()->GetTimeSeconds();
+	const float Elapsed = static_cast<float>(FMath::Max(Now - CollapseProgressTime, 0.0));
+	CollapseProgressTime = Now;
+
+	// A chain's tiles follow its first one CollapseTileStep apart, so the reservations end that much
+	// earlier and the platform's last tile still goes when the duration is up
+	const float Duration = GetCollapseDuration();
+	const float LastChainSpread = (CollapseChainLength - 1) * FMath::Max(CollapseTileStep, 0.f);
+	const float ReserveDuration = FMath::Max3(Duration - LastChainSpread, 0.5f * Duration, 0.05f);
+
+	CollapseProgress = FMath::Min(CollapseProgress + Elapsed / ReserveDuration, 1.f);
+
+	// The first chain goes at once (with the other platforms at this distance), the last one at
+	// progress 1. A one-tile platform can't do both: its tile goes with the others' last tiles.
+	const int32 Total = FMath::Max(CollapseTotalTiles, 1);
+	const int32 First = Total > 1 ? FMath::Min(CollapseChainLength, Total - 1) : 0;
+	const int32 Target = First + FMath::FloorToInt(CollapseProgress * static_cast<float>(Total - First));
+
+	// Tiles gone some other way (the Burrower's rotor) count as reserved, so the rest keeps to the schedule
+	int32 Free = CountFreeTiles();
+	int32 Reserved = Total - Free;
+
+	// A chain is reserved once the schedule has reached its end, so the last one (whatever is left)
+	// goes exactly at progress 1. A chain can come out shorter than its length (it runs into fallen
+	// tiles); the next one then comes that much sooner.
+	for (int32 Guard = 0; Free > 0 && Reserved + FMath::Min(CollapseChainLength, Free) <= Target && Guard < 64; ++Guard)
+	{
+		const int32 Num = ActivateRandomChain(CollapseChainLength);
+
+		if (Num <= 0)
+		{
+			break;
+		}
+
+		Reserved += Num;
+		Free -= Num;
 	}
 }
 
-float AMyHexPlatform::GetCollapseInterval() const
+float AMyHexPlatform::GetCollapseDuration() const
+{
+	const float Slowest = FMath::Max(CollapseDurationNearLead, 0.5f);
+	const float Fastest = FMath::Max(CollapseDurationFarBehind, 0.5f);
+
+	// The speed (1 / duration) follows the curve, so it eases in rather than the duration
+	const float Speed = FMath::Lerp(1.f / Slowest, 1.f / Fastest, GetCollapseSpeedAlpha());
+
+	return 1.f / FMath::Max(Speed, KINDA_SMALL_NUMBER);
+}
+
+float AMyHexPlatform::GetCollapseSpeedAlpha() const
 {
 	const AMyGameState* MyGameState = GetWorld()->GetGameState<AMyGameState>();
 	const float LeadDistance = MyGameState ? MyGameState->GetLeadSplineDistance() : -1.f;
 
-	// Nothing to measure against
+	// Nothing to measure against: as if right behind the lead
 	if (!HasSplineDistance() || LeadDistance < 0.f)
 	{
-		return CollapseIntervalAtLead;
+		return 0.f;
 	}
 
-	// SplineDistance grows with HexRadius (PCG works in radius-100 layout space and scales it up)
-	const float FalloffDistance = FMath::Max(CollapseFalloffDistance * HexRadius / 100.f, 1.f);
+	// SplineDistance grows with HexRadius (PCG works in radius-100 layout space and scales it up), so
+	// measure in layout space like the distances below
+	const float LayoutScale = FMath::Max(HexRadius / 100.f, KINDA_SMALL_NUMBER);
+	const float Behind = FMath::Max(LeadDistance - SplineDistance, 0.f) / LayoutScale;
 
-	// Ahead of the lead (activated before the old leader left) counts as at the lead
-	const float Behind = FMath::Max(LeadDistance - SplineDistance, 0.f);
+	const float EaseStart = FMath::Max(CollapseEaseStartDistance, 0.f);
+	const float FarBehind = FMath::Max(CollapseFarBehindDistance, EaseStart + 1.f);
+	const float Linear = FMath::Clamp((Behind - EaseStart) / (FarBehind - EaseStart), 0.f, 1.f);
 
-	return FMath::Lerp(CollapseIntervalAtLead, CollapseIntervalFarBehind, FMath::Min(Behind / FalloffDistance, 1.f));
+	if (CollapseSpeedCurve)
+	{
+		return FMath::Clamp(CollapseSpeedCurve->GetFloatValue(Linear), 0.f, 1.f);
+	}
+
+	return FMath::Pow(Linear, FMath::Max(CollapseEaseExponent, 0.1f));
+}
+
+int32 AMyHexPlatform::GetCollapseChainLength(int32 TotalTiles) const
+{
+	const int32 MaxLength = FMath::Max(CollapseMaxChainLength, 1);
+	const int32 MinLength = FMath::Clamp(CollapseMinChainLength, 1, MaxLength);
+	const int32 Chains = FMath::Max(CollapseChainsPerPlatform, 1);
+
+	return FMath::Clamp(FMath::RoundToInt(static_cast<float>(TotalTiles) / static_cast<float>(Chains)), MinLength, MaxLength);
 }
 
 
@@ -439,6 +512,7 @@ void AMyHexPlatform::NotifyLeadLanded()
 	}
 
 	bLeadLanded = true;
+	LeadLandedTime = GetWorld()->GetTimeSeconds();
 	FreezePath();
 	TryStartCollapsing();
 }
@@ -453,6 +527,7 @@ void AMyHexPlatform::TryStartCollapsing()
 		if (MyGameState && SplineDistance <= MyGameState->GetActivatedSplineDistance())
 		{
 			bLeadLanded = true;
+			LeadLandedTime = GetWorld()->GetTimeSeconds();
 		}
 	}
 
@@ -473,6 +548,13 @@ void AMyHexPlatform::UpdateLeadState()
 	UMyHexBridgeSubsystem* Subsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>();
 	APawn* Lead = Subsystem ? Subsystem->GetLeadPawn() : nullptr;
 
+	// The start platform placed in the level (no SplineDistance): players spawn here while nobody is
+	// ranked yet, so there is no lead to see them
+	if (!HasSplineDistance() && !bPlayersVisited && IsAnyPlayerOnPlatform())
+	{
+		bPlayersVisited = true;
+	}
+
 	// No lead (not spawned yet, dead, respawning): nothing lands and nothing is culled
 	if (!IsValid(Lead))
 	{
@@ -487,11 +569,17 @@ void AMyHexPlatform::UpdateLeadState()
 		bLeadReached = true;
 	}
 
-	// Platforms with a SplineDistance are activated by AMyGameState when the lead's distance passes
-	// theirs. One the PCG graph gave no distance falls back to the lead standing on it.
-	if (bLeadOn && !HasSplineDistance())
+	// Platforms with a SplineDistance are activated by AMyGameState once the lead's platform is past
+	// theirs. One the PCG graph gave no distance (the start platform placed in the level) starts once
+	// players have been on it and the lead stands on another platform, so it never collapses under the lead.
+	if (!HasSplineDistance() && !bLeadOn && (bLeadReached || bPlayersVisited))
 	{
-		NotifyLeadLanded();
+		const AActor* LeadBase = APawn::GetMovementBaseActor(Lead);
+
+		if (LeadBase && LeadBase != this && LeadBase->IsA<AMyHexPlatform>())
+		{
+			NotifyLeadLanded();
+		}
 	}
 
 	if (bAutoDestroyWhenLeftBehind
@@ -1625,98 +1713,70 @@ TArray<FIntVector> AMyHexPlatform::GenerateChain(
 
 
 // =============================================================================
-// Generate Random Chain
+// Random chain
 // =============================================================================
 
-void AMyHexPlatform::GenerateAndActivateChainFromRandomSelectedGrid()
+int32 AMyHexPlatform::CountFreeTiles() const
 {
-	//TODO Set variable ChainLength based on grid size
-	constexpr int32 ChainLength = 15;
-	
+	int32 Free = 0;
+
+	for (const TPair<FIntVector, int32>& Pair : HexMap)
+	{
+		if (!PendingActivationTiles.Contains(Pair.Key))
+		{
+			++Free;
+		}
+	}
+
+	return Free;
+}
+
+int32 AMyHexPlatform::ActivateRandomChain(int32 Length)
+{
 	// Server only.
-
-	if (!HasAuthority())
+	if (!HasAuthority() || HexMap.Num() == 0)
 	{
-		return;
+		return 0;
 	}
 
-	// Every tile is gone: stop the chain timer
-	if (HexMap.Num() == 0)
+	// Tiles no other chain has reserved yet
+	TArray<FIntVector> Free;
+	Free.Reserve(HexMap.Num());
+
+	for (const TPair<FIntVector, int32>& Pair : HexMap)
 	{
-		GetWorldTimerManager().ClearTimer(CollapseTimerHandle);
-		return;
-	}
-
-
-	TArray<FIntVector> Keys;
-
-	HexMap.GetKeys(Keys);
-
-	
-	// -------------------------------------------------------------
-	// If only a few tiles remain, destroy ALL of them.
-	// Don't rely on neighbor connectivity.
-	// -------------------------------------------------------------
-
-	if (Keys.Num() <= ChainLength)
-	{
-		for (const FIntVector& Coord : Keys)
+		if (!PendingActivationTiles.Contains(Pair.Key))
 		{
-			PendingActivationTiles.Add(Coord);
+			Free.Add(Pair.Key);
 		}
-
-		ActivateChain(Keys);
-
-		return;
 	}
-	
-	// Remove tiles that are already scheduled
-	// to be activated by another chain.
-	Keys.RemoveAll(
-		[this](const FIntVector& Coord)
-		{
-			return PendingActivationTiles.Contains(Coord);
-		}
-	);
 
-
-	if (Keys.Num() == 0)
+	if (Free.IsEmpty())
 	{
-		return;
+		return 0;
 	}
-	
 
-	// -------------------------------------------------------------
-	// Normal case
-	// -------------------------------------------------------------
+	TArray<FIntVector> Chain;
 
-	
-	const FIntVector RandomStart =
-		Keys[
-			FMath::RandRange(
-				0,
-				Keys.Num() - 1
-			)
-		];
+	if (Free.Num() <= FMath::Max(Length, 1))
+	{
+		// Only a few tiles left: take all of them, without relying on neighbour connectivity
+		Chain = MoveTemp(Free);
+	}
+	else
+	{
+		Chain = GenerateChain(Length, Free[FMath::RandRange(0, Free.Num() - 1)]);
+	}
 
-
-
-
-	const TArray<FIntVector> Chain =
-		GenerateChain(
-			ChainLength,
-			RandomStart
-		);
-
-	// Reserve the entire chain immediately.
-	// This prevents the next chain from using these tiles.
+	// Reserve the entire chain immediately, so the next chain can't use these tiles
 	for (const FIntVector& Coord : Chain)
 	{
 		PendingActivationTiles.Add(Coord);
 	}
 
-
 	ActivateChain(Chain);
+
+	return Chain.Num();
 }
 
 
@@ -1758,7 +1818,7 @@ void AMyHexPlatform::ActivateChain(
 				}
 			),
 
-			i * .1f,
+			i * FMath::Max(CollapseTileStep, 0.01f),
 
 			false
 		);
@@ -1781,17 +1841,11 @@ void AMyHexPlatform::ActivateHex(
 
 
 
-	// Don't activate it twice.
+	// Don't activate it twice. A chain's reservation of a tile that already went some other way is dropped.
 
-	if (LocalActivatedTiles.Contains(Coord))
+	if (LocalActivatedTiles.Contains(Coord) || !HexMap.Contains(Coord))
 	{
-		return;
-	}
-	
-
-
-	if (!HexMap.Contains(Coord))
-	{
+		PendingActivationTiles.Remove(Coord);
 		return;
 	}
 
@@ -2345,7 +2399,7 @@ void AMyHexPlatform::DebugBreakTiles(int32 NumChains)
 
 	for (int32 Chain = 0; Chain < NumChains; ++Chain)
 	{
-		GenerateAndActivateChainFromRandomSelectedGrid();
+		ActivateRandomChain(CollapseMaxChainLength);
 	}
 }
 
@@ -2785,7 +2839,38 @@ void AMyHexPlatform::ScheduleTileProps(float Delay)
 		Delay = FMath::Max(Delay, TimerManager.GetTimerRemaining(TilePropsTimerHandle));
 	}
 
-	TimerManager.SetTimer(TilePropsTimerHandle, this, &ThisClass::RebuildPathAndTileProps, FMath::Max(Delay, 0.01f), false);
+	TimerManager.SetTimer(TilePropsTimerHandle, this, &ThisClass::RequestTileProps, FMath::Max(Delay, 0.01f), false);
+}
+
+void AMyHexPlatform::RequestTileProps()
+{
+	// Nearer platforms (lower SplineDistance) first, a few at a time, so the ones a player reaches
+	// first get their props first
+	if (UMyHexTilePropsScheduler* Scheduler = GetWorld() ? GetWorld()->GetSubsystem<UMyHexTilePropsScheduler>() : nullptr)
+	{
+		Scheduler->Enqueue(this);
+		return;
+	}
+
+	RebuildPathAndTileProps();
+}
+
+void AMyHexPlatform::RunQueuedTileProps()
+{
+	RebuildPathAndTileProps();
+}
+
+bool AMyHexPlatform::IsGeneratingTileProps() const
+{
+	for (const UPCGComponent* PCG : { TilePropsPCG.Get(), HexTileProps2.Get(), AtmospherePCG.Get() })
+	{
+		if (PCG && PCG->IsGenerating())
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void AMyHexPlatform::RebuildPathAndTileProps()
@@ -2796,14 +2881,11 @@ void AMyHexPlatform::RebuildPathAndTileProps()
 		return;
 	}
 
-	// A generation still running would ignore the new request, so come back once it's done
-	for (const UPCGComponent* PropsPCG : { TilePropsPCG.Get(), HexTileProps2.Get() })
+	// A generation still running (atmosphere included) would ignore the new request, so come back once it's done
+	if (IsGeneratingTileProps())
 	{
-		if (PropsPCG && PropsPCG->IsGenerating())
-		{
-			ScheduleTileProps(0.25f);
-			return;
-		}
+		ScheduleTileProps(0.25f);
+		return;
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("%s: generating tile props (%d path start tiles, %d tiles fallen)"), *GetName(), PathStartTiles.Num(), LocalActivatedTiles.Num());

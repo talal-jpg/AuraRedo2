@@ -235,8 +235,10 @@ public:
 	void NotifyBridgesReady();
 
 	/**
-	 * Server. The lead has reached this platform: AMyGameState calls it on every platform whose
-	 * SplineDistance is <= the lead's. Latched, so it may arrive before the bridges are ready.
+	 * Server. The lead has moved past this platform: AMyGameState calls it on every platform whose
+	 * SplineDistance is behind the lead's platform (AMyGameState::CollapseStartBehindLead), so the
+	 * lead's own platform and the others at its distance wait. Latched, so it may arrive before the
+	 * bridges are ready; the collapse is timed from this moment either way.
 	 */
 	void NotifyLeadLanded();
 
@@ -298,6 +300,15 @@ public:
 	const TMap<FIntVector, FHexTileInfo>& GetTileInfos() const { return TileInfos; }
 
 	float GetHexRadius() const { return HexRadius; }
+
+	/**
+	 * UMyHexTilePropsScheduler: the queued tile prop generation may run now (nearest SplineDistance
+	 * first). Rebuilds the bridge path, then regenerates the props.
+	 */
+	void RunQueuedTileProps();
+
+	/** A tile prop or atmosphere generation of this platform is still running (this machine). */
+	bool IsGeneratingTileProps() const;
 
 	/** Paving stones on the bridge paths, laid out on the grid as built (fallen tiles included). */
 	const TArray<FHexPavingSlab>& GetPavingSlabs() const { return PavingSlabs; }
@@ -584,36 +595,75 @@ protected:
 
 	// -------------------------------------------------------------------------
 	// Collapse timing (server only)
+	//
+	// Every platform collapses in the same time once it starts, whatever its size: CollapseDuration
+	// seconds from its first chain to its last tile. Platforms activated together at the same
+	// SplineDistance therefore start together and lose their last tile together, the small ones by
+	// dropping single tiles more slowly. The duration follows how far this platform is behind the
+	// lead's platform and is re-read on every update: slowest right behind the lead, staying slow up
+	// to CollapseEaseStartDistance, then speeding up along an ease-in curve to its fastest at
+	// CollapseFarBehindDistance.
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Seconds between collapse chains while this platform is at the lead player's distance
-	 * (AMyGameState ranking). Also used when this platform or the lead has no SplineDistance.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.05"))
-	float CollapseIntervalAtLead = 5.f;
+	/** Seconds to collapse a whole platform while it is CollapseEaseStartDistance or less behind the lead's platform. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.5"))
+	float CollapseDurationNearLead = 60.f;
 
-	/** Seconds between collapse chains once this platform is CollapseFalloffDistance or more behind the lead. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.05"))
-	float CollapseIntervalFarBehind = 1.5f;
+	/** Seconds to collapse a whole platform once it is CollapseFarBehindDistance or more behind the lead's platform. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.5"))
+	float CollapseDurationFarBehind = 20.f;
 
 	/**
-	 * Path distance behind the lead (cm, for HexRadius 100; scaled by HexRadius / 100) over which the
-	 * interval goes from CollapseIntervalAtLead down to CollapseIntervalFarBehind. Re-checked before every chain.
+	 * Path distance behind the lead's platform (cm at HexRadius 100, scaled by HexRadius / 100) up to
+	 * which platforms collapse at their slowest (CollapseDurationNearLead). Centre platforms are 5000 apart.
 	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.0"))
+	float CollapseEaseStartDistance = 5000.f;
+
+	/** Path distance behind the lead's platform (as above) from which platforms collapse at their fastest (CollapseDurationFarBehind). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "1.0"))
-	float CollapseFalloffDistance = 10000.f;
+	float CollapseFarBehindDistance = 25000.f;
 
-	/** Seconds from the start of collapsing to the first chain. */
+	/**
+	 * Shape of the speed-up between the two distances: 1 = linear, 2 = ease in (stays slow longer,
+	 * then ramps up hard), higher = later and harder. The speed (1 / duration) follows this curve.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.1"))
+	float CollapseEaseExponent = 2.f;
+
+	/**
+	 * Optional, replaces CollapseEaseExponent. X = 0..1 from CollapseEaseStartDistance to
+	 * CollapseFarBehindDistance, Y = 0..1 from the slowest to the fastest speed.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse")
+	TObjectPtr<UCurveFloat> CollapseSpeedCurve;
+
+	/**
+	 * About how many chains a platform collapses in. Chain length = tiles / this, clamped to
+	 * CollapseMinChainLength..CollapseMaxChainLength (and to half the tiles, so there are always two
+	 * or more), so small platforms get short chains. A one-tile platform loses its tile when the
+	 * others at its distance lose their last ones.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "1"))
+	int32 CollapseChainsPerPlatform = 12;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "1"))
+	int32 CollapseMinChainLength = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "1"))
+	int32 CollapseMaxChainLength = 15;
+
+	/** Seconds between the tiles of one chain. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.0"))
+	float CollapseTileStep = 0.1f;
+
+	/** Seconds from activation to the first chain. The same for every platform, so they still start together. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.0"))
 	float FirstCollapseDelay = 0.5f;
 
-	/** Platforms with this many tiles or fewer wait SmallPlatformFirstCollapseDelay instead (their first chain takes every tile). */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0"))
-	int32 SmallPlatformMaxTiles = 15;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.0"))
-	float SmallPlatformFirstCollapseDelay = 20.f;
+	/** Seconds between checks of a collapsing platform for the next chain. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "0.02"))
+	float CollapseUpdateInterval = 0.1f;
 
 
 	// -------------------------------------------------------------------------
@@ -977,7 +1027,14 @@ protected:
 	// Activation
 	// -------------------------------------------------------------------------
 
-	void GenerateAndActivateChainFromRandomSelectedGrid();
+	/**
+	 * Server. Reserves one chain of up to Length free tiles (every free tile once Length or fewer are
+	 * left) and starts it. Returns how many tiles it reserved.
+	 */
+	int32 ActivateRandomChain(int32 Length);
+
+	/** Tiles still standing that no chain has reserved. */
+	int32 CountFreeTiles() const;
 
 	void ActivateChain(
 		const TArray<FIntVector>& Chain
@@ -1070,14 +1127,20 @@ private:
 	/** Starts collapsing once the bridges are ready and (if required) the lead has landed. */
 	void TryStartCollapsing();
 
-	/** One-shot CollapseTimerHandle, re-armed after every chain so the interval follows the lead's distance. */
-	void ScheduleNextCollapseChain(float Delay);
+	/**
+	 * Looping CollapseTimerHandle callback: advances CollapseProgress by the elapsed time over the
+	 * current duration and starts chains until the reserved tiles catch up with it.
+	 */
+	void UpdateCollapse();
 
-	/** CollapseTimerHandle callback: one chain, then the next one is scheduled until every tile is gone. */
-	void CollapseNextChain();
+	/** Seconds the whole collapse takes at this platform's current distance behind the lead's platform. */
+	float GetCollapseDuration() const;
 
-	/** CollapseIntervalAtLead .. CollapseIntervalFarBehind by how far this platform is behind the lead. */
-	float GetCollapseInterval() const;
+	/** 0 (slowest) .. 1 (fastest): the eased position between CollapseEaseStartDistance and CollapseFarBehindDistance. */
+	float GetCollapseSpeedAlpha() const;
+
+	/** Chain length for a platform of TotalTiles tiles (CollapseChainsPerPlatform, clamped). */
+	int32 GetCollapseChainLength(int32 TotalTiles) const;
 
 	/** Looping timer: detects the lead landing on this platform and culls it once it is left behind. */
 	void UpdateLeadState();
@@ -1100,8 +1163,24 @@ private:
 	bool bBridgesReady = false;
 	bool bLeadLanded = false;
 
+	/** World time NotifyLeadLanded latched. The collapse is timed from it (plus FirstCollapseDelay). -1 = not yet. */
+	double LeadLandedTime = -1.0;
+
+	/** 0..1 through the collapse: the share of the tiles after the first chain that are reserved by now. */
+	float CollapseProgress = 0.f;
+
+	/** World time CollapseProgress was last advanced to. */
+	double CollapseProgressTime = 0.0;
+
+	/** Standing tiles when collapsing started, and the chain length worked out from them. */
+	int32 CollapseTotalTiles = 0;
+	int32 CollapseChainLength = 1;
+
 	/** The lead has stood on, or been above, this platform at least once. */
 	bool bLeadReached = false;
+
+	/** No SplineDistance (the level's start platform) and a player has stood on it. */
+	bool bPlayersVisited = false;
 
 	bool bPathResolved = false;
 	bool bOnPath = false;
@@ -1146,7 +1225,13 @@ private:
 	/** (Re)starts the tile prop timer: path rebuild + GenerateTileProps after Delay. */
 	void ScheduleTileProps(float Delay);
 
-	/** Timer: rebuilds the bridge path, then regenerates the props (waits while a component is still generating). */
+	/**
+	 * TilePropsTimerHandle: hands the generation to UMyHexTilePropsScheduler, which runs nearer platforms
+	 * first and only a few at a time (RunQueuedTileProps). Runs it here when there is no scheduler.
+	 */
+	void RequestTileProps();
+
+	/** Rebuilds the bridge path, then regenerates the props (comes back later while a component is still generating). */
 	void RebuildPathAndTileProps();
 
 	/** Sets PathDistance / PathDirection on every tile from PathStartTiles, laid out on PathLayoutTiles. */

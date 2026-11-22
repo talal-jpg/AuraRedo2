@@ -45,15 +45,15 @@ public:
 
 	/**
 	 * Server. Called when a player lands on a new platform (and on join / leave): re-sorts the players
-	 * by platform distance, works out who is leading, then activates every platform whose
-	 * SplineDistance is <= the lead's.
+	 * by platform distance, works out who is leading, then activates every platform behind the lead's
+	 * platform (SplineDistance <= the lead's - CollapseStartBehindLead).
 	 */
 	void UpdatePlayerRanking();
 
 	/**
-	 * Server. Furthest SplineDistance the lead has reached so far; platforms at or below it are
-	 * activated. -1 until someone lands on a platform. Never goes down, so a leader leaving doesn't
-	 * un-activate anything.
+	 * Server. Furthest activated SplineDistance so far (the lead's platform distance minus
+	 * CollapseStartBehindLead); platforms at or below it are activated. -1 until someone lands on a
+	 * platform. Never goes down, so a leader leaving doesn't un-activate anything.
 	 */
 	float GetActivatedSplineDistance() const { return ActivatedSplineDistance; }
 
@@ -93,13 +93,21 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player Ranking", meta = (ClampMin = "0.0"))
 	float LeadDistanceTolerance = 0.f;
 
+	/**
+	 * Platforms start collapsing once the lead's platform is more than this (cm of SplineDistance)
+	 * ahead of theirs. The default 1 starts every platform behind the lead's platform, while the lead's
+	 * own platform and the ring platforms that share its distance wait until the lead moves on.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player Ranking", meta = (ClampMin = "0.0"))
+	float CollapseStartBehindLead = 1.f;
+
 	UFUNCTION()
 	void OnRep_PlayerRanking();
 
 private:
 
-	/** Server. Activates (AMyHexPlatform::NotifyLeadLanded) every platform with SplineDistance <= LeadDistance. */
-	void ActivatePlatformsUpTo(float LeadDistance);
+	/** Server. Activates (AMyHexPlatform::NotifyLeadLanded) every platform with SplineDistance <= MaxDistance. */
+	void ActivatePlatformsUpTo(float MaxDistance);
 
 	float ActivatedSplineDistance = -1.f;
 };
