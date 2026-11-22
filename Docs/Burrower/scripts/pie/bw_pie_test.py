@@ -95,6 +95,7 @@ BW_DEFAULTS = {
                    'follow_min_deg': 0.5, 'follow_sign_min_deg': 2.0, 'follow_sign_agree_min': 0.7,
                    # l (death momentum)
                    'death_window_s': 1.0, 'death_pre_window_s': 0.3, 'death_carry_frac': 0.5, 'death_min_speed': 300.0,
+                   'death_carry_frac_ground': 0.35, 'death_ground_drop_cm': 150.0,
                    'death_vel_tol_frac': 0.25, 'death_ang_min_deg_s': 1.0, 'death_heading_min_deg': 3.0,
                    # m (stability)
                    'stable_max_bone_speed': 6000.0, 'stable_skip_first_s': 0.5, 'stable_sc_max_diff_deg': 3.0,
@@ -1753,7 +1754,22 @@ class BwRun(object):
         elif ph == 'spawn':
             self.ph_spawn()
         elif ph == 'follow':
-            if self.pt() >= self.T['follow_s']:
+            # kill_when_over_tiles: KillAll as soon as a Burrower flies at speed over intact tiles (J0, J2 and J4 each
+            # above an intact tile on the server), so check n can judge a landing; timeout -> kill anyway
+            over = self.kill_in_follow and bool(self.cfg.get('kill_when_over_tiles'))
+            if over and self.pt() >= float(self.cfg.get('kill_over_tiles_min_s', 6.0)):
+                timeout = self.pt() >= float(self.cfg.get('kill_over_tiles_timeout_s', 40.0))
+                if timeout or (self.due('over_tiles', 0.2) and self.over_intact_tiles()):
+                    if timeout:
+                        self.line('WARN', 'kill_when_over_tiles: no Burrower over intact tiles at speed within the timeout; killing anyway')
+                    self.eval_follow()
+                    if self.recording:
+                        self.safe_eval('j_climb_dive', self.eval_paths, also=['k_yaw_turn'])
+                    for k in ('e_tiles', 'g_damage'):
+                        self.check(k, 'OFF', 'not run in this config (kill_during_follow: KillAll during follow)')
+                    self.kill_begin()
+                    return
+            if not over and self.pt() >= self.T['follow_s']:
                 self.eval_follow()
                 if self.recording:
                     self.safe_eval('j_climb_dive', self.eval_paths, also=['k_yaw_turn'])
@@ -2704,6 +2720,53 @@ class BwRun(object):
 
     # ------------------------------------------------------------------ check h (death)
 
+    def over_intact_tiles(self):
+        """kill_when_over_tiles: True when a server Burrower moves faster than kill_over_tiles_min_speed (cm/s) with
+        J0_Head, J2_Midbody and J4_Tail each above an intact tile (bw_land_lookup on platform snapshots kept in
+        self.pre_snaps, re-read when a platform's tile count changes). Records the choice in R['kill_over_tiles']."""
+        if self.sw is None:
+            return False
+        cache = getattr(self, 'pre_snaps', None)
+        if cache is None:
+            cache = self.pre_snaps = {}
+        min_speed = float(self.cfg.get('kill_over_tiles_min_speed', 500.0))
+        rad = float(self.S.get('landing_snap_radius_cm', 6000.0))
+        for rec in self.alive_burrowers('server'):
+            try:
+                b = rec['actor']
+                v = bw_vec(b.get_velocity())
+                if math.hypot(v[0], v[1]) < min_speed:
+                    continue
+                pts = [self.bone_world(rec, n) for n in ('J0_Head', 'J2_Midbody', 'J4_Tail')]
+                if any(p is None for p in pts):
+                    continue
+                for key, p in self.platforms_in('server', self.sw).items():
+                    sn = cache.get(key)
+                    if sn is not None:
+                        try:
+                            if bw_valid(sn['actor']) and sn['ism'].get_instance_count() == sn['count']:
+                                continue
+                        except Exception:
+                            pass
+                    o, e = p.get_actor_bounds(False)
+                    o, e = bw_vec(o), bw_vec(e)
+                    if bw_len2d(bw_sub(pts[1], o)) - math.hypot(e[0], e[1]) > rad:
+                        continue
+                    sn = self.land_read_platform('server', p)
+                    if sn is not None:
+                        cache[key] = sn
+                snaps = [sn for sn in cache.values() if sn.get('cells')]
+                res = [bw_land_lookup(snaps, p, p[2]) for p in pts]
+                if all(r[0] == 'intact' for r in res):
+                    self.R['kill_over_tiles'] = {'t_follow': round(self.pt(), 2), 'burrower': rec['name'], 'speed_h': round(math.hypot(v[0], v[1]), 1),
+                                                 'height_above_tiles_cm': [round(p[2] - r[1], 1) for p, r in zip(pts, res)], 'platforms': [r[2] for r in res]}
+                    self.line('INFO', 'kill_when_over_tiles: %s at %.0f cm/s over intact tiles (%s), heights %s' % (
+                        rec['name'], math.hypot(v[0], v[1]), sorted(set(r[2] for r in res)), self.R['kill_over_tiles']['height_above_tiles_cm']))
+                    return True
+            except Exception:
+                self.err('over_intact_tiles')
+        return False
+
     def kill_begin(self):
         if self.cfg['spawn_mode'] == 'spawnnow' and self.cfg['enable_before_kill']:
             try:
@@ -3088,7 +3151,12 @@ class BwRun(object):
             disp = bw_sub(j2b, j2a)
             dirh = bw_norm(vh)
             carry = bw_dot((disp[0], disp[1], 0.0), dirh)
-            need = float(TH['death_carry_frac']) * sh * W
+            # A corpse that lands on tiles right away skids (default friction ~0.7 g: about v*t - 0.34*g*t^2), so it
+            # carries less than a free-flying one: judged against death_carry_frac_ground when it dropped < 150 cm
+            grounded = -disp[2] < float(TH.get('death_ground_drop_cm', 150.0))
+            frac = float(TH.get('death_carry_frac_ground', 0.35)) if grounded else float(TH['death_carry_frac'])
+            need = frac * sh * W
+            r['grounded_skid'] = grounded
             side = bw_dot((disp[0], disp[1], 0.0), (-dirh[1], dirh[0], 0.0))
             r.update({'j2_disp': bw_r(disp), 'carry_cm': bw_r(carry), 'need_cm': bw_r(need), 'side_cm': bw_r(side), 'drop_cm': bw_r(-disp[2]),
                       'carry_frac_of_v': bw_r(carry / (sh * W), 3) if sh > 1e-6 else None})

@@ -30,7 +30,8 @@ unreal.SystemLibrary.quit_editor()
 EOF
 # Match by process NAME (ps -C), then check the command line for the clone. Never grep the full args of every
 # process: the calling shell's own command line can contain both words (that killed the caller on 2026-11-21).
-ours() { for p in $(ps -C UnrealEditor,CrashReportClientEditor,CrashReportClient -o pid=); do tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q '_BurrowerWork' && echo $p; done; }
+# An exiting process can already have an empty /proc/<pid>/cmdline: count it as ours until it is gone.
+ours() { for p in $(ps -C UnrealEditor,CrashReportClientEditor,CrashReportClient -o pid=); do c=$(tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null); { [ -z "$c" ] || echo "$c" | grep -q '_BurrowerWork'; } && echo $p; done; }
 if [ -n "$(ours)" ]; then
   $H/inbox.sh quit $T 30
   for i in $(seq 1 180); do [ -z "$(ours)" ] && break; sleep 1; done
