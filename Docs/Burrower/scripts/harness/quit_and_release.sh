@@ -43,9 +43,6 @@ if [ -n "$(ours)" ]; then
 fi
 rm -f $T
 if [ -n "$(ours)" ]; then echo "NOT releasing the lock: still running $(ours | tr '\n' ' ')"; exit 1; fi
-if [ -d $L ] && grep -q '^burrower' $L/owner 2>/dev/null; then
-  rm -rf $L && echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) burrower released" >> /mnt/new_partition/UnrealProjects/.ue_lock_log
-  echo "lock released $(date -u +%T)"
-else
-  echo "lock not held by burrower; nothing released"
-fi
+# Release through lock.sh: only a lock owned by burrower, and with an argument only the exact lock this run took
+# (pass the owner line that "lock.sh take" printed/wrote).
+$H/lock.sh release "$1"
