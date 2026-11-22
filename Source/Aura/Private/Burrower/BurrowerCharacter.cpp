@@ -43,6 +43,10 @@ namespace BurrowerCharacterPrivate
 	// Below this speed (cm/s) the replicated velocity counts as "already stopped"
 	constexpr double MinMovingSpeed = 10.0;
 
+	// LastMovingVelocity older than this (s) is dropped: a Burrower that braked to a hover and dies later has none.
+	// Long enough to cover "the stop replicated just before the death RPC".
+	constexpr double MovingVelocityHoldTime = 0.5;
+
 	// A client's rotation only changes when a movement update arrives: a turn-rate sample spans the time since the
 	// last change, and after this long (s) without one it counts as not turning
 	constexpr double MaxTurnSampleGap = 0.25;
@@ -328,6 +332,11 @@ void ABurrowerCharacter::HandleBurrowerDeath()
 		// Physics collision before the bodies start simulating (they are QueryOnly while alive)
 		GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 
+		// The hex tiles (AMyHexPlatform::HexPillarsISM, profile BlockAllDynamic) are WorldDynamic. The alive mesh only
+		// overlaps WorldDynamic and the base adds a WorldStatic block only, so without this the corpse falls through
+		// them (a contact needs both sides to block). PhysicsBody stays Overlap (bridge planks, debris), Pawn Ignore.
+		GetMesh()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
+
 		// Base: the physics asset simulates (gravity, blocks WorldStatic, PhysicsOnly so nothing hits the corpse),
 		// capsule off, slot 0 dissolve, bIsDead, OnDeathDelegate
 		Super::MulticastHandleDeath_Implementation();
@@ -362,14 +371,19 @@ void ABurrowerCharacter::SampleDeathMotion()
 		return;
 	}
 
+	const double Now = World->GetTimeSeconds();
 	const FVector CurrentVelocity = GetVelocity();
 
 	if (CurrentVelocity.SizeSquared() > FMath::Square(MinMovingSpeed))
 	{
 		LastMovingVelocity = CurrentVelocity;
+		LastMovingVelocityTime = Now;
+	}
+	else if (Now - LastMovingVelocityTime > MovingVelocityHoldTime)
+	{
+		LastMovingVelocity = FVector::ZeroVector;
 	}
 
-	const double Now = World->GetTimeSeconds();
 	const FRotator Rotation = GetActorRotation();
 
 	if (!bHasTurnSample)
@@ -389,16 +403,27 @@ void ABurrowerCharacter::SampleDeathMotion()
 
 	// The server turns the actor every tick. A client's actor only turns when a movement update arrives, so it
 	// measures from one change to the next (the rate over the gap) instead of every tick (0, 0, then a jump).
-	if (!HasAuthority() && Rotation.Equals(LastTurnSampleRotation, 1.e-3) && Elapsed < MaxTurnSampleGap)
+	// No change yet: keep the time base on the last real change (moving it here would divide the next change by the
+	// time since this check, a sawtooth); after MaxTurnSampleGap without a change it is not turning.
+	if (!HasAuthority() && Rotation.Equals(LastTurnSampleRotation, 1.e-3))
 	{
+		if (Elapsed >= MaxTurnSampleGap)
+		{
+			TurnYawRateDeg = 0.0;
+			TurnPitchRateDeg = 0.0;
+		}
+
 		return;
 	}
 
+	// A client's first change after a long straight spans at most 2 x MaxTurnSampleGap, not the whole straight
+	const double SampleElapsed = HasAuthority() ? Elapsed : FMath::Min(Elapsed, 2.0 * MaxTurnSampleGap);
+
 	// Clamped: a spawn or a teleport is not a turn
 	const double MaxRate = 2.0 * FMath::Max(static_cast<double>(TurnRate), 1.0);
-	const double YawSample = FMath::Clamp(FMath::FindDeltaAngleDegrees(LastTurnSampleRotation.Yaw, Rotation.Yaw) / Elapsed, -MaxRate, MaxRate);
-	const double PitchSample = FMath::Clamp(FMath::FindDeltaAngleDegrees(LastTurnSampleRotation.Pitch, Rotation.Pitch) / Elapsed, -MaxRate, MaxRate);
-	const double Alpha = 1.0 - FMath::Exp(-Elapsed / TurnRateSmoothingTime);
+	const double YawSample = FMath::Clamp(FMath::FindDeltaAngleDegrees(LastTurnSampleRotation.Yaw, Rotation.Yaw) / SampleElapsed, -MaxRate, MaxRate);
+	const double PitchSample = FMath::Clamp(FMath::FindDeltaAngleDegrees(LastTurnSampleRotation.Pitch, Rotation.Pitch) / SampleElapsed, -MaxRate, MaxRate);
+	const double Alpha = 1.0 - FMath::Exp(-SampleElapsed / TurnRateSmoothingTime);
 
 	TurnYawRateDeg = FMath::Lerp(TurnYawRateDeg, YawSample, Alpha);
 	TurnPitchRateDeg = FMath::Lerp(TurnPitchRateDeg, PitchSample, Alpha);

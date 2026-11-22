@@ -418,6 +418,9 @@ private:
 	/** Last velocity above a crawl, for a client whose replicated velocity is already 0 when the death arrives. */
 	FVector LastMovingVelocity = FVector::ZeroVector;
 
+	/** World time when LastMovingVelocity was last refreshed (it expires after MovingVelocityHoldTime). */
+	double LastMovingVelocityTime = 0.0;
+
 	/** Smoothed actor turn rates (degrees per second): yaw increasing, and pitch increasing (nose up). */
 	double TurnYawRateDeg = 0.0;
 	double TurnPitchRateDeg = 0.0;
