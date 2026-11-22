@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: bw_05b_use_pin_ui.sh -> ticks "Use Pin" x9 on ABP_Burrower's Control Rig node through the editor UI
+# usage: bw_05b_use_pin_ui.sh -> ticks "Use Pin" on the 19 rig variable rows of ABP_Burrower's Control Rig node through the editor UI
 # (see bw_05b_use_pin_ui.py), one inbox call per UI action. The clone editor must be running (harness/launch.sh) on a
 # visible workspace, with no other window covering the ABP editor. Then re-run bw_05_anim_bp.py.
 D=/mnt/new_partition/UnrealProjects/_BurrowerWork/Docs/Burrower/scripts

@@ -15,6 +15,7 @@ frame rate trick, missing-pawn restart, server-spline steering, gun injection, T
 | `bw_pie_test.py` | The test. Inbox script: preflight, in-memory setup, starts PIE, registers the state machine, returns at once. |
 | `bw_pie_config.json` | Main config (SpawnNow per player index). Merged over `BW_DEFAULTS` in the script. |
 | `bw_pie_config_auto.json` + `bw_pie_run_auto.py` | Variant: the first Burrower comes from the spawner itself (`FirstSpawnDelay`). |
+| `bw_pie_config_turns.json` + `bw_pie_run_turns.py` | Variant: players weave up/down and left/right, head path recorded, `KillAll` at speed; checks j, k, l, m (section "Turns variant"). |
 | `bw_pie_preflight.py` | Inbox script: only the read-only checks (changes nothing, no PIE). |
 | `bw_pie_report.py` | Prints the result as `PASS:/FAIL:/WARN:/INFO:` lines. Plain `python3` (or inbox). `--full` adds the data. |
 | `bw_pie_wait.sh` | Waits for the run to finish (or a crash / editor exit), progress every 30 s, then the report. |
@@ -154,6 +155,93 @@ All positions in cm. "component space" = the Burrower mesh component (`get_bone_
   One render target per world, made once; a failed capture setup is not retried (leaked render targets crashed Vulkan
   before). `max_captures` caps the total. Scene captures are written as `<label>_<kind>_<role>.png`.
 * `fixed_frame_rate`: 30 (UnrealEdEngine `bUseFixedFrameRate`/`FixedFrameRate`, restored after). `force_refresh_bones`.
+
+## Turns variant (bw_pie_config_turns.json): path-follow bend and death momentum
+
+For the 2026-11-22 fixes (the tail traces the head's path in yaw and pitch; the corpse keeps its velocity and turn).
+Arm with `$H/inbox.sh pie $P/bw_pie_run_turns.py 120`, wait with `$P/bw_pie_wait.sh 2700`. Every switch below is off
+in `BW_DEFAULTS`, so the main / auto / gun / crragdoll runs behave exactly as before (same phases, same checks a..i;
+the only addition there is `o_no_attach_warning`, evaluated from the editor log in every config).
+
+**`bw_pie_report.py` only lists a..i** (its order list is fixed): read j..m from the log or the JSON:
+`grep -E '(PASS|FAIL|WARN): [jklm]_' /mnt/new_partition/UnrealProjects/_BurrowerWork/Saved/Burrower/pie_log.txt | tail -4`, or
+`python3 -c "import json; d=json.load(open('/mnt/new_partition/UnrealProjects/_BurrowerWork/Saved/Burrower/pie_result.json')); [print(k, c['status'], c['summary']) for k, c in d['checks'].items()]"`.
+`bw_pie_wait.sh` progress lines show every check's status. `e_tiles` / `g_damage` say `OFF` (not run; INFO, not a WARN).
+
+Timeline: wait_pawns, warmup 14 s, spawn, **follow 18 s weaving**, then at the follow's end (b, c, d, f, j, k evaluated)
+straight to **kill** (`KillAll` while the Burrowers fly at ~900-1400 cm/s; h, l, m, n after `ragdoll_s`, 5.5 s in this config), respawn (i).
+No cut / damage phases. About 45 s of game time after the warmup.
+
+Switches and keys (all in `BW_DEFAULTS`):
+
+* `move.weave_y_amp` / `weave_y_period` (1500 cm / 9 s), `move.weave_z_amp` / `weave_z_period` (700 cm / 6 s): during
+  follow each pawn flies along its lane's spline (the server's, as before) at `move.speed`, with the side offset
+  `A sin(2 pi t / P)` from the spline (horizontal normal) and the height `centre + A sin(2 pi t / P)` above it; the pawn's
+  wanted velocity is the offsets' rates plus `weave_gain` (1.5 /s) times their errors (so it really flies the weave, not
+  a lagged copy of a moving carrot). `centre = max(follow_z, weave_z_floor + weave_z_amp)` (`weave_z_floor` 500 cm, the
+  old safe lane height: the lowest point stays 5 m above the path, i.e. the lane runs 5..19 m above the path). The side
+  part is capped so the speed stays within `weave_max_speed` (0 = auto: 1.15 x sqrt(speed^2 + peak side rate^2 + peak
+  height rate^2), ~1800 cm/s); every copy of every player pawn gets that `MaxFlySpeed` during follow and `move.speed`
+  again after (the analog input size sets the actual speed). `series.weave` in the JSON has wanted vs flown offsets at 2 Hz.
+* `record_head_path`: every `sampling.path_dt` (0.03 = every frame at 30 fps) in spawn + follow, and every frame for
+  `sampling.kill_track_s` (2.5 s) after `KillAll`: per Burrower on server and client, `J0..J4` world positions, actor
+  location / velocity, mesh component world transform, the anim instance's `FollowYawDeg1..4`, `FollowPitchDeg1..4`,
+  `DeathVelocity`, `DeathAngularVelocity`, `bIsDead`. Written to `Saved/Burrower/pie_headpath_<run>.json` (`columns` +
+  one row per sample) at the kill evaluation and at the end. The frame a machine first sees a Burrower dead is its death
+  frame (`death_t`, `death_base`).
+* `kill_during_follow`: `KillAll` at the end of follow, no cut / damage. (h) then measures bones and actor from each
+  machine's death frame (a client copy flies on until the death reaches it). Implies the recording.
+* Property names: the anim instance values are read as `follow_yaw_deg1` (UE keeps a trailing digit on the word:
+  CamelCaseBreakIterator.cpp:125-133), falling back to `follow_yaw_deg_1` and the C++ name `FollowYawDeg1` (an unmapped
+  name falls through as the C++ name, PyWrapperObject.cpp:1223-1240). Missing (old C++): logged once, the dependent
+  check reports WARN with its would-be verdict, never a crash. The character's `PathFollow*`, `bInheritVelocityOnDeath`,
+  `DeathVelocityScale`, `bInheritTurnOnDeath` are read the same way (missing: the fixed-interface defaults are used).
+
+The checks (server and client, every Burrower; numbers in `checks.<key>.data`):
+
+* **(j) j_climb_dive**: eval samples every `path_eval_dt` 0.1 s of the follow with |pitch rate| > `j_pitch_rate_min` 8
+  deg/s (rates from the MESH rotation over +-0.15 s, so client mesh smoothing is included). Head path = the recorded
+  `J0_Head` positions back to the tail tip's arc length + `path_trail_margin_cm` 200 (~2.5 s at 900 cm/s; samples whose
+  path is shorter than J4's arc length + 50 cm are skipped). For the bent `J4_Tail` and for a RIGID J4 (the mesh's current
+  transform applied to J4's reference position) the offset from the nearest path point is split along the path
+  normals; j uses the vertical part (k the sideways part), so a yaw bend cannot hide a rigid pitch. Metric
+  `path_ratio_metric` `signed` (default): mean of the bent offset measured toward the side the rigid tail lies on,
+  divided by the mean |rigid offset| (the body wave swings both ways and cancels; `abs` = mean |bent| / mean |rigid|, the
+  literal reading, and `3d` are reported too and selectable). PASS per Burrower: ratio < `path_ratio_max` 0.6, and
+  `FollowPitchDeg1..4` nonzero (max >= `follow_min_deg` 0.5) with the sign the trail prescribes in >= 70 %
+  (`follow_sign_agree_min`) of the joint samples where that expected angle is >= `follow_sign_min_deg` 2. WARN when
+  fewer than 10 turning samples (`path_min_samples`) or the rigid error is < 25 cm (`path_min_rigid_cm`: turns too
+  gentle to judge), or only one machine had data.
+  The expected angles are the fixed-interface formula run on the harness's own trail (`bw_follow_expected`: targets at
+  the ref-pose arc lengths 340 / 740 / 1260 / 1560 / 2017 cm, segment directions in component space, global yaw / pitch
+  vs the rest directions, local = difference to the previous segment, head segment = 0, x strength, clamped). Sign rule
+  this gives (offline-tested): pitch rate > 0 (nose rising) -> the path behind lies ABOVE the backward head line ->
+  `FollowPitchDeg` > 0 (tail lifted toward +Z); a right turn (yaw rate > 0, toward +Y) -> `FollowYawDeg` < 0. Also
+  reported: per-joint mean |anim - expected|, joint 1's sign vs the rate, and `expected_straight_flight_deg`: the literal
+  formula gives pitch about -1.0 / +1.0 / -0.4 / 0 deg in straight level flight (the reference chain is not straight).
+* **(k) k_yaw_turn**: the same with |yaw rate| > `k_yaw_rate_min` 10 deg/s, the sideways part of the path error and
+  `FollowYawDeg1..4`.
+* **(l) l_death_momentum**: pre-death velocity = actor displacement over the last `death_pre_window_s` 0.3 s before
+  `KillAll` (+ mean `GetVelocity()` for information); J2_Midbody's displacement over `death_window_s` 1.0 s from the
+  machine's death frame. PASS: horizontal carry along the pre-death horizontal direction >= `death_carry_frac` 0.5 x
+  |v_h| x 1 s, and the anim `DeathVelocity` (first nonzero value after death) within `death_vel_tol_frac` 25 % (vector
+  error / |expected|) of `DeathVelocityScale` x the measured velocity, or of `DeathVelocityScale` x that machine's last
+  `GetVelocity()` above 10 cm/s before its own death frame (what the C++ captures there: a client dies later and has
+  turned meanwhile); zero expected when `bInheritVelocityOnDeath` is off. WARN: |v_h| < 300 cm/s (`death_min_speed`, not "at speed"). Reported: drop, sideways drift, angle and speed ratio
+  of `DeathVelocity`, `DeathAngularVelocity` vs the measured rates (expected `(0, 0, yaw rate) - right x pitch rate`:
+  a nose-up pitch rate is a NEGATIVE rotation about the actor's right axis, FRotator pitch +p = FQuat(+Y, -p),
+  UnrealMath.cpp:532-535; a wrong sign is a WARN), and the corpse heading change (J0 - J4 horizontal) over the window
+  vs `DeathAngularVelocity.z` x 1 s (opposite sign with >= 3 deg expected: WARN "does not keep curving"), and the
+  Follow* values 1..2 s after death (should have faded to 0).
+* **(m) m_stable**: no NaN / inf in any recorded sample (bones, transforms, anim values, also the ragdoll); max bone
+  speed while alive < `stable_max_bone_speed` 6000 cm/s (from consecutive samples, the first 0.5 s after a Burrower
+  appeared and gaps > 0.5 s skipped); server vs client `FollowYawDeg` / `FollowPitchDeg` (same player's Burrower, same
+  frames, the client shifted by 0..`stable_sc_max_lag_s` 0.3 s, best lag reported): mean abs difference over the 8
+  values < `stable_sc_max_diff_deg` 3 deg. Missing anim values: WARN (not compared); NaN or speed: FAIL.
+
+Not verified (needs the editor): that the pawns really fly the weave near the hex path (`series.weave`; if they get
+stuck on tall props raise `weave_z_floor`), how far the Burrowers lag a weaving player (b may fail in this variant;
+it is not what this run is for), and the client mesh smoothing lag in m.
 
 ## Safety and cleanup
 

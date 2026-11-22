@@ -1,0 +1,33 @@
+{
+  "_doc": "Turns / death-momentum variant (README.md 'Turns variant'): during follow the players' lane height oscillates 700 cm (6 s period, centre raised so the lowest point stays move.weave_z_floor 500 cm above the path) and its side offset 1500 cm (9 s period), so the Burrowers climb, dive and turn left/right; every Burrower's J0..J4, mesh transform and anim path-follow / death values are recorded on server and client (Saved/Burrower/pie_headpath_pie_turns.json); at the end of follow (18 s) Aura.Burrower.KillAll runs while they fly at speed; no cut / damage phases (e_tiles, g_damage report OFF). The kill phase lasts timeline.ragdoll_s 5.5 s so check n sees every corpse for landing_after_s 4 s after its death on both machines (a client sees the death up to ~0.3 s later; i_respawn still starts before SpawnInterval 8 s). Checks a..d, f, h, i as usual plus j_climb_dive, k_yaw_turn, l_death_momentum, m_stable, n_death_landing (corpses that start over intact hex tiles come to rest on them), o_no_attach_warning.",
+  "run_name": "pie_turns",
+  "record_head_path": true,
+  "kill_during_follow": true,
+  "landing_check": true,
+  "move": {
+    "weave_z_amp": 700.0,
+    "weave_z_period": 6.0,
+    "weave_y_amp": 1500.0,
+    "weave_y_period": 9.0
+  },
+  "timeline": {
+    "follow_s": 18.0,
+    "ragdoll_s": 5.5
+  },
+  "sampling": {
+    "path_dt": 0.03
+  },
+  "shots": {
+    "plan": [
+      {"phase": "spawn", "at": 1.0, "label": "a_spawn", "kinds": ["side"]},
+      {"phase": "follow", "at": 7.0, "label": "d_rotor", "kinds": ["rotor"]},
+      {"phase": "follow", "at": 9.5, "label": "jk_turn1", "kinds": ["side"]},
+      {"phase": "follow", "at": 13.0, "label": "jk_turn2", "kinds": ["side", "top"]},
+      {"phase": "follow", "at": 16.5, "label": "jk_turn3", "kinds": ["side"]},
+      {"phase": "kill", "at": 0.5, "label": "l_death_05", "kinds": ["side", "player"]},
+      {"phase": "kill", "at": 1.0, "label": "l_death_10", "kinds": ["side"]},
+      {"phase": "kill", "at": 2.5, "label": "l_death_25", "kinds": ["side", "player"]},
+      {"phase": "respawned", "at": 1.5, "label": "i_respawn", "kinds": ["side", "player"]}
+    ]
+  }
+}

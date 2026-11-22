@@ -4,7 +4,15 @@
 #   ABP_Burrower: parent /Script/Aura.BurrowerAnimInstance, target skeleton SKEL_Burrower, preview mesh SK_Burrower,
 #   multi-threaded update on, EventGraph empty, AnimGraph = Control Rig node (CR_Burrower) -> Output Pose,
 #   Alpha 1, LOD threshold -1, bTransferInputPose on, plus one "Get <property>" node per rig variable, wired to the
-#   Control Rig node's pin of the same name as soon as that pin exists.
+#   Control Rig node's pin of the same name as soon as that pin exists. 19 variables since 2026-11-22 (BW05_VARS):
+#   the 9 of the first build + FollowYawDeg1..4 / FollowPitchDeg1..4 (float, path-follow bend) + DeathVelocity /
+#   DeathAngularVelocity (FVector, world cm/s and deg/s for the ragdoll's death kick, bw_04 deviation 25).
+#   FVector rig variables: UBlueprintGraphEditor::AddGetMemberVariableNode is type-agnostic (finds the FProperty on the
+#   skeleton class, BlueprintGraphEditor.cpp:872-913), the Control Rig node makes a struct pin for every public rig
+#   variable of any type (FControlRigIOMapping::RebuildExposedProperties, ControlRigIOMapping.cpp; the curve option
+#   is float only, the pin is not) and UAnimGraphNode_ControlRig::PostReconstructNode re-encodes FVector pin defaults.
+#   The report checks that each wired pin has the same K2 type as its getter (Float (single-precision) / Boolean /
+#   Vector).
 #
 # Route (all verified in the 5.8 source, see the report of the agent that wrote this):
 #   * AnimBlueprintFactory(parent_class, target_skeleton, preview_skeletal_mesh) + AssetTools.create_asset.
@@ -20,8 +28,10 @@
 #     set_editor_property and ToolsetLibrary refuse it, the console "set" command is disabled in the editor
 #     (UUnrealEdEngine::Exec), and the only writer is the details panel's "Use Pin" checkbox. FAnimNode_ControlRig's
 #     InputMapping / OutputMapping are curve mappings (rig variable <- anim curve, float only), not property bindings,
-#     so they cannot replace the pins. -> The script prints the few clicks (tick "Use Pin" x9), and a re-run then
-#     wires the getters, compiles and saves.
+#     so they cannot replace the pins. -> The script prints the clicks (tick "Use Pin" on every rig variable row;
+#     bw_05b_use_pin_ui.sh does it through the editor UI), and a re-run then wires the getters, compiles and saves.
+#     Pins already exposed keep their tick when the rig gains variables (RebuildExposedProperties keeps
+#     OldExposedPinNames), so after the 2026-11-22 rig rebuild only the 10 new rows need ticking.
 #
 # Run (inbox harness in the clone's editor, nothing else needs frames, so no state machine):
 #   Docs/Burrower/scripts/harness/inbox.sh 05 Docs/Burrower/scripts/bw_05_anim_bp.py 300
@@ -60,7 +70,8 @@ BW05_CR = BW05_DIR + '/CR_Burrower'
 BW05_PARENT = '/Script/Aura.BurrowerAnimInstance'
 BW05_CRNODE_CLASS = '/Script/ControlRigDeveloper.AnimGraphNode_ControlRig'   # AnimGraphNode_ControlRig.h, ControlRigDeveloper
 BW05_CRNODE_MENU = 'Misc.|ControlRig'   # UAnimGraphNode_Base::GetNodeCategory "Misc." | GetNodeTitle "Control Rig", spaces removed
-# Rig variable name, expected kind. Names = UBurrowerAnimInstance properties = CR_Burrower public variables.
+# Rig variable name, expected kind. Names = UBurrowerAnimInstance properties = CR_Burrower public variables
+# (Source/Aura/Public/Burrower/BurrowerAnimInstance.h; bw_04_control_rig.PUBLIC_VARS; bw_05b_use_pin_ui.VARS).
 BW05_VARS = [
     ('RotorAngleDeg', 'float'),
     ('RotorSpinSpeed', 'float'),
@@ -71,7 +82,45 @@ BW05_VARS = [
     ('Speed', 'float'),
     ('bIsDead', 'bool'),
     ('DeathTime', 'float'),
+    # 2026-11-22: path-follow bend (local yaw / pitch of J1..J4 in the rig's convention, added to the body wave)
+    ('FollowYawDeg1', 'float'),
+    ('FollowYawDeg2', 'float'),
+    ('FollowYawDeg3', 'float'),
+    ('FollowYawDeg4', 'float'),
+    ('FollowPitchDeg1', 'float'),
+    ('FollowPitchDeg2', 'float'),
+    ('FollowPitchDeg3', 'float'),
+    ('FollowPitchDeg4', 'float'),
+    # 2026-11-22: death kick of the Control Rig ragdoll (world vectors, zero while alive)
+    ('DeathVelocity', 'vector'),          # cm/s
+    ('DeathAngularVelocity', 'vector'),   # deg/s
 ]
+BW05_NVARS = len(BW05_VARS)
+
+
+def _bw05_cpp_ok(kind, cpp):
+    """Rig variable cpp type as FRigVMGraphVariableDescription reports it ('float', 'bool', 'FVector')."""
+    if kind == 'bool':
+        return cpp == 'bool'
+    if kind == 'vector':
+        return cpp in ('FVector', 'TVector<double>', '/Script/CoreUObject.Vector')
+    return cpp in ('float', 'double')
+
+
+def _bw05_value_ok(kind, value):
+    """Python type of the anim instance CDO property (get_editor_property)."""
+    if kind == 'bool':
+        return isinstance(value, bool)
+    if kind == 'vector':
+        return isinstance(value, unreal.Vector)
+    return isinstance(value, float) and not isinstance(value, bool)
+
+
+def _bw05_pin_type(p):
+    try:
+        return str(unreal.BlueprintGraphPinLibrary.get_pin_type_display_string(p))
+    except Exception:
+        return '?'
 
 _bw05_counts = {'PASS': 0, 'FAIL': 0, 'WARN': 0}
 _bw05_summary = {'check_only': CHECK_ONLY, 'time': time.strftime('%Y-%m-%d %H:%M:%S')}
@@ -274,13 +323,21 @@ def _bw05_load_deps():
         return None
     d['parent'] = parent
     cdo = unreal.get_default_object(parent)
-    missing = []
-    for v, _k in BW05_VARS:
+    missing, badtype = [], []
+    for v, k in BW05_VARS:
         try:
-            cdo.get_editor_property(v)
+            val = cdo.get_editor_property(v)
         except Exception:
             missing.append(v)
-    if not _bw05_ok(not missing, 'BurrowerAnimInstance has the 9 properties%s' % ((' (missing: %s)' % missing) if missing else '')):
+            continue
+        if not _bw05_value_ok(k, val):
+            badtype.append('%s is %s, expected %s' % (v, type(val).__name__, k))
+    if not _bw05_ok(not missing and not badtype, 'BurrowerAnimInstance has the %d properties%s%s' % (
+            BW05_NVARS, (' (missing: %s)' % missing) if missing else '', (' (wrong type: %s)' % badtype) if badtype else '')):
+        if missing:
+            _bw05_out('INFO', 'hint: the editor runs an older Aura module (the 2026-11-22 properties FollowYawDeg1..4, '
+                              'FollowPitchDeg1..4, DeathVelocity, DeathAngularVelocity come with commit bcaf45d): build '
+                              'AuraEditor and restart the editor')
         return None
 
     skel = unreal.EditorAssetLibrary.load_asset(BW05_SKEL) if unreal.EditorAssetLibrary.does_asset_exist(BW05_SKEL) else None
@@ -349,11 +406,11 @@ def _bw05_load_deps():
                 pass
         for v, kind in BW05_VARS:
             if v not in rig:
-                _bw05_out('FAIL', 'CR_Burrower has no variable %s (names must match the anim instance properties)' % v)
+                _bw05_out('FAIL', 'CR_Burrower has no variable %s (names must match the anim instance properties; '
+                                  'rebuild the rig with bw_04_control_rig.py)' % v)
             else:
                 cpp, pub = rig[v]
-                okt = (cpp == 'bool') if kind == 'bool' else (cpp in ('float', 'double'))
-                _bw05_ok(pub and okt, 'rig variable %s: type %s, public %s' % (v, cpp, pub))
+                _bw05_ok(pub and _bw05_cpp_ok(kind, cpp), 'rig variable %s: type %s, public %s (expected %s)' % (v, cpp, pub, kind))
     d['rig_vars'] = rig
     d['node_cls'] = None
     try:
@@ -547,11 +604,11 @@ def _bw05_report(bp, d, compile_now):
         _bw05_out('INFO', 'AnimGraph node %s "%s" at (%d, %d) [%s]' % (_bw05_cname(n), _bw05_title(n), x, y, n.get_name()))
         for out in (False, True):
             for p in _bw05_pins(n, out):
+                ty = _bw05_pin_type(p)
                 try:
-                    ty = str(unreal.BlueprintGraphPinLibrary.get_pin_type_display_string(p))
                     val = str(unreal.BlueprintGraphPinLibrary.get_pin_value(p))
                 except Exception:
-                    ty, val = '?', ''
+                    val = ''
                 lk = ['%s.%s' % (_bw05_title(unreal.BlueprintGraphPinLibrary.get_owning_node(q)), _bw05_pin_name(q)) for q in _bw05_links(p)]
                 _bw05_out('INFO', '    %s %s [%s]%s%s' % ('out' if out else 'in ', _bw05_pin_name(p), ty,
                                                         (' = %r' % val) if (val and not out) else '',
@@ -592,17 +649,26 @@ def _bw05_report(bp, d, compile_now):
         if ap is not None:
             _bw05_ok(str(unreal.BlueprintGraphPinLibrary.get_pin_value(ap)) in ('1', '1.0', '1.000000') or bool(_bw05_links(ap)),
                      'Alpha pin = %s' % unreal.BlueprintGraphPinLibrary.get_pin_value(ap))
-        for v, _k in BW05_VARS:
+        for v, k in BW05_VARS:
             p = _bw05_find_pin(cr_node, v)
             if p is None:
                 _bw05_out('WARN', 'rig variable %s is not exposed as a pin yet (needs the "Use Pin" tick)' % v)
                 continue
             exposed.append(v)
             gs = getters.get(v, [])
-            ok = any(_bw05_linked_to(p, gn, v) for gn in gs)
+            src = [gn for gn in gs if _bw05_linked_to(p, gn, v)]
+            ok = bool(src)
             if ok:
                 linked.append(v)
             _bw05_ok(ok, 'pin %s <- Get %s' % (v, v))
+            # same K2 type on both ends (a float/double or struct mismatch would need a conversion node in between)
+            pt = _bw05_pin_type(p)
+            if k == 'vector':
+                _bw05_ok('vector' in pt.lower(), 'pin %s is a Vector struct pin (%s)' % (v, pt))
+            if ok:
+                outs = _bw05_pins(src[0], out=True)
+                gt = _bw05_pin_type(outs[0]) if outs else '?'
+                _bw05_ok(gt == pt, 'pin %s type %s = Get %s type %s' % (v, pt, v, gt))
     st['exposed'] = exposed
     st['linked'] = linked
 
@@ -634,12 +700,14 @@ def _bw05_report(bp, d, compile_now):
 
 
 BW05_MANUAL = [
+    'Scripted: Docs/Burrower/scripts/bw_05b_use_pin_ui.sh ticks the rows through the editor UI (clone editor on a '
+    'visible workspace); if it stops before ALL_TICKED, run it again (it resumes). By hand: steps 2-5.',
     'Content Browser: double-click /Game/Assets/Enemies/Burrower/ABP_Burrower (AnimGraph tab opens).',
     'Click the "Control Rig" node (between the green Get nodes and Output Pose).',
-    'Details panel, section "Input": tick "Use Pin" on each row: RotorAngleDeg, RotorSpinSpeed, WaveTime, '
-    'WaveAmplitudeDeg, WavePhasePerJointDeg, WavePitchAmplitudeDeg, Speed, bIsDead, DeathTime (leave "Use Curve" empty).',
-    'Ctrl+S in the ABP editor, then re-run bw_05_anim_bp.py: it wires the 9 Get nodes to the new pins, compiles and saves. '
-    '(Or drag each Get node output onto the pin of the same name yourself, Compile, Save.)',
+    'Details panel, section "Input": tick "Use Pin" on each row: ' + ', '.join(v for v, _k in BW05_VARS) +
+    ' (leave "Use Curve" empty; the Input search box filters by substring, so type the full name).',
+    'Ctrl+S in the ABP editor, then re-run bw_05_anim_bp.py: it wires the %d Get nodes to the new pins, compiles and '
+    'saves. (Or drag each Get node output onto the pin of the same name yourself, Compile, Save.)' % BW05_NVARS,
 ]
 
 
