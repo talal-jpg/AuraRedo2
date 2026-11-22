@@ -26,6 +26,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SplineMeshComponent.h"
 #include "AbilitySystem/Abilities/GA_Beam.h"
+#include "Airship/AirshipPawn.h"
 #include "Components/CapsuleComponent.h"
 #include "EOS/MainMenu.h"
 #include "GameFramework/Character.h"
@@ -431,6 +432,10 @@ void AMyPlayerController2::ClientWasKicked_Implementation(const FText& KickReaso
 
 void AMyPlayerController2::TickFieldOfViewSetting()
 {
+	// The airship applies the setting to its own camera every frame; skipping it keeps the character's camera as the
+	// tracked one, so boarding and leaving don't add the delta to it again
+	if (Cast<AAirshipPawn>(GetPawn())) return;
+	
 	// Look the camera up again only when the pawn changes (respawn, possess)
 	if (GetPawn()!=FOVSettingPawn.Get())
 	{

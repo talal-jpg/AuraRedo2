@@ -138,6 +138,9 @@ void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 		// UKismetSystemLibrary::PrintString(Props.SourceAvatarActor,Str,true,true,FLinearColor::Black,30.f,FName("3"));
 		//Getting IncomingXP From WaitingGA Now Update XP on PlayerState And LevelUp
 		//Make PlayerInterface add to xp ,get xp to be funcs in that not CombatIF
+		// Piloting an AAirshipPawn: the controller's pawn is the ship (no SourceCharacter) and the character has no PlayerState
+		const ACharacter* XPAvatar=Cast<ACharacter>(GetOwningAbilitySystemComponent()->GetAvatarActor());
+		if (!Props.SourceCharacter || !XPAvatar || !XPAvatar->GetPlayerState())return;
 		if (Props.SourceCharacter->Implements<UMyPlayerInterface>())
 		{
 			UMyLevelUpInfo* MyLevelUpInfo=Cast<ACharacter>(GetOwningAbilitySystemComponent()->GetAvatarActor())->GetPlayerState<AMyPlayerState>()->MyLevelUpInfo;
