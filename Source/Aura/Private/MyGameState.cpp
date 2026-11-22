@@ -76,10 +76,11 @@ void AMyGameState::UpdatePlayerRanking()
 	}
 
 	// The lead can move to a further platform without the order changing, so this runs before the
-	// "nothing changed" early out below
+	// "nothing changed" early out below. Only platforms behind the lead's platform: the one the lead
+	// stands on (and those at its distance) keep standing until the lead moves on.
 	if (NumLeaders > 0)
 	{
-		ActivatePlatformsUpTo(Ranked[0]->GetPlatformSplineDistance());
+		ActivatePlatformsUpTo(Ranked[0]->GetPlatformSplineDistance() - CollapseStartBehindLead);
 	}
 
 	if (Ranked == PlayerRanking.PlayerStates && NumLeaders == PlayerRanking.NumLeaders)
@@ -100,24 +101,25 @@ void AMyGameState::UpdatePlayerRanking()
 	OnPlayerRankingChanged.Broadcast();
 }
 
-void AMyGameState::ActivatePlatformsUpTo(float LeadDistance)
+void AMyGameState::ActivatePlatformsUpTo(float MaxDistance)
 {
 	// Already activated everything up to here
-	if (LeadDistance <= ActivatedSplineDistance)
+	if (MaxDistance <= ActivatedSplineDistance)
 	{
 		return;
 	}
 
-	ActivatedSplineDistance = LeadDistance;
+	ActivatedSplineDistance = MaxDistance;
 
 	// Platforms spawned later check GetActivatedSplineDistance() themselves once their bridges are ready
 	for (TActorIterator<AMyHexPlatform> It(GetWorld()); It; ++It)
 	{
 		AMyHexPlatform* Platform = *It;
 
-		if (IsValid(Platform) && Platform->HasSplineDistance() && Platform->GetSplineDistance() <= LeadDistance)
+		if (IsValid(Platform) && Platform->HasSplineDistance() && Platform->GetSplineDistance() <= MaxDistance)
 		{
-			// Latched; collapsing starts once the platform's bridges are built
+			// Latched, and all at this moment, so platforms at the same distance collapse in step.
+			// Collapsing starts once the platform's bridges are built (timed from now).
 			Platform->NotifyLeadLanded();
 		}
 	}

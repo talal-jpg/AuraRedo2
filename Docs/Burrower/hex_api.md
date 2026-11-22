@@ -17,13 +17,13 @@ GA_Electrocute.cpp / GA_Shards.cpp with `#include "Engine/OverlapResult.h"`).
 
 | Step | Where | What it does |
 |---|---|---|
-| Gate | `BeginPlay` 275-307, `NotifyBridgesReady` 414, `NotifyLeadLanded` 425, `TryStartCollapsing` 437 | `bBridgesReady` (set by UMyHexBridgeSubsystem after the platform's batch is planned, or in BeginPlay when there is no subsystem / `bWaitForBridgesBeforeCollapsing` is off) and `bLeadLanded` (AMyGameState calls NotifyLeadLanded on every platform with `SplineDistance <= lead`, or the lead stands on a platform with no SplineDistance). Both true (or `!bCollapseOnlyWhenLeadLands`) -> `StartCollapsing`. |
-| Start | `StartCollapsing` 345 | Once (`bCollapseStarted`), `FreezePath()`, first chain after `FirstCollapseDelay` (or `SmallPlatformFirstCollapseDelay` for <= 15 tiles). |
-| Chains | `ScheduleNextCollapseChain` 366, `CollapseNextChain` 377, `GetCollapseInterval` 389 | One-shot timer re-armed after every chain; interval lerps from 5 s (at the lead) to 1.5 s (far behind). Stops when `HexMap` is empty. |
-| Pick | `GenerateAndActivateChainFromRandomSelectedGrid` 1543, `GenerateChain` 1477, `GetNeighbors` 1436 | Random start among live tiles not in `PendingActivationTiles`, random walk of up to 15 live, unreserved neighbours; <= 15 tiles left = all of them. The chain is added to `PendingActivationTiles` (server only, not replicated). |
-| Stagger | `ActivateChain` 1639 | First tile now, tile i after `i * 0.1 s` (weak-lambda timers calling `ActivateHex`). |
-| Activate | `ActivateHex` 1685 | Authority; returns if already in `LocalActivatedTiles` or not in `HexMap`; `ActivatedTiles.Add(Coord)` (replicated); `ActivateHexLocal(Coord)`; `PendingActivationTiles.Remove(Coord)`. |
-| Local | `ActivateHexLocal` 1765 | Reads the instance's world transform and custom data, `RemoveHexInstance` (ISM uses `SetRemoveSwap`, so the last instance moves into the hole; `HexMap` / `InstanceToHex` are repaired, 2046-2106), adds to `LocalActivatedTiles`, plays the far break or queues the Geometry Collection break (UMyHexPillarBreakSubsystem) or the skeletal fall, and broadcasts `OnHexTileActivated`. |
+| Gate | `BeginPlay` 192, `NotifyBridgesReady` 487, `NotifyLeadLanded` 498, `TryStartCollapsing` 511 | `bBridgesReady` (set by UMyHexBridgeSubsystem after the platform's batch is planned, or in BeginPlay when there is no subsystem / `bWaitForBridgesBeforeCollapsing` is off) and `bLeadLanded` (AMyGameState calls NotifyLeadLanded on every platform behind the lead's platform, `SplineDistance <= lead - CollapseStartBehindLead`, so the lead's own platform waits; a platform with no SplineDistance starts once the lead has been on it and stands on another platform). `LeadLandedTime` is stamped when it latches. Both true (or `!bCollapseOnlyWhenLeadLands`) -> `StartCollapsing`. |
+| Start | `StartCollapsing` 355 | Once (`bCollapseStarted`), `FreezePath()`, chain length from the tile count (`GetCollapseChainLength` 473: tiles / `CollapseChainsPerPlatform`, clamped 1..15), looping `UpdateCollapse` timer whose first chain is `FirstCollapseDelay` after `LeadLandedTime` (so a platform whose bridges were late catches up). |
+| Chains | `UpdateCollapse` 389, `GetCollapseDuration` 434, `GetCollapseSpeedAlpha` 445 | Every `CollapseUpdateInterval`: progress += elapsed / duration, then chains until the reserved tiles reach the target (first chain at once, every tile reserved at progress 1). The duration is the same for every platform size, so platforms at one SplineDistance start and finish together. It goes from `CollapseDurationNearLead` (up to `CollapseEaseStartDistance` behind the lead's platform) to `CollapseDurationFarBehind` (at `CollapseFarBehindDistance`), the speed easing in (`CollapseEaseExponent` or `CollapseSpeedCurve`). Stops when `HexMap` is empty. |
+| Pick | `ActivateRandomChain` 1718, `CountFreeTiles` 1703, `GenerateChain` 1637, `GetNeighbors` 1596 | Random start among live tiles not in `PendingActivationTiles`, random walk of up to the chain length of live, unreserved neighbours; that many free tiles or fewer left = all of them. The chain is added to `PendingActivationTiles` (server only, not replicated). |
+| Stagger | `ActivateChain` 1771 | First tile now, tile i after `i * CollapseTileStep` (0.1 s; weak-lambda timers calling `ActivateHex`). |
+| Activate | `ActivateHex` 1817 | Authority; returns (dropping any reservation) if already in `LocalActivatedTiles` or not in `HexMap`; `ActivatedTiles.Add(Coord)` (replicated); `ActivateHexLocal(Coord)`; `PendingActivationTiles.Remove(Coord)`. |
+| Local | `ActivateHexLocal` 1891 | Reads the instance's world transform and custom data, `RemoveHexInstance` (ISM uses `SetRemoveSwap`, so the last instance moves into the hole; `HexMap` / `InstanceToHex` are repaired, 2046-2106), adds to `LocalActivatedTiles`, plays the far break or queues the Geometry Collection break (UMyHexPillarBreakSubsystem) or the skeletal fall, and broadcasts `OnHexTileActivated`. |
 
 Replication: only `ActivatedTiles` (TArray<FIntVector>, append only, `ReplicatedUsing = OnRep_ActivatedTiles`) carries
 the activation state. Clients run `ApplyActivatedTiles(true)` -> `ActivateHexLocal` for every coord they haven't done
@@ -38,13 +38,14 @@ bridge collapses or is destroyed), and the minimap (`UMyHexMinimapSubsystem::OnT
 
 ## 2. Activating a tile outside the normal collapse flow
 
-`ActivateHex` is self-contained and already used without chains: `DebugBreakTiles(0)` (2231, console
+`ActivateHex` is self-contained and already used without chains: `DebugBreakTiles(0)` (2364, console
 `Aura.BreakTopPlatform 0`) calls it on every tile. Nothing downstream assumes chains:
 
 * Chains read `HexMap` and `PendingActivationTiles` live, so holes are fine. A tile that a running chain has reserved
   and the rotor takes first: `ActivateHex` removes it from `PendingActivationTiles`; the chain's later timer calls
   `ActivateHex` again, which returns at the `LocalActivatedTiles` check. Safe.
-* `CollapseNextChain` stops when `HexMap` is empty, so a platform the rotor emptied stops its own timer.
+* `UpdateCollapse` counts tiles gone some other way as reserved (so the rest keeps to the schedule) and stops when
+  `HexMap` is empty, so a platform the rotor emptied stops its own timer.
 * Props, bridges and minimap react through `OnHexTileActivated` on every machine, whoever called `ActivateHex`.
   The first fallen tile freezes the props (`AreTilePropsFrozen` checks `LocalActivatedTiles`), same as a chain.
 * Bridges: an end tile cut by the rotor collapses that bridge (players on it fall). Its walkway stays
