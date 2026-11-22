@@ -15,7 +15,8 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 // Sets default values
-AMyCharBase::AMyCharBase()
+AMyCharBase::AMyCharBase(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	// WeaponMesh= CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	// WeaponMesh->SetupAttachment(GetMesh(),FName("HandSocket"));

@@ -4,6 +4,8 @@
 
 #include "MechSwarm/GAS/MechSentinelDefaultEffects.h"
 #include "MechSwarm/Sentinel/MechSentinelFragments.h"
+#include "NiagaraDataChannel.h"
+#include "NiagaraSystem.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelSwarmRules)
 
@@ -12,6 +14,8 @@ UMechSentinelSwarmRules::UMechSentinelSwarmRules()
 	// Damage works out of the box, both ways; rules assets can still pick their own effects (or clear the attack one).
 	DefaultSentinelDamageEffect = UMechSentinelDamageEffect::StaticClass();
 	SentinelAttackEffect = UMechSentinelAttackEffect::StaticClass();
+	BulletDataChannel = TSoftObjectPtr<UNiagaraDataChannelAsset>(FSoftObjectPath(TEXT("/Game/Assets/Effects/AppreiticeFx/GunShootHit/NDC_GunShootHit.NDC_GunShootHit")));
+	BulletSystem = TSoftObjectPtr<UNiagaraSystem>(FSoftObjectPath(TEXT("/Game/MechSentinel/FX/NS_MechSentinelBullet.NS_MechSentinelBullet")));
 
 	// Self-buffs work out of the box too. Armor whenever, speed to close in on a far target, damage when near it.
 	ArmorBuff.Effect = UMechSentinelArmorBuffEffect::StaticClass();
@@ -23,7 +27,8 @@ UMechSentinelSwarmRules::UMechSentinelSwarmRules()
 	SpeedBuff.Magnitude = 1.5f;
 	SpeedBuff.Duration = 4.f;
 	SpeedBuff.Cooldown = 12.f;
-	SpeedBuff.MinTargetDistance = 1500.f;
+	// Far from the orbit and the fire range (sentinels now circle their player at about 1500 cm and shoot from there).
+	SpeedBuff.MinTargetDistance = 3500.f;
 
 	DamageBuff.Effect = UMechSentinelDamageBuffEffect::StaticClass();
 	DamageBuff.Magnitude = 1.5f;

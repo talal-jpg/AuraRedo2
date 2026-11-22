@@ -32,6 +32,11 @@ namespace MechSwarm::CombatPrivate
 		FVector From = FVector::ZeroVector;
 		FVector To = FVector::ZeroVector;
 		float Damage = 0.f;
+		/** Ranged: a bullet (FMechSentinelParameters' bullet settings); else the hit lands at once. */
+		bool bRanged = false;
+		FMechSentinelBulletSettings Bullet;
+		float LeadFactor = 0.f;
+		float MuzzleOffset = 0.f;
 	};
 
 	/** A wreck that ended up below every floor is removed early. */
@@ -159,6 +164,13 @@ void UMechSentinelAttackProcessor::Execute(FMassEntityManager& EntityManager, FM
 				Pending.From = Position;
 				Pending.To = Target.TargetLocation;
 				Pending.Damage = Attributes.AttackDamage;
+				Pending.bRanged = Params.bRangedAttack;
+				Pending.Bullet.Speed = Params.BulletSpeed;
+				Pending.Bullet.Range = Params.BulletRange;
+				Pending.Bullet.SpreadDegrees = Params.BulletSpreadDegrees;
+				Pending.Bullet.Radius = Params.BulletRadius;
+				Pending.LeadFactor = Params.BulletLeadFactor;
+				Pending.MuzzleOffset = Params.MuzzleOffset;
 			}
 		}
 	});
@@ -168,43 +180,30 @@ void UMechSentinelAttackProcessor::Execute(FMassEntityManager& EntityManager, FM
 		return;
 	}
 
-	const UMechSentinelSwarmRules* Rules = Swarm->GetRules();
-	UAbilitySystemComponent* SourceASC = Swarm->GetSentinelSourceASC();
-	if (!SourceASC || !Rules->SentinelAttackEffect)
-	{
-		// No attack effect configured: the attack only shows up visually.
-		return;
-	}
-
 	for (const FPendingAttack& Pending : PendingAttacks)
 	{
 		AActor* TargetActor = Pending.Target.Get();
-		UAbilitySystemComponent* TargetASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(TargetActor);
-		if (!TargetASC)
+		if (!TargetActor)
 		{
 			continue;
 		}
 
-		FGameplayEffectContextHandle EffectContext = SourceASC->MakeEffectContext();
-		EffectContext.AddOrigin(Pending.From);
-
-		// The project's damage pipeline expects a hit result (impact location for numbers / reactions).
-		FHitResult Hit;
-		Hit.bBlockingHit = true;
-		Hit.TraceStart = Pending.From;
-		Hit.TraceEnd = Pending.To;
-		Hit.Location = Hit.ImpactPoint = Pending.To;
-		Hit.Normal = Hit.ImpactNormal = (Pending.From - Pending.To).GetSafeNormal();
-		Hit.HitObjectHandle = FActorInstanceHandle(TargetActor);
-		EffectContext.AddHitResult(Hit, /*bReset*/true);
-
-		const FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(Rules->SentinelAttackEffect, 1.f, EffectContext);
-		if (!SpecHandle.IsValid())
+		if (!Pending.bRanged)
 		{
+			// Melee: the hit lands now.
+			Swarm->ApplySentinelAttack(TargetActor, Pending.From, Pending.To, Pending.Damage);
 			continue;
 		}
-		SpecHandle.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, Pending.Damage);
-		SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
+
+		// Ranged: aim ahead of a moving target by its velocity over the flight time, then fire from the muzzle.
+		FVector AimPoint = Pending.To;
+		if (Pending.LeadFactor > 0.f)
+		{
+			const float FlightTime = FVector::Dist(Pending.From, AimPoint) / FMath::Max(100.f, Pending.Bullet.Speed);
+			AimPoint += TargetActor->GetVelocity() * (FlightTime * Pending.LeadFactor);
+		}
+		const FVector Muzzle = Pending.From + (AimPoint - Pending.From).GetSafeNormal() * Pending.MuzzleOffset;
+		Swarm->FireSentinelBullet(Muzzle, AimPoint, Pending.Damage, Pending.Bullet);
 	}
 }
 

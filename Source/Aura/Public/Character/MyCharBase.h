@@ -22,7 +22,7 @@ class AURA_API AMyCharBase : public ACharacter, public IAbilitySystemInterface ,
 
 public:
 	// Sets default values for this character's properties
-	AMyCharBase();
+	AMyCharBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	void Dissolve();
 	
