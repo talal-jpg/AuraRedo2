@@ -8,6 +8,7 @@
 #include "MechSentinelSwarmRules.generated.h"
 
 class UGameplayEffect;
+class UNiagaraDataChannelAsset;
 
 /**
  * One self-buff a sentinel may cast on itself (UMechSentinelSelfBuffProcessor): a duration GE, how strong and long it is,
@@ -112,6 +113,18 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TSubclassOf<UGameplayEffect> SentinelAttackEffect;
+
+	/**
+	 * Niagara data channel the sentinel bullets are written to (MuzzlePos -> HitLocation), on every machine that draws,
+	 * through AMechSentinelBulletRelay. NDC_MechSentinelBullet spawns NS_MechSentinelBullet, a recoloured copy of the
+	 * gun's PS_06_Flipbook_Sprites_my. Empty: bullets still fly and hit, unseen.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	TSoftObjectPtr<UNiagaraDataChannelAsset> BulletDataChannel;
+
+	/** Most bullets shown per frame (the rest still fly and hit, unseen); bounds the replicated batch. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (ClampMin = "1"))
+	int32 MaxBulletFxPerFrame = 64;
 
 	// Rewards
 

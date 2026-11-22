@@ -10,7 +10,9 @@
 #include "MechSwarm/Core/MechSentinelSwarmRules.h"
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 #include "MechSwarm/MassCopies/MassMovementFragments_Copy.h"
+#include "GameplayEffect.h"
 #include "MechSwarm/Sentinel/MechSentinelFragments.h"
+#include "MechSwarm/Sentinel/MechSentinelOrbit.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelProcessors)
 
@@ -615,14 +617,15 @@ void UMechSentinelSteeringProcessor::Execute(FMassEntityManager& EntityManager, 
 			}
 
 			const bool bHasPlayer = Target.PlayerSlot != INDEX_NONE;
+			const int32 Seed = Context.GetEntity(EntityIndex).Index;
 			if (bHasPlayer)
 			{
-				// Circle around the player.
-				Target.OrbitDirection = Target.OrbitDirection.RotateAngleAxis(Params.OrbitAngularSpeed * DeltaTime, FVector::UpVector);
+				// Circle around the player at this sentinel's own speed and direction (the Matrix swarm).
+				Target.OrbitDirection = Target.OrbitDirection.RotateAngleAxis(MechSwarm::Orbit::GetAngularSpeed(Params, Seed) * DeltaTime, FVector::UpVector);
 			}
 
-			const float OrbitRadius = bHasPlayer ? Params.OrbitRadius : Params.FallbackLoiterRadius;
-			const FVector Goal = Target.TargetLocation + Target.OrbitDirection * OrbitRadius;
+			// The obstacle avoidance computes the same goal (MechSwarm::Orbit::GetGoal).
+			const FVector Goal = MechSwarm::Orbit::GetGoal(Target, Params, Seed, Time);
 			const FVector ToGoal = Goal - Position;
 			const float Distance = ToGoal.Size();
 			const float Arrival = FMath::Clamp(Distance / Params.SlowdownRadius, 0.f, 1.f);
