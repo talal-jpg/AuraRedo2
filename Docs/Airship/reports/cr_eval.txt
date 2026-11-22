@@ -1,0 +1,177 @@
+CR_Airship in-editor evaluation (as_13_cr_eval.py), 2026-11-22 23:54:41, dt 0.0167 s, settle 120 frames
+PASS: CR_Airship status <BlueprintStatus.BS_UP_TO_DATE: 3>
+PASS: public rig variables: 37, all 37 of RIG_CONTRACT 5 present
+INFO: rig components after Construction: 77: [('PhysicsBody', 22), ('PhysicsBody_2', 22), ('PhysicsJoint', 21), ('PhysicsJoint_2', 10), ('PhysicsSolver', 2)]
+PASS: expected solver/body components present (Wreck = PhysicsBody, Fx on the same bones = PhysicsBody_2)
+PASS: 31 joint components (want 10 Wreck + 21 Fx)
+PASS: bDeathKickDone after 1 alive frame = False
+INFO: t_components took 0.0 s
+PASS: all controls 0, alive, 120 frames: every bone at rest (worst 0.0000 cm root, 0.0000 deg root)
+INFO: t_rest took 0.0 s
+PASS: NozzlePitchDeg +5: only the controlled bones (+children) moved
+PASS: NozzlePitchDeg_FL +5: Thruster_FL_Nozzle turned 5.000 deg (want 5.000) about (-0.00, 1.00, -0.00) (want (0.00, 1.00, 0.00))
+PASS: NozzlePitchDeg_FL +5: nozzle exit (Flame) moved (-16.73, -0.00, 3.10) -> aft (x -16.73)
+PASS: NozzlePitchDeg_FR +5: Thruster_FR_Nozzle turned 5.000 deg (want 5.000) about (-0.00, 1.00, -0.00) (want (0.00, 1.00, 0.00))
+PASS: NozzlePitchDeg_FR +5: nozzle exit (Flame) moved (-16.73, -0.00, 3.10) -> aft (x -16.73)
+PASS: NozzlePitchDeg_RL +5: Thruster_RL_Nozzle turned 5.000 deg (want 5.000) about (-0.00, 1.00, -0.00) (want (0.00, 1.00, 0.00))
+PASS: NozzlePitchDeg_RL +5: nozzle exit (Flame) moved (-16.73, -0.00, 3.10) -> aft (x -16.73)
+PASS: NozzlePitchDeg_RR +5: Thruster_RR_Nozzle turned 5.000 deg (want 5.000) about (-0.00, 1.00, -0.00) (want (0.00, 1.00, 0.00))
+PASS: NozzlePitchDeg_RR +5: nozzle exit (Flame) moved (-16.73, -0.00, 3.10) -> aft (x -16.73)
+PASS: NozzleRollDeg +5: only the controlled bones (+children) moved
+PASS: NozzleRollDeg_FL +5: Thruster_FL_Nozzle turned 5.000 deg (want 5.000) about (1.00, -0.00, 0.00) (want (1.00, 0.00, 0.00))
+PASS: NozzleRollDeg_FL +5: nozzle exit moved (0.00, 16.83, 0.73) -> toward +Y (y 16.83)
+PASS: NozzleRollDeg_FR +5: Thruster_FR_Nozzle turned 5.000 deg (want 5.000) about (1.00, -0.00, 0.00) (want (1.00, 0.00, 0.00))
+PASS: NozzleRollDeg_FR +5: nozzle exit moved (0.00, 16.83, 0.73) -> toward +Y (y 16.83)
+PASS: NozzleRollDeg_RL +5: Thruster_RL_Nozzle turned 5.000 deg (want 5.000) about (1.00, -0.00, 0.00) (want (1.00, 0.00, 0.00))
+PASS: NozzleRollDeg_RL +5: nozzle exit moved (0.00, 16.83, 0.73) -> toward +Y (y 16.83)
+PASS: NozzleRollDeg_RR +5: Thruster_RR_Nozzle turned 5.000 deg (want 5.000) about (1.00, -0.00, 0.00) (want (1.00, 0.00, 0.00))
+PASS: NozzleRollDeg_RR +5: nozzle exit moved (0.00, 16.83, 0.73) -> toward +Y (y 16.83)
+INFO: t_nozzles took 0.1 s
+PASS: NozzleFlareDeg +35: only the controlled bones (+children) moved
+PASS: NozzleFlareDeg +35: all 48 petal tips moved OUTWARD (radial +25.81 .. +25.81 cm)
+PASS: NozzleFlareDeg +35: every petal turned 35 deg about its hinge A x d (worst angle error 0.0000 deg, worst axis dot 1.000000)
+PASS: NozzleFlareDeg -10: only the controlled bones (+children) moved
+PASS: NozzleFlareDeg -10: all 48 petal tips moved INWARD (radial -7.81 .. -7.81 cm)
+PASS: NozzleFlareDeg -10: every petal turned 10 deg about its hinge A x d (worst angle error 0.0000 deg, worst axis dot 1.000000)
+INFO: t_flare took 0.1 s
+PASS: TurbineYawDeg +12: only the controlled bones (+children) moved
+PASS: TurbineYawDeg_L +12 (Fx body, settled): Turbine_L turned 11.990 deg (want 12.000) about (0.00, 0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: TurbineYawDeg_L +12: fan axis (0.98, 0.21, -0.00) turned from +X toward +Y (sin 12 = 0.208)
+PASS: TurbineYawDeg_R +12 (Fx body, settled): Turbine_R turned 11.990 deg (want 12.000) about (-0.00, -0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: TurbineYawDeg_R +12: fan axis (0.98, 0.21, 0.00) turned from +X toward +Y (sin 12 = 0.208)
+PASS: RotorAngleDeg: only the controlled bones (+children) moved
+PASS: RotorAngleDeg_L 90: Turbine_L_Rotor turned 90.000 deg (want 90.000) about (1.00, 0.00, 0.00) (want (1.00, 0.00, 0.00))
+PASS: RotorAngleDeg_R 45: Turbine_R_Rotor turned 45.000 deg (want 45.000) about (1.00, 0.00, 0.00) (want (1.00, 0.00, 0.00))
+PASS: rotor hub stays on its axis (0.0000 cm)
+PASS: rotor spin follows the yawed duct: rotor relative to nacelle 90.00 deg about nacelle-local (1.00, -0.00, -0.00)
+INFO: t_turbines took 0.1 s
+PASS: RudderDeg +20: only the controlled bones (+children) moved
+PASS: RudderDeg +20 (Fx body, settled): Rudder turned 20.000 deg (want 20.000) about (0.00, 0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: RudderDeg +20: trailing edge moved (21.93, -124.36, 0.00) -> toward -Y (port)
+PASS: WheelAngleDeg 90: only the controlled bones (+children) moved
+PASS: WheelAngleDeg 90: Helm_Wheel turned 90.000 deg (want 90.000) about (1.00, 0.00, 0.00) (want (1.00, 0.00, 0.00))
+PASS: WheelAngleDeg 400 (multi-turn = 40): Helm_Wheel turned 40.000 deg (want 40.000) about (1.00, -0.00, -0.00) (want (1.00, 0.00, 0.00))
+PASS: helm wheel stays on its axle (0.0000 cm)
+INFO: t_steer took 0.0 s
+PASS: CannonYawDeg +15: only the controlled bones (+children) moved
+PASS: CannonYawDeg_L1 +15 (Fx body, settled): Cannon_L1 turned 14.999 deg (want 15.000) about (0.00, -0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: CannonYawDeg_L1 +15: muzzle moved (48.08, 6.70, 0.00) (standard rotation about +Z: want (48.09, 6.71, -0.00))
+PASS: CannonYawDeg_L2 +15 (Fx body, settled): Cannon_L2 turned 14.999 deg (want 15.000) about (0.00, -0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: CannonYawDeg_L2 +15: muzzle moved (48.01, 7.25, 0.00) (standard rotation about +Z: want (48.02, 7.25, -0.00))
+PASS: CannonYawDeg_R1 +15 (Fx body, settled): Cannon_R1 turned 14.999 deg (want 15.000) about (-0.00, 0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: CannonYawDeg_R1 +15: muzzle moved (-48.17, -5.97, 0.00) (standard rotation about +Z: want (-48.19, -5.97, 0.00))
+PASS: CannonYawDeg_R2 +15 (Fx body, settled): Cannon_R2 turned 14.999 deg (want 15.000) about (-0.00, 0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: CannonYawDeg_R2 +15: muzzle moved (-48.25, -5.42, 0.00) (standard rotation about +Z: want (-48.26, -5.43, 0.00))
+PASS: CannonElevDeg +8: only the controlled bones (+children) moved
+PASS: CannonElevDeg_L1 +8 (Fx body, settled): Cannon_L1_Barrel turned 8.001 deg (want 8.000) about (-1.00, -0.00, 0.02) (want (-1.00, -0.00, 0.02))
+PASS: CannonElevDeg_L1 +8: muzzle raised 21.71 cm (156 sin 8 = 21.7)
+PASS: CannonElevDeg_L1 +8: quoin slid (0.00, 15.00, 0.00) = 15 cm (clamped from 19.2) along -aim
+PASS: CannonElevDeg_L2 +8 (Fx body, settled): Cannon_L2_Barrel turned 8.001 deg (want 8.000) about (-1.00, -0.00, 0.04) (want (-1.00, -0.00, 0.04))
+PASS: CannonElevDeg_L2 +8: muzzle raised 21.69 cm (156 sin 8 = 21.7)
+PASS: CannonElevDeg_L2 +8: quoin slid (0.00, 15.00, 0.00) = 15 cm (clamped from 19.2) along -aim
+PASS: CannonElevDeg_R1 +8 (Fx body, settled): Cannon_R1_Barrel turned 8.001 deg (want 8.000) about (1.00, -0.00, -0.02) (want (1.00, 0.00, -0.02))
+PASS: CannonElevDeg_R1 +8: muzzle raised 21.71 cm (156 sin 8 = 21.7)
+PASS: CannonElevDeg_R1 +8: quoin slid (0.00, -15.00, -0.00) = 15 cm (clamped from 19.2) along -aim
+PASS: CannonElevDeg_R2 +8 (Fx body, settled): Cannon_R2_Barrel turned 8.001 deg (want 8.000) about (1.00, -0.00, -0.04) (want (1.00, 0.00, -0.04))
+PASS: CannonElevDeg_R2 +8: muzzle raised 21.69 cm (156 sin 8 = 21.7)
+PASS: CannonElevDeg_R2 +8: quoin slid (0.00, -15.00, 0.00) = 15 cm (clamped from 19.2) along -aim
+PASS: CannonElevDeg_L1 -10: muzzle lowered -27.09 cm, quoin stays (0.001 cm)
+PASS: CannonElevDeg_L2 -10: muzzle lowered -27.06 cm, quoin stays (0.001 cm)
+PASS: CannonElevDeg_R1 -10: muzzle lowered -27.09 cm, quoin stays (0.001 cm)
+PASS: CannonElevDeg_R2 -10: muzzle lowered -27.06 cm, quoin stays (0.001 cm)
+PASS: CannonElevDeg_L1 +5: quoin slid (0.00, 12.00, 0.00) = 2.4 x 5 = 12 cm along -aim
+PASS: CannonRecoilCm 60: only the controlled bones (+children) moved
+PASS: CannonRecoilCm_L1 60: carriage moved (0.00, 60.00, -0.00) (want 60 cm along -aim (-0.00, 60.00, 0.00))
+PASS: CannonRecoilCm_L1 60: wheel FL rolled 156.26 deg (want 156.26) about (-1.00, -0.00, 0.02) (axle e (-1.00, -0.00, 0.02))
+PASS: CannonRecoilCm_L1 60: wheel BR rolled 156.26 deg (want 156.26) about (-1.00, -0.00, 0.02) (axle e (-1.00, -0.00, 0.02))
+PASS: CannonRecoilCm_L2 60: carriage moved (0.00, 60.00, -0.00) (want 60 cm along -aim (-0.00, 60.00, 0.00))
+PASS: CannonRecoilCm_L2 60: wheel FL rolled 156.26 deg (want 156.26) about (-1.00, 0.00, 0.04) (axle e (-1.00, -0.00, 0.04))
+PASS: CannonRecoilCm_L2 60: wheel BR rolled 156.26 deg (want 156.26) about (-1.00, 0.00, 0.04) (axle e (-1.00, -0.00, 0.04))
+PASS: CannonRecoilCm_R1 60: carriage moved (0.00, -60.00, -0.00) (want 60 cm along -aim (-0.00, -60.00, -0.00))
+PASS: CannonRecoilCm_R1 60: wheel FL rolled 156.26 deg (want 156.26) about (1.00, 0.00, -0.02) (axle e (1.00, 0.00, -0.02))
+PASS: CannonRecoilCm_R1 60: wheel BR rolled 156.26 deg (want 156.26) about (1.00, 0.00, -0.02) (axle e (1.00, 0.00, -0.02))
+PASS: CannonRecoilCm_R2 60: carriage moved (0.00, -60.00, -0.00) (want 60 cm along -aim (-0.00, -60.00, -0.00))
+PASS: CannonRecoilCm_R2 60: wheel FL rolled 156.26 deg (want 156.26) about (1.00, -0.00, -0.04) (axle e (1.00, 0.00, -0.04))
+PASS: CannonRecoilCm_R2 60: wheel BR rolled 156.26 deg (want 156.26) about (1.00, -0.00, -0.04) (axle e (1.00, 0.00, -0.04))
+PASS: CannonRecoilCm_L1 2: wheel centre moved 2.000 cm, contact point 0.0909 cm (rolls backward, no slip)
+PASS: CannonRecoilCm_R2 2: wheel centre moved 2.000 cm, contact point 0.0909 cm (rolls backward, no slip)
+PASS: Cannon_L1 yaw +15 + recoil 60: slide (-15.53, 57.95, -0.00) follows the yawed aim (want (-15.53, 57.96, 0.00))
+PASS: Cannon_R1 yaw -15 + recoil 60: slide (-15.53, -57.95, -0.00) follows the yawed aim (want (-15.53, -57.96, -0.00))
+INFO: t_cannons took 0.2 s
+PASS: SearchLightPanDeg 30: only the controlled bones (+children) moved
+PASS: SearchLightPanDeg 30 (AftL, sign +1): SearchLight_AftL_Head turned 30.000 deg (want 30.000) about (0.00, -0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: SearchLightPanDeg 30 (MidL, sign +1): SearchLight_MidL_Head turned 30.000 deg (want 30.000) about (0.00, -0.00, 1.00) (want (0.00, 0.00, 1.00))
+PASS: SearchLightPanDeg 30 (MidR, sign -1): SearchLight_MidR_Head turned 30.000 deg (want 30.000) about (0.00, 0.00, -1.00) (want (0.00, 0.00, -1.00))
+PASS: SearchLightPanDeg 30 (FwdC, sign -1): SearchLight_FwdC_Head turned 30.000 deg (want 30.000) about (-0.00, -0.00, -1.00) (want (0.00, 0.00, -1.00))
+INFO: t_lights took 0.0 s
+PASS: CannonYawDeg_L1 step 0 -> 15: Cannon_L1 overshoot 13.5 %, within 2 % after 0.650 s; frame-1 value 3.26 deg
+PASS: CannonYawDeg_L1 back to 0 at frame 120: Cannon_L1 settles back to the control (rest) pose, 0.0000 deg left after 120 frames
+PASS: TurbineYawDeg_L step 0 -> 12: Turbine_L overshoot 0.1 %, within 2 % after 0.417 s; frame-1 value 0.67 deg
+PASS: TurbineYawDeg_L back to 0 at frame 120: Turbine_L settles back to the control (rest) pose, 0.0000 deg left after 120 frames
+PASS: RudderDeg step 0 -> 20: Rudder overshoot 23.6 %, within 2 % after 0.700 s; frame-1 value 1.99 deg
+PASS: RudderDeg back to 0 at frame 120: Rudder settles back to the control (rest) pose, 0.0000 deg left after 120 frames
+PASS: CannonElevDeg_L1 step 0 -> 8: Cannon_L1_Barrel overshoot 12.2 %, within 2 % after 0.883 s; frame-1 value 0.60 deg
+PASS: CannonElevDeg_L1 back to 0 at frame 120: Cannon_L1_Barrel settles back to the control (rest) pose, 0.0001 deg left after 120 frames
+PASS: CannonRecoilCm_L1 step 0 -> 60: Cannon_L1 overshoot 5.6 %, within 2 % after 0.217 s; frame-1 value 32.19 cm
+PASS: CannonRecoilCm_L1 back to 0 at frame 120: Cannon_L1 settles back to the control (rest) pose, 0.0008 cm left after 120 frames
+PASS: R1: TurbineYawDeg_L step to the 12 deg limit peaks at 12.01 deg (stop 12, was 15.1 with damping 0.4 and no joint limit)
+PASS: R2: CannonElevDeg_L1 eased in to the 8.50 clamp like the anim instance: barrel vs its carriage peaks at 8.73 deg (carriage contact at 8.75; offline model 8.50-8.55); global 9.04 deg incl. the carriage rocking back 0.49 deg (reaction torque on its 4 Hz drive); WARN up to 9.0 = a few mm, a tuning item
+INFO: t_dynamics took 0.4 s
+PASS: alive frames 0..29: Wreck pass-through leaves the pose alone (max 0.0000 cm)
+PASS: dead 0.50 s: break-off Thruster_FL COM moved (14.81, -64.17, -155.21) (|d| 169 cm; ballistic (15.00, -65.00, -152.62), off by 2.7 cm); first dead frame v (29.98, -129.89, -76.29) (kick (30.00, -130.00, -60.00)); z accel -965 cm/s2
+PASS: dead 0.50 s: break-off Thruster_FR COM moved (14.81, 64.17, -155.21) (|d| 169 cm; ballistic (15.00, 65.00, -152.62), off by 2.7 cm); first dead frame v (29.98, 129.89, -76.29) (kick (30.00, 130.00, -60.00)); z accel -965 cm/s2
+PASS: dead 0.50 s: break-off Thruster_RL COM moved (-14.81, -64.17, -155.21) (|d| 169 cm; ballistic (-15.00, -65.00, -152.62), off by 2.7 cm); first dead frame v (-29.97, -129.89, -76.29) (kick (-30.00, -130.00, -60.00)); z accel -965 cm/s2
+PASS: dead 0.50 s: break-off Thruster_RR COM moved (-14.81, 64.17, -155.21) (|d| 169 cm; ballistic (-15.00, 65.00, -152.62), off by 2.7 cm); first dead frame v (-29.97, 129.89, -76.29) (kick (-30.00, 130.00, -60.00)); z accel -965 cm/s2
+PASS: dead 0.50 s: break-off Turbine_L COM moved (-37.71, -52.30, -95.23) (|d| 115 cm; ballistic (-38.57, -68.57, -88.34), off by 17.7 cm); first dead frame v (-79.12, -136.93, 54.26) (kick (-77.14, -137.14, 68.57)); z accel -952 cm/s2
+PASS: dead 0.50 s: break-off Turbine_R COM moved (-37.88, 52.39, -95.45) (|d| 115 cm; ballistic (-38.57, 68.57, -88.34), off by 17.7 cm); first dead frame v (-79.28, 136.95, 53.60) (kick (-77.14, 137.14, 68.57)); z accel -952 cm/s2
+PASS: dead 0.50 s: break-off Rudder COM moved (-54.30, 0.00, -95.98) (|d| 110 cm; ballistic (-55.00, 0.00, -92.62), off by 3.4 cm); first dead frame v (-109.91, 0.00, 43.61) (kick (-110.00, 0.00, 60.00)); z accel -971 cm/s2
+PASS: dead 0.50 s: break-off SearchLight_AftL COM moved (0.00, -37.02, -31.81) (|d| 49 cm; ballistic (0.00, -37.50, -27.62), off by 4.2 cm); first dead frame v (-0.00, -74.94, 173.51) (kick (0.00, -75.00, 190.00)); z accel -977 cm/s2
+PASS: dead 0.50 s: break-off SearchLight_MidL COM moved (14.81, -41.96, -26.87) (|d| 52 cm; ballistic (15.00, -42.50, -22.62), off by 4.3 cm); first dead frame v (29.97, -84.93, 183.50) (kick (30.00, -85.00, 200.00)); z accel -977 cm/s2
+PASS: dead 0.50 s: break-off SearchLight_MidR COM moved (14.81, 41.96, -26.87) (|d| 52 cm; ballistic (15.00, 42.50, -22.62), off by 4.3 cm); first dead frame v (29.97, 84.93, 183.50) (kick (30.00, 85.00, 200.00)); z accel -977 cm/s2
+PASS: dead 0.50 s: break-off SearchLight_FwdC COM moved (29.62, -14.81, -21.94) (|d| 40 cm; ballistic (30.00, -15.00, -17.62), off by 4.3 cm); first dead frame v (59.95, -29.98, 193.49) (kick (60.00, -30.00, 210.00)); z accel -978 cm/s2
+INFO: dead 0.50 s: cannon part Cannon_L1 pivot moved (0.00, 0.00, -0.00), turned 1.4 deg (limp joint, no drive)
+INFO: dead 0.50 s: cannon part Cannon_L2 pivot moved (-0.00, 0.00, -0.00), turned 1.1 deg (limp joint, no drive)
+INFO: dead 0.50 s: cannon part Cannon_R1 pivot moved (-0.00, -0.00, -0.00), turned 1.4 deg (limp joint, no drive)
+INFO: dead 0.50 s: cannon part Cannon_R2 pivot moved (-0.00, -0.00, -0.00), turned 1.1 deg (limp joint, no drive)
+INFO: dead 0.50 s: cannon part Cannon_L1_Barrel pivot moved (-0.01, -1.91, -0.74), turned 9.3 deg (limp joint, no drive)
+INFO: dead 0.50 s: cannon part Cannon_L2_Barrel pivot moved (0.90, -1.21, -0.51), turned 9.3 deg (limp joint, no drive)
+INFO: dead 0.50 s: cannon part Cannon_R1_Barrel pivot moved (0.00, 1.91, -0.74), turned 9.3 deg (limp joint, no drive)
+INFO: dead 0.50 s: cannon part Cannon_R2_Barrel pivot moved (0.90, 1.21, -0.51), turned 9.3 deg (limp joint, no drive)
+PASS: dead: cannon carriages stay jointed to the hull (pivot offset max 0.00 cm)
+PASS: dead 0.50 s, ship level: limp carriages rest on their deck pads (tilt 1.38, 1.09, 1.38, 1.09 deg, want < 5)
+PASS: kinematic Hull stays put (0.0000 cm; no world here, the real ship falls with its actor)
+PASS: death kick latch bDeathKickDone = True after the first dead frame
+PASS: no kick (latch pre-set): SearchLight_FwdC stays standing on its gantry slab (moved (0.14, -0.05, -2.00))
+PASS: no kick (latch pre-set): Thruster_FL COM falls 125.6 cm in 0.50 s (0.5 g t^2 = 122.6; damping 0.05/s), sideways 0.00 cm
+PASS: no kick (latch pre-set): Turbine_L COM falls 125.6 cm in 0.50 s (0.5 g t^2 = 122.6; damping 0.05/s), sideways 0.00 cm
+INFO: t_death took 0.0 s
+PASS: R3 late join: SearchLight_FwdC gets no kick and stays standing on its gantry slab (moved (0.14, -0.05, -2.00))
+PASS: R3 late join (dead with DeathTime 3 s from the first frame): Thruster_FL gets no kick, COM falls 125.6 cm in 0.50 s (free fall 122.6), sideways 0.00 cm
+PASS: R3 late join (dead with DeathTime 3 s from the first frame): Turbine_L gets no kick, COM falls 125.6 cm in 0.50 s (free fall 122.6), sideways 0.00 cm
+PASS: R3 late join: latch bDeathKickDone stays False (the kick branch never ran)
+PASS: R3 fresh death (DeathTime 0, 1/60, ...): SearchLight_FwdC first dead frame v (59.95, -29.98, 193.49) (kick (60.00, -30.00, 210.00), want vz > 147)
+PASS: R6 rods at death: rod vs nacelle turns 1.08 deg in the first dead frame (alive frames up to 2.09 per frame; wobble at death 6.33 deg off its rest; per-frame steps 1.65, 1.74, 1.98, 2.07, 2.09, 2.07, 1.08, 1.07, 1.07, 1.06, 1.06, 1.06)
+INFO: no kick, dead 3 s: SearchLight_AftL COM (1118.50, -280.00, 827.71) -> (1118.42, -280.07, 825.72) (drop 2.0 cm), vz at the end -0 cm/s
+INFO: no kick, dead 3 s: SearchLight_MidL COM (2458.50, -240.00, 827.71) -> (2458.74, -239.99, 825.73) (drop 2.0 cm), vz at the end 0 cm/s
+INFO: no kick, dead 3 s: SearchLight_MidR COM (2458.50, 240.00, 827.71) -> (2458.73, 240.01, 825.73) (drop 2.0 cm), vz at the end -0 cm/s
+INFO: no kick, dead 3 s: SearchLight_FwdC COM (3038.50, -90.00, 907.72) -> (3038.65, -90.05, 905.72) (drop 2.0 cm), vz at the end 0 cm/s
+INFO: no kick, dead 3 s: Thruster_FL COM (350.75, -494.15, -179.93) -> (350.75, -494.15, -4402.66) (drop 4222.7 cm), vz at the end -1649 cm/s
+INFO: no kick, dead 3 s: Turbine_L COM (-1765.84, -762.81, 152.26) -> (-1765.84, -762.81, -4070.47) (drop 4222.7 cm), vz at the end -1649 cm/s
+INFO: no kick, dead 3 s: Rudder COM (-1799.69, 0.00, 71.51) -> (-1799.69, 0.00, -4151.22) (drop 4222.7 cm), vz at the end -1649 cm/s
+PASS: R5: unkicked searchlight posts stay standing on their gantry slabs for 3 s (COM drop 2.0, 2.0, 2.0, 2.0 cm; without slabs they fell 44 m)
+INFO: t_death_s3 took 0.1 s
+PASS: test sweep t=0.50 s NozzlePitchDeg +5: rig with the SAME value matches the Blender anim on 4 bones (worst 0.000 cm, 0.000 deg; the anim turns them up to 5.0 deg)
+PASS: test sweep t=2.50 s NozzleRollDeg +5: rig with the SAME value matches the Blender anim on 4 bones (worst 0.000 cm, 0.000 deg; the anim turns them up to 5.0 deg)
+PASS: test sweep t=4.50 s NozzleFlareDeg +35: rig with the SAME value matches the Blender anim on 48 bones (worst 0.000 cm, 0.000 deg; the anim turns them up to 35.0 deg)
+PASS: test sweep t=8.50 s TurbineYawDeg +12: rig with the SAME value matches the Blender anim on 2 bones (worst 0.000 cm, 0.023 deg; the anim turns them up to 12.0 deg)
+PASS: test sweep t=10.30 s RotorAngleDeg 108: rig with the NEGATED value matches the Blender anim on 2 bones (worst 0.000 cm, 0.000 deg; the anim turns them up to 108.0 deg)
+PASS: test sweep t=14.50 s RudderDeg +30: rig with the NEGATED value matches the Blender anim on 1 bones (worst 0.000 cm, 0.000 deg; the anim turns them up to 30.0 deg)
+PASS: test sweep t=16.50 s WheelAngleDeg 381.8: rig with the NEGATED value matches the Blender anim on 1 bones (worst 0.000 cm, 0.000 deg; the anim turns them up to 21.8 deg)
+PASS: test sweep t=18.50 s CannonYawDeg +20: rig with the NEGATED value matches the Blender anim on 4 bones (worst 0.000 cm, 0.027 deg; the anim turns them up to 20.0 deg)
+PASS: test sweep t=20.50 s CannonElevDeg +8.75: rig with the SAME value matches the Blender anim on 12 bones (worst 0.003 cm, 0.025 deg; the anim turns them up to 8.8 deg)
+PASS: test sweep t=22.30 s CannonRecoilCm 60: rig with the SAME value matches the Blender anim on 20 bones (worst 0.009 cm, 0.009 deg; the anim turns them up to 156.3 deg)
+PASS: test sweep t=26.50 s SearchLightPanDeg 90: rig with the NEGATED value matches the Blender anim on 2 bones (worst 0.000 cm, 0.000 deg; the anim turns them up to 90.0 deg)
+INFO: sign note: the Blender test sweep turns RudderDeg, WheelAngleDeg, CannonYawDeg, SearchLightPanDeg and RotorAngleDeg the opposite way to RIG_CONTRACT 5 (Blender +Z/+X rotations = UE -Z/-X after the Y flip); the rig follows the contract (and the C++: AAirshipPawn::GetCannonDirLocal = FQuat(UpVector, Yaw)).
+INFO: t_sweep took 0.4 s
+INFO: eval took 1.4 s
+RESULT: PASS {'PASS': 145, 'FAIL': 0, 'WARN': 0, 'INFO': 30}
