@@ -1,0 +1,27 @@
+{
+  "_doc": "Landing variant for check n (death at speed over intact tiles): no weaving, so the Burrowers trail their players along the path lane; from follow second 6 (kill_over_tiles_min_s) the run fires Aura.Burrower.KillAll at the first moment a server Burrower moves faster than kill_over_tiles_min_speed with J0_Head, J2_Midbody and J4_Tail each above an intact hex tile (kill_when_over_tiles; R['kill_over_tiles'] records which, its speed and heights); timeout 40 s -> kill anyway. The corpses must come to rest on the tiles (n_death_landing), carry forward (l_death_momentum), and checks a..d, f, h, i, j, k, m, o as in the turns run.",
+  "run_name": "pie_landing",
+  "record_head_path": true,
+  "kill_during_follow": true,
+  "kill_when_over_tiles": true,
+  "kill_over_tiles_min_s": 6.0,
+  "kill_over_tiles_timeout_s": 40.0,
+  "kill_over_tiles_min_speed": 500.0,
+  "landing_check": true,
+  "timeline": {
+    "follow_s": 18.0,
+    "ragdoll_s": 5.5
+  },
+  "sampling": {
+    "path_dt": 0.03
+  },
+  "shots": {
+    "plan": [
+      {"phase": "spawn", "at": 1.0, "label": "a_spawn", "kinds": ["side"]},
+      {"phase": "kill", "at": 0.5, "label": "n_death_05", "kinds": ["side", "player"]},
+      {"phase": "kill", "at": 2.0, "label": "n_death_20", "kinds": ["side"]},
+      {"phase": "kill", "at": 4.5, "label": "n_death_45", "kinds": ["side", "top"]},
+      {"phase": "respawned", "at": 1.5, "label": "i_respawn", "kinds": ["side"]}
+    ]
+  }
+}

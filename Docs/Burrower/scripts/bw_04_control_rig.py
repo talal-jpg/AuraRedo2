@@ -8,6 +8,7 @@
 # Bisecting / options: send a small wrapper through the inbox instead of this file, e.g.
 #   BW04_STAGES = {'hoses': False, 'wires': False}      # merged into STAGES below
 #   BW04_ROTOR_MODE = 'two_set'                          # see ROTOR_MODE
+#   BW04_DEATH_KICK = False                              # ragdoll without the death kick (deviation 25)
 #   exec(open('/mnt/new_partition/UnrealProjects/_BurrowerWork/Docs/Burrower/scripts/bw_04_control_rig.py').read())
 # Every BW04_<NAME> global overrides <NAME> below (it is popped, so it does not stick to later runs).
 #
@@ -84,6 +85,50 @@
 #     errors) and does NOT save; the .out names the stage and the BW04_STAGES wrapper to bisect with.
 # 22. The Step 3 printout shows the recipe's four MathQuat* paths as MISSING on purpose (they do not exist in 5.8);
 #     the "needed" list right after it is what decides whether the build runs.
+#
+# 2026-11-22 fixes after Talal's playtest (FIXED INTERFACE of the coordinator; research notes_cr_death_velocity.md):
+# 23. Path-follow bend: 8 new public float variables FollowYawDeg1..4 / FollowPitchDeg1..4 (UBurrowerAnimInstance
+#     computes them from the head's trail, already in the rig's sign convention). Stage 'wave' adds them to the wave
+#     angles of joint i: yaw_i = Rad(WaveAmplitudeDeg*wy_i)*sin(theta_i) + Rad(FollowYawDeg_i), pitch_i =
+#     Rad(WavePitchAmplitudeDeg*wp_i)*cos(theta_i) + Rad(FollowPitchDeg_i), same QuatFromAxisAndAngle axes as before
+#     (+yaw swings the segments behind J_i toward component -Y, +pitch lifts them toward +Z). Nodes per joint:
+#     W<i>_Get_FollowYawDeg<i> / W<i>_FollowYawRad / W<i>_YawTotal and the same for Pitch.
+# 24. Wave pitch weight of J2_Midbody raised 0.15 -> 0.45 (Talal: "rigid when it turns up and down").
+# 25. Death kick (stage 'ragdoll', block 5.3a, knob DEATH_KICK): World-space CR ragdoll bodies never carried the
+#     component's travel velocity (notes_cr_death_velocity.md 1). On the first dead frame with dt > 0, exactly once per
+#     life (private latch bDeathKickDone), every body J0..J4 gets an Add Force (VelocityChange, World, Location Body 0):
+#     Linear = DeathVelocity + Rad(DeathAngularVelocity) x (c_k - c_0), Angular = Rad(DeathAngularVelocity), with c_k
+#     the body COM in WORLD space (To World of the bone transform applied to the body-local COM) and c_0 = J0's COM =
+#     the actor origin. New public FVector variables DeathVelocity (cm/s) and DeathAngularVelocity (deg/s), both WORLD
+#     vectors from the C++ (5.8 Add Force reads World and Component as real world vectors, RigPhysicsSolver.cpp:1275-
+#     1283). Exec: wave -> Kick_Branch(.True -> Kick_0..4_Force -> Kick_SetDone) .Completed -> StepRagdoll (unchanged,
+#     Alpha = BoolToFloat(bIsDead)).
+# 26. WireSolver Settings.PositionThresholdForReset 2000 -> 1000000 (research risk 1): the reset measures the distance
+#     from the sim origin (the stationary component), and the kicked corpse passes 20 m after about 1 s, so the wires
+#     would snap to the animated pose every frame and go rigid. bResetFromPosition stays True for real explosions.
+# 27. RagdollSolver: bResetFromPosition / bResetFromKinematicSpeed / bResetFromKinematicAcceleration /
+#     bResetFromEvaluationInterval are now set explicitly to their default False (no behaviour change): any of them
+#     would make the bodies kinematic or reset them on the kick frame and drop the kick silently (research 5.4; in
+#     World space bResetFromPosition would measure from the WORLD origin).
+# 28. FVector variable default text '(X=0.000000,Y=0.000000,Z=0.000000)' as the research gives it: the blueprint
+#     compiler parses it with FDefaultValueHelper::ParseVector, which falls back to FVector::InitFromString for the
+#     X= form (Core/Private/Misc/DefaultValueHelper.cpp:474-479), so it compiles without a parse warning.
+# 29. RagdollSolver world collision (research notes_cr_world_collision.md; dead Burrowers fell through intact tiles):
+#     SolverSettings.WorldCollisionType 'Static' -> 'All' and WorldCollisionBoundsExpansion 1.1 -> 2.5. The hex tiles
+#     (AMyHexPlatform::HexPillarsISM, default profile BlockAllDynamic) are object type WORLDDYNAMIC, and 'Static' gathers
+#     object type WorldStatic only (mobility is never filtered, RigPhysicsSolver_WorldObjects.cpp:168-183), so only the
+#     WorldStatic PCG props / paving / bridge meshes were ever added; 'All' adds the tiles (one kinematic world object per
+#     ISM instance, :226-252) and keeps the props. The gather is one AABB of the simulated bodies AFTER the step, used
+#     by the NEXT step (objects lag one frame); its half size is multiplied by the expansion, so 1.1 left a ~18 cm
+#     vertical margin and a 30 m/s corpse at the 12 fps PIE runs at passes a whole 80 cm rim tile before the tile is
+#     added. 2.5 gives ~278 cm (2.0 is enough at >= 30 fps). Unchanged on purpose: bWorldCollisionIncludePhysics True,
+#     bWorldCollisionIncludeQuery False, bAllowCCD False (narrow-phase limit ~37 m/s for the 85 cm tail capsule at
+#     MaxDeltaTime 0.0334), iterations 8/2/1, MaxDepenetrationVelocity 300. Side effects: player capsules (Pawn,
+#     QueryAndPhysics) become kinematic obstacles that can shove a corpse (as with CR_Mech, which already uses 'All');
+#     a corpse that died inside the tiles it was cutting is pushed out (normally upward) on the second dead frame.
+#     The mesh fallback needs a matching C++ line (BurrowerCharacter.cpp HandleBurrowerDeath: block WorldDynamic).
+# Kept on purpose (research mentions it as an option, not as required): RagDamp AngularDamping 1.0 (removes ~63 % of
+# the death spin per second; 0.2-0.3 keeps the corpse curving longer).
 # =====================================================================================================================
 
 import importlib
@@ -103,6 +148,7 @@ RECREATE_EVEN_IF_REFERENCED = False  # True: recreate even if ABP_Burrower refer
 ROTOR_MODE = 'subpin'                # 'subpin' (Spin quat -> Rotor_M1.A.Rotation) or 'two_set' (SetTransform+SetRotation)
 INSTANTIATE_IN_CONSTRUCTION = True   # recipe 4.4
 PIN_ROOT_PARTICLES = True            # recipe C9 pins _01 too (redundant in 5.8, harmless)
+DEATH_KICK = True                    # deviation 25: death velocity kick before StepRagdoll (part of stage 'ragdoll')
 ABORT_ON_PIN_PROBE_FAIL = True
 SAVE_ON_FAIL = False
 
@@ -110,7 +156,7 @@ _bw04_g = globals()
 if 'BW04_STAGES' in _bw04_g:
     STAGES.update(dict(_bw04_g.pop('BW04_STAGES')))
 for _bw04_k in ('MODE', 'RECREATE_EVEN_IF_REFERENCED', 'ROTOR_MODE', 'INSTANTIATE_IN_CONSTRUCTION',
-                'PIN_ROOT_PARTICLES', 'ABORT_ON_PIN_PROBE_FAIL', 'SAVE_ON_FAIL'):
+                'PIN_ROOT_PARTICLES', 'DEATH_KICK', 'ABORT_ON_PIN_PROBE_FAIL', 'SAVE_ON_FAIL'):
     if 'BW04_' + _bw04_k in _bw04_g:
         _bw04_g[_bw04_k] = _bw04_g.pop('BW04_' + _bw04_k)
 
@@ -168,15 +214,29 @@ HOSE_SOLVER = comp('J1_Forequarters', 'PhysicsSolver')
 WIRE = comp('root', 'DynamicsSolver')
 
 # (bone, parent for the axes, index, yaw weight, pitch weight) - recipe 5.1
-WAVE_JOINTS = [('J1_Forequarters', 'J0_Head', 1, 0.40, 0.65), ('J2_Midbody', 'J1_Forequarters', 2, 0.60, 0.15),
+# J2_Midbody pitch weight 0.45 (was 0.15, deviation 24). ARMOUR CLIPPING RISK: control_rig_recipe.md (Step 5.1 table)
+# kept it low because J2 can lift only about 2 deg before the vent housing (on J2) hits the canister pack (on J1), and
+# the lead's comfortable up-down range for J2 is 1 deg. At WavePitchAmplitudeDeg 5 this gives 2.25 deg of wave alone,
+# and FollowPitchDeg2 (clamped by PathFollowMaxPitchDeg on the character) comes on top. Check the vent/canister seam
+# in PIE in steep climbs and dives; lower this weight (or PathFollowMaxPitchDeg) if they visibly intersect.
+WAVE_JOINTS = [('J1_Forequarters', 'J0_Head', 1, 0.40, 0.65), ('J2_Midbody', 'J1_Forequarters', 2, 0.60, 0.45),
                ('J3_Hindbody', 'J2_Midbody', 3, 0.80, 0.65), ('J4_Tail', 'J3_Hindbody', 4, 1.00, 1.00)]
+FOLLOW_YAW_VAR = 'FollowYawDeg%d'        # % joint index 1..4 (deviation 23)
+FOLLOW_PITCH_VAR = 'FollowPitchDeg%d'
+VEC_ZERO = '(X=0.000000,Y=0.000000,Z=0.000000)'
 
-# Variables: names and types = UBurrowerAnimInstance properties (Source/Aura/Public/Burrower/BurrowerAnimInstance.h)
-PUBLIC_VARS = [('RotorAngleDeg', H.CPP_FLOAT, 0.0), ('RotorSpinSpeed', H.CPP_FLOAT, 0.0), ('WaveTime', H.CPP_FLOAT, 0.0),
-               ('WaveAmplitudeDeg', H.CPP_FLOAT, 10.0), ('WavePhasePerJointDeg', H.CPP_FLOAT, 65.0),
-               ('WavePitchAmplitudeDeg', H.CPP_FLOAT, 0.0), ('Speed', H.CPP_FLOAT, 0.0), ('bIsDead', H.CPP_BOOL, False),
-               ('DeathTime', H.CPP_FLOAT, 0.0)]
-PRIVATE_VARS = [('WaveTimeToRadians', H.CPP_FLOAT, 6.2831853)]
+# Variables: names and types = UBurrowerAnimInstance properties (Source/Aura/Public/Burrower/BurrowerAnimInstance.h).
+# In reuse mode existing variables are kept (ensure_variable) and the new ones are added.
+PUBLIC_VARS = ([('RotorAngleDeg', H.CPP_FLOAT, 0.0), ('RotorSpinSpeed', H.CPP_FLOAT, 0.0), ('WaveTime', H.CPP_FLOAT, 0.0),
+                ('WaveAmplitudeDeg', H.CPP_FLOAT, 10.0), ('WavePhasePerJointDeg', H.CPP_FLOAT, 65.0),
+                ('WavePitchAmplitudeDeg', H.CPP_FLOAT, 0.0), ('Speed', H.CPP_FLOAT, 0.0),
+                ('bIsDead', H.CPP_BOOL, False), ('DeathTime', H.CPP_FLOAT, 0.0)] +
+               [(FOLLOW_YAW_VAR % i, H.CPP_FLOAT, 0.0) for i in range(1, 5)] +
+               [(FOLLOW_PITCH_VAR % i, H.CPP_FLOAT, 0.0) for i in range(1, 5)] +
+               [('DeathVelocity', H.CPP_VECTOR, VEC_ZERO),           # world cm/s, 0 while alive
+                ('DeathAngularVelocity', H.CPP_VECTOR, VEC_ZERO)])   # world deg/s, 0 while alive
+PRIVATE_VARS = [('WaveTimeToRadians', H.CPP_FLOAT, 6.2831853),
+                ('bDeathKickDone', H.CPP_BOOL, False)]                # death kick latch (deviation 25)
 REPIN_VAR = 'EndPin_%s'      # + chain name, FTransform, private
 
 # ------------------------------------------------------------------------------------------------- pin values
@@ -187,10 +247,12 @@ RAGDOLL_SOLVER_PINS = {                                  # C1 (notes_cr_plugins 
     'SolverSettings.bAutomaticallyAddPhysicsBodyComponents': False,
     'SolverSettings.SimulationSpace': 'World',
     'SolverSettings.CollisionSpace': 'World',
-    'SolverSettings.WorldCollisionType': 'Static',
+    # deviation 29: 'All' (the hex tiles are WorldDynamic, 'Static' = object type WorldStatic only) and a 2.5x gather
+    # box (the world objects lag one frame; 1.1 left ~18 cm of vertical margin, 2.5 about 278 cm)
+    'SolverSettings.WorldCollisionType': 'All',
     'SolverSettings.bWorldCollisionIncludePhysics': True,
     'SolverSettings.bWorldCollisionIncludeQuery': False,
-    'SolverSettings.WorldCollisionBoundsExpansion': 1.1,
+    'SolverSettings.WorldCollisionBoundsExpansion': 2.5,
     'SolverSettings.PositionIterations': 8,
     'SolverSettings.VelocityIterations': 2,
     'SolverSettings.ProjectionIterations': 1,
@@ -199,6 +261,12 @@ RAGDOLL_SOLVER_PINS = {                                  # C1 (notes_cr_plugins 
     'SolverSettings.MaxTimeSteps': 4,
     'SolverSettings.MaxDepenetrationVelocity': 300.0,
     'TeleportDetection.PositionChangeThreshold': 500.0,
+    # deviation 27: the struct defaults (RigPhysicsData.h:799-827), set explicitly because the death kick is dropped
+    # silently if any of these makes the bodies kinematic / resets them on the kick frame (notes_cr_death_velocity 5.4)
+    'SolverSettings.bResetFromPosition': False,
+    'SolverSettings.bResetFromKinematicSpeed': False,
+    'SolverSettings.bResetFromKinematicAcceleration': False,
+    'SolverSettings.bResetFromEvaluationInterval': False,
 }
 RAGDOLL_FROM_PA_PINS = {                                 # C2 (RigPhysicsExecution.h:172-260)
     'PhysicsSolverComponentKey': RAGDOLL,
@@ -212,6 +280,7 @@ RAGDOLL_FROM_PA_PINS = {                                 # C2 (RigPhysicsExecuti
     'bMakeHelperBodies': False,
 }
 RAG_MOVE_PINS = {'MovementType': 'Simulated'}            # C3 + PhysicsBodyComponentKey per body
+# AngularDamping 1.0/s removes ~63 % of the death-kick spin per second; 0.2-0.3 if the corpse should curve longer
 RAG_DAMP_PINS = {'LinearDamping': 0.1, 'AngularDamping': 1.0}
 HOSE_SOLVER_PINS = {                                     # C4
     'Owner': bone('J1_Forequarters'),
@@ -256,7 +325,7 @@ WIRE_SOLVER_PINS = {                                     # C7 (RigDynamicsData.h
     'Settings.bReadBoneOrientations': True,
     'Settings.bReadBonePositions': False,
     'Settings.bResetFromPosition': True,
-    'Settings.PositionThresholdForReset': 2000.0,
+    'Settings.PositionThresholdForReset': 1000000.0,     # deviation 26 (was 2000: the kicked corpse passes 20 m in ~1 s)
     'Settings.bResetFromEvaluationInterval': True,
     'Settings.EvaluationIntervalThresholdForReset': 0.25,
     'TeleportDetection.PositionChangeThreshold': 500.0,
@@ -286,6 +355,33 @@ STEP_HOSES_PINS = {'PhysicsSolverComponentKey': HOSE_SOLVER, 'Alpha': 1.0, 'bTra
 STEP_WIRES_PINS = {'DynamicsSolverComponentKey': WIRE, 'Alpha': 1.0, 'bTrackVelocitiesDuringPassThrough': True,
                    'DeltaTimeOverride': 0.0}
 
+# Death kick (deviation 25, notes_cr_death_velocity.md 3.3). Struct paths verified in the 5.8 headers:
+#   RigVM Public/RigVMFunctions/Animation/RigVMFunction_GetDeltaTime.h:12, Math/RigVMFunction_MathBool.h:170/182,
+#   Math/RigVMFunction_MathFloat.h:736, Math/RigVMFunction_MathVector.h:178/190/667/761,
+#   Math/RigVMFunction_MathTransform.h:476 ("Transform Location" = TransformPosition, .cpp:166-169),
+#   ControlRig Public/Units/Hierarchy/RigUnit_WorldSpace.h:72 (To World, Location permutation),
+#   ControlRigPhysics Public/RigPhysicsBodyExecution.h:586/639/663.
+K_DT = VM + 'GetDeltaTime'                                # -> Result (float, ExecuteContext.GetDeltaTime)
+K_NOT = VM + 'MathBoolNot'                                # Value -> Result
+K_AND = VM + 'MathBoolAnd'                                # A, B -> Result
+K_GREATER = VM + 'MathFloatGreater'                       # A, B -> Result (bool)
+K_VRAD = VM + 'MathVectorRad'                             # Value (deg) -> Result (rad), per component
+K_VSUB = VM + 'MathVectorSub'                             # A, B -> Result = A - B
+K_VCROSS = VM + 'MathVectorCross'                         # A, B -> Result = A ^ B
+K_VADD = VM + 'MathVectorAdd'                             # A, B -> Result = A + B
+K_TLOC = VM + 'MathTransformTransformVector'              # Transform, Location -> Result
+K_TOWORLD = CR + 'RigUnit_ToWorldSpace_Location'          # Value -> World (ExecuteContext.ToWorldSpaceTransform)
+K_BODY_TM = P + 'RigUnit_HierarchyGetPhysicsBodyTransform'        # PhysicsBodyComponentKey -> Transform
+K_COM_TM = P + 'RigUnit_HierarchyGetPhysicsBodyCoMTransform'      # PhysicsBodyComponentKey -> CoMTransform
+K_FORCE = P + 'RigUnit_HierarchyAddPhysicsBodyForce'              # mutable: PhysicsBodyComponentKey, ForceAndTorque, Name
+KICK_FORCE_PINS = {                                      # PhysicsControlData.h:1072-1097 (FPhysicsControlForceAndTorqueData)
+    'ForceAndTorque.Type': 'VelocityChange',             # cm/s + rad/s, mass independent, consumed in one substep
+    'ForceAndTorque.ForceAndTorqueSpace': 'World',       # 5.8: World and Component both read as real world vectors
+    'ForceAndTorque.LocationSpace': 'Body',
+    'ForceAndTorque.Location': VEC_ZERO,                 # Body + 0 = at the COM: no extra spin from the linear part
+    'Name': 'DeathKick',
+}
+
 # struct path -> every pin path (relative to the node) the build sets or links on it
 PINS_USED = {
     P + 'RigUnit_SpawnPhysicsSolver': set(RAGDOLL_SOLVER_PINS) | set(HOSE_SOLVER_PINS) | {'PhysicsSolverComponentKey'},
@@ -306,6 +402,24 @@ PINS_USED = {
     D + 'RigUnit_SpawnDynamicsCollider': {'Owner', 'DynamicsSolverComponentKey', 'Shapes', 'Shapes.Capsules'},
     D + 'RigUnit_InstantiateDynamics': {'DynamicsSolverComponentKey'},
     D + 'RigUnit_StepDynamicsSolver': set(STEP_WIRES_PINS),
+    # wave path-follow add (deviation 23); core node, not in H.CORE_PIN_SPECS, so it is probed here
+    S['MathFloatAdd']: {'A', 'B', 'Result'},
+    # death kick (deviation 25): plugin and core nodes, probed the same way
+    K_FORCE: set(KICK_FORCE_PINS) | {'PhysicsBodyComponentKey', 'ForceAndTorque', 'ForceAndTorque.Linear',
+                                     'ForceAndTorque.Angular'},
+    K_BODY_TM: {'PhysicsBodyComponentKey', 'Transform'},
+    K_COM_TM: {'PhysicsBodyComponentKey', 'CoMTransform'},
+    K_DT: {'Result'},
+    K_NOT: {'Value', 'Result'},
+    K_AND: {'A', 'B', 'Result'},
+    K_GREATER: {'A', 'B', 'Result'},
+    K_VRAD: {'Value', 'Result'},
+    K_VSUB: {'A', 'B', 'Result'},
+    K_VCROSS: {'A', 'B', 'Result'},
+    K_VADD: {'A', 'B', 'Result'},
+    K_TLOC: {'Transform', 'Location', 'Result'},
+    K_TOWORLD: {'Value', 'World'},
+    S['MathTransformMakeRelative']: {'Global', 'Parent', 'Local', 'Local.Translation'},
 }
 
 # Recipe Step 3 lists, exactly as written in control_rig_recipe.md (printed OK/MISSING as the recipe asks)
@@ -423,11 +537,15 @@ def _bw04_needed_paths():
     if STAGES['wave']:
         need += [S['GetTransform'], S['SetRotation'], S['MathFloatMul'], S['MathFloatSub'], S['MathFloatSin'],
                  S['MathFloatCos'], S['MathFloatRad'], S['MathQuaternionInverse'], S['MathQuaternionRotateVector'],
-                 S['MathQuaternionFromAxisAndAngle'], S['MathQuaternionMul']]
+                 S['MathQuaternionFromAxisAndAngle'], S['MathQuaternionMul'], S['MathFloatAdd']]
     if STAGES['ragdoll']:
         need += [P + 'RigUnit_SpawnPhysicsSolver', P + 'RigUnit_HierarchyInstantiateFromPhysicsAsset',
                  P + 'RigUnit_HierarchySetPhysicsBodyMovementType', P + 'RigUnit_HierarchySetPhysicsBodyDamping',
                  P + 'RigUnit_StepPhysicsSolver1', S['MathBoolToFloat']]
+        if DEATH_KICK:
+            need += [S['ControlFlowBranch'], K_DT, K_NOT, K_AND, K_GREATER, K_VRAD, K_BODY_TM, K_COM_TM,
+                     S['MathTransformMakeRelative'], S['GetTransform'], K_TLOC, K_TOWORLD, K_VSUB, K_VCROSS, K_VADD,
+                     K_FORCE]
     if STAGES['rotor']:
         need += [S['GetTransform'], S['SetTransform'], S['MathTransformMakeRelative'], S['MathQuaternionInverse'],
                  S['MathQuaternionRotateVector'], S['MathFloatRad'], S['MathQuaternionFromAxisAndAngle'],
@@ -801,8 +919,9 @@ def _bw04_f_events(b):
 
 
 def _bw04_f_wave(b):
-    blk = b.block('wave', '5.1 Body wave on J1..J4: theta_i = WaveTime*2pi - i*Phase; yaw about the body up, pitch '
-                  'about the body side, both in the parent rest frame; NewLocal = QDelta * Local', dx=300.0, dy=230.0)
+    blk = b.block('wave', '5.1 Body wave + path-follow bend on J1..J4: theta_i = WaveTime*2pi - i*Phase; yaw_i = '
+                  'wave yaw + Rad(FollowYawDeg_i) about the body up, pitch_i = wave pitch + Rad(FollowPitchDeg_i) about '
+                  'the body side, both in the parent rest frame; NewLocal = QDelta * Local', dx=300.0, dy=230.0)
     gt = b.var_get('wave', 'WaveTime', 'Wave_Get_WaveTime', blk.at(0, 0))
     gk = b.var_get('wave', 'WaveTimeToRadians', 'Wave_Get_WaveTimeToRadians', blk.at(1, 0))
     gp = b.var_get('wave', 'WavePhasePerJointDeg', 'Wave_Get_WavePhasePerJointDeg', blk.at(2, 0))
@@ -815,7 +934,7 @@ def _bw04_f_wave(b):
     b.g.link(gp, phi + '.Value')
     for bn, parent, i, wy, wp in WAVE_JOINTS:
         t = 'W%d_' % i
-        ra, rb = 1 + 2 * (i - 1), 2 + 2 * (i - 1)
+        ra, rf, rb = 1 + 3 * (i - 1), 2 + 3 * (i - 1), 3 + 3 * (i - 1)    # wave maths / path follow / quaternions
         lag = b.unit('wave', S['MathFloatMul'], t + 'Lag', blk.at(0, ra))
         b.g.link(phi + '.Result', lag + '.A')
         b.g.setp(lag + '.B', float(i))
@@ -838,8 +957,18 @@ def _bw04_f_wave(b):
             b.g.link(trig + '.Result', o + '.B')
             return o + '.Result'
 
-        yaw = scaled(ga, wy, sn, 'Yaw', 4)
-        pitch = scaled(gpa, wp, cs, 'Pitch', 7)
+        def follow(wave_pin, var, tag, col0):
+            # deviation 23: angle_i = wave angle + Rad(Follow<tag>Deg_i); the C++ already gives the rig's sign
+            gf = b.var_get('wave', var, t + 'Get_' + var, blk.at(col0, rf))
+            r = b.unit('wave', S['MathFloatRad'], t + 'Follow' + tag + 'Rad', blk.at(col0 + 1, rf))
+            b.g.link(gf, r + '.Value')
+            s = b.unit('wave', S['MathFloatAdd'], t + tag + 'Total', blk.at(col0 + 2, rf))
+            b.g.link(wave_pin, s + '.A')
+            b.g.link(r + '.Result', s + '.B')
+            return s + '.Result'
+
+        yaw = follow(scaled(ga, wy, sn, 'Yaw', 4), FOLLOW_YAW_VAR % i, 'Yaw', 4)
+        pitch = follow(scaled(gpa, wp, cs, 'Pitch', 7), FOLLOW_PITCH_VAR % i, 'Pitch', 7)
         pi_ = b.unit('wave', S['GetTransform'], t + 'ParentInit', blk.at(0, rb))
         b.g.setp(pi_ + '.Item', bone(parent))
         b.g.setp(pi_ + '.Space', 'GlobalSpace')
@@ -878,7 +1007,114 @@ def _bw04_f_wave(b):
     b.close(blk)
 
 
+def _bw04_vec_unit(b, path, name, pos, pin):
+    """Template unit nodes of the kick that must be their FVector permutation: 'To World' (TemplateName "To World":
+    _Transform / _Location / _Rotation, RigUnit_WorldSpace.h:13/71/129) and the MathVector Add / Subtract / Cross /
+    Radians (templates shared with the float/double/int maths). add_unit_node_from_struct_path normally resolves to
+    the asked-for struct; if 5.8 picks another permutation (as it does for MathFloatSin), move it back BEFORE anything
+    is linked to it. _bw04_verify_structs checks the result again after the build."""
+    n = b.unit('ragdoll', path, name, pos)
+    want = path.rsplit('.', 1)[1]
+    got = b.g.struct_of(n)
+    if got == want:
+        return n
+    try:
+        # RigVMController.h:438 UnresolveTemplateNodes, :550 ResolveWildCardPin (pin path, cpp type, type object path)
+        b.g.c.unresolve_template_nodes([n], False, False)
+        b.g.c.resolve_wild_card_pin(n + '.' + pin, 'FVector', '/Script/CoreUObject.Vector', False, False)
+    except Exception as e:  # noqa: BLE001
+        raise H.BwError('%s resolved to %s and could not be moved to %s: %s' % (n, got, want, e))
+    now = b.g.struct_of(n)
+    if now != want:
+        raise H.BwError('%s is %s after re-resolve (wanted %s)' % (n, now, want))
+    info('%s: template resolved to %s, moved to %s' % (n, got, want))
+    return n
+
+
+def _bw04_f_death_kick(b):
+    """Deviation 25 (notes_cr_death_velocity.md 3): once per life, on the first dead frame with dt > 0, give every
+    ragdoll body the velocity it had as part of the flying worm. Runs right before StepRagdoll, so the records are
+    used in that same frame's first simulated step (RigPhysicsSolver.cpp:1636-1648, 2140-2144)."""
+    blk = b.block('ragdoll', '5.3a Death kick, once per life (bDeathKickDone) on the first dead frame with dt > 0: '
+                  'each ragdoll body J0..J4 gets VelocityChange Linear = DeathVelocity + Rad(DeathAngularVelocity) x '
+                  '(c_k - c_0), Angular = Rad(DeathAngularVelocity); world vectors, c_k = body COM in world, c_0 = J0 '
+                  'COM = actor origin', dx=380.0, dy=260.0)
+    # fire = bIsDead AND NOT bDeathKickDone AND DeltaTime > 0 (a dt 0 step would empty the records unused)
+    gd = b.var_get('ragdoll', 'bIsDead', 'Kick_Get_bIsDead', blk.at(0, 0))
+    gdone = b.var_get('ragdoll', 'bDeathKickDone', 'Kick_Get_Done', blk.at(0, 1))
+    nd = b.unit('ragdoll', K_NOT, 'Kick_NotDone', blk.at(1, 1))
+    b.g.link(gdone, nd + '.Value')
+    dtn = b.unit('ragdoll', K_DT, 'Kick_DT', blk.at(0, 2))
+    dtp = b.unit('ragdoll', K_GREATER, 'Kick_DTPos', blk.at(1, 2))
+    b.g.link(dtn + '.Result', dtp + '.A')
+    b.g.setp(dtp + '.B', 0.0)
+    a1 = b.unit('ragdoll', K_AND, 'Kick_And1', blk.at(2, 0))
+    b.g.link(gd, a1 + '.A')
+    b.g.link(nd + '.Result', a1 + '.B')
+    fire = b.unit('ragdoll', K_AND, 'Kick_Fire', blk.at(3, 1))
+    b.g.link(a1 + '.Result', fire + '.A')
+    b.g.link(dtp + '.Result', fire + '.B')
+    br = b.f.add(b.unit('ragdoll', S['ControlFlowBranch'], 'Kick_Branch', blk.at(4, 0)))   # main chain -> .ExecuteContext
+    b.g.link(fire + '.Result', br + '.Condition')
+    t = b.g.chain(br, 'True')                     # Kick_Branch.True -> Kick_0..4_Force -> Kick_SetDone
+    # the C++ values, world space
+    gv = b.var_get('ragdoll', 'DeathVelocity', 'Kick_Get_V', blk.at(2, 3))            # cm/s
+    gw = b.var_get('ragdoll', 'DeathAngularVelocity', 'Kick_Get_W', blk.at(0, 3))     # deg/s
+    wrad = _bw04_vec_unit(b, K_VRAD, 'Kick_WRad', blk.at(1, 3), 'Value')              # rad/s
+    b.g.link(gw, wrad + '.Value')
+    c0 = None
+    for k, bn in enumerate(BODY):
+        row = 4 + k
+        key = comp(bn, 'PhysicsBody')
+        p = 'Kick_%d_' % k
+        # body-local COM from the consistent (Transform, CoMTransform) pair of the body component; NOT CoMTransform
+        # as a position (it is the Instantiate-time pose until the first step)
+        btm = b.unit('ragdoll', K_BODY_TM, p + 'BodyTM', blk.at(0, row))
+        b.g.setp(btm + '.PhysicsBodyComponentKey', key)
+        ctm = b.unit('ragdoll', K_COM_TM, p + 'CoMTM', blk.at(1, row))
+        b.g.setp(ctm + '.PhysicsBodyComponentKey', key)
+        lc = b.unit('ragdoll', S['MathTransformMakeRelative'], p + 'LocalCoM', blk.at(2, row))
+        b.g.link(ctm + '.CoMTransform', lc + '.Global')
+        b.g.link(btm + '.Transform', lc + '.Parent')
+        # COM now: this frame's bone pose (after the wave) applied to the local COM, then component -> world
+        bt = b.unit('ragdoll', S['GetTransform'], p + 'Bone', blk.at(3, row))
+        b.g.setp(bt + '.Item', bone(bn))
+        b.g.setp(bt + '.Space', 'GlobalSpace')
+        b.g.setp(bt + '.bInitial', False)
+        cc = b.unit('ragdoll', K_TLOC, p + 'ComCS', blk.at(4, row))
+        b.g.link(bt + '.Transform', cc + '.Transform')
+        b.g.link(lc + '.Local.Translation', cc + '.Location')
+        cw = _bw04_vec_unit(b, K_TOWORLD, p + 'ComWS', blk.at(5, row), 'Value')
+        b.g.link(cc + '.Result', cw + '.Value')
+        if k == 0:
+            c0 = cw + '.World'                    # pivot: J0's COM (= the actor origin in this asset)
+            lin = gv                              # lever arm 0
+        else:
+            arm = _bw04_vec_unit(b, K_VSUB, p + 'Arm', blk.at(6, row), 'A')
+            b.g.link(cw + '.World', arm + '.A')
+            b.g.link(c0, arm + '.B')
+            wxr = _bw04_vec_unit(b, K_VCROSS, p + 'WxR', blk.at(7, row), 'A')
+            b.g.link(wrad + '.Result', wxr + '.A')
+            b.g.link(arm + '.Result', wxr + '.B')
+            add = _bw04_vec_unit(b, K_VADD, p + 'Lin', blk.at(8, row), 'A')
+            b.g.link(gv, add + '.A')
+            b.g.link(wxr + '.Result', add + '.B')
+            lin = add + '.Result'
+        f = t.add(b.unit('ragdoll', K_FORCE, p + 'Force', blk.at(9, row)))
+        b.g.setp(f + '.PhysicsBodyComponentKey', key)
+        b.setmany(f, KICK_FORCE_PINS)
+        b.g.link(lin, f + '.ForceAndTorque.Linear')
+        b.g.link(wrad + '.Result', f + '.ForceAndTorque.Angular')
+    sd = t.add(b.var_set('ragdoll', 'bDeathKickDone', 'Kick_SetDone', blk.at(9, 4 + len(BODY))))
+    b.g.setp(sd + '.Value', True)
+    b.close(blk)
+
+
 def _bw04_f_ragdoll(b):
+    if DEATH_KICK:
+        _bw04_f_death_kick(b)                     # b.f now ends on Kick_Branch: StepRagdoll hangs off .Completed
+    else:
+        info('DEATH_KICK False: no death kick, the ragdoll starts with the body-wave velocity only')
     blk = b.block('ragdoll', '5.3 Ragdoll step: Alpha = bIsDead (0 alive = pass-through with velocity tracking, '
                   '1 dead = simulated)', dx=380.0, dy=280.0)
     gd = b.var_get('ragdoll', 'bIsDead', 'Rag_Get_bIsDead', blk.at(0, 0))
@@ -1062,9 +1298,9 @@ def _bw04_verify_structs(b):
 def _bw04_main():
     t0 = time.time()
     summary = {'time': time.strftime('%Y-%m-%d %H:%M:%S'), 'stages_requested': dict(STAGES), 'mode': MODE,
-               'rotor_mode_requested': ROTOR_MODE, 'saved': False}
-    info('bw_04_control_rig: STAGES %s, MODE %s, ROTOR_MODE %s, INSTANTIATE %s' % (STAGES, MODE, ROTOR_MODE,
-                                                                                  INSTANTIATE_IN_CONSTRUCTION))
+               'rotor_mode_requested': ROTOR_MODE, 'death_kick': DEATH_KICK, 'saved': False}
+    info('bw_04_control_rig: STAGES %s, MODE %s, ROTOR_MODE %s, INSTANTIATE %s, DEATH_KICK %s'
+         % (STAGES, MODE, ROTOR_MODE, INSTANTIATE_IN_CONSTRUCTION, DEATH_KICK))
     unknown = [k for k in STAGES if k not in ('wave', 'ragdoll', 'rotor', 'hoses', 'wires', 'repin')]
     if unknown:
         fail('unknown STAGES keys %s' % unknown)
@@ -1154,6 +1390,8 @@ def _bw04_main():
                 info('bisect: re-run with BW04_INSTANTIATE_IN_CONSTRUCTION = False')
             elif stage in STAGES:
                 info('bisect: re-run with BW04_STAGES = {%r: False} (and the stages after it if needed)' % stage)
+                if stage == 'ragdoll' and DEATH_KICK:
+                    info('bisect: or keep the ragdoll and drop only the death kick: BW04_DEATH_KICK = False')
             build_ok = False
             break
     summary['rotor_mode_built'] = b.rotor_mode
@@ -1184,7 +1422,9 @@ def _bw04_main():
              'rig editor to look, or fix and re-run.' % (build_ok, compile_ok, structs_ok))
     summary['seconds'] = round(time.time() - t0, 1)
     if summary['saved']:
-        info('next: run bw_04b_cr_check.py (numeric wave/rotor checks), then bw_05_anim_bp.py')
+        info('next: run bw_04b_cr_check.py (numeric wave/rotor/path-follow checks, death kick), then bw_05_anim_bp.py, '
+             'bw_05b_use_pin_ui.sh (ticks "Use Pin" on the new rows: FollowYawDeg1..4, FollowPitchDeg1..4, '
+             'DeathVelocity, DeathAngularVelocity) and bw_05_anim_bp.py again (wires all 19 pins)')
     return summary
 
 

@@ -69,6 +69,20 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Burrower")
 	bool IsBurrowerDead() const { return bIsDead; }
 
+	/**
+	 * World velocity (cm/s) the corpse inherits, captured on this machine just before the death stops the movement
+	 * (on a client whose replicated velocity is already 0: the last one seen while it moved). Times DeathVelocityScale;
+	 * 0 with bInheritVelocityOnDeath off or before death.
+	 */
+	FVector GetDeathVelocity() const { return DeathVelocity; }
+
+	/**
+	 * World angular velocity (degrees per second) at death: the yaw rate about world +Z plus the pitch rate about
+	 * the actor's right axis, measured from the actor's rotation. Physics convention: a point at offset R from the
+	 * pivot moves at Omega x R (Omega in radians). 0 with bInheritTurnOnDeath off or before death.
+	 */
+	FVector GetDeathAngularVelocity() const { return DeathAngularVelocity; }
+
 	UBoxComponent* GetRotorBox() const { return RotorBox; }
 
 	/** RotorHalfSize + RotorBoxPadding, unscaled (the box's own extent). */
@@ -104,13 +118,13 @@ public:
 	// Body wave (cosmetic, read by UBurrowerAnimInstance and passed to the Control Rig)
 	// -------------------------------------------------------------------------
 
-	/** Peak sideways swing (degrees) at the tail joint at full speed. The rig ramps it down toward the head. Keep <= 14. */
+	/** Peak sideways swing (degrees) at the tail joint at full speed. The rig ramps it down toward the head. Keep <= 14. The path-follow bend adds to it. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Body Wave", meta = (ClampMin = "0.0", ClampMax = "30.0"))
-	float BodyWaveAmplitudeDeg = 10.f;
+	float BodyWaveAmplitudeDeg = 12.f;
 
-	/** Peak up/down swing (degrees) at the tail at full speed (a slight corkscrew). Keep <= 6. */
+	/** Peak up/down swing (degrees) at the tail at full speed (a slight corkscrew). Keep <= 6. The path-follow bend adds to it. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Body Wave", meta = (ClampMin = "0.0", ClampMax = "15.0"))
-	float BodyWavePitchAmplitudeDeg = 3.f;
+	float BodyWavePitchAmplitudeDeg = 5.f;
 
 	/** Fraction of the amplitudes used when standing still. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Body Wave", meta = (ClampMin = "0.0", ClampMax = "1.0"))
@@ -139,6 +153,38 @@ public:
 	/** How quickly the amplitudes follow speed changes (higher = faster). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Body Wave", meta = (ClampMin = "0.0"))
 	float BodyWaveAmplitudeInterpSpeed = 2.f;
+
+
+	// -------------------------------------------------------------------------
+	// Path follow (cosmetic bend, worked out by UBurrowerAnimInstance and passed to the Control Rig)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * 0: the body turns rigidly with the head. 1: J1..J4 trace the path the head flew (yaw and pitch), measured
+	 * along that path, so the bend doesn't depend on speed. The body wave stays on top.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Path Follow", meta = (ClampMin = "0.0", ClampMax = "2.0", UIMax = "1.0"))
+	float PathFollowStrength = 1.f;
+
+	/** Largest sideways bend (degrees) of each joint against the one in front of it, before the wave is added. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Path Follow", meta = (ClampMin = "0.0", ClampMax = "45.0"))
+	float PathFollowMaxYawDeg = 14.f;
+
+	/** Largest up/down bend (degrees) of each joint against the one in front of it, before the wave is added. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Path Follow", meta = (ClampMin = "0.0", ClampMax = "45.0"))
+	float PathFollowMaxPitchDeg = 10.f;
+
+	/** Distance (cm) between the points of the head's trail. Smaller = finer path, more points (about 22 m of trail / spacing). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Path Follow", meta = (ClampMin = "10.0"))
+	float PathFollowSampleSpacing = 40.f;
+
+	/** Length (cm) of the last segment, J4_Tail to the tail tip (no bone there). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Path Follow", meta = (ClampMin = "0.0"))
+	float PathFollowTailLength = 457.f;
+
+	/** How quickly the bend angles follow the path (higher = faster). 0 = at once. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Path Follow", meta = (ClampMin = "0.0"))
+	float PathFollowInterpSpeed = 12.f;
 
 protected:
 
@@ -293,6 +339,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Death")
 	bool bHideHealthBarOnDeath = true;
 
+	/** The ragdoll starts with the velocity it flew at (both ragdolls: every body, on its first simulated frame). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Death")
+	bool bInheritVelocityOnDeath = true;
+
+	/** Multiplies the inherited velocity (not the turn). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Death", meta = (ClampMin = "0.0", UIMax = "2.0"))
+	float DeathVelocityScale = 1.f;
+
+	/** The ragdoll also keeps turning as it turned at death (each body gets the turn's share, Omega x offset), so a corpse that dies mid-turn keeps curving. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Burrower|Death")
+	bool bInheritTurnOnDeath = true;
+
 	/**
 	 * Set on the server at death, for clients that get the actor after the death multicast was sent
 	 * (they run the same local death in OnRep / BeginPlay).
@@ -323,6 +381,15 @@ private:
 	/** Every machine, once: from the death multicast or, for a late joiner, bBurrowerDead. */
 	void HandleBurrowerDeath();
 
+	/** Every machine, every tick while alive: the last moving velocity and the turn rates the corpse would inherit. */
+	void SampleDeathMotion();
+
+	/** Every machine, at death, before the movement stops: DeathVelocity and DeathAngularVelocity. */
+	void CaptureDeathMotion();
+
+	/** Mesh ragdoll fallback, right after the bodies start simulating: each one gets DeathVelocity plus the turn's share. */
+	void ApplyDeathMotionToMeshBodies();
+
 	/** RotorBox extent from RotorHalfSize + RotorBoxPadding. */
 	void ApplyRotorBoxExtent();
 
@@ -343,4 +410,23 @@ private:
 	/** Rotor box centre at the last check (for bSweepRotorBox). */
 	FVector LastRotorBoxCentre = FVector::ZeroVector;
 	bool bHasLastRotorBoxCentre = false;
+
+	/** Captured at death (GetDeathVelocity / GetDeathAngularVelocity). */
+	FVector DeathVelocity = FVector::ZeroVector;
+	FVector DeathAngularVelocity = FVector::ZeroVector;
+
+	/** Last velocity above a crawl, for a client whose replicated velocity is already 0 when the death arrives. */
+	FVector LastMovingVelocity = FVector::ZeroVector;
+
+	/** World time when LastMovingVelocity was last refreshed (it expires after MovingVelocityHoldTime). */
+	double LastMovingVelocityTime = 0.0;
+
+	/** Smoothed actor turn rates (degrees per second): yaw increasing, and pitch increasing (nose up). */
+	double TurnYawRateDeg = 0.0;
+	double TurnPitchRateDeg = 0.0;
+
+	/** Actor rotation and world time at the last turn-rate sample. */
+	FRotator LastTurnSampleRotation = FRotator::ZeroRotator;
+	double LastTurnSampleTime = 0.0;
+	bool bHasTurnSample = false;
 };
