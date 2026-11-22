@@ -34,6 +34,7 @@
 #include "MechSwarm/Spawning/MechSentinelWaveSpawner.h"
 #include "MyGameMode.h"
 #include "NiagaraDataChannel.h"
+#include "NiagaraSystem.h"
 #include "TimerManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelSwarmSubsystem)
@@ -519,19 +520,6 @@ void UMechSentinelSwarmSubsystem::ApplySentinelAttack(AActor* TargetActor, const
 // Bullets
 //----------------------------------------------------------------------//
 
-namespace MechSwarm::SubsystemPrivate
-{
-	/** What sentinel bullets meet: walls and floors (static and dynamic) and pawns. Sentinels have no collision. */
-	FCollisionObjectQueryParams BulletObjects()
-	{
-		FCollisionObjectQueryParams Objects;
-		Objects.AddObjectTypesToQuery(ECC_WorldStatic);
-		Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
-		Objects.AddObjectTypesToQuery(ECC_Pawn);
-		return Objects;
-	}
-}
-
 void UMechSentinelSwarmSubsystem::FireSentinelBullet(const FVector& Muzzle, const FVector& AimPoint, const float Damage, const FMechSentinelBulletSettings& Settings)
 {
 	UWorld* World = GetWorld();
@@ -550,18 +538,19 @@ void UMechSentinelSwarmSubsystem::FireSentinelBullet(const FVector& Muzzle, cons
 		Direction = FMath::VRandCone(Direction, FMath::DegreesToRadians(Settings.SpreadDegrees));
 	}
 
-	// Where it ends: the first wall or pawn on its line now (that is also where the effect bursts).
+	// Where it ends: the first thing on its line that blocks Visibility now (walls, floors, the mech's mesh; trigger
+	// volumes don't), which is also where the effect bursts. Sentinels have no collision.
 	const FVector RangeEnd = Muzzle + Direction * FMath::Max(100.f, Settings.Range);
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(MechSentinelBulletFire), /*bTraceComplex*/ false);
 	FHitResult Hit;
-	const FVector End = World->LineTraceSingleByObjectType(Hit, Muzzle, RangeEnd, MechSwarm::SubsystemPrivate::BulletObjects(), QueryParams)
-		? Hit.ImpactPoint
-		: RangeEnd;
+	const FVector End = World->LineTraceSingleByChannel(Hit, Muzzle, RangeEnd, ECC_Visibility, QueryParams) ? Hit.ImpactPoint : RangeEnd;
 
 	FFlyingBullet& Bullet = FlyingBullets.AddDefaulted_GetRef();
 	Bullet.Start = Muzzle;
-	Bullet.End = End;
-	Bullet.ImpactTime = World->GetTimeSeconds() + FVector::Dist(Muzzle, End) / FMath::Max(100.f, Settings.Speed);
+	Bullet.Direction = Direction;
+	Bullet.FireTime = World->GetTimeSeconds();
+	Bullet.Length = float(FVector::Dist(Muzzle, End));
+	Bullet.Speed = FMath::Max(100.f, Settings.Speed);
 	Bullet.Damage = Damage;
 	Bullet.Radius = FMath::Max(0.f, Settings.Radius);
 
@@ -593,11 +582,24 @@ AMechSentinelBulletRelay* UMechSentinelSwarmSubsystem::GetOrCreateBulletRelay()
 		SpawnParams.ObjectFlags |= RF_Transient;
 		BulletRelay = World->SpawnActor<AMechSentinelBulletRelay>(SpawnParams);
 	}
-	if (BulletRelay && !BulletRelay->DataChannel)
+
+	// Follows the rules (they can change through SetRulesOverride); a missing asset is reported once, not reloaded per frame.
+	const UMechSentinelSwarmRules* Rules = GetRules();
+	if (BulletRelay && Rules && !bBulletFxLoadFailed)
 	{
-		if (const UMechSentinelSwarmRules* Rules = GetRules())
+		const FSoftObjectPath ChannelPath = Rules->BulletDataChannel.ToSoftObjectPath();
+		const FSoftObjectPath SystemPath = Rules->BulletSystem.ToSoftObjectPath();
+		if (FSoftObjectPath(BulletRelay->DataChannel.Get()) != ChannelPath || FSoftObjectPath(BulletRelay->BulletSystem.Get()) != SystemPath)
 		{
 			BulletRelay->DataChannel = Rules->BulletDataChannel.LoadSynchronous();
+			BulletRelay->BulletSystem = Rules->BulletSystem.LoadSynchronous();
+			if ((ChannelPath.IsValid() && !BulletRelay->DataChannel) || (SystemPath.IsValid() && !BulletRelay->BulletSystem))
+			{
+				bBulletFxLoadFailed = true;
+				UE_LOG(LogMechSentinel, Warning, TEXT("Sentinel bullet effect not loaded (BulletDataChannel %s, BulletSystem %s): bullets still hit, unseen. Is /Game/MechSentinel/FX cooked?"),
+					*ChannelPath.ToString(), *SystemPath.ToString());
+			}
+			BulletRelay->ForceNetUpdate();
 		}
 	}
 	return BulletRelay;
@@ -615,7 +617,8 @@ void UMechSentinelSwarmSubsystem::TickBullets()
 	// The look: this frame's new bullets in one batch, to every machine.
 	if (!PendingBulletFx.IsEmpty())
 	{
-		if (AMechSentinelBulletRelay* Relay = GetOrCreateBulletRelay())
+		AMechSentinelBulletRelay* Relay = GetOrCreateBulletRelay();
+		if (Relay && Relay->DataChannel)
 		{
 			const UMechSentinelSwarmRules* Rules = GetRules();
 			const int32 MaxFx = Rules ? FMath::Max(1, Rules->MaxBulletFxPerFrame) : 64;
@@ -628,36 +631,44 @@ void UMechSentinelSwarmSubsystem::TickBullets()
 				Fx.End = PendingBulletFx[Index].Value;
 			}
 			Relay->Multicast_ShowBullets(Batch);
+			// Unreliable multicasts wait for the actor's next net update (and only two fit in one): send this one now.
+			Relay->ForceNetUpdate();
 		}
 		PendingBulletFx.Reset();
 	}
 
-	// The hits: every bullet that has arrived meets the first player pawn on its path, if one is still there.
+	// The hits: every bullet sweeps the stretch it flew since the last tick; the first player pawn on it is hit.
 	const double Now = World->GetTimeSeconds();
 	FCollisionObjectQueryParams PawnObjects;
 	PawnObjects.AddObjectTypesToQuery(ECC_Pawn);
 	for (int32 Index = FlyingBullets.Num() - 1; Index >= 0; --Index)
 	{
-		const FFlyingBullet Bullet = FlyingBullets[Index];
-		if (Bullet.ImpactTime > Now)
+		FFlyingBullet& Bullet = FlyingBullets[Index];
+		const float Reached = FMath::Min(Bullet.Length, float((Now - Bullet.FireTime) * Bullet.Speed));
+		const bool bArrived = Reached >= Bullet.Length;
+		bool bDone = bArrived;
+		if (Reached > Bullet.Travelled)
 		{
-			continue;
-		}
-		FlyingBullets.RemoveAtSwap(Index, EAllowShrinking::No);
-
-		TArray<FHitResult> Hits;
-		FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(MechSentinelBulletHit), /*bTraceComplex*/ false);
-		const FVector Direction = (Bullet.End - Bullet.Start).GetSafeNormal();
-		World->SweepMultiByObjectType(Hits, Bullet.Start, Bullet.End + Direction * Bullet.Radius, FQuat::Identity, PawnObjects,
-			FCollisionShape::MakeSphere(Bullet.Radius), QueryParams);
-		for (const FHitResult& Hit : Hits)
-		{
-			const APawn* Pawn = Cast<APawn>(Hit.GetActor());
-			if (Pawn && Pawn->IsPlayerControlled())
+			const FVector From = Bullet.Start + Bullet.Direction * Bullet.Travelled;
+			const FVector To = Bullet.Start + Bullet.Direction * (bArrived ? Bullet.Length + Bullet.Radius : Reached);
+			TArray<FHitResult> Hits;
+			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(MechSentinelBulletHit), /*bTraceComplex*/ false);
+			World->SweepMultiByObjectType(Hits, From, To, FQuat::Identity, PawnObjects, FCollisionShape::MakeSphere(Bullet.Radius), QueryParams);
+			for (const FHitResult& Hit : Hits)
 			{
-				ApplySentinelAttack(Hit.GetActor(), Bullet.Start, Hit.ImpactPoint, Bullet.Damage);
-				break;
+				const APawn* Pawn = Cast<APawn>(Hit.GetActor());
+				if (Pawn && Pawn->IsPlayerControlled())
+				{
+					ApplySentinelAttack(Hit.GetActor(), Bullet.Start, Hit.ImpactPoint, Bullet.Damage);
+					bDone = true;
+					break;
+				}
 			}
+			Bullet.Travelled = Reached;
+		}
+		if (bDone)
+		{
+			FlyingBullets.RemoveAtSwap(Index, EAllowShrinking::No);
 		}
 	}
 

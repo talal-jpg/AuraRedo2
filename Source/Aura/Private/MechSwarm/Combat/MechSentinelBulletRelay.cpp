@@ -6,6 +6,7 @@
 #include "NiagaraDataChannel.h"
 #include "NiagaraDataChannelAccessor.h"
 #include "NiagaraDataChannelFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelBulletRelay)
 
@@ -15,13 +16,15 @@ AMechSentinelBulletRelay::AMechSentinelBulletRelay()
 	bReplicates = true;
 	bAlwaysRelevant = true;
 	SetReplicatingMovement(false);
-	SetNetUpdateFrequency(2.f);
+	// The server calls ForceNetUpdate after each batch (unreliable multicasts wait for the next net update).
+	SetNetUpdateFrequency(10.f);
 }
 
 void AMechSentinelBulletRelay::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AMechSentinelBulletRelay, DataChannel);
+	DOREPLIFETIME(AMechSentinelBulletRelay, BulletSystem);
 }
 
 void AMechSentinelBulletRelay::Multicast_ShowBullets_Implementation(const TArray<FMechSentinelBulletFx>& Bullets)
@@ -44,13 +47,18 @@ void AMechSentinelBulletRelay::ShowBulletsLocal(const TArray<FMechSentinelBullet
 		{
 			Context->Location = Bullet.Start;
 			Context->bOverrideLocation = true;
+			// Our own effect in the channel: the map key includes the system, so gun and sentinel bullets keep their own
+			// buckets, and the spawned effect's readers (which read this channel) auto-link to the sentinel entries.
+			Context->bOverrideSystemToSpawn = BulletSystem != nullptr;
+			Context->SystemToSpawn = BulletSystem;
 		}
-		UNiagaraDataChannelWriter* Writer = UNiagaraDataChannelLibrary::WriteToNiagaraDataChannel_WithContext(this, DataChannel, AccessContext, 1, false, true, true, TEXT("MechSentinelBullets"));
+		// CPU readers only (every emitter of the bullet effect is a CPU sim).
+		UNiagaraDataChannelWriter* Writer = UNiagaraDataChannelLibrary::WriteToNiagaraDataChannel_WithContext(this, DataChannel, AccessContext, 1, false, true, false, TEXT("MechSentinelBullets"));
 		if (!Writer)
 		{
-			return;
+			continue;
 		}
-		// Variable names must match NDC_MechSentinelBullet (a copy of the gun's NDC_GunShootHit).
+		// Variable names must match the channel (the gun's NDC_GunShootHit).
 		Writer->WritePosition(TEXT("MuzzlePos"), 0, Bullet.Start);
 		Writer->WritePosition(TEXT("HitLocation"), 0, Bullet.End);
 	}

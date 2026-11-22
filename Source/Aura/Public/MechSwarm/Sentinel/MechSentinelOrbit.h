@@ -20,12 +20,22 @@ namespace MechSwarm::Orbit
 		return float(Hash & 0x00FFFFFFu) / float(0x01000000u);
 	}
 
-	/** Signed orbit speed (deg/s) of this sentinel: OrbitAngularSpeed +- OrbitSpeedJitter, some sentinels circling the other way. */
+	/** This sentinel's orbit radius around a player: OrbitRadius +- OrbitRadiusJitter. */
+	inline float GetRadius(const FMechSentinelParameters& Params, const int32 Seed)
+	{
+		return FMath::Max(0.f, Params.OrbitRadius * (1.f + Params.OrbitRadiusJitter * (2.f * Hash01(Seed, 1u) - 1.f)));
+	}
+
+	/**
+	 * Signed orbit speed (deg/s) of this sentinel: OrbitSpeed +- OrbitSpeedJitter along its own circle, some sentinels
+	 * circling the other way.
+	 */
 	inline float GetAngularSpeed(const FMechSentinelParameters& Params, const int32 Seed)
 	{
 		const float Scale = 1.f + Params.OrbitSpeedJitter * (2.f * Hash01(Seed, 3u) - 1.f);
 		const float Sign = Hash01(Seed, 4u) < Params.OrbitReverseChance ? -1.f : 1.f;
-		return Params.OrbitAngularSpeed * Scale * Sign;
+		const float Radius = FMath::Max(100.f, GetRadius(Params, Seed));
+		return FMath::RadiansToDegrees(Params.OrbitSpeed * Scale / Radius) * Sign;
 	}
 
 	/**
@@ -48,9 +58,9 @@ namespace MechSwarm::Orbit
 			Heading = FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f);
 		}
 
-		const float Radius = Params.OrbitRadius * (1.f + Params.OrbitRadiusJitter * (2.f * Hash01(Seed, 1u) - 1.f));
+		const float Radius = GetRadius(Params, Seed);
 		const float Height = FMath::Lerp(Params.OrbitHeightMin, Params.OrbitHeightMax, Hash01(Seed, 2u));
 		const float Bob = Params.OrbitBobAmplitude * FMath::Sin(UE_TWO_PI * (Params.OrbitBobFrequency * Time + Hash01(Seed, 6u)));
-		return Target.TargetLocation + Heading * FMath::Max(0.f, Radius) + FVector(0.f, 0.f, Height + Bob);
+		return Target.TargetLocation + Heading * Radius + FVector(0.f, 0.f, Height + Bob);
 	}
 }

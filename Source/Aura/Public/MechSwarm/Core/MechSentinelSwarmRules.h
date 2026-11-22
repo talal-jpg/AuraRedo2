@@ -9,6 +9,7 @@
 
 class UGameplayEffect;
 class UNiagaraDataChannelAsset;
+class UNiagaraSystem;
 
 /**
  * One self-buff a sentinel may cast on itself (UMechSentinelSelfBuffProcessor): a duration GE, how strong and long it is,
@@ -116,11 +117,19 @@ public:
 
 	/**
 	 * Niagara data channel the sentinel bullets are written to (MuzzlePos -> HitLocation), on every machine that draws,
-	 * through AMechSentinelBulletRelay. NDC_MechSentinelBullet spawns NS_MechSentinelBullet, a recoloured copy of the
-	 * gun's PS_06_Flipbook_Sprites_my. Empty: bullets still fly and hit, unseen.
+	 * through AMechSentinelBulletRelay. Defaults to the gun's NDC_GunShootHit: BulletSystem is a copy of the gun's effect
+	 * and its readers read that channel. Empty: bullets still fly and hit, unseen.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TSoftObjectPtr<UNiagaraDataChannelAsset> BulletDataChannel;
+
+	/**
+	 * Effect spawned for the sentinel bullets (the access context's SystemToSpawn override, so the channel keeps gun and
+	 * sentinel bullets in separate buckets). Defaults to NS_MechSentinelBullet, a crimson copy of PS_06_Flipbook_Sprites_my
+	 * (its tracer flies at a fixed 7500 cm/s). Empty: the channel's own DefaultSystemToSpawn.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	TSoftObjectPtr<UNiagaraSystem> BulletSystem;
 
 	/** Most bullets shown per frame (the rest still fly and hit, unseen); bounds the replicated batch. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (ClampMin = "1"))
@@ -157,7 +166,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Self Buffs", meta = (EditCondition = "bEnableSelfBuffs"))
 	FMechSentinelSelfBuffDef ArmorBuff;
 
-	/** MoveSpeedMultiplier x Magnitude. Default: built-in, x1.5 for 4 s, every 12 s, only while the target is 15 m+ away. */
+	/** MoveSpeedMultiplier x Magnitude. Default: built-in, x1.5 for 4 s, every 12 s, only while the target is 35 m+ away. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Self Buffs", meta = (EditCondition = "bEnableSelfBuffs"))
 	FMechSentinelSelfBuffDef SpeedBuff;
 

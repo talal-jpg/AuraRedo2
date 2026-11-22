@@ -8,6 +8,7 @@
 #include "MechSentinelBulletRelay.generated.h"
 
 class UNiagaraDataChannelAsset;
+class UNiagaraSystem;
 
 /** One bullet as the effect sees it: it flies from Start to End (NDC MuzzlePos -> HitLocation) and bursts at End. */
 USTRUCT()
@@ -26,8 +27,8 @@ struct FMechSentinelBulletFx
  * One per world, spawned by UMechSentinelSwarmSubsystem on the server and replicated to every client (always relevant).
  * Sentinels are Mass entities, not actors, so their bullets need a carrier: the server batches each frame's new bullets
  * into one unreliable multicast, and every machine with a view (standalone, listen host, clients) writes them into
- * DataChannel (NDC_MechSentinelBullet by default, which spawns NS_MechSentinelBullet). Hits are decided by the server
- * only; this is just the look.
+ * DataChannel with BulletSystem as the system to spawn (the gun's NDC_GunShootHit + NS_MechSentinelBullet by default).
+ * Hits are decided by the server only; this is just the look.
  */
 UCLASS(NotPlaceable, Transient)
 class AURA_API AMechSentinelBulletRelay : public AActor
@@ -42,6 +43,10 @@ public:
 	/** The data channel the bullets are written to (set by the server from the rules' BulletDataChannel). */
 	UPROPERTY(Replicated)
 	TObjectPtr<UNiagaraDataChannelAsset> DataChannel;
+
+	/** The effect spawned for them (the rules' BulletSystem; null: the channel's DefaultSystemToSpawn). */
+	UPROPERTY(Replicated)
+	TObjectPtr<UNiagaraSystem> BulletSystem;
 
 	/** Server: shows Bullets on every machine. Unreliable: a lost batch only loses the look of those bullets. */
 	UFUNCTION(NetMulticast, Unreliable)

@@ -221,10 +221,10 @@ public:
 	void ApplySentinelAttack(AActor* TargetActor, const FVector& From, const FVector& To, float Damage);
 
 	/**
-	 * Fires a sentinel bullet from Muzzle toward AimPoint (with the settings' spread). It flies to the first wall or pawn
-	 * on its line (or Settings.Range), at Settings.Speed; when it arrives, the first player pawn within Settings.Radius of
-	 * its path takes Damage through ApplySentinelAttack, so a player who moved off the line is missed. Every machine sees it
-	 * through AMechSentinelBulletRelay. Server, game thread.
+	 * Fires a sentinel bullet from Muzzle toward AimPoint (with the settings' spread). It flies at Settings.Speed to the
+	 * first thing that blocks Visibility on its line (or Settings.Range); every bullet tick sweeps the stretch it covered
+	 * since the last one, and the first player pawn within Settings.Radius takes Damage through ApplySentinelAttack and
+	 * stops it. Every machine sees it through AMechSentinelBulletRelay. Server, game thread.
 	 */
 	void FireSentinelBullet(const FVector& Muzzle, const FVector& AimPoint, float Damage, const FMechSentinelBulletSettings& Settings);
 
@@ -348,12 +348,15 @@ protected:
 	FTimerHandle SelfBuffFlushTimer;
 	bool bSelfBuffFlushScheduled = false;
 
-	/** A sentinel bullet on its way (server); its hit is decided at ImpactTime. */
+	/** A sentinel bullet on its way (server); each bullet tick sweeps the stretch it flew since the last one. */
 	struct FFlyingBullet
 	{
 		FVector Start = FVector::ZeroVector;
-		FVector End = FVector::ZeroVector;
-		double ImpactTime = 0.0;
+		FVector Direction = FVector::ForwardVector;
+		double FireTime = 0.0;
+		float Length = 0.f;
+		float Travelled = 0.f;
+		float Speed = 7500.f;
 		float Damage = 0.f;
 		float Radius = 0.f;
 	};
@@ -365,6 +368,9 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AMechSentinelBulletRelay> BulletRelay;
+
+	/** The rules' bullet assets failed to load once (warned, not retried every frame). */
+	bool bBulletFxLoadFailed = false;
 
 	/** Next-tick timer, re-armed while bullets fly or wait to be shown: sends the new bullets and resolves the arrived ones. */
 	void TickBullets();

@@ -255,7 +255,10 @@ struct AURA_API FMechSentinelTargetFragment : public FMassFragment
 	/** Where the sentinel is heading (target centre, before the orbit offset). */
 	FVector TargetLocation = FVector::ZeroVector;
 
-	/** Random unit direction that spreads attackers on a sphere around the target. */
+	/**
+	 * Around a player: its horizontal heading is the sentinel's place on the orbit circle (turned by the steering).
+	 * Around a fallback point: the 3D offset direction of the gathering spot.
+	 */
 	FVector OrbitDirection = FVector::UpVector;
 
 	/** Counts down to the next re-evaluation of the target. */
@@ -290,7 +293,8 @@ struct AURA_API FMechSentinelParameters : public FMassConstSharedFragment
 
 	/**
 	 * Distance (cm) to the target at which the sentinel switches to its attack state and starts firing (ranged) or
-	 * hitting (melee). Keep it above the orbit's reach (OrbitRadius * (1 + OrbitRadiusJitter) and OrbitHeightMax).
+	 * hitting (melee). Keep it above the orbit's 3D reach, sqrt((OrbitRadius * (1 + OrbitRadiusJitter))^2 +
+	 * (OrbitHeightMax + OrbitBobAmplitude)^2) (2134 cm with the defaults), or the outer sentinels never attack.
 	 */
 	UPROPERTY(EditAnywhere, Category = "Combat", meta = (ClampMin = "0", ForceUnits = "cm"))
 	float AttackRange = 2500.f;
@@ -301,12 +305,16 @@ struct AURA_API FMechSentinelParameters : public FMassConstSharedFragment
 
 	/**
 	 * Ranged attacks: every attack fires a bullet at the target (UMechSentinelSwarmSubsystem::FireSentinelBullet) that
-	 * deals the attack damage only if it still meets a player when it arrives. Off: the attack hits at once (melee).
+	 * deals the attack damage to the first player it meets on its way. Off: the attack hits at once (melee); a melee
+	 * config should also bring AttackRange and OrbitRadius back to close range (about 450 / 320 cm).
 	 */
 	UPROPERTY(EditAnywhere, Category = "Combat|Bullets")
 	bool bRangedAttack = true;
 
-	/** Bullet speed (cm/s). 7500 matches the flipbook bullet of NS_MechSentinelBullet (a copy of the gun's PS_06_Flipbook_Sprites_my). */
+	/**
+	 * Bullet speed (cm/s). Keep 7500: NS_MechSentinelBullet (a copy of the gun's PS_06_Flipbook_Sprites_my) flies its
+	 * tracer at a fixed 7500 cm/s, so another speed makes hits and visuals disagree.
+	 */
 	UPROPERTY(EditAnywhere, Category = "Combat|Bullets", meta = (ClampMin = "100", ForceUnits = "cm/s", EditCondition = "bRangedAttack"))
 	float BulletSpeed = 7500.f;
 
@@ -342,11 +350,11 @@ struct AURA_API FMechSentinelParameters : public FMassConstSharedFragment
 	float OrbitRadiusJitter = 0.25f;
 
 	/** Lowest orbit height above the target point (cm); each sentinel picks its own between Min and Max. */
-	UPROPERTY(EditAnywhere, Category = "Steering", meta = (ForceUnits = "cm"))
+	UPROPERTY(EditAnywhere, Category = "Steering", meta = (ClampMin = "0", ForceUnits = "cm"))
 	float OrbitHeightMin = 200.f;
 
 	/** Highest orbit height above the target point (cm). */
-	UPROPERTY(EditAnywhere, Category = "Steering", meta = (ForceUnits = "cm"))
+	UPROPERTY(EditAnywhere, Category = "Steering", meta = (ClampMin = "0", ForceUnits = "cm"))
 	float OrbitHeightMax = 900.f;
 
 	/** Up and down bob on the orbit (cm). */
@@ -361,11 +369,14 @@ struct AURA_API FMechSentinelParameters : public FMassConstSharedFragment
 	UPROPERTY(EditAnywhere, Category = "Steering", meta = (ForceUnits = "cm"))
 	float TargetHeightOffset = 90.f;
 
-	/** Attackers circle their player at this angular speed (deg/s), the swirling swarm look. */
-	UPROPERTY(EditAnywhere, Category = "Steering", meta = (ForceUnits = "deg/s"))
-	float OrbitAngularSpeed = 35.f;
+	/**
+	 * Speed (cm/s) at which attackers' orbit spots travel around their player (the swirling swarm look). Linear, so wide
+	 * and tight orbits look alike; keep it well below MovementSpeed or the sentinels fall behind their spots.
+	 */
+	UPROPERTY(EditAnywhere, Category = "Steering", meta = (ClampMin = "0", ForceUnits = "cm/s"))
+	float OrbitSpeed = 400.f;
 
-	/** Per-sentinel orbit speed spread, as a fraction of OrbitAngularSpeed. */
+	/** Per-sentinel orbit speed spread, as a fraction of OrbitSpeed. */
 	UPROPERTY(EditAnywhere, Category = "Steering", meta = (ClampMin = "0", ClampMax = "1"))
 	float OrbitSpeedJitter = 0.4f;
 

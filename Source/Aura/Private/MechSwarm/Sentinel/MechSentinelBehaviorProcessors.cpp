@@ -295,7 +295,14 @@ void UMechSentinelTargetSelectionProcessor::Execute(FMassEntityManager& EntityMa
 					{
 						continue;
 					}
-					const float Score = DistSq * (SlotIndex == PreviousPlayer ? MechSwarm::Behavior::StickinessDistanceScale : 1.f);
+					// The current player is scored from the sentinel's orbit around it (its own radius), not from its position:
+					// a sentinel on the far side of a wide orbit must not hop to another player standing nearby.
+					float Score = DistSq;
+					if (SlotIndex == PreviousPlayer)
+					{
+						const float OrbitReach = MechSwarm::Orbit::GetRadius(Params, Context.GetEntity(EntityIndex).Index);
+						Score = FMath::Square(FMath::Max(0.f, FMath::Sqrt(DistSq) - OrbitReach)) * MechSwarm::Behavior::StickinessDistanceScale;
+					}
 					if (Score < BestScore)
 					{
 						BestScore = Score;
