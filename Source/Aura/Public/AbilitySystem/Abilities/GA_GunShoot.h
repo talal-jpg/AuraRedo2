@@ -37,12 +37,26 @@ public:
 	bool bDamageSentinels = true;
 
 	/**
-	 * Base damage per sentinel hit, evaluated at the ability level. The shooter's AttackDamage x the rules'
-	 * SourceAttackDamageScale is added to it, then the sentinel's armor applies. The mech starts with AttackDamage 0,
-	 * so 40 keeps the demo's 4 / 5 / 7 / 9 shots per W1-W4 sentinel until something raises AttackDamage.
+	 * Sentinel hits take their base damage from DamageEffectClass, the effect the gun applies to characters: the sum of
+	 * its additive modifiers on MyAttributeSet.IncomingDamage at this ability's level. One GE then sets the gun's damage
+	 * for characters and sentinels; the shooter's AttackDamage and the sentinel's armor / shield still apply on top
+	 * (ExecCalc_SentinelDamage). Off, or when that damage can't be read (no DamageEffectClass, an execution calculation, a
+	 * magnitude that needs the target): SentinelDamage below.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels"))
+	bool bSentinelDamageFromDamageEffect = true;
+
+	/**
+	 * Base damage per sentinel hit, evaluated at the ability level, when bSentinelDamageFromDamageEffect is off or can't
+	 * read DamageEffectClass. The shooter's AttackDamage x the rules' SourceAttackDamageScale is added to it, then the
+	 * sentinel's armor applies. 40 gives the demo's 4 / 5 / 7 / 9 shots per W1-W4 sentinel with AttackDamage 0.
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels"))
 	FScalableFloat SentinelDamage = FScalableFloat(40.f);
+
+	/** Base damage of one sentinel hit at Level (see bSentinelDamageFromDamageEffect), before the shooter's AttackDamage and the sentinel's armor. */
+	UFUNCTION(BlueprintPure, Category = "Mech Sentinels")
+	float GetSentinelBaseDamage(float Level) const;
 
 	/** Effect for sentinel hits. Empty: the GameMode rules' DefaultSentinelDamageEffect (GE_SentinelDamage or the built-in one). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels"))

@@ -141,7 +141,10 @@ void UGA_GunShoot::OnServerMouseCursorData(const FGameplayAbilityTargetDataHandl
 	{
 		return;
 	}
-	Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, SentinelDamage.GetValueAtLevel(Level));
+	const float BaseDamage = GetSentinelBaseDamage(Level);
+	Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, BaseDamage);
+	UE_LOG(LogGunShoot, Verbose, TEXT("%s: sentinel base damage %.1f (%s)."), *GetName(), BaseDamage,
+		bSentinelDamageFromDamageEffect && DamageEffectClass ? *GetNameSafe(DamageEffectClass) : TEXT("SentinelDamage"));
 
 	// Hitting sentinels reads and writes Mass entities, which must not happen while a Mass phase runs, and this can be
 	// called in the middle of one (the host's shot comes from input, in TG_PrePhysics). Timers run after TG_PostPhysics,
@@ -160,6 +163,44 @@ void UGA_GunShoot::OnServerMouseCursorData(const FGameplayAbilityTargetDataHandl
 			UE_LOG(LogGunShoot, Verbose, TEXT("Shot hit %d sentinel(s) for %.1f damage."), Applied, TotalDamage);
 		}
 	}));
+}
+
+float UGA_GunShoot::GetSentinelBaseDamage(const float Level) const
+{
+	const float Fallback = SentinelDamage.GetValueAtLevel(Level);
+	if (!bSentinelDamageFromDamageEffect || !DamageEffectClass)
+	{
+		return Fallback;
+	}
+
+	// A spec like the one the character path applies (MyFunc sets SetDamageByCaller to 1), so source captures and
+	// SetByCaller magnitudes read the same. Needs the ability's actor info: outside an activation this is the fallback.
+	const FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, Level);
+	if (!SpecHandle.IsValid() || !SpecHandle.Data->Def)
+	{
+		return Fallback;
+	}
+	SpecHandle.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, 1.f);
+
+	float Damage = 0.f;
+	bool bFoundDamage = false;
+	for (const FGameplayModifierInfo& Modifier : SpecHandle.Data->Def->Modifiers)
+	{
+		if (Modifier.Attribute != UMyAttributeSet::GetIncomingDamageAttribute() || Modifier.ModifierOp != EGameplayModOp::Additive)
+		{
+			continue;
+		}
+		float Magnitude = 0.f;
+		if (!Modifier.ModifierMagnitude.AttemptCalculateMagnitude(*SpecHandle.Data.Get(), Magnitude, /*WarnIfSetByCallerFail*/ false))
+		{
+			// A magnitude that needs the target (or a custom calculation that failed): don't guess a partial value.
+			return Fallback;
+		}
+		Damage += Magnitude;
+		bFoundDamage = true;
+	}
+	// No IncomingDamage modifier (e.g. an execution calculation does the damage): SentinelDamage.
+	return bFoundDamage ? FMath::Max(0.f, Damage) : Fallback;
 }
 
 bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor& Avatar, FVector& OutStart, FVector& OutEnd) const
