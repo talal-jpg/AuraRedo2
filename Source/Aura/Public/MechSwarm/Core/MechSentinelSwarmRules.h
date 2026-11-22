@@ -113,6 +113,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TSubclassOf<UGameplayEffect> SentinelAttackEffect;
 
+	// Rewards
+
+	/**
+	 * XP the player who lands the killing hit gets for each sentinel. Sent like an enemy character's XP reward
+	 * (UMyAttributeSet): the gameplay event Attribute.Meta.XP with this magnitude to the killer's avatar, whose
+	 * GA_ListenForAttribEvents turns it into IncomingXP (the avatar needs that ability among its passive startup
+	 * abilities). Only player avatars (IMyPlayerInterface) are rewarded; kills without an instigator (DespawnAll) give none. 0 = off.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rewards", meta = (ClampMin = "0"))
+	float KillXP = 10.f;
+
 	// Simulation
 
 	/** Cell size (cm) of the spatial hash used by capsule hit queries. ~2x the biggest sentinel capsule is a good value. */

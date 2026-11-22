@@ -2,6 +2,7 @@
 
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
@@ -9,7 +10,9 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerState.h"
 #include "GameplayEffect.h"
+#include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "Interfaces/MyPlayerInterface.h"
 #include "MassEntityConfigAsset.h"
 #include "MassEntityManager.h"
 #include "MassEntityUtils.h"
@@ -781,6 +784,32 @@ void UMechSentinelSwarmSubsystem::KillSentinel(const FMassEntityHandle Entity, A
 	}
 }
 
+void UMechSentinelSwarmSubsystem::GrantKillXP(AActor* Instigator) const
+{
+	const UMechSentinelSwarmRules* Rules = GetRules();
+	if (!Instigator || !Rules || Rules->KillXP <= 0.f || !HasAuthority())
+	{
+		return;
+	}
+
+	// The effect context's instigator is the source ASC's owner (a player's AMyPlayerState); the XP goes to its avatar,
+	// like UMyAttributeSet sends an enemy's XP reward to the killer's avatar.
+	UAbilitySystemComponent* KillerASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Instigator);
+	AActor* KillerAvatar = KillerASC ? KillerASC->GetAvatarActor() : Instigator;
+	if (!IsValid(KillerAvatar) || !KillerAvatar->Implements<UMyPlayerInterface>())
+	{
+		return;
+	}
+
+	FGameplayEventData EventData;
+	EventData.EventTag = MyTags::Attribute_Meta_XP;
+	EventData.EventMagnitude = Rules->KillXP;
+	EventData.Instigator = Instigator;
+	EventData.Target = KillerAvatar;
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(KillerAvatar, MyTags::Attribute_Meta_XP, EventData);
+	UE_LOG(LogMechSentinel, Verbose, TEXT("Kill XP %.1f to %s."), Rules->KillXP, *GetNameSafe(KillerAvatar));
+}
+
 void UMechSentinelSwarmSubsystem::SyncStateFromGAS(FMassEntityManager& EntityManager, const FMassEntityHandle Entity, AActor* Instigator)
 {
 	using namespace MechSwarm::SubsystemPrivate;
@@ -850,6 +879,7 @@ void UMechSentinelSwarmSubsystem::SyncStateFromGAS(FMassEntityManager& EntityMan
 		SetMassTag<FMechSentinelAttackingTag>(EntityManager, Entity, false);
 		SetMassTag<FMechSentinelStunnedTag>(EntityManager, Entity, false);
 		OnSentinelKilled.Broadcast(FMechSentinelHandle(Entity), Location, Instigator);
+		GrantKillXP(Instigator);
 		return;
 	}
 
