@@ -307,3 +307,102 @@ Still uncertain:
 * MSVC C4458 for an inherited private member: the rename makes the question moot.
 * That a dedicated server's UWidgetComponent creates no widget (Slate not initialised) is from memory. It matches the
   existing note about the base class.
+
+## Death velocity and path-follow bend (2026-11-22)
+
+Two playtest fixes from Talal: the ragdoll dropped straight down (the flight velocity was lost), and the body bent like
+a fish sideways but stayed rigid up and down. C++ side in `BurrowerCharacter.h/.cpp` and `BurrowerAnimInstance.h/.cpp`;
+the rig (`CR_Burrower`) and ABP pins are separate steps (bw_04 / bw_05).
+
+### Death velocity (ABurrowerCharacter)
+* New `Burrower|Death` properties: `bInheritVelocityOnDeath` (true), `DeathVelocityScale` (1, linear velocity only),
+  `bInheritTurnOnDeath` (true). Plain C++ getters (no UFUNCTION): `GetDeathVelocity()` (world cm/s, already times
+  the scale) and `GetDeathAngularVelocity()` (world deg/s).
+* Every machine, every tick while alive (`SampleDeathMotion`, at the end of Tick, after the server's steering):
+  * `LastMovingVelocity` = the last `GetVelocity()` above 10 cm/s.
+  * Turn rates from the actor rotation change: yaw and pitch (deg/s), clamped to 2 x TurnRate (spawn/teleport),
+    smoothed with a 0.12 s time constant. The server samples every tick. A client's actor only turns when a
+    movement update arrives (replicated rotation, quantized), so it samples from one change to the next, or after
+    0.25 s without one (then 0).
+* `HandleBurrowerDeath` (once per machine) calls `CaptureDeathMotion()` first, before `StopMovementImmediately`:
+  * V = `GetVelocity()`; on a client below 10 cm/s (the server's stop already replicated) `LastMovingVelocity`.
+  * Omega = `UpVector * YawRate - GetActorRightVector() * PitchRate` (deg/s). Signs: physics moves a point at offset
+    R at Omega x R (Chaos `GetWorldVelocityAtPoint` = V - R x W). Z x X = +Y matches yaw growing toward +Y; nose up
+    needs X toward +Z, and Y x X = -Z, hence -Right. Worked example in the code: heading +X, tail R = (-1800, 0, 0),
+    yaw +40 deg/s gives (0, -1257, 0) (tail swings to -Y about the head), pitch +20 deg/s gives (0, 0, -628).
+  * For a body lying on a constant turn of radius |V|/|Omega|, V + Omega x R is the rotation about the turn's centre,
+    so every body moves along the arc (checked numerically: 0.0000 deg off the tangent at 5.4, 10 and 17.9 m behind).
+* Mesh fallback (`bUseMeshRagdollFallback`): right after `Super::MulticastHandleDeath_Implementation()` (which calls
+  `SetSimulatePhysics(true)`), `ApplyDeathMotionToMeshBodies()` loops `USkeletalMeshComponent::Bodies` (public
+  `TArray<FBodyInstance*>`), skips invalid bodies and `PhysType_Kinematic` setups, and sets
+  `SetLinearVelocity(V + Omega_rad x (GetCOMPosition() - ActorLocation), false)` and
+  `SetAngularVelocityInRadians(Omega_rad, false)`. 5.8 has no `FBodyInstance::SetAngularVelocityInDegrees`.
+  Chaos pushes the velocities before the kinematic -> dynamic state in the same dirty data and does not reset them,
+  so the bodies start their first simulated step with it. `FBodyInstance::IsInstanceSimulatingPhysics` is avoided
+  on purpose: it calls a PHYSICSCORE_API function and Aura does not link PhysicsCore.
+* Control Rig ragdoll: `UBurrowerAnimInstance::DeathVelocity` / `DeathAngularVelocity` (0 while alive) are set in the
+  same update as `bIsDead`. The pivot for Omega x R is the actor location = the capsule centre = mesh component
+  (830, 0, 187). Rig side: each body's initial velocity = DeathVelocity + Rad(DeathAngularVelocity) x (body centre -
+  pivot), angular velocity = Rad(DeathAngularVelocity).
+
+### Path-follow bend (UBurrowerAnimInstance)
+* New `Burrower|Path Follow` properties on the character (public, read by the anim instance): `PathFollowStrength` 1,
+  `PathFollowMaxYawDeg` 14, `PathFollowMaxPitchDeg` 10, `PathFollowSampleSpacing` 40 cm (min 10),
+  `PathFollowTailLength` 457 cm, `PathFollowInterpSpeed` 12. Wave defaults raised: `BodyWaveAmplitudeDeg` 12,
+  `BodyWavePitchAmplitudeDeg` 5 (BP_Burrower doesn't override either, checked in the .uasset name table).
+* New anim instance outputs (rig variables of the same names): `FollowYawDeg1..4`, `FollowPitchDeg1..4`,
+  `DeathVelocity`, `DeathAngularVelocity`.
+* Game thread (`NativeUpdateAnimation` -> `UpdatePathFollow`):
+  * Reference pose read once per mesh asset (`RefreshRefPose`): `FAnimationRuntime::GetComponentSpaceTransformRefPose`
+    of J0_Head..J4_Tail from the mesh's `FReferenceSkeleton`; if any bone is missing, all five fall back to
+    (1000,0,180) (660,0,193) (260,0,200) (-260,0,200) (-560,0,202). Arc lengths J1..J4 = 340.2 / 740.3 / 1260.3 /
+    1560.3 cm, tip = J4 + PathFollowTailLength (2017.3).
+  * Head point H = mesh component transform x ref J0 (the mesh, so a client's mesh smoothing is part of the path).
+    A new trail point whenever H is PathFollowSampleSpacing from the newest one; trimmed to body + 2 m + one
+    spacing (about 57 points at 40 cm, hard cap 512). First update or a jump over 20 m (spawn, teleport): the trail
+    restarts as a straight line behind the head, so the body starts straight.
+  * Targets T1..T5 on the polyline at those arc lengths behind the current H (past the oldest point it carries on
+    along the mesh's -X).
+  * For segment k (J_k -> J_k+1, the tip after J4): d = T_k+1 - T_k in component space, then seen from the parent
+    segment's frame: e = Delta(k-1)^-1 d with Delta(0) = identity (J0 not turned: the head stays on its heading) and
+    Delta(k) = Delta(k-1) * Quat(+Z, Yaw_k) * Quat(+Y, Pitch_k), exactly how the wave stage composes joint angles.
+    Yaw_k = atan2(-e.y, -e.x), Pitch_k = atan2(e.z, |e.xy|).
+  * Signs, verified: for a segment along -X, Quat(+Z, a) gives (-cos a, -sin a, 0), so atan2(y, x) rises by a and
+    the tail goes to -Y; Quat(+Y, b) gives (-cos b, 0, sin b), so the elevation rises by b (tail up). Both match the
+    brief.
+  * Measured against -X, not against the slightly bent rest segments (J1 -> J2 rises 1 deg, J3 -> J4 0.4 deg):
+    with the rest directions a straight path would give about +-1 deg and flatten the modelled shape. The angles are
+    deltas on top of the rest pose, so a straight path gives exactly 0.
+  * For pure yaw or pure pitch paths this equals the brief's "global_k - global_k-1". In a climbing turn the brief's
+    additive form misses the rig's pose by up to 0.21 deg at J4 (helix R 20 m, 20 deg climb); the parent-frame form
+    is exact (0.00).
+  * Target = angle x PathFollowStrength, clamped to +-PathFollowMax*Deg per joint (the ideal, unclamped bend carries
+    on to the next joint). Editor preview (no Burrower): 0 and the trail is cleared. Dead: target 0.
+* Thread-safe update: `FInterpTo` toward the targets at PathFollowInterpSpeed (0 = at once); after death at a fixed
+  4/s, so the bend fades while the ragdoll takes over.
+* Cost per frame: 5 targets on a ~45-60 point polyline, 4 quaternion steps, one append + trim walk when a point is
+  added. No allocations after the first frames (`EAllowShrinking::No`).
+* Test numbers (Python re-implementation, `pathfollow_sim.py` in the session scratchpad, unclamped unless noted):
+  * Straight line at yaw 30 / pitch 10: all 0.
+  * Steady yaw turn at TurnRate 40: 1400 cm/s (R 20.05 m): yaw J1..J4 = -15.43 / -13.14 / -11.75 / -10.79
+    (J1 clamped to -14); 3200 cm/s (R 45.8 m): -6.75 / -5.76 / -5.12 / -4.73. Turning toward +Y gives minus (the
+    tail swings to +Y, the inside). Matches the chord estimate -(s_k+1 - s_k-1) / 2R; J1 gets more because the head
+    segment stays on the tangent. Not equal per joint because the segments are not equal.
+  * Pull-up from level to a 25 deg climb (R 20 m): pitch J1 +15.4 peak, then the bend travels back (+5.5 / +11.6 /
+    +7.4 at J2..J4), then all 0 on the straight climb. Plus = tail lifted against the rigid pose: the past path is on
+    the centre side of the head's backward line, so the tail stays on the lower, level path instead of swinging
+    under it. Levelling off from a climb (concave down) gives the mirror image (-15.4 ...), the tail below the
+    head-line extension.
+  * S-curve (left 60 deg then right 120 deg): yaw sign flips at J1..J4 0.21 / 0.56 / 0.87 / 1.16 s after the
+    inflection (arc length / speed: 0.24 / 0.53 / 0.90 / 1.12): the front bends first.
+  * Speed independence: 4 m into the turn, 700, 1400 and 3200 cm/s at 60 fps agree to 0.02 deg; 3200 cm/s at 20 fps
+    (1.6 m per frame) to 0.2 deg.
+  * A teleport (head jump over 20 m): all 0 right after, the trail restarts straight.
+
+### Compile check
+* Both .cpp files compiled with the unity rsp (`Module.Aura.3.cpp.o.rsp`) with the source swapped and the outputs in
+  the scratchpad, SDK clang 20, from `Engine/Source`: no errors, no warnings (-Wall -Werror -Wshadow). New undefined
+  symbols are all exported by libUnrealEditor-Engine.so.
+* No UFUNCTION added. The `GENERATED_BODY()` lines did not move (anim instance 26, character 39), so the old
+  .generated.h still matched. UHT regenerates on the next real build; restart the editor for the new anim instance
+  UPROPERTYs (legacy hot reload).

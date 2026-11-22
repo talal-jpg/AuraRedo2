@@ -25,6 +25,8 @@
 #include "Interfaces/MyCombatInterface.h"
 #include "MyGameMode.h"
 #include "Net/UnrealNetwork.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "UI/UserWidgets/MyUserWidget.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBurrower, Log, All);
@@ -37,6 +39,16 @@ namespace BurrowerCharacterPrivate
 		0,
 		TEXT("1: the server draws every Burrower's rotor box at each tile check (green, red when it cut tiles; the box stretched by the sweep and lead in yellow)."),
 		ECVF_Default);
+
+	// Below this speed (cm/s) the replicated velocity counts as "already stopped"
+	constexpr double MinMovingSpeed = 10.0;
+
+	// A client's rotation only changes when a movement update arrives: a turn-rate sample spans the time since the
+	// last change, and after this long (s) without one it counts as not turning
+	constexpr double MaxTurnSampleGap = 0.25;
+
+	// Time constant (s) of the turn-rate smoothing
+	constexpr double TurnRateSmoothingTime = 0.12;
 }
 
 ABurrowerCharacter::ABurrowerCharacter()
@@ -109,6 +121,8 @@ ABurrowerCharacter::ABurrowerCharacter()
 	BeamSplineMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	BeamSplineMeshComponent->SetGenerateOverlapEvents(false);
 	BeamSplineMeshComponent->SetHiddenInGame(true);
+	// USplineMeshComponent is Static by default; attached to the movable capsule that logs "cannot attach ... static"
+	BeamSplineMeshComponent->SetMobility(EComponentMobility::Movable);
 
 	// Above the head, on screen (set WBP_HealthBar as its Widget Class in BP_Burrower)
 	HealthBarWidgetComponent->SetRelativeLocation(FVector(0.0, 0.0, 400.0));
@@ -288,6 +302,9 @@ void ABurrowerCharacter::HandleBurrowerDeath()
 		return;
 	}
 
+	// Before the movement stops: what the ragdoll starts with (the Control Rig reads it through the AnimBP)
+	CaptureDeathMotion();
+
 	if (UCharacterMovementComponent* Move = GetCharacterMovement())
 	{
 		Move->StopMovementImmediately();
@@ -314,6 +331,9 @@ void ABurrowerCharacter::HandleBurrowerDeath()
 		// Base: the physics asset simulates (gravity, blocks WorldStatic, PhysicsOnly so nothing hits the corpse),
 		// capsule off, slot 0 dissolve, bIsDead, OnDeathDelegate
 		Super::MulticastHandleDeath_Implementation();
+
+		// Before their first simulated step
+		ApplyDeathMotionToMeshBodies();
 	}
 	else
 	{
@@ -329,6 +349,125 @@ void ABurrowerCharacter::HandleBurrowerDeath()
 	}
 
 	BP_OnBurrowerDied();
+}
+
+void ABurrowerCharacter::SampleDeathMotion()
+{
+	using namespace BurrowerCharacterPrivate;
+
+	const UWorld* World = GetWorld();
+
+	if (!World)
+	{
+		return;
+	}
+
+	const FVector CurrentVelocity = GetVelocity();
+
+	if (CurrentVelocity.SizeSquared() > FMath::Square(MinMovingSpeed))
+	{
+		LastMovingVelocity = CurrentVelocity;
+	}
+
+	const double Now = World->GetTimeSeconds();
+	const FRotator Rotation = GetActorRotation();
+
+	if (!bHasTurnSample)
+	{
+		LastTurnSampleRotation = Rotation;
+		LastTurnSampleTime = Now;
+		bHasTurnSample = true;
+		return;
+	}
+
+	const double Elapsed = Now - LastTurnSampleTime;
+
+	if (Elapsed <= UE_KINDA_SMALL_NUMBER)
+	{
+		return;
+	}
+
+	// The server turns the actor every tick. A client's actor only turns when a movement update arrives, so it
+	// measures from one change to the next (the rate over the gap) instead of every tick (0, 0, then a jump).
+	if (!HasAuthority() && Rotation.Equals(LastTurnSampleRotation, 1.e-3) && Elapsed < MaxTurnSampleGap)
+	{
+		return;
+	}
+
+	// Clamped: a spawn or a teleport is not a turn
+	const double MaxRate = 2.0 * FMath::Max(static_cast<double>(TurnRate), 1.0);
+	const double YawSample = FMath::Clamp(FMath::FindDeltaAngleDegrees(LastTurnSampleRotation.Yaw, Rotation.Yaw) / Elapsed, -MaxRate, MaxRate);
+	const double PitchSample = FMath::Clamp(FMath::FindDeltaAngleDegrees(LastTurnSampleRotation.Pitch, Rotation.Pitch) / Elapsed, -MaxRate, MaxRate);
+	const double Alpha = 1.0 - FMath::Exp(-Elapsed / TurnRateSmoothingTime);
+
+	TurnYawRateDeg = FMath::Lerp(TurnYawRateDeg, YawSample, Alpha);
+	TurnPitchRateDeg = FMath::Lerp(TurnPitchRateDeg, PitchSample, Alpha);
+
+	LastTurnSampleRotation = Rotation;
+	LastTurnSampleTime = Now;
+}
+
+void ABurrowerCharacter::CaptureDeathMotion()
+{
+	using namespace BurrowerCharacterPrivate;
+
+	// A client may get the server's stop (replicated velocity 0) before or with the death multicast
+	FVector Inherited = GetVelocity();
+
+	if (!HasAuthority() && Inherited.SizeSquared() <= FMath::Square(MinMovingSpeed))
+	{
+		Inherited = LastMovingVelocity;
+	}
+
+	DeathVelocity = bInheritVelocityOnDeath ? Inherited * static_cast<double>(DeathVelocityScale) : FVector::ZeroVector;
+
+	// Omega such that a point at offset R from the actor moves at Omega x R (radians), as the physics bodies do:
+	// * yaw: FRotator yaw grows from +X toward +Y, and UpVector x ForwardVector = +Y, so it is +Z * yaw rate.
+	// * pitch: nose up is pitch growing, and RightVector x ForwardVector = -Z (nose down), so it is -Right * pitch rate.
+	// Worked example, heading +X (Right = +Y), the tail 1800 cm behind the head (R = (-1800, 0, 0)):
+	// * yaw rate +40 deg/s: Omega = (0, 0, 0.698) rad/s, Omega x R = (0, -1257, 0): the nose turns toward +Y and
+	//   the tail swings toward -Y about the head, as the rigid body does.
+	// * pitch rate +20 deg/s (nose rising): Omega = (0, -0.349, 0), Omega x R = (0, 0, -628): the tail drops.
+	// For a body lying on a constant turn of radius r = |V| / |Omega|, V + Omega x R is the rotation about the turn's
+	// centre, so every body moves along the curve (the corpse keeps curving).
+	DeathAngularVelocity = bInheritTurnOnDeath
+		? FVector::UpVector * TurnYawRateDeg - GetActorRightVector() * TurnPitchRateDeg
+		: FVector::ZeroVector;
+}
+
+void ABurrowerCharacter::ApplyDeathMotionToMeshBodies()
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+
+	// Not simulating: a dedicated server (SetSimulatePhysics does nothing there) or no physics asset
+	if (!MeshComp || !MeshComp->IsSimulatingPhysics() || (DeathVelocity.IsNearlyZero() && DeathAngularVelocity.IsNearlyZero()))
+	{
+		return;
+	}
+
+	const FVector OmegaRadians = DeathAngularVelocity * (UE_DOUBLE_PI / 180.0);
+	const FVector Pivot = GetActorLocation();
+
+	for (FBodyInstance* Body : MeshComp->Bodies)
+	{
+		if (!Body || !Body->IsValidBodyInstance())
+		{
+			continue;
+		}
+
+		// Kinematic bodies of the physics asset don't simulate
+		const UBodySetup* Setup = Body->GetBodySetup();
+
+		if (Setup && Setup->PhysicsType == EPhysicsType::PhysType_Kinematic)
+		{
+			continue;
+		}
+
+		const FVector Offset = Body->GetCOMPosition() - Pivot;
+
+		Body->SetLinearVelocity(DeathVelocity + FVector::CrossProduct(OmegaRadians, Offset), /*bAddToCurrent=*/false);
+		Body->SetAngularVelocityInRadians(OmegaRadians, /*bAddToCurrent=*/false);
+	}
 }
 
 
@@ -421,44 +560,50 @@ APawn* ABurrowerCharacter::FindNearestLivingPlayer() const
 
 
 // =============================================================================
-// Tick (server): follow, rotor
+// Tick: follow, rotor (server); death motion samples (every machine)
 // =============================================================================
 
 void ABurrowerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (!HasAuthority() || bIsDead)
+	if (bIsDead)
 	{
 		return;
 	}
 
-	// Placed in the level: pick the nearest living player, once a second while it has none
-	if (!bTargetManagedBySpawner && bAutoTargetNearestPlayer)
+	if (HasAuthority())
 	{
-		AutoTargetTimer -= DeltaTime;
-
-		if (AutoTargetTimer <= 0.f)
+		// Placed in the level: pick the nearest living player, once a second while it has none
+		if (!bTargetManagedBySpawner && bAutoTargetNearestPlayer)
 		{
-			AutoTargetTimer = 1.f;
+			AutoTargetTimer -= DeltaTime;
 
-			if (!IsLivingTarget(TargetPlayer, /*bRequireCombatInterface=*/false))
+			if (AutoTargetTimer <= 0.f)
 			{
-				SetTargetPlayer(FindNearestLivingPlayer());
+				AutoTargetTimer = 1.f;
+
+				if (!IsLivingTarget(TargetPlayer, /*bRequireCombatInterface=*/false))
+				{
+					SetTargetPlayer(FindNearestLivingPlayer());
+				}
 			}
+		}
+
+		UpdateFollow(DeltaTime);
+
+		RotorCheckTimer += DeltaTime;
+
+		if (RotorCheckTimer >= RotorCheckInterval)
+		{
+			// The remainder carries over, so the checks keep their interval instead of rounding up to whole frames
+			RotorCheckTimer = RotorCheckInterval > 0.f ? FMath::Fmod(RotorCheckTimer, RotorCheckInterval) : 0.f;
+			CheckRotorTiles(DeltaTime);
 		}
 	}
 
-	UpdateFollow(DeltaTime);
-
-	RotorCheckTimer += DeltaTime;
-
-	if (RotorCheckTimer >= RotorCheckInterval)
-	{
-		// The remainder carries over, so the checks keep their interval instead of rounding up to whole frames
-		RotorCheckTimer = RotorCheckInterval > 0.f ? FMath::Fmod(RotorCheckTimer, RotorCheckInterval) : 0.f;
-		CheckRotorTiles(DeltaTime);
-	}
+	// After the server's turn this tick, so its sample is exactly this tick's turn
+	SampleDeathMotion();
 }
 
 void ABurrowerCharacter::UpdateFollow(float DeltaTime)
