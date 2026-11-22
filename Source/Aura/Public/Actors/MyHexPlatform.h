@@ -640,7 +640,9 @@ protected:
 
 	/**
 	 * About how many chains a platform collapses in. Chain length = tiles / this, clamped to
-	 * CollapseMinChainLength..CollapseMaxChainLength, so small platforms get short chains.
+	 * CollapseMinChainLength..CollapseMaxChainLength (and to half the tiles, so there are always two
+	 * or more), so small platforms get short chains. A one-tile platform loses its tile when the
+	 * others at its distance lose their last ones.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hex Platform|Collapse", meta = (ClampMin = "1"))
 	int32 CollapseChainsPerPlatform = 12;
@@ -1176,6 +1178,9 @@ private:
 
 	/** The lead has stood on, or been above, this platform at least once. */
 	bool bLeadReached = false;
+
+	/** No SplineDistance (the level's start platform) and a player has stood on it. */
+	bool bPlayersVisited = false;
 
 	bool bPathResolved = false;
 	bool bOnPath = false;

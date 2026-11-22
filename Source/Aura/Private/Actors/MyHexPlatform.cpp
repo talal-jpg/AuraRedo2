@@ -368,6 +368,13 @@ void AMyHexPlatform::StartCollapsing()
 	CollapseChainLength = GetCollapseChainLength(CollapseTotalTiles);
 	CollapseProgress = 0.f;
 
+	// At least two chains, so a platform of two or more tiles loses one when it starts and its last
+	// one when the others at its distance do
+	if (CollapseTotalTiles > 1)
+	{
+		CollapseChainLength = FMath::Min(CollapseChainLength, FMath::Max(CollapseTotalTiles / 2, 1));
+	}
+
 	// Timed from the moment the lead's platform moved past this one, so a platform whose bridges were
 	// built later catches up and still starts and finishes with the others at its distance
 	const double Now = GetWorld()->GetTimeSeconds();
@@ -406,18 +413,20 @@ void AMyHexPlatform::UpdateCollapse()
 
 	CollapseProgress = FMath::Min(CollapseProgress + Elapsed / ReserveDuration, 1.f);
 
-	// The first chain goes at once (with the other platforms at this distance), the last one at progress 1
+	// The first chain goes at once (with the other platforms at this distance), the last one at
+	// progress 1. A one-tile platform can't do both: its tile goes with the others' last tiles.
 	const int32 Total = FMath::Max(CollapseTotalTiles, 1);
-	const int32 First = FMath::Min(CollapseChainLength, Total);
+	const int32 First = Total > 1 ? FMath::Min(CollapseChainLength, Total - 1) : 0;
 	const int32 Target = First + FMath::FloorToInt(CollapseProgress * static_cast<float>(Total - First));
 
 	// Tiles gone some other way (the Burrower's rotor) count as reserved, so the rest keeps to the schedule
 	int32 Free = CountFreeTiles();
 	int32 Reserved = Total - Free;
 
-	// A chain can come out shorter than its length (it runs into fallen tiles), so keep going until
-	// the target is met
-	for (int32 Guard = 0; Reserved < Target && Free > 0 && Guard < 64; ++Guard)
+	// A chain is reserved once the schedule has reached its end, so the last one (whatever is left)
+	// goes exactly at progress 1. A chain can come out shorter than its length (it runs into fallen
+	// tiles); the next one then comes that much sooner.
+	for (int32 Guard = 0; Free > 0 && Reserved + FMath::Min(CollapseChainLength, Free) <= Target && Guard < 64; ++Guard)
 	{
 		const int32 Num = ActivateRandomChain(CollapseChainLength);
 
@@ -539,6 +548,13 @@ void AMyHexPlatform::UpdateLeadState()
 	UMyHexBridgeSubsystem* Subsystem = GetWorld()->GetSubsystem<UMyHexBridgeSubsystem>();
 	APawn* Lead = Subsystem ? Subsystem->GetLeadPawn() : nullptr;
 
+	// The start platform placed in the level (no SplineDistance): players spawn here while nobody is
+	// ranked yet, so there is no lead to see them
+	if (!HasSplineDistance() && !bPlayersVisited && IsAnyPlayerOnPlatform())
+	{
+		bPlayersVisited = true;
+	}
+
 	// No lead (not spawned yet, dead, respawning): nothing lands and nothing is culled
 	if (!IsValid(Lead))
 	{
@@ -555,8 +571,8 @@ void AMyHexPlatform::UpdateLeadState()
 
 	// Platforms with a SplineDistance are activated by AMyGameState once the lead's platform is past
 	// theirs. One the PCG graph gave no distance (the start platform placed in the level) starts once
-	// the lead has been on it and stands on another platform, so it never collapses under the lead.
-	if (!HasSplineDistance() && !bLeadOn && bLeadReached)
+	// players have been on it and the lead stands on another platform, so it never collapses under the lead.
+	if (!HasSplineDistance() && !bLeadOn && (bLeadReached || bPlayersVisited))
 	{
 		const AActor* LeadBase = APawn::GetMovementBaseActor(Lead);
 
@@ -2865,14 +2881,11 @@ void AMyHexPlatform::RebuildPathAndTileProps()
 		return;
 	}
 
-	// A generation still running would ignore the new request, so come back once it's done
-	for (const UPCGComponent* PropsPCG : { TilePropsPCG.Get(), HexTileProps2.Get() })
+	// A generation still running (atmosphere included) would ignore the new request, so come back once it's done
+	if (IsGeneratingTileProps())
 	{
-		if (PropsPCG && PropsPCG->IsGenerating())
-		{
-			ScheduleTileProps(0.25f);
-			return;
-		}
+		ScheduleTileProps(0.25f);
+		return;
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("%s: generating tile props (%d path start tiles, %d tiles fallen)"), *GetName(), PathStartTiles.Num(), LocalActivatedTiles.Num());

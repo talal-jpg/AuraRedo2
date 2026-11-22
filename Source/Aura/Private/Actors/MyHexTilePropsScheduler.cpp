@@ -94,20 +94,28 @@ void UMyHexTilePropsScheduler::Pump()
 
 	const int32 Limit = HexTilePropsScheduler::CVarConcurrency.GetValueOnGameThread();
 
-	while (!Queue.IsEmpty() && (Limit <= 0 || Running.Num() < Limit))
+	for (int32 Index = 0; Index < Queue.Num() && (Limit <= 0 || Running.Num() < Limit);)
 	{
-		AMyHexPlatform* Platform = Queue[0].Get();
-		Queue.RemoveAt(0, EAllowShrinking::No);
+		AMyHexPlatform* Platform = Queue[Index].Get();
 
 		if (!IsValid(Platform))
 		{
+			Queue.RemoveAt(Index, EAllowShrinking::No);
 			continue;
 		}
 
+		// Its previous generation is still running (it holds a slot, or held one until MaxSlotTime):
+		// it stays queued and goes once that is done, without taking a second slot
+		if (Platform->IsGeneratingTileProps())
+		{
+			++Index;
+			continue;
+		}
+
+		Queue.RemoveAt(Index, EAllowShrinking::No);
 		Platform->RunQueuedTileProps();
 
-		// Nothing started (props frozen, nothing to spawn, or it waits for a running generation and
-		// queues itself again): no slot taken
+		// Nothing started (props frozen or nothing to spawn): no slot taken
 		if (Platform->IsGeneratingTileProps())
 		{
 			Running.Add({ Platform, Now });
