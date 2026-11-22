@@ -12,6 +12,7 @@
 #include "MechSentinelSwarmSubsystem.generated.h"
 
 class AMechSentinelGASProxy;
+class AMechSentinelBulletRelay;
 class UAbilitySystemComponent;
 class UMassEntityConfigAsset;
 class UMechSentinelSwarmRules;
@@ -46,6 +47,15 @@ struct FMechSentinelDamageEvent
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMechSentinelDamagedNative, const FMechSentinelDamageEvent&);
+
+/** How one sentinel bullet flies (FMechSentinelParameters' bullet settings). */
+struct FMechSentinelBulletSettings
+{
+	float Speed = 7500.f;
+	float Range = 5000.f;
+	float SpreadDegrees = 0.f;
+	float Radius = 30.f;
+};
 
 /** A fallback location sentinels go to when every player is already crowded. */
 USTRUCT(BlueprintType)
@@ -205,6 +215,23 @@ public:
 	UAbilitySystemComponent* GetSentinelSourceASC();
 
 	/**
+	 * A sentinel's attack lands on TargetActor: the rules' SentinelAttackEffect from the GAS proxy's ASC, with SetByCaller
+	 * MyTags::SetDamageByCaller = Damage and a hit result From -> To in the context. Server, game thread.
+	 */
+	void ApplySentinelAttack(AActor* TargetActor, const FVector& From, const FVector& To, float Damage);
+
+	/**
+	 * Fires a sentinel bullet from Muzzle toward AimPoint (with the settings' spread). It flies at Settings.Speed to the
+	 * first thing that blocks Visibility on its line (or Settings.Range); every bullet tick sweeps the stretch it covered
+	 * since the last one, and the first player pawn within Settings.Radius takes Damage through ApplySentinelAttack and
+	 * stops it. Every machine sees it through AMechSentinelBulletRelay. Server, game thread.
+	 */
+	void FireSentinelBullet(const FVector& Muzzle, const FVector& AimPoint, float Damage, const FMechSentinelBulletSettings& Settings);
+
+	/** Bullets in flight (server). */
+	int32 GetNumFlyingBullets() const { return FlyingBullets.Num(); }
+
+	/**
 	 * Queues self-buff BuffIndex (EMechSentinelSelfBuff) on a sentinel; UMechSentinelSelfBuffProcessor calls it. It is
 	 * applied by a next-tick timer, after this frame's Mass phases, at most the rules' MaxSelfBuffsPerFrame per frame (the
 	 * rest waits for the next frames), and skipped when by then the sentinel is gone, dead, stunned or already has it.
@@ -320,4 +347,33 @@ protected:
 	TArray<FPendingSelfBuff> PendingSelfBuffs;
 	FTimerHandle SelfBuffFlushTimer;
 	bool bSelfBuffFlushScheduled = false;
+
+	/** A sentinel bullet on its way (server); each bullet tick sweeps the stretch it flew since the last one. */
+	struct FFlyingBullet
+	{
+		FVector Start = FVector::ZeroVector;
+		FVector Direction = FVector::ForwardVector;
+		double FireTime = 0.0;
+		float Length = 0.f;
+		float Travelled = 0.f;
+		float Speed = 7500.f;
+		float Damage = 0.f;
+		float Radius = 0.f;
+	};
+	TArray<FFlyingBullet> FlyingBullets;
+
+	/** New bullets to show (Start, End), sent by the next bullet tick. */
+	TArray<TPair<FVector, FVector>> PendingBulletFx;
+	FTimerHandle BulletTimer;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AMechSentinelBulletRelay> BulletRelay;
+
+	/** The rules' bullet assets failed to load once (warned, not retried every frame). */
+	bool bBulletFxLoadFailed = false;
+
+	/** Next-tick timer, re-armed while bullets fly or wait to be shown: sends the new bullets and resolves the arrived ones. */
+	void TickBullets();
+	void ArmBulletTimer();
+	AMechSentinelBulletRelay* GetOrCreateBulletRelay();
 };
