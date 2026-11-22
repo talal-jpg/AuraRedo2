@@ -14,6 +14,7 @@
 #include "MechSwarm/MassCopies/MassAvoidanceProcessors_Copy.h"
 #include "MechSwarm/MassCopies/MassMovementFragments_Copy.h"
 #include "MechSwarm/Sentinel/MechSentinelFragments.h"
+#include "MechSwarm/Sentinel/MechSentinelOrbit.h"
 #include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelObstacleAvoidanceProcessor)
@@ -499,6 +500,9 @@ void UMechSentinelObstacleAvoidanceProcessor::Execute(FMassEntityManager& Entity
 
 	TRACE_CPUPROFILER_EVENT_SCOPE(MechSentinelObstacleAvoidance);
 
+	// The steering's clock for the orbit bob (MechSwarm::Orbit::GetGoal)
+	const float OrbitTime = World ? float(World->GetTimeSeconds()) : 0.f;
+
 	// Other name than Context: the default capture would make a same-named parameter shadow it
 	EntityQuery.ForEachEntityChunk(Context, [&](FMassExecutionContext& ChunkContext)
 	{
@@ -537,8 +541,7 @@ void UMechSentinelObstacleAvoidanceProcessor::Execute(FMassEntityManager& Entity
 			if (Sentinel.bHasGoal)
 			{
 				// As the steering computes it (it already turned the orbit this frame)
-				const float OrbitRadius = Target.PlayerSlot != INDEX_NONE ? Params.OrbitRadius : Params.FallbackLoiterRadius;
-				Sentinel.Goal = Target.TargetLocation + Target.OrbitDirection * OrbitRadius;
+				Sentinel.Goal = MechSwarm::Orbit::GetGoal(Target, Params, ChunkContext.GetEntity(EntityIndex).Index, OrbitTime);
 			}
 			Sentinel.EscapeAngle = double(ChunkContext.GetEntity(EntityIndex).Index) * GoldenAngle;
 			Sentinel.SpeedCap = Desired.DesiredMaxSpeedOverride;

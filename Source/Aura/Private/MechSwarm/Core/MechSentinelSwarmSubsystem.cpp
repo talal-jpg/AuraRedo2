@@ -4,6 +4,9 @@
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "CollisionQueryParams.h"
+#include "Engine/HitResult.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "GameFramework/GameStateBase.h"
@@ -21,6 +24,7 @@
 #include "MassReplicationTrait.h"
 #include "MassSpawnerSubsystem.h"
 #include "Mass/EntityFragments.h"
+#include "MechSwarm/Combat/MechSentinelBulletRelay.h"
 #include "MechSwarm/Core/MechSentinelSwarmRules.h"
 #include "MechSwarm/GAS/MechSentinelGASProxy.h"
 #include "MechSwarm/GAS/MechSentinelTags.h"
@@ -29,6 +33,8 @@
 #include "MechSwarm/Replication/MechSentinelReplicator.h"
 #include "MechSwarm/Spawning/MechSentinelWaveSpawner.h"
 #include "MyGameMode.h"
+#include "NiagaraDataChannel.h"
+#include "NiagaraSystem.h"
 #include "TimerManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelSwarmSubsystem)
@@ -219,8 +225,12 @@ void UMechSentinelSwarmSubsystem::Deinitialize()
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(SelfBuffFlushTimer);
+		World->GetTimerManager().ClearTimer(BulletTimer);
 	}
 	PendingSelfBuffs.Reset();
+	FlyingBullets.Reset();
+	PendingBulletFx.Reset();
+	BulletRelay = nullptr;
 	bSelfBuffFlushScheduled = false;
 
 	GASProxy = nullptr;
@@ -244,6 +254,8 @@ void UMechSentinelSwarmSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 			GameModeRules = GameMode->SentinelSwarmRules;
 		}
 		GetOrCreateProxy();
+		// Spawned now so its channel to the clients is open before the first bullet batch.
+		GetOrCreateBulletRelay();
 	}
 
 	EnsureTemplatesBuilt();
@@ -469,6 +481,201 @@ UAbilitySystemComponent* UMechSentinelSwarmSubsystem::GetSentinelSourceASC()
 {
 	AMechSentinelGASProxy* Proxy = GetOrCreateProxy();
 	return Proxy ? Proxy->GetAbilitySystemComponent() : nullptr;
+}
+
+void UMechSentinelSwarmSubsystem::ApplySentinelAttack(AActor* TargetActor, const FVector& From, const FVector& To, const float Damage)
+{
+	const UMechSentinelSwarmRules* Rules = GetRules();
+	UAbilitySystemComponent* SourceASC = GetSentinelSourceASC();
+	UAbilitySystemComponent* TargetASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(TargetActor);
+	if (!HasAuthority() || !Rules || !Rules->SentinelAttackEffect || !SourceASC || !TargetASC)
+	{
+		// No attack effect configured: the attack only shows up visually.
+		return;
+	}
+
+	FGameplayEffectContextHandle EffectContext = SourceASC->MakeEffectContext();
+	EffectContext.AddOrigin(From);
+
+	// The project's damage pipeline expects a hit result (impact location for numbers / reactions).
+	FHitResult Hit;
+	Hit.bBlockingHit = true;
+	Hit.TraceStart = From;
+	Hit.TraceEnd = To;
+	Hit.Location = Hit.ImpactPoint = To;
+	Hit.Normal = Hit.ImpactNormal = (From - To).GetSafeNormal();
+	Hit.HitObjectHandle = FActorInstanceHandle(TargetActor);
+	EffectContext.AddHitResult(Hit, /*bReset*/true);
+
+	const FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(Rules->SentinelAttackEffect, 1.f, EffectContext);
+	if (!SpecHandle.IsValid())
+	{
+		return;
+	}
+	SpecHandle.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, Damage);
+	SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
+}
+
+//----------------------------------------------------------------------//
+// Bullets
+//----------------------------------------------------------------------//
+
+void UMechSentinelSwarmSubsystem::FireSentinelBullet(const FVector& Muzzle, const FVector& AimPoint, const float Damage, const FMechSentinelBulletSettings& Settings)
+{
+	UWorld* World = GetWorld();
+	if (!World || !HasAuthority())
+	{
+		return;
+	}
+
+	FVector Direction = (AimPoint - Muzzle).GetSafeNormal();
+	if (Direction.IsNearlyZero())
+	{
+		return;
+	}
+	if (Settings.SpreadDegrees > 0.f)
+	{
+		Direction = FMath::VRandCone(Direction, FMath::DegreesToRadians(Settings.SpreadDegrees));
+	}
+
+	// Where it ends: the first thing on its line that blocks Visibility now (walls, floors, the mech's mesh; trigger
+	// volumes don't), which is also where the effect bursts. Sentinels have no collision.
+	const FVector RangeEnd = Muzzle + Direction * FMath::Max(100.f, Settings.Range);
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(MechSentinelBulletFire), /*bTraceComplex*/ false);
+	FHitResult Hit;
+	const FVector End = World->LineTraceSingleByChannel(Hit, Muzzle, RangeEnd, ECC_Visibility, QueryParams) ? Hit.ImpactPoint : RangeEnd;
+
+	FFlyingBullet& Bullet = FlyingBullets.AddDefaulted_GetRef();
+	Bullet.Start = Muzzle;
+	Bullet.Direction = Direction;
+	Bullet.FireTime = World->GetTimeSeconds();
+	Bullet.Length = float(FVector::Dist(Muzzle, End));
+	Bullet.Speed = FMath::Max(100.f, Settings.Speed);
+	Bullet.Damage = Damage;
+	Bullet.Radius = FMath::Max(0.f, Settings.Radius);
+
+	PendingBulletFx.Emplace(Muzzle, End);
+	ArmBulletTimer();
+}
+
+void UMechSentinelSwarmSubsystem::ArmBulletTimer()
+{
+	UWorld* World = GetWorld();
+	if (World && !World->GetTimerManager().TimerExists(BulletTimer))
+	{
+		// Timers run after the Mass phases (GAS and traces are safe there).
+		BulletTimer = World->GetTimerManager().SetTimerForNextTick(this, &UMechSentinelSwarmSubsystem::TickBullets);
+	}
+}
+
+AMechSentinelBulletRelay* UMechSentinelSwarmSubsystem::GetOrCreateBulletRelay()
+{
+	UWorld* World = GetWorld();
+	if (!World || !HasAuthority())
+	{
+		return nullptr;
+	}
+	if (!IsValid(BulletRelay))
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		SpawnParams.ObjectFlags |= RF_Transient;
+		BulletRelay = World->SpawnActor<AMechSentinelBulletRelay>(SpawnParams);
+	}
+
+	// Follows the rules (they can change through SetRulesOverride); a missing asset is reported once, not reloaded per frame.
+	const UMechSentinelSwarmRules* Rules = GetRules();
+	if (BulletRelay && Rules && !bBulletFxLoadFailed)
+	{
+		const FSoftObjectPath ChannelPath = Rules->BulletDataChannel.ToSoftObjectPath();
+		const FSoftObjectPath SystemPath = Rules->BulletSystem.ToSoftObjectPath();
+		if (FSoftObjectPath(BulletRelay->DataChannel.Get()) != ChannelPath || FSoftObjectPath(BulletRelay->BulletSystem.Get()) != SystemPath)
+		{
+			BulletRelay->DataChannel = Rules->BulletDataChannel.LoadSynchronous();
+			BulletRelay->BulletSystem = Rules->BulletSystem.LoadSynchronous();
+			if ((ChannelPath.IsValid() && !BulletRelay->DataChannel) || (SystemPath.IsValid() && !BulletRelay->BulletSystem))
+			{
+				bBulletFxLoadFailed = true;
+				UE_LOG(LogMechSentinel, Warning, TEXT("Sentinel bullet effect not loaded (BulletDataChannel %s, BulletSystem %s): bullets still hit, unseen. Is /Game/MechSentinel/FX cooked?"),
+					*ChannelPath.ToString(), *SystemPath.ToString());
+			}
+			BulletRelay->ForceNetUpdate();
+		}
+	}
+	return BulletRelay;
+}
+
+void UMechSentinelSwarmSubsystem::TickBullets()
+{
+	BulletTimer.Invalidate();
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// The look: this frame's new bullets in one batch, to every machine.
+	if (!PendingBulletFx.IsEmpty())
+	{
+		AMechSentinelBulletRelay* Relay = GetOrCreateBulletRelay();
+		if (Relay && Relay->DataChannel)
+		{
+			const UMechSentinelSwarmRules* Rules = GetRules();
+			const int32 MaxFx = Rules ? FMath::Max(1, Rules->MaxBulletFxPerFrame) : 64;
+			TArray<FMechSentinelBulletFx> Batch;
+			Batch.Reserve(FMath::Min(MaxFx, PendingBulletFx.Num()));
+			for (int32 Index = 0; Index < PendingBulletFx.Num() && Batch.Num() < MaxFx; ++Index)
+			{
+				FMechSentinelBulletFx& Fx = Batch.AddDefaulted_GetRef();
+				Fx.Start = PendingBulletFx[Index].Key;
+				Fx.End = PendingBulletFx[Index].Value;
+			}
+			Relay->Multicast_ShowBullets(Batch);
+			// Unreliable multicasts wait for the actor's next net update (and only two fit in one): send this one now.
+			Relay->ForceNetUpdate();
+		}
+		PendingBulletFx.Reset();
+	}
+
+	// The hits: every bullet sweeps the stretch it flew since the last tick; the first player pawn on it is hit.
+	const double Now = World->GetTimeSeconds();
+	FCollisionObjectQueryParams PawnObjects;
+	PawnObjects.AddObjectTypesToQuery(ECC_Pawn);
+	for (int32 Index = FlyingBullets.Num() - 1; Index >= 0; --Index)
+	{
+		FFlyingBullet& Bullet = FlyingBullets[Index];
+		const float Reached = FMath::Min(Bullet.Length, float((Now - Bullet.FireTime) * Bullet.Speed));
+		const bool bArrived = Reached >= Bullet.Length;
+		bool bDone = bArrived;
+		if (Reached > Bullet.Travelled)
+		{
+			const FVector From = Bullet.Start + Bullet.Direction * Bullet.Travelled;
+			const FVector To = Bullet.Start + Bullet.Direction * (bArrived ? Bullet.Length + Bullet.Radius : Reached);
+			TArray<FHitResult> Hits;
+			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(MechSentinelBulletHit), /*bTraceComplex*/ false);
+			World->SweepMultiByObjectType(Hits, From, To, FQuat::Identity, PawnObjects, FCollisionShape::MakeSphere(Bullet.Radius), QueryParams);
+			for (const FHitResult& Hit : Hits)
+			{
+				const APawn* Pawn = Cast<APawn>(Hit.GetActor());
+				if (Pawn && Pawn->IsPlayerControlled())
+				{
+					ApplySentinelAttack(Hit.GetActor(), Bullet.Start, Hit.ImpactPoint, Bullet.Damage);
+					bDone = true;
+					break;
+				}
+			}
+			Bullet.Travelled = Reached;
+		}
+		if (bDone)
+		{
+			FlyingBullets.RemoveAtSwap(Index, EAllowShrinking::No);
+		}
+	}
+
+	if (!FlyingBullets.IsEmpty() || !PendingBulletFx.IsEmpty())
+	{
+		ArmBulletTimer();
+	}
 }
 
 //----------------------------------------------------------------------//
