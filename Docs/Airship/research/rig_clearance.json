@@ -1,0 +1,3796 @@
+{
+ "method": "(rotate a copy in 1 deg steps until the first failure):\n  * PEN  - penetration into the closed hull shell (island 392, manifold, outward normals): points sampled on the\n           moving faces (vertices + 0.15 m barycentric grid) that are OUTSIDE the shell at rest must not go deeper\n           than PEN_TOL inside it. Points already inside at rest (the pods/rudder are built half sunk into the hull)\n           are ignored: moving them deeper is invisible.\n  * HIT  - BVH overlap with every other static island (pipes, bands, rails, deck props, fans, ...): any face pair\n           that did not intersect at rest is a contact. Static islands that already intersect the group at rest\n           (\"supports\", e.g. the deck block a lamp post stands in) are left out and listed.",
+ "hull_shell_island": 392,
+ "pen_tol_m": 0.02,
+ "pods": {
+  "FL": {
+   "pivot": [
+    3.833,
+    4.6557,
+    -0.9338
+   ],
+   "nozzle_axis": [
+    -0.13917,
+    0.0,
+    -0.99027
+   ],
+   "nozzle_pivot": [
+    3.499,
+    4.6557,
+    -3.7105
+   ],
+   "rest_tilt_aft_deg": 8.0,
+   "supports": [],
+   "rest_fraction_inside_hull_shell": 0.023,
+   "anchored_in_hull_skin": [
+    [
+     714,
+     "drum"
+    ],
+    [
+     717,
+     "rib"
+    ],
+    [
+     747,
+     "pipe"
+    ],
+    [
+     765,
+     "pipe"
+    ],
+    [
+     766,
+     "pipe"
+    ],
+    [
+     767,
+     "pipe"
+    ],
+    [
+     768,
+     "pipe"
+    ],
+    [
+     772,
+     "clamp"
+    ]
+   ],
+   "nozzle_fore": [
+    3.0,
+    5.0,
+    "hull shell 0.05; isl 765 pipe lifts 0.03 off the skin; isl 768 pipe lifts 0.05 off the skin",
+    "hull shell 0.06; isl 765 pipe lifts 0.06 off the skin; isl 766 pipe lifts 0.05 off the skin; isl 772 clamp lifts 0.02 off the skin"
+   ],
+   "nozzle_aft": [
+    1.0,
+    3.0,
+    "isl 747 pipe lifts 0.02 off the skin",
+    "hull shell 0.07; isl 747 pipe lifts 0.06 off the skin"
+   ],
+   "nozzle_outboard": [
+    2.0,
+    4.0,
+    "isl 747 pipe lifts 0.03 off the skin",
+    "hull shell 0.04; isl 747 pipe lifts 0.08 off the skin"
+   ],
+   "nozzle_inboard": [
+    1.0,
+    2.0,
+    "hull shell 0.05",
+    "hull shell 0.09"
+   ],
+   "cone_min_hard": 1.0,
+   "cone_min_soft": 1.0,
+   "cone": [
+    [
+     0,
+     3.0,
+     5.0,
+     "hull shell 0.05; isl 765 pipe lifts 0.03 off the skin; isl 768 pipe lifts 0.05 off the skin",
+     "hull shell 0.06; isl 765 pipe lifts 0.06 off the skin; isl 766 pipe lifts 0.05 off the skin; isl 772 clamp lifts 0.02 off the skin"
+    ],
+    [
+     15,
+     3.0,
+     5.0,
+     "hull shell 0.03; isl 765 pipe lifts 0.03 off the skin; isl 768 pipe lifts 0.03 off the skin",
+     "hull shell 0.06; isl 765 pipe lifts 0.06 off the skin; isl 766 pipe lifts 0.04 off the skin; isl 767 pipe lifts 0.03 off the skin; isl 772 clamp lifts 0.02 off the skin"
+    ],
+    [
+     30,
+     3.0,
+     5.0,
+     "isl 765 pipe lifts 0.02 off the skin",
+     "hull shell 0.06; isl 765 pipe lifts 0.05 off the skin; isl 766 pipe lifts 0.02 off the skin; isl 767 pipe lifts 0.03 off the skin; isl 768 pipe lifts 0.06 off the skin"
+    ],
+    [
+     45,
+     4.0,
+     5.0,
+     "hull shell 0.03; isl 765 pipe lifts 0.02 off the skin",
+     "hull shell 0.06; isl 765 pipe lifts 0.03 off the skin"
+    ],
+    [
+     60,
+     4.0,
+     5.0,
+     "hull shell 0.03",
+     "hull shell 0.06"
+    ],
+    [
+     75,
+     3.0,
+     5.0,
+     "isl 747 pipe lifts 0.03 off the skin",
+     "hull shell 0.06; isl 747 pipe lifts 0.07 off the skin"
+    ],
+    [
+     90,
+     2.0,
+     4.0,
+     "isl 747 pipe lifts 0.03 off the skin",
+     "hull shell 0.04; isl 747 pipe lifts 0.08 off the skin"
+    ],
+    [
+     105,
+     1.0,
+     3.0,
+     "isl 747 pipe lifts 0.03 off the skin",
+     "isl 747 pipe lifts 0.09 off the skin"
+    ],
+    [
+     120,
+     1.0,
+     2.0,
+     "isl 747 pipe lifts 0.04 off the skin",
+     "isl 747 pipe lifts 0.08 off the skin"
+    ],
+    [
+     135,
+     1.0,
+     2.0,
+     "isl 747 pipe lifts 0.05 off the skin",
+     "isl 747 pipe lifts 0.08 off the skin"
+    ],
+    [
+     150,
+     1.0,
+     2.0,
+     "isl 747 pipe lifts 0.04 off the skin",
+     "isl 747 pipe lifts 0.07 off the skin"
+    ],
+    [
+     165,
+     1.0,
+     3.0,
+     "isl 747 pipe lifts 0.03 off the skin",
+     "isl 747 pipe lifts 0.09 off the skin"
+    ],
+    [
+     180,
+     1.0,
+     3.0,
+     "isl 747 pipe lifts 0.02 off the skin",
+     "hull shell 0.07; isl 747 pipe lifts 0.06 off the skin"
+    ],
+    [
+     195,
+     1.0,
+     2.0,
+     "hull shell 0.03",
+     "hull shell 0.07"
+    ],
+    [
+     210,
+     1.0,
+     2.0,
+     "hull shell 0.05",
+     "hull shell 0.10"
+    ],
+    [
+     225,
+     1.0,
+     1.0,
+     "hull shell 0.06",
+     "hull shell 0.06"
+    ],
+    [
+     240,
+     1.0,
+     1.0,
+     "hull shell 0.06",
+     "hull shell 0.06"
+    ],
+    [
+     255,
+     1.0,
+     1.0,
+     "hull shell 0.06",
+     "hull shell 0.06"
+    ],
+    [
+     270,
+     1.0,
+     2.0,
+     "hull shell 0.05",
+     "hull shell 0.09"
+    ],
+    [
+     285,
+     1.0,
+     2.0,
+     "hull shell 0.03",
+     "hull shell 0.07"
+    ],
+    [
+     300,
+     2.0,
+     3.0,
+     "hull shell 0.04",
+     "hull shell 0.06"
+    ],
+    [
+     315,
+     2.0,
+     7.0,
+     "hull shell 0.02",
+     "hull shell 0.07; isl 747 pipe lifts 0.06 off the skin; isl 765 pipe lifts 0.05 off the skin; isl 766 pipe lifts 0.05 off the skin"
+    ],
+    [
+     330,
+     3.0,
+     6.0,
+     "hull shell 0.04; isl 768 pipe lifts 0.03 off the skin",
+     "hull shell 0.06; isl 765 pipe lifts 0.05 off the skin; isl 766 pipe lifts 0.06 off the skin"
+    ],
+    [
+     345,
+     3.0,
+     6.0,
+     "hull shell 0.06; isl 765 pipe lifts 0.02 off the skin; isl 768 pipe lifts 0.03 off the skin",
+     "hull shell 0.08; isl 765 pipe lifts 0.07 off the skin; isl 766 pipe lifts 0.07 off the skin; isl 772 clamp lifts 0.03 off the skin"
+    ]
+   ]
+  },
+  "FR": {
+   "pivot": [
+    3.833,
+    -4.9179,
+    -1.1299
+   ],
+   "nozzle_axis": [
+    -0.13917,
+    0.0,
+    -0.99027
+   ],
+   "nozzle_pivot": [
+    3.499,
+    -4.9179,
+    -3.9065
+   ],
+   "rest_tilt_aft_deg": 8.0,
+   "supports": [],
+   "rest_fraction_inside_hull_shell": 0.011,
+   "anchored_in_hull_skin": [
+    [
+     792,
+     "drum"
+    ],
+    [
+     795,
+     "rib"
+    ],
+    [
+     843,
+     "pipe"
+    ],
+    [
+     844,
+     "pipe"
+    ],
+    [
+     845,
+     "pipe"
+    ],
+    [
+     850,
+     "clamp"
+    ]
+   ],
+   "nozzle_fore": [
+    3.0,
+    5.0,
+    "isl 843 pipe lifts 0.03 off the skin",
+    "hull shell 0.05; isl 843 pipe lifts 0.06 off the skin; isl 844 pipe lifts 0.05 off the skin; isl 845 pipe lifts 0.06 off the skin; isl 850 clamp lifts 0.02 off the skin"
+   ],
+   "nozzle_aft": [
+    3.0,
+    4.0,
+    "hull shell 0.04",
+    "hull shell 0.09"
+   ],
+   "nozzle_outboard": [
+    3.0,
+    4.0,
+    "isl 795 rib lifts 0.03 off the skin",
+    "hull shell 0.04; isl 795 rib lifts 0.06 off the skin"
+   ],
+   "nozzle_inboard": [
+    7.0,
+    8.0,
+    "hull shell 0.03",
+    "hull shell 0.08"
+   ],
+   "cone_min_hard": 3.0,
+   "cone_min_soft": 4.0,
+   "cone": [
+    [
+     0,
+     3.0,
+     5.0,
+     "isl 843 pipe lifts 0.03 off the skin",
+     "hull shell 0.05; isl 843 pipe lifts 0.06 off the skin; isl 844 pipe lifts 0.05 off the skin; isl 845 pipe lifts 0.06 off the skin; isl 850 clamp lifts 0.02 off the skin"
+    ],
+    [
+     15,
+     3.0,
+     5.0,
+     "isl 843 pipe lifts 0.02 off the skin",
+     "hull shell 0.04; isl 843 pipe lifts 0.05 off the skin; isl 844 pipe lifts 0.05 off the skin; isl 845 pipe lifts 0.06 off the skin"
+    ],
+    [
+     30,
+     4.0,
+     6.0,
+     "isl 843 pipe lifts 0.03 off the skin; isl 844 pipe lifts 0.02 off the skin; isl 845 pipe lifts 0.03 off the skin",
+     "hull shell 0.03; isl 843 pipe lifts 0.05 off the skin; isl 844 pipe lifts 0.06 off the skin; isl 845 pipe lifts 0.04 off the skin"
+    ],
+    [
+     45,
+     5.0,
+     8.0,
+     "isl 843 pipe lifts 0.03 off the skin; isl 844 pipe lifts 0.03 off the skin; isl 845 pipe lifts 0.04 off the skin",
+     "isl 843 pipe lifts 0.06 off the skin; isl 844 pipe lifts 0.06 off the skin"
+    ],
+    [
+     60,
+     6.0,
+     13.0,
+     "isl 845 pipe lifts 0.03 off the skin",
+     "hull shell 0.08; isl 843 pipe lifts 0.06 off the skin; isl 844 pipe lifts 0.06 off the skin; isl 845 pipe lifts 0.03 off the skin; isl 850 clamp lifts 0.02 off the skin"
+    ],
+    [
+     75,
+     9.0,
+     10.0,
+     "hull shell 0.04",
+     "hull shell 0.09"
+    ],
+    [
+     90,
+     7.0,
+     8.0,
+     "hull shell 0.03",
+     "hull shell 0.08"
+    ],
+    [
+     105,
+     6.0,
+     7.0,
+     "hull shell 0.02",
+     "hull shell 0.07"
+    ],
+    [
+     120,
+     6.0,
+     7.0,
+     "hull shell 0.03",
+     "hull shell 0.09"
+    ],
+    [
+     135,
+     6.0,
+     7.0,
+     "hull shell 0.04",
+     "hull shell 0.08"
+    ],
+    [
+     150,
+     4.0,
+     5.0,
+     "hull shell 0.03",
+     "hull shell 0.07"
+    ],
+    [
+     165,
+     3.0,
+     4.0,
+     "hull shell 0.03",
+     "hull shell 0.07"
+    ],
+    [
+     180,
+     3.0,
+     4.0,
+     "hull shell 0.04",
+     "hull shell 0.09"
+    ],
+    [
+     195,
+     3.0,
+     4.0,
+     "hull shell 0.05",
+     "hull shell 0.09"
+    ],
+    [
+     210,
+     3.0,
+     4.0,
+     "hull shell 0.04",
+     "hull shell 0.08"
+    ],
+    [
+     225,
+     3.0,
+     4.0,
+     "hull shell 0.02",
+     "hull shell 0.06"
+    ],
+    [
+     240,
+     4.0,
+     6.0,
+     "hull shell 0.03",
+     "hull shell 0.09"
+    ],
+    [
+     255,
+     4.0,
+     5.0,
+     "hull shell 0.03; isl 795 rib lifts 0.03 off the skin",
+     "hull shell 0.06; isl 795 rib lifts 0.05 off the skin"
+    ],
+    [
+     270,
+     3.0,
+     4.0,
+     "isl 795 rib lifts 0.03 off the skin",
+     "hull shell 0.04; isl 795 rib lifts 0.06 off the skin"
+    ],
+    [
+     285,
+     3.0,
+     4.0,
+     "isl 795 rib lifts 0.05 off the skin",
+     "hull shell 0.03; isl 795 rib lifts 0.09 off the skin"
+    ],
+    [
+     300,
+     3.0,
+     4.0,
+     "isl 795 rib lifts 0.05 off the skin",
+     "hull shell 0.03; isl 795 rib lifts 0.10 off the skin"
+    ],
+    [
+     315,
+     3.0,
+     4.0,
+     "isl 795 rib lifts 0.05 off the skin",
+     "hull shell 0.03; isl 795 rib lifts 0.09 off the skin; isl 843 pipe lifts 0.02 off the skin"
+    ],
+    [
+     330,
+     3.0,
+     4.0,
+     "isl 795 rib lifts 0.03 off the skin; isl 843 pipe lifts 0.02 off the skin",
+     "hull shell 0.03; isl 795 rib lifts 0.07 off the skin; isl 843 pipe lifts 0.03 off the skin"
+    ],
+    [
+     345,
+     3.0,
+     5.0,
+     "isl 843 pipe lifts 0.03 off the skin",
+     "hull shell 0.06; isl 795 rib lifts 0.06 off the skin; isl 843 pipe lifts 0.06 off the skin; isl 844 pipe lifts 0.04 off the skin; isl 845 pipe lifts 0.05 off the skin; isl 850 clamp lifts 0.02 off the skin"
+    ]
+   ]
+  },
+  "RL": {
+   "pivot": [
+    -7.167,
+    5.1303,
+    -1.2036
+   ],
+   "nozzle_axis": [
+    -0.13917,
+    0.0,
+    -0.99027
+   ],
+   "nozzle_pivot": [
+    -7.501,
+    5.1303,
+    -3.9803
+   ],
+   "rest_tilt_aft_deg": 8.0,
+   "supports": [],
+   "rest_fraction_inside_hull_shell": 0.065,
+   "anchored_in_hull_skin": [
+    [
+     870,
+     "drum"
+    ],
+    [
+     873,
+     "rib"
+    ],
+    [
+     874,
+     "rib"
+    ],
+    [
+     883,
+     "plate"
+    ],
+    [
+     921,
+     "pipe"
+    ],
+    [
+     922,
+     "pipe"
+    ],
+    [
+     923,
+     "pipe"
+    ],
+    [
+     928,
+     "clamp"
+    ],
+    [
+     930,
+     "nozzle_shell"
+    ]
+   ],
+   "nozzle_fore": [
+    3.0,
+    5.0,
+    "isl 921 pipe lifts 0.03 off the skin",
+    "hull shell 0.06; isl 921 pipe lifts 0.06 off the skin; isl 922 pipe lifts 0.05 off the skin; isl 923 pipe lifts 0.06 off the skin; isl 928 clamp lifts 0.02 off the skin"
+   ],
+   "nozzle_aft": [
+    2.0,
+    5.0,
+    "isl 395:Hull depth 0.00",
+    "isl 395:Hull depth 0.07; hull shell 0.07"
+   ],
+   "nozzle_outboard": [
+    4.0,
+    5.0,
+    "hull shell 0.04",
+    "hull shell 0.07; isl 930 nozzle_shell lifts 0.04 off the skin"
+   ],
+   "nozzle_inboard": [
+    2.0,
+    3.0,
+    "hull shell 0.03",
+    "hull shell 0.09"
+   ],
+   "cone_min_hard": 2.0,
+   "cone_min_soft": 3.0,
+   "cone": [
+    [
+     0,
+     3.0,
+     5.0,
+     "isl 921 pipe lifts 0.03 off the skin",
+     "hull shell 0.06; isl 921 pipe lifts 0.06 off the skin; isl 922 pipe lifts 0.05 off the skin; isl 923 pipe lifts 0.06 off the skin; isl 928 clamp lifts 0.02 off the skin"
+    ],
+    [
+     15,
+     3.0,
+     5.0,
+     "isl 921 pipe lifts 0.03 off the skin",
+     "hull shell 0.06; isl 921 pipe lifts 0.06 off the skin; isl 922 pipe lifts 0.04 off the skin; isl 923 pipe lifts 0.05 off the skin; isl 928 clamp lifts 0.02 off the skin"
+    ],
+    [
+     30,
+     3.0,
+     5.0,
+     "isl 921 pipe lifts 0.02 off the skin",
+     "hull shell 0.06; isl 921 pipe lifts 0.05 off the skin; isl 922 pipe lifts 0.02 off the skin; isl 923 pipe lifts 0.03 off the skin"
+    ],
+    [
+     45,
+     4.0,
+     5.0,
+     "hull shell 0.03; isl 921 pipe lifts 0.02 off the skin",
+     "hull shell 0.06; isl 921 pipe lifts 0.03 off the skin"
+    ],
+    [
+     60,
+     4.0,
+     5.0,
+     "hull shell 0.03",
+     "hull shell 0.06; isl 930 nozzle_shell lifts 0.03 off the skin"
+    ],
+    [
+     75,
+     4.0,
+     5.0,
+     "hull shell 0.03",
+     "hull shell 0.06; isl 930 nozzle_shell lifts 0.05 off the skin"
+    ],
+    [
+     90,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.07; isl 930 nozzle_shell lifts 0.04 off the skin"
+    ],
+    [
+     105,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.07"
+    ],
+    [
+     120,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.07"
+    ],
+    [
+     135,
+     3.0,
+     5.0,
+     "isl 395:Hull depth 0.00",
+     "isl 395:Hull depth 0.02; hull shell 0.07"
+    ],
+    [
+     150,
+     2.0,
+     5.0,
+     "isl 395:Hull depth 0.01",
+     "isl 395:Hull depth 0.01; hull shell 0.07"
+    ],
+    [
+     165,
+     2.0,
+     5.0,
+     "isl 395:Hull depth 0.01",
+     "isl 395:Hull depth 0.05; hull shell 0.07"
+    ],
+    [
+     180,
+     2.0,
+     5.0,
+     "isl 395:Hull depth 0.00",
+     "isl 395:Hull depth 0.07; hull shell 0.07"
+    ],
+    [
+     195,
+     2.0,
+     5.0,
+     "isl 395:Hull depth 0.02",
+     "isl 395:Hull depth 0.07; hull shell 0.06"
+    ],
+    [
+     210,
+     2.0,
+     5.0,
+     "isl 395:Hull depth 0.02",
+     "isl 395:Hull depth 0.06; hull shell 0.10"
+    ],
+    [
+     225,
+     2.0,
+     4.0,
+     "isl 395:Hull depth 0.00",
+     "isl 395:Hull depth 0.02; hull shell 0.10"
+    ],
+    [
+     240,
+     2.0,
+     3.0,
+     "hull shell 0.03",
+     "isl 395:Hull depth 0.00; hull shell 0.08"
+    ],
+    [
+     255,
+     2.0,
+     3.0,
+     "hull shell 0.04",
+     "hull shell 0.09"
+    ],
+    [
+     270,
+     2.0,
+     3.0,
+     "hull shell 0.03",
+     "hull shell 0.09"
+    ],
+    [
+     285,
+     2.0,
+     3.0,
+     "hull shell 0.02",
+     "hull shell 0.07"
+    ],
+    [
+     300,
+     3.0,
+     4.0,
+     "hull shell 0.04",
+     "hull shell 0.09"
+    ],
+    [
+     315,
+     4.0,
+     5.0,
+     "hull shell 0.03",
+     "hull shell 0.07; isl 921 pipe lifts 0.03 off the skin; isl 922 pipe lifts 0.03 off the skin; isl 923 pipe lifts 0.04 off the skin"
+    ],
+    [
+     330,
+     4.0,
+     6.0,
+     "hull shell 0.02; isl 921 pipe lifts 0.03 off the skin; isl 922 pipe lifts 0.02 off the skin; isl 923 pipe lifts 0.03 off the skin",
+     "hull shell 0.07; isl 921 pipe lifts 0.05 off the skin; isl 922 pipe lifts 0.06 off the skin; isl 923 pipe lifts 0.08 off the skin"
+    ],
+    [
+     345,
+     3.0,
+     5.0,
+     "isl 921 pipe lifts 0.02 off the skin",
+     "hull shell 0.06; isl 921 pipe lifts 0.05 off the skin; isl 922 pipe lifts 0.05 off the skin; isl 923 pipe lifts 0.06 off the skin"
+    ]
+   ]
+  },
+  "RR": {
+   "pivot": [
+    -7.167,
+    -5.7676,
+    -1.239
+   ],
+   "nozzle_axis": [
+    -0.13917,
+    0.0,
+    -0.99027
+   ],
+   "nozzle_pivot": [
+    -7.501,
+    -5.7676,
+    -4.0157
+   ],
+   "rest_tilt_aft_deg": 8.0,
+   "supports": [],
+   "rest_fraction_inside_hull_shell": 0.034,
+   "anchored_in_hull_skin": [
+    [
+     948,
+     "drum"
+    ],
+    [
+     951,
+     "rib"
+    ],
+    [
+     952,
+     "rib"
+    ],
+    [
+     961,
+     "plate"
+    ],
+    [
+     999,
+     "pipe"
+    ],
+    [
+     1000,
+     "pipe"
+    ],
+    [
+     1006,
+     "clamp"
+    ]
+   ],
+   "nozzle_fore": [
+    3.0,
+    5.0,
+    "isl 999 pipe lifts 0.03 off the skin; isl 1000 pipe lifts 0.03 off the skin",
+    "hull shell 0.05; isl 999 pipe lifts 0.06 off the skin; isl 1000 pipe lifts 0.06 off the skin; isl 1006 clamp lifts 0.02 off the skin"
+   ],
+   "nozzle_aft": [
+    4.0,
+    5.0,
+    "hull shell 0.04",
+    "hull shell 0.06"
+   ],
+   "nozzle_outboard": [
+    3.0,
+    4.0,
+    "isl 952 rib lifts 0.02 off the skin",
+    "hull shell 0.04; isl 952 rib lifts 0.07 off the skin; isl 961 plate lifts 0.03 off the skin"
+   ],
+   "nozzle_inboard": [
+    3.0,
+    4.0,
+    "hull shell 0.04",
+    "hull shell 0.09"
+   ],
+   "cone_min_hard": 3.0,
+   "cone_min_soft": 4.0,
+   "cone": [
+    [
+     0,
+     3.0,
+     5.0,
+     "isl 999 pipe lifts 0.03 off the skin; isl 1000 pipe lifts 0.03 off the skin",
+     "hull shell 0.05; isl 999 pipe lifts 0.06 off the skin; isl 1000 pipe lifts 0.06 off the skin; isl 1006 clamp lifts 0.02 off the skin"
+    ],
+    [
+     15,
+     3.0,
+     6.0,
+     "isl 999 pipe lifts 0.02 off the skin; isl 1000 pipe lifts 0.03 off the skin",
+     "hull shell 0.06; isl 999 pipe lifts 0.07 off the skin; isl 1000 pipe lifts 0.07 off the skin; isl 1006 clamp lifts 0.03 off the skin"
+    ],
+    [
+     30,
+     3.0,
+     6.0,
+     "isl 1000 pipe lifts 0.02 off the skin",
+     "hull shell 0.03; isl 999 pipe lifts 0.05 off the skin; isl 1000 pipe lifts 0.06 off the skin"
+    ],
+    [
+     45,
+     4.0,
+     6.0,
+     "isl 1000 pipe lifts 0.02 off the skin",
+     "hull shell 0.07; isl 999 pipe lifts 0.04 off the skin; isl 1000 pipe lifts 0.04 off the skin"
+    ],
+    [
+     60,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.09"
+    ],
+    [
+     75,
+     3.0,
+     4.0,
+     "hull shell 0.02",
+     "hull shell 0.07"
+    ],
+    [
+     90,
+     3.0,
+     4.0,
+     "hull shell 0.04",
+     "hull shell 0.09"
+    ],
+    [
+     105,
+     3.0,
+     4.0,
+     "hull shell 0.04",
+     "hull shell 0.09"
+    ],
+    [
+     120,
+     3.0,
+     4.0,
+     "hull shell 0.03",
+     "hull shell 0.08"
+    ],
+    [
+     135,
+     4.0,
+     5.0,
+     "hull shell 0.05",
+     "hull shell 0.10"
+    ],
+    [
+     150,
+     4.0,
+     6.0,
+     "hull shell 0.02",
+     "hull shell 0.08"
+    ],
+    [
+     165,
+     4.0,
+     6.0,
+     "hull shell 0.03",
+     "hull shell 0.08"
+    ],
+    [
+     180,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.06"
+    ],
+    [
+     195,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.07"
+    ],
+    [
+     210,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.07"
+    ],
+    [
+     225,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.07"
+    ],
+    [
+     240,
+     4.0,
+     5.0,
+     "hull shell 0.04",
+     "hull shell 0.07; isl 952 rib lifts 0.05 off the skin; isl 961 plate lifts 0.02 off the skin"
+    ],
+    [
+     255,
+     4.0,
+     5.0,
+     "hull shell 0.04; isl 952 rib lifts 0.05 off the skin",
+     "hull shell 0.07; isl 952 rib lifts 0.10 off the skin"
+    ],
+    [
+     270,
+     3.0,
+     4.0,
+     "isl 952 rib lifts 0.02 off the skin",
+     "hull shell 0.04; isl 952 rib lifts 0.07 off the skin; isl 961 plate lifts 0.03 off the skin"
+    ],
+    [
+     285,
+     3.0,
+     4.0,
+     "isl 952 rib lifts 0.03 off the skin",
+     "hull shell 0.03; isl 952 rib lifts 0.08 off the skin"
+    ],
+    [
+     300,
+     4.0,
+     4.0,
+     "hull shell 0.03; isl 952 rib lifts 0.06 off the skin",
+     "hull shell 0.03; isl 952 rib lifts 0.06 off the skin"
+    ],
+    [
+     315,
+     4.0,
+     5.0,
+     "hull shell 0.03; isl 952 rib lifts 0.03 off the skin; isl 999 pipe lifts 0.02 off the skin",
+     "hull shell 0.06; isl 952 rib lifts 0.07 off the skin; isl 999 pipe lifts 0.03 off the skin; isl 1000 pipe lifts 0.03 off the skin"
+    ],
+    [
+     330,
+     3.0,
+     5.0,
+     "isl 999 pipe lifts 0.02 off the skin; isl 1000 pipe lifts 0.02 off the skin",
+     "hull shell 0.06; isl 999 pipe lifts 0.05 off the skin; isl 1000 pipe lifts 0.05 off the skin"
+    ],
+    [
+     345,
+     3.0,
+     5.0,
+     "isl 999 pipe lifts 0.03 off the skin; isl 1000 pipe lifts 0.03 off the skin",
+     "hull shell 0.06; isl 999 pipe lifts 0.06 off the skin; isl 1000 pipe lifts 0.06 off the skin; isl 1006 clamp lifts 0.02 off the skin"
+    ]
+   ]
+  }
+ },
+ "nozzle_vectoring": {
+  "FL": {
+   "pivot": [
+    3.499,
+    4.6557,
+    -3.7105
+   ],
+   "joint_radius_m": 1.6,
+   "rim_gap_m_at_deg": {
+    "2": 0.056,
+    "4": 0.112,
+    "6": 0.167,
+    "8": 0.223,
+    "10": 0.278
+   },
+   "fore": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "aft": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "out": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "in": [
+    26.0,
+    29.0,
+    "hull shell 0.03",
+    "hull shell 0.06"
+   ]
+  },
+  "FR": {
+   "pivot": [
+    3.499,
+    -4.9179,
+    -3.9065
+   ],
+   "joint_radius_m": 1.6,
+   "rim_gap_m_at_deg": {
+    "2": 0.056,
+    "4": 0.112,
+    "6": 0.167,
+    "8": 0.223,
+    "10": 0.278
+   },
+   "fore": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "aft": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "out": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "in": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ]
+  },
+  "RL": {
+   "pivot": [
+    -7.501,
+    5.1303,
+    -3.9803
+   ],
+   "joint_radius_m": 1.6,
+   "rim_gap_m_at_deg": {
+    "2": 0.056,
+    "4": 0.112,
+    "6": 0.167,
+    "8": 0.223,
+    "10": 0.278
+   },
+   "fore": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "aft": [
+    18.0,
+    21.0,
+    "hull shell 0.03",
+    "hull shell 0.07"
+   ],
+   "out": [
+    12.0,
+    13.0,
+    "isl 930 nozzle_shell lifts 0.04 off the skin",
+    "isl 930 nozzle_shell lifts 0.06 off the skin"
+   ],
+   "in": [
+    6.0,
+    7.0,
+    "hull shell 0.04",
+    "hull shell 0.06"
+   ]
+  },
+  "RR": {
+   "pivot": [
+    -7.501,
+    -5.7676,
+    -4.0157
+   ],
+   "joint_radius_m": 1.6,
+   "rim_gap_m_at_deg": {
+    "2": 0.056,
+    "4": 0.112,
+    "6": 0.167,
+    "8": 0.223,
+    "10": 0.278
+   },
+   "fore": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "aft": [
+    25.0,
+    29.0,
+    "hull shell 0.03",
+    "hull shell 0.07"
+   ],
+   "out": [
+    30,
+    30,
+    "",
+    "free to 30"
+   ],
+   "in": [
+    9.0,
+    11.0,
+    "hull shell 0.03",
+    "hull shell 0.06"
+   ]
+  }
+ },
+ "pod_pivot_scan": {
+  "FL": [
+   {
+    "h": -1.6,
+    "pivot": [
+     4.056,
+     4.656,
+     0.251
+    ],
+    "fore": [
+     1.0,
+     2.0
+    ],
+    "aft": [
+     1.0,
+     2.0
+    ],
+    "out": [
+     1.0,
+     2.0
+    ],
+    "in": [
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "h": -0.4,
+    "pivot": [
+     3.889,
+     4.656,
+     -0.938
+    ],
+    "fore": [
+     3.0,
+     5.0
+    ],
+    "aft": [
+     1.0,
+     3.0
+    ],
+    "out": [
+     2.0,
+     4.0
+    ],
+    "in": [
+     1.0,
+     2.0
+    ]
+   },
+   {
+    "h": 0.4,
+    "pivot": [
+     3.777,
+     4.656,
+     -1.73
+    ],
+    "fore": [
+     3.0,
+     5.0
+    ],
+    "aft": [
+     1.0,
+     3.0
+    ],
+    "out": [
+     2.0,
+     5.0
+    ],
+    "in": [
+     1.0,
+     2.0
+    ]
+   },
+   {
+    "h": 1.2,
+    "pivot": [
+     3.666,
+     4.656,
+     -2.522
+    ],
+    "fore": [
+     2.0,
+     5.0
+    ],
+    "aft": [
+     1.0,
+     3.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     2.0,
+     3.0
+    ]
+   },
+   {
+    "h": 2.0,
+    "pivot": [
+     3.555,
+     4.656,
+     -3.314
+    ],
+    "fore": [
+     1.0,
+     2.0
+    ],
+    "aft": [
+     1.0,
+     2.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     2.0,
+     4.0
+    ]
+   }
+  ],
+  "FR": [
+   {
+    "h": -1.6,
+    "pivot": [
+     4.056,
+     -4.918,
+     0.055
+    ],
+    "fore": [
+     1.0,
+     2.0
+    ],
+    "aft": [
+     2.0,
+     3.0
+    ],
+    "out": [
+     3.0,
+     3.0
+    ],
+    "in": [
+     6.0,
+     6.0
+    ]
+   },
+   {
+    "h": -0.4,
+    "pivot": [
+     3.889,
+     -4.918,
+     -1.134
+    ],
+    "fore": [
+     3.0,
+     5.0
+    ],
+    "aft": [
+     3.0,
+     4.0
+    ],
+    "out": [
+     3.0,
+     4.0
+    ],
+    "in": [
+     7.0,
+     8.0
+    ]
+   },
+   {
+    "h": 0.4,
+    "pivot": [
+     3.777,
+     -4.918,
+     -1.926
+    ],
+    "fore": [
+     4.0,
+     5.0
+    ],
+    "aft": [
+     3.0,
+     4.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     9.0,
+     10.0
+    ]
+   },
+   {
+    "h": 1.2,
+    "pivot": [
+     3.666,
+     -4.918,
+     -2.718
+    ],
+    "fore": [
+     2.0,
+     5.0
+    ],
+    "aft": [
+     2.0,
+     4.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     11.0,
+     12.0
+    ]
+   },
+   {
+    "h": 2.0,
+    "pivot": [
+     3.555,
+     -4.918,
+     -3.51
+    ],
+    "fore": [
+     1.0,
+     2.0
+    ],
+    "aft": [
+     1.0,
+     2.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     16.0,
+     18.0
+    ]
+   }
+  ],
+  "RL": [
+   {
+    "h": -1.6,
+    "pivot": [
+     -6.944,
+     5.13,
+     -0.019
+    ],
+    "fore": [
+     1.0,
+     2.0
+    ],
+    "aft": [
+     1.0,
+     3.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     2.0,
+     2.0
+    ]
+   },
+   {
+    "h": -0.4,
+    "pivot": [
+     -7.111,
+     5.13,
+     -1.208
+    ],
+    "fore": [
+     3.0,
+     5.0
+    ],
+    "aft": [
+     2.0,
+     5.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     2.0,
+     3.0
+    ]
+   },
+   {
+    "h": 0.4,
+    "pivot": [
+     -7.223,
+     5.13,
+     -2.0
+    ],
+    "fore": [
+     4.0,
+     5.0
+    ],
+    "aft": [
+     4.0,
+     5.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     3.0,
+     4.0
+    ]
+   },
+   {
+    "h": 1.2,
+    "pivot": [
+     -7.334,
+     5.13,
+     -2.792
+    ],
+    "fore": [
+     2.0,
+     5.0
+    ],
+    "aft": [
+     2.0,
+     4.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     4.0,
+     5.0
+    ]
+   },
+   {
+    "h": 2.0,
+    "pivot": [
+     -7.445,
+     5.13,
+     -3.584
+    ],
+    "fore": [
+     1.0,
+     2.0
+    ],
+    "aft": [
+     1.0,
+     2.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     5.0,
+     6.0
+    ]
+   }
+  ],
+  "RR": [
+   {
+    "h": -1.6,
+    "pivot": [
+     -6.944,
+     -5.768,
+     -0.055
+    ],
+    "fore": [
+     1.0,
+     2.0
+    ],
+    "aft": [
+     2.0,
+     3.0
+    ],
+    "out": [
+     3.0,
+     3.0
+    ],
+    "in": [
+     2.0,
+     3.0
+    ]
+   },
+   {
+    "h": -0.4,
+    "pivot": [
+     -7.111,
+     -5.768,
+     -1.243
+    ],
+    "fore": [
+     3.0,
+     5.0
+    ],
+    "aft": [
+     4.0,
+     5.0
+    ],
+    "out": [
+     3.0,
+     4.0
+    ],
+    "in": [
+     3.0,
+     4.0
+    ]
+   },
+   {
+    "h": 0.4,
+    "pivot": [
+     -7.223,
+     -5.768,
+     -2.035
+    ],
+    "fore": [
+     4.0,
+     5.0
+    ],
+    "aft": [
+     4.0,
+     6.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     4.0,
+     5.0
+    ]
+   },
+   {
+    "h": 1.2,
+    "pivot": [
+     -7.334,
+     -5.768,
+     -2.827
+    ],
+    "fore": [
+     2.0,
+     5.0
+    ],
+    "aft": [
+     2.0,
+     4.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     5.0,
+     6.0
+    ]
+   },
+   {
+    "h": 2.0,
+    "pivot": [
+     -7.445,
+     -5.768,
+     -3.62
+    ],
+    "fore": [
+     1.0,
+     2.0
+    ],
+    "aft": [
+     1.0,
+     2.0
+    ],
+    "out": [
+     4.0,
+     5.0
+    ],
+    "in": [
+     7.0,
+     9.0
+    ]
+   }
+  ]
+ },
+ "petals": {
+  "hinge": "T0 + A*3.9 + d*1.45 (petal top edge centre), axis A x d (tangent), +angle = flare outward",
+  "supports_at_rest": [
+   "lip_ring",
+   "nozzle_shell"
+  ],
+  "open": [
+   45,
+   45,
+   "",
+   "free to 45"
+  ],
+  "close": [
+   17.0,
+   17.0,
+   "isl 776:Thruster_Front_L/throat_recess depth 0.08",
+   "isl 776:Thruster_Front_L/throat_recess depth 0.08"
+  ],
+  "open_min_hard": 45,
+  "close_min_hard": 17.0,
+  "length_m": 0.48
+ },
+ "fans": {
+  "L": {
+   "recommended_pivot": [
+    -17.2,
+    5.35,
+    1.4
+   ],
+   "pipe_end_depth_in_nacelle_by_outboard_deg": {
+    "-20": 0.203,
+    "-12": 0.291,
+    "-6": 0.342,
+    "0": 0.283,
+    "6": 0.186,
+    "12": 0.234,
+    "20": 0.176
+   },
+   "yaw_pivot": [
+    -17.446,
+    7.6,
+    1.4
+   ],
+   "yaw_axis": [
+    0,
+    0,
+    1
+   ],
+   "spin_pivot": [
+    -17.2,
+    7.6,
+    1.4
+   ],
+   "spin_axis": [
+    1,
+    0,
+    0
+   ],
+   "design_centre": [
+    -17.2,
+    7.6,
+    1.4
+   ],
+   "optionA_whole_nacelle": {
+    "intake_outboard": [
+     1.0,
+     2.0,
+     "isl 466:SteamPipes,512:SteamPipes,558:SteamPipes,560:SteamPipes depth 0.05",
+     "isl 466:SteamPipes,512:SteamPipes,558:SteamPipes,560:SteamPipes depth 0.09"
+    ],
+    "intake_inboard": [
+     45,
+     45,
+     "",
+     "free to 45"
+    ],
+    "supports": [
+     [
+      467,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      513,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      559,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      565,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      567,
+      "SteamPipes",
+      "-"
+     ]
+    ],
+    "rest_fraction_inside_hull_shell": 0.0,
+    "anchored_in_hull_skin": []
+   },
+   "optionB_inner_duct": {
+    "intake_outboard": [
+     1.0,
+     2.0,
+     "isl 466:SteamPipes,512:SteamPipes,558:SteamPipes,560:SteamPipes depth 0.05",
+     "isl 466:SteamPipes,512:SteamPipes,558:SteamPipes,560:SteamPipes depth 0.09"
+    ],
+    "intake_inboard": [
+     20.0,
+     28.0,
+     "isl 1063:Turbines/ring_knob depth 0.00",
+     "isl 1063:Turbines/ring_knob depth 0.06"
+    ],
+    "supports": [
+     [
+      467,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      513,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      559,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      565,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      567,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      1058,
+      "Turbines",
+      "gimbal_ring"
+     ],
+     [
+      1065,
+      "Turbines",
+      "top_platform"
+     ]
+    ],
+    "rest_fraction_inside_hull_shell": 0.0,
+    "anchored_in_hull_skin": []
+   },
+   "optionC_pylon_hinge": {
+    "yaw_pivot": [
+     -17.2,
+     4.6,
+     1.4
+    ],
+    "intake_outboard": [
+     4.0,
+     11.0,
+     "isl 466:SteamPipes depth 0.01",
+     "isl 466:SteamPipes depth 0.07"
+    ],
+    "intake_inboard": [
+     2.0,
+     4.0,
+     "isl 566:SteamPipes depth 0.02",
+     "isl 566:SteamPipes depth 0.06"
+    ],
+    "rotor_clear_of_pylon_outboard_inboard": [
+     45,
+     10
+    ],
+    "struts_embedded_outboard_inboard": [
+     30,
+     10
+    ]
+   },
+   "rotor_pylon_contact_at_rest": false,
+   "rotor_pylon_min_gap_at_rest_m": 0.098,
+   "rotor_clear_of_pylon_intake_outboard": 2,
+   "rotor_clear_of_pylon_intake_inboard": 45,
+   "struts_embedded_outboard_inboard": [
+    38,
+    39
+   ],
+   "ring_beams_embedded_outboard_inboard": [
+    31,
+    17
+   ],
+   "pipe_ends_plugged_into_nacelle": [
+    466,
+    467,
+    512,
+    513,
+    558,
+    559,
+    560,
+    565,
+    566,
+    567
+   ],
+   "pivot_scan_with_pipe_ends_clipping": [
+    {
+     "pivot": [
+      -17.446,
+      7.6,
+      1.4
+     ],
+     "inboard_offset": 0.0,
+     "hull_out": [
+      13.0,
+      15.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.09",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      2,
+      45
+     ],
+     "struts_embedded_out_in": [
+      38,
+      39
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      6.6,
+      1.4
+     ],
+     "inboard_offset": 1.0,
+     "hull_out": [
+      19.0,
+      25.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "isl 417:SteamBands,465:SteamPipes depth 0.04; hull shell 0.06",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      3,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      6.1,
+      1.4
+     ],
+     "inboard_offset": 1.5,
+     "hull_out": [
+      29.0,
+      45
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "free to 45",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      5,
+      45
+     ],
+     "struts_embedded_out_in": [
+      16,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      5.6,
+      1.4
+     ],
+     "inboard_offset": 2.0,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      11.0,
+      22.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "hull shell 0.06",
+     "rotor_vs_pylon_out_in": [
+      9,
+      32
+     ],
+     "struts_embedded_out_in": [
+      15,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      5.35,
+      1.4
+     ],
+     "inboard_offset": 2.25,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      9.0,
+      17.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 417:SteamBands depth 0.03; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      15,
+      21
+     ],
+     "struts_embedded_out_in": [
+      15,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      5.1,
+      1.4
+     ],
+     "inboard_offset": 2.5,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      7.0,
+      13.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 414:SteamBands,417:SteamBands depth 0.05; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      45,
+      15
+     ],
+     "struts_embedded_out_in": [
+      15,
+      40
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      4.6,
+      1.4
+     ],
+     "inboard_offset": 3.0,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      5.0,
+      9.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 414:SteamBands,417:SteamBands depth 0.05; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      45,
+      9
+     ],
+     "struts_embedded_out_in": [
+      14,
+      21
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      7.6,
+      1.4
+     ],
+     "inboard_offset": 0.0,
+     "hull_out": [
+      12.0,
+      13.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      2,
+      45
+     ],
+     "struts_embedded_out_in": [
+      42,
+      44
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      6.6,
+      1.4
+     ],
+     "inboard_offset": 1.0,
+     "hull_out": [
+      17.0,
+      19.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.08",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      3,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      6.1,
+      1.4
+     ],
+     "inboard_offset": 1.5,
+     "hull_out": [
+      22.0,
+      23.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      4,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      5.6,
+      1.4
+     ],
+     "inboard_offset": 2.0,
+     "hull_out": [
+      28.0,
+      33.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.06",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      8,
+      41
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      5.35,
+      1.4
+     ],
+     "inboard_offset": 2.25,
+     "hull_out": [
+      37.0,
+      45
+     ],
+     "hull_in": [
+      12.0,
+      25.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "hull shell 0.06",
+     "rotor_vs_pylon_out_in": [
+      12,
+      24
+     ],
+     "struts_embedded_out_in": [
+      45,
+      20
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      5.1,
+      1.4
+     ],
+     "inboard_offset": 2.5,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      9.0,
+      18.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 414:SteamBands,417:SteamBands depth 0.04; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      25,
+      16
+     ],
+     "struts_embedded_out_in": [
+      43,
+      14
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      4.6,
+      1.4
+     ],
+     "inboard_offset": 3.0,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      6.0,
+      10.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 414:SteamBands,417:SteamBands depth 0.05; hull shell 0.06",
+     "rotor_vs_pylon_out_in": [
+      45,
+      10
+     ],
+     "struts_embedded_out_in": [
+      30,
+      10
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      7.6,
+      1.4
+     ],
+     "inboard_offset": 0.0,
+     "hull_out": [
+      12.0,
+      13.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.10",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      2,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      6.6,
+      1.4
+     ],
+     "inboard_offset": 1.0,
+     "hull_out": [
+      16.0,
+      17.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      3,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      6.1,
+      1.4
+     ],
+     "inboard_offset": 1.5,
+     "hull_out": [
+      20.0,
+      21.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      4,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      5.6,
+      1.4
+     ],
+     "inboard_offset": 2.0,
+     "hull_out": [
+      25.0,
+      27.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      7,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      10
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      5.35,
+      1.4
+     ],
+     "inboard_offset": 2.25,
+     "hull_out": [
+      29.0,
+      31.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      10,
+      29
+     ],
+     "struts_embedded_out_in": [
+      45,
+      9
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      5.1,
+      1.4
+     ],
+     "inboard_offset": 2.5,
+     "hull_out": [
+      34.0,
+      37.0
+     ],
+     "hull_in": [
+      12.0,
+      24.0
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "isl 417:SteamBands depth 0.01; hull shell 0.06",
+     "rotor_vs_pylon_out_in": [
+      17,
+      18
+     ],
+     "struts_embedded_out_in": [
+      45,
+      7
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      4.6,
+      1.4
+     ],
+     "inboard_offset": 3.0,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      7.0,
+      12.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 414:SteamBands,417:SteamBands depth 0.04; hull shell 0.06",
+     "rotor_vs_pylon_out_in": [
+      45,
+      10
+     ],
+     "struts_embedded_out_in": [
+      40,
+      6
+     ]
+    }
+   ],
+   "pylon_end": [
+    [
+     -16.832,
+     5.742,
+     2.099
+    ],
+    [
+     -16.886,
+     5.759,
+     0.501
+    ],
+    [
+     -14.132,
+     4.942,
+     1.999
+    ],
+    [
+     -14.186,
+     4.959,
+     0.401
+    ]
+   ]
+  },
+  "R": {
+   "recommended_pivot": [
+    -17.2,
+    -5.35,
+    1.4
+   ],
+   "pipe_end_depth_in_nacelle_by_outboard_deg": {
+    "20": 0.176,
+    "12": 0.234,
+    "6": 0.186,
+    "0": 0.283,
+    "-6": 0.342,
+    "-12": 0.291,
+    "-20": 0.203
+   },
+   "yaw_pivot": [
+    -17.446,
+    -7.6,
+    1.4
+   ],
+   "yaw_axis": [
+    0,
+    0,
+    1
+   ],
+   "spin_pivot": [
+    -17.2,
+    -7.6,
+    1.4
+   ],
+   "spin_axis": [
+    1,
+    0,
+    0
+   ],
+   "design_centre": [
+    -17.2,
+    -7.6,
+    1.4
+   ],
+   "optionA_whole_nacelle": {
+    "intake_outboard": [
+     1.0,
+     2.0,
+     "isl 612:SteamPipes,658:SteamPipes,704:SteamPipes,706:SteamPipes depth 0.05",
+     "isl 612:SteamPipes,658:SteamPipes,704:SteamPipes,706:SteamPipes depth 0.09"
+    ],
+    "intake_inboard": [
+     45,
+     45,
+     "",
+     "free to 45"
+    ],
+    "supports": [
+     [
+      613,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      659,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      705,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      710,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      712,
+      "SteamPipes",
+      "-"
+     ]
+    ],
+    "rest_fraction_inside_hull_shell": 0.0,
+    "anchored_in_hull_skin": []
+   },
+   "optionB_inner_duct": {
+    "intake_outboard": [
+     1.0,
+     2.0,
+     "isl 612:SteamPipes,658:SteamPipes,704:SteamPipes,706:SteamPipes depth 0.05",
+     "isl 612:SteamPipes,658:SteamPipes,704:SteamPipes,706:SteamPipes depth 0.09"
+    ],
+    "intake_inboard": [
+     20.0,
+     28.0,
+     "isl 1122:Turbines/ring_knob depth 0.00",
+     "isl 1122:Turbines/ring_knob depth 0.13"
+    ],
+    "supports": [
+     [
+      613,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      659,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      705,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      710,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      712,
+      "SteamPipes",
+      "-"
+     ],
+     [
+      1119,
+      "Turbines",
+      "gimbal_ring"
+     ],
+     [
+      1126,
+      "Turbines",
+      "top_platform"
+     ]
+    ],
+    "rest_fraction_inside_hull_shell": 0.0,
+    "anchored_in_hull_skin": []
+   },
+   "optionC_pylon_hinge": {
+    "yaw_pivot": [
+     -17.2,
+     -4.6,
+     1.4
+    ],
+    "intake_outboard": [
+     4.0,
+     11.0,
+     "isl 612:SteamPipes depth 0.01",
+     "isl 612:SteamPipes depth 0.07"
+    ],
+    "intake_inboard": [
+     2.0,
+     4.0,
+     "isl 711:SteamPipes depth 0.02",
+     "isl 711:SteamPipes depth 0.06"
+    ],
+    "rotor_clear_of_pylon_outboard_inboard": [
+     45,
+     10
+    ],
+    "struts_embedded_outboard_inboard": [
+     30,
+     10
+    ]
+   },
+   "rotor_pylon_contact_at_rest": false,
+   "rotor_pylon_min_gap_at_rest_m": 0.098,
+   "rotor_clear_of_pylon_intake_outboard": 2,
+   "rotor_clear_of_pylon_intake_inboard": 45,
+   "struts_embedded_outboard_inboard": [
+    38,
+    39
+   ],
+   "ring_beams_embedded_outboard_inboard": [
+    17,
+    31
+   ],
+   "pipe_ends_plugged_into_nacelle": [
+    612,
+    613,
+    658,
+    659,
+    704,
+    705,
+    706,
+    710,
+    711,
+    712
+   ],
+   "pivot_scan_with_pipe_ends_clipping": [
+    {
+     "pivot": [
+      -17.446,
+      -7.6,
+      1.4
+     ],
+     "inboard_offset": 0.0,
+     "hull_out": [
+      14.0,
+      15.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      2,
+      45
+     ],
+     "struts_embedded_out_in": [
+      38,
+      39
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      -6.6,
+      1.4
+     ],
+     "inboard_offset": 1.0,
+     "hull_out": [
+      20.0,
+      22.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.08",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      3,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      -6.1,
+      1.4
+     ],
+     "inboard_offset": 1.5,
+     "hull_out": [
+      26.0,
+      28.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.08",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      5,
+      45
+     ],
+     "struts_embedded_out_in": [
+      16,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      -5.6,
+      1.4
+     ],
+     "inboard_offset": 2.0,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      11.0,
+      45
+     ],
+     "why_out": "free to 45",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      9,
+      32
+     ],
+     "struts_embedded_out_in": [
+      15,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      -5.35,
+      1.4
+     ],
+     "inboard_offset": 2.25,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      9.0,
+      17.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 420:SteamBands depth 0.03; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      15,
+      21
+     ],
+     "struts_embedded_out_in": [
+      15,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      -5.1,
+      1.4
+     ],
+     "inboard_offset": 2.5,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      7.0,
+      13.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 415:SteamBands,420:SteamBands depth 0.05; hull shell 0.06",
+     "rotor_vs_pylon_out_in": [
+      45,
+      15
+     ],
+     "struts_embedded_out_in": [
+      15,
+      40
+     ]
+    },
+    {
+     "pivot": [
+      -17.446,
+      -4.6,
+      1.4
+     ],
+     "inboard_offset": 3.0,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      5.0,
+      9.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 415:SteamBands,420:SteamBands depth 0.05; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      45,
+      9
+     ],
+     "struts_embedded_out_in": [
+      14,
+      21
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      -7.6,
+      1.4
+     ],
+     "inboard_offset": 0.0,
+     "hull_out": [
+      14.0,
+      15.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.10",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      2,
+      45
+     ],
+     "struts_embedded_out_in": [
+      42,
+      44
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      -6.6,
+      1.4
+     ],
+     "inboard_offset": 1.0,
+     "hull_out": [
+      19.0,
+      20.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.09",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      3,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      -6.1,
+      1.4
+     ],
+     "inboard_offset": 1.5,
+     "hull_out": [
+      23.0,
+      24.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      4,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      -5.6,
+      1.4
+     ],
+     "inboard_offset": 2.0,
+     "hull_out": [
+      30.0,
+      32.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.08",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      8,
+      41
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      -5.35,
+      1.4
+     ],
+     "inboard_offset": 2.25,
+     "hull_out": [
+      35.0,
+      37.0
+     ],
+     "hull_in": [
+      12.0,
+      25.0
+     ],
+     "why_out": "hull shell 0.08",
+     "why_in": "hull shell 0.06",
+     "rotor_vs_pylon_out_in": [
+      12,
+      24
+     ],
+     "struts_embedded_out_in": [
+      45,
+      20
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      -5.1,
+      1.4
+     ],
+     "inboard_offset": 2.5,
+     "hull_out": [
+      41.0,
+      43.0
+     ],
+     "hull_in": [
+      9.0,
+      18.0
+     ],
+     "why_out": "hull shell 0.06",
+     "why_in": "isl 415:SteamBands,420:SteamBands depth 0.04; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      25,
+      16
+     ],
+     "struts_embedded_out_in": [
+      43,
+      14
+     ]
+    },
+    {
+     "pivot": [
+      -17.2,
+      -4.6,
+      1.4
+     ],
+     "inboard_offset": 3.0,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      6.0,
+      11.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 415:SteamBands,420:SteamBands depth 0.05; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      45,
+      10
+     ],
+     "struts_embedded_out_in": [
+      30,
+      10
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      -7.6,
+      1.4
+     ],
+     "inboard_offset": 0.0,
+     "hull_out": [
+      14.0,
+      15.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.11",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      2,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      -6.6,
+      1.4
+     ],
+     "inboard_offset": 1.0,
+     "hull_out": [
+      19.0,
+      20.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.11",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      3,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      -6.1,
+      1.4
+     ],
+     "inboard_offset": 1.5,
+     "hull_out": [
+      22.0,
+      23.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      4,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      45
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      -5.6,
+      1.4
+     ],
+     "inboard_offset": 2.0,
+     "hull_out": [
+      28.0,
+      29.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.09",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      7,
+      45
+     ],
+     "struts_embedded_out_in": [
+      45,
+      10
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      -5.35,
+      1.4
+     ],
+     "inboard_offset": 2.25,
+     "hull_out": [
+      31.0,
+      33.0
+     ],
+     "hull_in": [
+      45,
+      45
+     ],
+     "why_out": "hull shell 0.08",
+     "why_in": "free to 45",
+     "rotor_vs_pylon_out_in": [
+      10,
+      29
+     ],
+     "struts_embedded_out_in": [
+      45,
+      9
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      -5.1,
+      1.4
+     ],
+     "inboard_offset": 2.5,
+     "hull_out": [
+      36.0,
+      38.0
+     ],
+     "hull_in": [
+      12.0,
+      25.0
+     ],
+     "why_out": "hull shell 0.07",
+     "why_in": "isl 420:SteamBands depth 0.00; hull shell 0.06",
+     "rotor_vs_pylon_out_in": [
+      17,
+      18
+     ],
+     "struts_embedded_out_in": [
+      45,
+      7
+     ]
+    },
+    {
+     "pivot": [
+      -17.0,
+      -4.6,
+      1.4
+     ],
+     "inboard_offset": 3.0,
+     "hull_out": [
+      45,
+      45
+     ],
+     "hull_in": [
+      7.0,
+      13.0
+     ],
+     "why_out": "free to 45",
+     "why_in": "isl 415:SteamBands,420:SteamBands depth 0.05; hull shell 0.07",
+     "rotor_vs_pylon_out_in": [
+      45,
+      10
+     ],
+     "struts_embedded_out_in": [
+      40,
+      6
+     ]
+    }
+   ],
+   "pylon_end": [
+    [
+     -16.832,
+     -5.742,
+     2.099
+    ],
+    [
+     -16.886,
+     -5.759,
+     0.501
+    ],
+    [
+     -14.132,
+     -4.942,
+     1.999
+    ],
+    [
+     -14.186,
+     -4.959,
+     0.401
+    ]
+   ]
+  }
+ },
+ "rudder": {
+  "hull_aft_x_on_centreline_by_z": [
+   [
+    -4.4,
+    -13.769
+   ],
+   [
+    -3.9,
+    -14.728
+   ],
+   [
+    -3.4,
+    -15.474
+   ],
+   [
+    -2.9,
+    -16.184
+   ],
+   [
+    -2.4,
+    -16.359
+   ],
+   [
+    -1.9,
+    -16.359
+   ],
+   [
+    -1.4,
+    -16.184
+   ],
+   [
+    -0.9,
+    -16.184
+   ],
+   [
+    -0.4,
+    -16.184
+   ],
+   [
+    0.1,
+    -16.184
+   ],
+   [
+    0.6,
+    -16.364
+   ],
+   [
+    1.1,
+    -16.364
+   ],
+   [
+    1.6,
+    -16.364
+   ],
+   [
+    2.1,
+    -16.364
+   ],
+   [
+    2.6,
+    -16.184
+   ]
+  ],
+  "supports": [],
+  "rest_fraction_inside_hull_shell": 0.183,
+  "anchored_in_hull_skin": [
+   [
+    412,
+    "blade"
+   ],
+   [
+    413,
+    "tiller_bar"
+   ]
+  ],
+  "hinges": {
+   "leading_edge": {
+    "point": [
+     -15.6,
+     0.0,
+     2.9
+    ],
+    "axis": [
+     0.0547,
+     0.0,
+     0.9985
+    ],
+    "trailing_edge_to_starboard": [
+     53.0,
+     55.0,
+     "isl 1122:Turbines/ring_knob depth 0.00",
+     "isl 1119:Turbines/gimbal_ring,1122:Turbines/ring_knob depth 0.10"
+    ],
+    "trailing_edge_to_port": [
+     57.0,
+     59.0,
+     "isl 1082:Turbines/pylon depth 0.00",
+     "isl 1082:Turbines/pylon depth 0.08"
+    ]
+   },
+   "vertical_at_hull_aft_face": {
+    "point": [
+     -16.364,
+     0.0,
+     1.4
+    ],
+    "axis": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "trailing_edge_to_starboard": [
+     60,
+     60,
+     "",
+     "free to 60"
+    ],
+    "trailing_edge_to_port": [
+     60,
+     60,
+     "",
+     "free to 60"
+    ]
+   }
+  }
+ },
+ "searchlights": {
+  "SearchLight_AftL": {
+   "post_foot": [
+    11.2,
+    2.8,
+    6.55
+   ],
+   "wobble_pivot": [
+    11.2,
+    2.8,
+    6.55
+   ],
+   "stands_on": [
+    232
+   ],
+   "free_post_length": 3.0,
+   "head_pivot": [
+    11.2,
+    2.8,
+    9.7
+   ],
+   "supports": [],
+   "tilt_limit_by_dir_0_45_90_135_180_225_270_315": [
+    20,
+    9.0,
+    6.0,
+    9.0,
+    20,
+    20,
+    20,
+    20
+   ],
+   "tilt_limit_min": 6.0,
+   "head_gap_to_static_m": 1.714
+  },
+  "SearchLight_FwdC": {
+   "post_foot": [
+    30.4,
+    0.9,
+    7.35
+   ],
+   "wobble_pivot": [
+    30.4,
+    0.9,
+    7.35
+   ],
+   "stands_on": [
+    233
+   ],
+   "free_post_length": 3.0,
+   "head_pivot": [
+    30.4,
+    0.9,
+    10.5
+   ],
+   "supports": [],
+   "tilt_limit_by_dir_0_45_90_135_180_225_270_315": [
+    20,
+    14.0,
+    13.0,
+    20,
+    20,
+    20,
+    20,
+    20
+   ],
+   "tilt_limit_min": 13.0,
+   "head_gap_to_static_m": 1.719
+  },
+  "SearchLight_MidL": {
+   "post_foot": [
+    24.6,
+    2.4,
+    6.55
+   ],
+   "wobble_pivot": [
+    24.6,
+    2.4,
+    7.35
+   ],
+   "stands_on": [
+    232
+   ],
+   "free_post_length": 2.2,
+   "head_pivot": [
+    24.6,
+    2.4,
+    9.7
+   ],
+   "supports": [
+    [
+     233,
+     "Gantry",
+     "-"
+    ],
+    [
+     323,
+     "Gantry",
+     "-"
+    ],
+    [
+     324,
+     "Gantry",
+     "-"
+    ]
+   ],
+   "tilt_limit_by_dir_0_45_90_135_180_225_270_315": [
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20
+   ],
+   "tilt_limit_min": 20,
+   "head_gap_to_static_m": 0.911
+  },
+  "SearchLight_MidR": {
+   "post_foot": [
+    24.6,
+    -2.4,
+    6.55
+   ],
+   "wobble_pivot": [
+    24.6,
+    -2.4,
+    7.35
+   ],
+   "stands_on": [
+    232
+   ],
+   "free_post_length": 2.2,
+   "head_pivot": [
+    24.6,
+    -2.4,
+    9.7
+   ],
+   "supports": [
+    [
+     233,
+     "Gantry",
+     "-"
+    ],
+    [
+     343,
+     "Gantry",
+     "-"
+    ],
+    [
+     344,
+     "Gantry",
+     "-"
+    ]
+   ],
+   "tilt_limit_by_dir_0_45_90_135_180_225_270_315": [
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20
+   ],
+   "tilt_limit_min": 20,
+   "head_gap_to_static_m": 0.911
+  }
+ },
+ "strips": {
+  "HangStrip_1": {
+   "anchor": [
+    13.425,
+    -2.9,
+    4.359
+   ],
+   "bottom_z": -1.15,
+   "segments": 4,
+   "segment_fraction_inside_hull_shell": [
+    0.0,
+    0.46,
+    0.78,
+    0.01
+   ],
+   "supports": [
+    [
+     265,
+     "Gantry",
+     "-"
+    ],
+    [
+     410,
+     "Hull",
+     "-"
+    ],
+    [
+     1147,
+     "Underside_Front",
+     "-"
+    ]
+   ],
+   "rest_fraction_inside_hull_shell": 0.336,
+   "anchored_in_hull_skin": [
+    [
+     373,
+     "segment"
+    ],
+    [
+     374,
+     "segment"
+    ],
+    [
+     375,
+     "segment"
+    ]
+   ],
+   "swing_limits": {
+    "fore": 4.0,
+    "aft": 21.0,
+    "port": 43.0,
+    "stbd": 0.0
+   }
+  },
+  "HangStrip_2": {
+   "anchor": [
+    15.425,
+    -2.0,
+    4.359
+   ],
+   "bottom_z": 0.697,
+   "segments": 3,
+   "segment_fraction_inside_hull_shell": [
+    0.0,
+    0.5,
+    1.0
+   ],
+   "supports": [
+    [
+     3,
+     "BowWedge",
+     "-"
+    ]
+   ],
+   "rest_fraction_inside_hull_shell": 0.475,
+   "anchored_in_hull_skin": [
+    [
+     370,
+     "segment"
+    ],
+    [
+     371,
+     "segment"
+    ]
+   ],
+   "swing_limits": {
+    "fore": 45,
+    "aft": 37.0,
+    "port": 45,
+    "stbd": 10.0
+   }
+  },
+  "HangStrip_3": {
+   "anchor": [
+    14.225,
+    2.2,
+    4.36
+   ],
+   "bottom_z": -1.087,
+   "segments": 5,
+   "segment_fraction_inside_hull_shell": [
+    0.0,
+    0.0,
+    0.89,
+    0.85,
+    0.05
+   ],
+   "supports": [
+    [
+     402,
+     "Hull",
+     "-"
+    ]
+   ],
+   "rest_fraction_inside_hull_shell": 0.413,
+   "anchored_in_hull_skin": [
+    [
+     366,
+     "segment"
+    ],
+    [
+     367,
+     "segment"
+    ],
+    [
+     368,
+     "segment"
+    ]
+   ],
+   "swing_limits": {
+    "fore": 3.0,
+    "aft": 2.0,
+    "port": 1.0,
+    "stbd": 45
+   }
+  },
+  "HangStrip_4": {
+   "anchor": [
+    16.225,
+    2.9,
+    4.357
+   ],
+   "bottom_z": 0.548,
+   "segments": 3,
+   "segment_fraction_inside_hull_shell": [
+    0.0,
+    0.17,
+    0.2
+   ],
+   "supports": [
+    [
+     3,
+     "BowWedge",
+     "-"
+    ],
+    [
+     241,
+     "Gantry",
+     "-"
+    ],
+    [
+     414,
+     "SteamBands",
+     "-"
+    ],
+    [
+     416,
+     "SteamBands",
+     "-"
+    ],
+    [
+     428,
+     "SteamPipes",
+     "-"
+    ],
+    [
+     519,
+     "SteamPipes",
+     "-"
+    ],
+    [
+     520,
+     "SteamPipes",
+     "-"
+    ],
+    [
+     521,
+     "SteamPipes",
+     "-"
+    ]
+   ],
+   "rest_fraction_inside_hull_shell": 0.114,
+   "anchored_in_hull_skin": [
+    [
+     377,
+     "segment"
+    ],
+    [
+     378,
+     "segment"
+    ]
+   ],
+   "swing_limits": {
+    "fore": 1.0,
+    "aft": 35.0,
+    "port": 0.0,
+    "stbd": 45
+   }
+  }
+ },
+ "chains": {
+  "ChainAft": {
+   "end_a": [
+    12.152,
+    3.147,
+    4.327
+   ],
+   "end_b": [
+    16.247,
+    3.353,
+    3.975
+   ],
+   "lowest_z": 1.927,
+   "supports": [
+    [
+     3,
+     "BowWedge",
+     "-"
+    ],
+    [
+     414,
+     "SteamBands",
+     "-"
+    ]
+   ],
+   "rest_fraction_inside_hull_shell": 0.124,
+   "anchored_in_hull_skin": [
+    [
+     380,
+     "link"
+    ],
+    [
+     381,
+     "link"
+    ],
+    [
+     382,
+     "link"
+    ]
+   ],
+   "swing_pos": [
+    2.0,
+    3.0,
+    "isl 382 link lifts 0.03 off the skin",
+    "isl 382 link lifts 0.07 off the skin"
+   ],
+   "swing_neg": [
+    8.0,
+    9.0,
+    "hull shell 0.04",
+    "hull shell 0.07"
+   ]
+  },
+  "ChainFwd": {
+   "end_a": [
+    21.464,
+    -3.353,
+    2.961
+   ],
+   "end_b": [
+    26.545,
+    -2.946,
+    4.32
+   ],
+   "lowest_z": 1.978,
+   "supports": [
+    [
+     3,
+     "BowWedge",
+     "-"
+    ],
+    [
+     7,
+     "BowWedge",
+     "-"
+    ],
+    [
+     8,
+     "BowWedge",
+     "-"
+    ],
+    [
+     9,
+     "BowWedge",
+     "-"
+    ]
+   ],
+   "rest_fraction_inside_hull_shell": 0.0,
+   "anchored_in_hull_skin": [],
+   "swing_pos": [
+    45,
+    45,
+    "",
+    "free to 45"
+   ],
+   "swing_neg": [
+    45,
+    45,
+    "",
+    "free to 45"
+   ]
+  }
+ }
+}
