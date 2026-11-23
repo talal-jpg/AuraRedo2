@@ -55,6 +55,21 @@ class AsVal(AsRun):
         self.R['val'] = {}
         self.xg = []
 
+    # ------------------------------------------------------------ scheme (2026-11-23 polish)
+    def start_settle(self):
+        """The v1 validation runs on Classic (AS43_SCHEME, default 0): since the polish the pawn's default scheme is
+        Point & Fly, and these checks are v1's. Applied 3 s before boarding (the settle phase)."""
+        want = int(globals().get('AS43_SCHEME', 0) or 0)
+        names = {0: 'CLASSIC', 1: 'GALLEON', 2: 'SKY_RACER', 3: 'POINT_FLY'}
+        try:
+            self.ship.set_control_scheme(getattr(unreal.AirshipControlScheme, names[want]))
+            self.line('INFO', 'control scheme set to %s (AS43_SCHEME %d; the pawn default is Point & Fly)' % (names[want], want))
+        except Exception:  # noqa: BLE001
+            self.err('set_control_scheme')
+            self.cmd('Aura.Airship.Scheme %d' % want)
+        self.R.setdefault('setup', {})['scheme'] = names.get(want)
+        AsRun.start_settle(self)
+
     # ------------------------------------------------------------ outputs (own files; as_30's results stay)
     def line(self, tag, msg):
         s = '%s: [%7.2f %s] %s' % (tag, self.now, self.phase, msg)

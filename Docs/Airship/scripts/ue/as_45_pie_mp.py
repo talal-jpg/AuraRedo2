@@ -834,6 +834,17 @@ class MpRun(object):
     # ---- settle: fps, corrections log on, the client hurt by 25 (restored-at-exit != refilled)
     def start_settle(self):
         self.cmd(self.sw, 'p.NetShowCorrections 1')
+        # The v1 multiplayer checks run on Classic (AS45_SCHEME, default 0): since the 2026-11-23 polish the pawn's
+        # default scheme is Point & Fly. Set on the server's ship (it replicates to the client before boarding).
+        want = int(globals().get('AS45_SCHEME', 0) or 0)
+        names = {0: 'CLASSIC', 1: 'GALLEON', 2: 'SKY_RACER', 3: 'POINT_FLY'}
+        try:
+            self.ship_s.set_control_scheme(getattr(unreal.AirshipControlScheme, names[want]))
+            self.line('INFO', 'control scheme set to %s on the server ship (AS45_SCHEME %d)' % (names[want], want))
+        except Exception:  # noqa: BLE001
+            self.err('set_control_scheme')
+            self.cmd(self.sw, 'Aura.Airship.Scheme %d' % want)
+        self.R.setdefault('setup', {})['scheme'] = names.get(want)
         self.D['wall0'] = time.time()
         self.D['f0'] = self.frames
         self.mesh_rest('server', self.ship_s)
