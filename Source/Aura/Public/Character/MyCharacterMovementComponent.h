@@ -15,6 +15,10 @@
  * already falling (walked off a ledge), is an air jump: on top of the normal jump velocity it turns the horizontal
  * velocity toward the movement input of that move.
  *
+ * The air jump comes back on landing and while hanging on a GA_GrappleSwing2 rope (its root motion source in the
+ * Swing phase), so a swing always leaves one air jump for after the release. On a new air jump the owner
+ * (AMyCharPlayer::OnAirJumped) plays its air jump montage.
+ *
  * Hover: the hover wish travels with every saved move (FLAG_Custom_0). While it is on, a falling character switches
  * to MOVE_Flying; when it goes off, a flying character drops back to MOVE_Falling (only on that change, so other
  * flying, such as GA_BoostBP's, is left alone).
@@ -60,6 +64,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character Movement: Jumping / Falling|Air Jump", meta=(ClampMin="0", ClampMax="1"))
 	float AirJumpMinInput=0.1f;
 
+	// Hanging on a GA_GrappleSwing2 rope gives the air jump back (like landing)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character Movement: Jumping / Falling|Air Jump")
+	bool bAirJumpResetsOnSwing=true;
+
+	// On a GA_GrappleSwing2 rope: its root motion source is in the Swing phase (not the hook flight)
+	bool IsOnGrappleRope() const;
+
 	// Air jumps so far on this machine (not counting replays), for debugging and tests
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category="Character Movement: Jumping / Falling|Air Jump")
 	int32 AirJumpCount=0;
@@ -90,6 +101,9 @@ private:
 	 * UpdateCharacterStateBeforeMovement runs after it, so the redirect uses the input of the move that jumped.
 	 */
 	bool bPendingAirJumpRedirect=false;
+
+	// A new air jump (not a replay) on this move: tell the character once the redirect is done
+	bool bPendingAirJumpNotify=false;
 
 	void ApplyHover();
 	void ApplyAirJumpRedirect();

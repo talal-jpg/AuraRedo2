@@ -8,6 +8,7 @@
 #include "MyAnimInstance.h"
 #include "MyPlayerState.h"
 #include "Actors/MyHexPlatform.h"
+#include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "AbilitySystem/Abilities/GA_GrappleSwing2.h"
 #include "AbilitySystem/MyAbilitySystemComponent.h"
@@ -117,6 +118,43 @@ void AMyCharPlayer::Multicast_HardLanding_Implementation(float InYaw)
 	PlayAnimMontage(HardLandingMontage,1.f,FName("roll"));
 }
 
+void AMyCharPlayer::OnAirJumped()
+{
+	// The owner plays it at once; the server sends it to everyone else (other clients, and itself for a remote player)
+	if (IsLocallyControlled())
+	{
+		PlayAirJumpMontage();
+	}
+	if (HasAuthority())
+	{
+		Multicast_PlayAirJumpMontage();
+	}
+}
+
+void AMyCharPlayer::Multicast_PlayAirJumpMontage_Implementation()
+{
+	if (!IsLocallyControlled())
+	{
+		PlayAirJumpMontage();
+	}
+}
+
+void AMyCharPlayer::PlayAirJumpMontage()
+{
+	UAnimMontage* Montage=AirJumpMontage.LoadSynchronous();
+	UAnimInstance* AnimInstance=GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!Montage || !AnimInstance)return;
+	const FName Section=Montage->IsValidSectionName(AirJumpMontageSection) ? AirJumpMontageSection : NAME_None;
+	if (PlayAnimMontage(Montage,AirJumpMontagePlayRate,Section)<=0.f)return;
+	if (!bAirJumpMontageUsesRootMotion)
+	{
+		if (FAnimMontageInstance* Instance=AnimInstance->GetActiveInstanceForMontage(Montage))
+		{
+			Instance->PushDisableRootMotion();
+		}
+	}
+}
+
 void AMyCharPlayer::RegisterToBoostingState()
 {
 	// The ASC is on the PlayerState and outlives this pawn: a UObject binding is skipped once the pawn is gone (respawn)
@@ -149,6 +187,9 @@ void AMyCharPlayer::BeginPlay()
 	MP->StartHeadlessLogic2();
 
 	RefreshEdgeFogTimer();
+	
+	// Loaded now, not on the first air jump
+	AirJumpMontage.LoadSynchronous();
 	
 	// TEMP death test (disintegrate FX): set DebugDieAfterBeginPlaySeconds to 0 to turn it off
 	if (HasAuthority() && DebugDieAfterBeginPlaySeconds>0.f)

@@ -71,6 +71,29 @@ public:
 	TObjectPtr<UAnimMontage> HardLandingMontage;
 	
 	// Set when the character goes from MOVE_Flying to falling, cleared on landing
+	// Air jump (GA_JumpHover's second jump): UMyCharacterMovementComponent calls this on the owning client and on the
+	// server when a new air jump happens (not in replays). Plays AirJumpMontage on every machine
+	void OnAirJumped();
+	
+	UFUNCTION(NetMulticast,Unreliable)
+	void Multicast_PlayAirJumpMontage();
+	
+	void PlayAirJumpMontage();
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="AirJump")
+	TSoftObjectPtr<UAnimMontage> AirJumpMontage=TSoftObjectPtr<UAnimMontage>(FSoftObjectPath(TEXT("/Game/Assets/Characters/Mech/SKM_mech/Animations/fallToRoll1_Montage.fallToRoll1_Montage")));
+	
+	// Section of AirJumpMontage to play (None or missing: from the start)
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="AirJump")
+	FName AirJumpMontageSection=FName("AirJump");
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="AirJump",meta=(ClampMin="0.01"))
+	float AirJumpMontagePlayRate=1.f;
+	
+	// Let the montage's root motion move the character. Off: the air jump's velocity moves it, the montage is only the pose
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="AirJump")
+	bool bAirJumpMontageUsesRootMotion=false;
+	
 	UPROPERTY(BlueprintReadOnly,Category="HardLanding")
 	bool bFallingFromFlight=false;
 
