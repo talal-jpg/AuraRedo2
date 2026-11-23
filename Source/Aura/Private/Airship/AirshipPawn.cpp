@@ -667,8 +667,10 @@ void AAirshipPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		return;
 	}
 
-	// Axes and held buttons are read every frame (GatherLocalInput)
-	for (const UInputAction* Action : { ThrottleAction.Get(), SteerAction.Get(), LiftAction.Get(), StrafeAction.Get(), BoostAction.Get(), BrakeAction.Get(), AimAction.Get() })
+	// Axes and held buttons are read every frame (GatherLocalInput). Fire's value is read only by Point & Fly (Fire held
+	// arms the gun lock); its press is the Started binding below, so holding Fire still fires once
+	for (const UInputAction* Action : { ThrottleAction.Get(), SteerAction.Get(), LiftAction.Get(), StrafeAction.Get(), BoostAction.Get(), BrakeAction.Get(), AimAction.Get(),
+		FireAction.Get() })
 	{
 		if (Action)
 		{
@@ -797,9 +799,8 @@ void AAirshipPawn::GatherLocalInput(float DeltaSeconds)
 		using namespace AirshipPawnPrivate;
 
 		// The camera first: its yaw is the heading target (Q/E on IA_AirshipStrafe turn it). Any drive / sidestep / turn /
-		// boost key ends the parked free look. Fire held is meant to arm the gun lock, but FireAction has no value binding
-		// (SetupPlayerInputComponent binds only its press), so Button(FireAction) is always false: only PFLockArmTime after
-		// an own broadside arms it (CPP_NOTES.md 14.12, P4 note).
+		// boost key ends the parked free look. Fire held (LMB / RB, FireAction's value binding) arms the gun lock, as does
+		// PFLockArmTime after an own broadside; the shot itself is OnFireInput (Started), once per press.
 		const bool bAimHeld = Button(AimAction);
 		const float NudgeAxis = Axis(StrafeAction);
 		const bool bMoveKeys = FMath::Abs(Axis(ThrottleAction)) > 0.05f || FMath::Abs(Axis(SteerAction)) > 0.05f || FMath::Abs(NudgeAxis) > 0.05f
@@ -3403,8 +3404,11 @@ void AAirshipPawn::UpdatePointFlyCamera(float Dt, APlayerController* PC, float N
 
 	// Parked free look (polish P3): at rest with no drive / sidestep / turn / boost key the mouse looks around and the
 	// heading holds, as on foot. The first such key takes the camera's yaw as the heading (below). An outside set (harness,
-	// reset) still sets the heading, as in steering mode.
-	const bool bParkedNow = PFParkSpeed > 0.f && !bPFFree && !bMoveKeys && FMath::Abs(ViewForwardSpeed) < PFParkSpeed;
+	// reset) still sets the heading, as in steering mode. Entering needs |forward speed| < PFParkSpeed; once parked it holds
+	// at any speed until such a key, Aim, or an outside set above PFParkSpeed (follow-up F-B): a hit or a collision that
+	// pushes the ship past PFParkSpeed no longer ends it, so the heading holds and the heading loop turns a knocked hull back
+	const bool bParkedNow = PFParkSpeed > 0.f && !bPFFree && !bMoveKeys
+		&& (FMath::Abs(ViewForwardSpeed) < PFParkSpeed || (bPFParked && !bExternal));
 
 	if (bParkedNow)
 	{
@@ -3461,9 +3465,10 @@ void AAirshipPawn::UpdatePointFlyCamera(float Dt, APlayerController* PC, float N
 	{
 		if (bPFParked)
 		{
-			// The first frame out of parking in steering mode: go where the camera looks. Usually a drive / turn key; the
-			// same happens with no key if the ship is pushed past PFParkSpeed (a hit), so it then turns to the camera too.
-			// The reach clamp keeps the camera still: the part beyond PFHeadingMaxLeadDeg eases back as after broadside mode.
+			// The first frame out of parking in steering mode: go where the camera looks. A drive / sidestep / turn / boost
+			// key, or an outside set above PFParkSpeed (then the set yaw, below); a push past PFParkSpeed alone keeps the
+			// ship parked (above). The reach clamp keeps the camera still: the part beyond PFHeadingMaxLeadDeg eases back as
+			// after broadside mode.
 			const float CameraYaw = bExternal ? ControlYaw : WrapDeg(PFHeading + PFLookOffset + LookDelta);
 			const float CameraLead = WrapDeg(CameraYaw - ViewYaw);
 			PFHeading = FMath::Abs(CameraLead) <= PFHeadingMaxLeadDeg ? CameraYaw : WrapDeg(ViewYaw + (CameraLead > 0.f ? PFHeadingMaxLeadDeg : -PFHeadingMaxLeadDeg));

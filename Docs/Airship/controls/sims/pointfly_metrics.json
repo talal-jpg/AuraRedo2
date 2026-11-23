@@ -7,8 +7,8 @@
   "sim": "Docs/Airship/controls/sims/airship_sim.py",
   "fps": 30,
   "start_agl_m": 60.0,
-  "generated": "2026-11-23 09:06",
-  "runtime_s": 6.4
+  "generated": "2026-11-23 10:50",
+  "runtime_s": 6.2
  },
  "M1": {
   "t80_s": 3.267,

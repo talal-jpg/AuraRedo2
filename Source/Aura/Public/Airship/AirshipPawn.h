@@ -250,7 +250,7 @@ public:
 	bool IsPFGunLocked() const { return bPFLock; }
 	int32 GetPFLockSwingDir() const { return PFLockSwingDir; }
 
-	/** Point & Fly, the pilot's machine: parked free look (at rest with no drive / turn key: the mouse looks around, the heading holds). */
+	/** Point & Fly, the pilot's machine: parked free look (entered at rest with no drive / turn key, held at any speed until one, Aim or an outside camera set above PFParkSpeed: the mouse looks around, the heading holds). */
 	UFUNCTION(BlueprintPure, Category = "Airship|PointFly")
 	bool IsPFParked() const { return bPFParked; }
 
@@ -981,7 +981,9 @@ protected:
 
 	/**
 	 * Parked free look: below this forward speed (cm/s) with no W/S, A/D, Q/E or boost held, the mouse looks around and the
-	 * heading holds (as on foot); the first such key takes the camera's yaw as the heading. 0 = off (the camera always steers).
+	 * heading holds (as on foot); the first such key takes the camera's yaw as the heading. Once parked it holds at any speed
+	 * (a hit that pushes the ship faster doesn't end it) until such a key, Aim, or an outside camera set above this speed.
+	 * 0 = off (the camera always steers).
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
 	float PFParkSpeed = 300.f;
@@ -1147,7 +1149,8 @@ private:
 	// Point & Fly (pilot's machine)
 	/**
 	 * Camera -> heading target (free look, Q/E nudge, gun lock, lead clamp, parked free look); writes the control rotation.
-	 * bMoveKeys: W/S, A/D, Q/E or boost held (ends the parked free look); bFireHeld: arms the gun lock (PFLockArmTime).
+	 * bMoveKeys: W/S, A/D, Q/E or boost held (ends the parked free look); bFireHeld: Fire held, arms the gun lock (so does
+	 * PFLockArmTime after an own broadside).
 	 */
 	void UpdatePointFlyCamera(float Dt, APlayerController* PC, float NudgeAxis, bool bAimHeld, bool bMoveKeys, bool bFireHeld);
 
@@ -1252,7 +1255,7 @@ private:
 	bool bPFValid = false;
 	bool bPFFree = false;
 	bool bPFLock = false;
-	/** Parked free look this frame (the first drive / turn key then takes the camera's yaw as the heading). */
+	/** Parked free look this frame (the first drive / turn key then takes the camera's yaw as the heading). Last frame's value keeps it above PFParkSpeed. */
 	bool bPFParked = false;
 	float PFHeading = 0.f;
 	float PFLookOffset = 0.f;

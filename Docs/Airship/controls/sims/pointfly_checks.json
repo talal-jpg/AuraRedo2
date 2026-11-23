@@ -989,6 +989,34 @@
    "w_overshoot_deg": 0.0
   }
  ],
+ "push": [
+  {
+   "variant": "polish build (no latch)",
+   "parked_before": true,
+   "fwd_over_park_s": 7.0,
+   "parked_hold_pct": 0.5,
+   "peak_toward_camera_deg": 119.9,
+   "peak_t_s": 4.2,
+   "end_off_heading_deg": 119.92,
+   "camera_moved_deg": 0.0,
+   "w_heading_5deg_s": 0.0,
+   "w_overshoot_deg": 0.0,
+   "w_end_err_deg": 0.09
+  },
+  {
+   "variant": "follow-up (latched)",
+   "parked_before": true,
+   "fwd_over_park_s": 6.1,
+   "parked_hold_pct": 100.0,
+   "peak_toward_camera_deg": 24.6,
+   "peak_t_s": 1.83,
+   "end_off_heading_deg": 0.09,
+   "camera_moved_deg": 0.0,
+   "w_heading_5deg_s": 3.3,
+   "w_overshoot_deg": 0.0,
+   "w_end_err_deg": 0.1
+  }
+ ],
  "rival": [
   {
    "variant": "lock always armed (pass 1)",

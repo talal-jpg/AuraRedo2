@@ -2,7 +2,7 @@
 
     python3 pointfly_checks.py            -> all checks, prints tables, writes pointfly_checks.json (about 3 min)
     python3 pointfly_checks.py steps      -> one check: steps sweeps drift pass mouse keys pitch latency charge
-                                             exit kick park rival m12cam
+                                             exit kick park push rival m12cam
 
   steps    camera snaps of 2-150 deg at cruise and at hover, host and client (100 ms each way); the hover pivot with the
            parked free look off (PFParkSpeed 0: at rest a pivot starts with a drive / turn key, see "park")
@@ -21,6 +21,9 @@
            reversal, with the kick cap (DriftBoostCapSpeed) on and off
   park     a 360 deg camera orbit in 4 s at hover with no keys (a new pilot looking at the ship), then a look 120 deg
            right and W: the parked free look on (default) and off
+  push     follow-up F-B: parked at hover with the camera 120 deg right, a hit pushes the ship +6 m/s along the bow and
+           knocks it 70 deg/s round, no key: the heading holds (the hull comes back), then W takes the camera yaw;
+           the polish build (a push past PFParkSpeed ended parking) against the latch (scheme_pointfly.PARK_LATCH)
   rival    racing at cruise, Aim held 3 s on a rival 60 / 120 deg off the bow without firing: heading swing, track offset
   m12cam   M12 with the spring arm's position lag added to the bench camera, calibrated on the PIE frames (lag speeds
            4 / 5 /s fit the recorded camera within 0.05 m): the bot that aims the control rotation (both harnesses) and a
@@ -634,6 +637,57 @@ def check_park():
     OUT['park'] = rows
 
 
+PUSH_MS, KNOCK_DEGS, KNOCK_AT_S = 6.0, 70.0, 1.0      # the PIE check as_50f p3_push uses the same values
+
+
+def check_push():
+    """F-B (follow-up 2026-11-23): parked at hover with the camera 120 deg right of the bow (mouse), a hit pushes the ship
+    PUSH_MS along the bow and KNOCK_AT_S later knocks it KNOCK_DEGS round toward the camera, no key, the mouse still:
+    the parked free look must hold, the hull must not turn toward the camera (the heading loop brings a knocked hull
+    back to the held heading) and the camera must not move; then W: the ship turns to the camera yaw."""
+    rows = []
+    keep = PF.PARK_LATCH
+    try:
+        for name, latch in (('polish build (no latch)', False), ('follow-up (latched)', True)):
+            PF.PARK_LATCH = latch
+            sim = pf_sim(0.0, None, None)
+            run_commands(sim, lambda t, x: Command(), 4.0)
+            y0 = sim.tele()['YawDeg']
+            look = wrap180(y0 + 120.0)
+            run_raw(sim, lambda t, x: RawInput(cam_yaw=wrap180(x.cam.control_yaw + wrap180(look - x.cam.control_yaw) * 0.3), look=True), 1.5)
+            cam0 = sim.cam.control_yaw
+            parked0 = bool(sim.pilot_state.get('parked'))
+            b = sim.body
+            b.v = A.add(b.v, A.mul(A.qrot(b.q, (1.0, 0.0, 0.0)), PUSH_MS * 100.0))
+            hold = []
+            for i in range(int(round(7.0 / DT))):
+                if i == int(round(KNOCK_AT_S / DT)):
+                    b.w = (b.w[0], b.w[1], b.w[2] + KNOCK_DEGS * D2R)
+                sim.step(RawInput(cam_yaw=sim.cam.control_yaw))
+                t = sim.tele()
+                hold.append((wrap180(t['YawDeg'] - y0), t['ForwardSpeedMS'], bool(sim.pilot_state.get('parked')), sim.cam.control_yaw))
+            k_peak = max(range(len(hold)), key=lambda i: hold[i][0])
+            lg = run_raw(sim, lambda t, x: RawInput(throttle=1.0, cam_yaw=x.cam.control_yaw), 8.0)
+            err = [wrap180(cam0 - r['YawDeg']) for r in lg]
+            rows.append(dict(variant=name, parked_before=parked0,
+                             fwd_over_park_s=round(sum(1 for h in hold if abs(h[1]) * 100.0 > sim.PP['PFParkSpeed']) * DT, 2),
+                             parked_hold_pct=round(100.0 * sum(1 for h in hold if h[2]) / len(hold), 1),
+                             peak_toward_camera_deg=round(hold[k_peak][0], 1), peak_t_s=round(k_peak * DT, 2),
+                             end_off_heading_deg=round(hold[-1][0], 2), camera_moved_deg=round(wrap180(hold[-1][3] - cam0), 2),
+                             w_heading_5deg_s=settle_time(err, 5.0), w_overshoot_deg=round(max(0.0, -min(err)), 1),
+                             w_end_err_deg=round(err[-1], 2)))
+    finally:
+        PF.PARK_LATCH = keep
+    print('push: parked at hover, camera 120 deg right, +%.0f m/s along the bow and %.0f deg/s round at %.1f s, 7 s no key, then W' % (
+        PUSH_MS, KNOCK_DEGS, KNOCK_AT_S))
+    for r in rows:
+        print('  %-24s over %.0f m/s for %.1f s, parked %5.1f %% | hull peak %+6.1f deg at %.1f s, after 7 s %+6.1f deg off the heading, camera moved %.1f'
+              ' | W: on the camera yaw (5 deg) after %s s, overshoot %.1f deg' % (
+                  r['variant'], 3.0, r['fwd_over_park_s'], r['parked_hold_pct'], r['peak_toward_camera_deg'], r['peak_t_s'],
+                  r['end_off_heading_deg'], r['camera_moved_deg'], r['w_heading_5deg_s'], r['w_overshoot_deg']))
+    OUT['push'] = rows
+
+
 def check_rival():
     """P4: racing at cruise, Aim held for 3 s on a rival flying alongside 60 / 120 deg off the bow, no Fire, then the
     camera back on the course: heading swing and track offset (the gun lock armed always vs only by Fire)."""
@@ -763,7 +817,7 @@ def check_m12cam():
 
 CHECKS = dict(steps=check_steps, sweeps=check_sweeps, drift=check_drift, passing=check_pass, mouse=check_mouse,
               keys=check_keys, pitch=check_pitch, latency=check_latency, charge=check_charge,
-              exit=check_exit, kick=check_kick, park=check_park, rival=check_rival, m12cam=check_m12cam)
+              exit=check_exit, kick=check_kick, park=check_park, push=check_push, rival=check_rival, m12cam=check_m12cam)
 
 if __name__ == '__main__':
     names = [a for a in sys.argv[1:] if not a.startswith('-')]

@@ -39,6 +39,12 @@ from airship_sim import (Scheme, Classic, RawInput, PilotInput, Command, Intent,
 
 HEADING_SPEC = (16, 360.0 / 65534.0, False)   # FAirshipPilotInput.HeadingTarget: uint16, 0 = no target
 
+# Follow-up F-B (2026-11-23, = the C++): once parked, the parked free look holds at any speed until a drive / sidestep /
+# turn / boost key, Aim, or an outside set of the camera above PFParkSpeed; entering still needs |forward speed| <
+# PFParkSpeed with no such key. False = the polish build, where a push past PFParkSpeed (a hit) ended it and the ship
+# turned to the camera (bench-only switch for pointfly_checks.py 'push'; the C++ has no tunable for it).
+PARK_LATCH = True
+
 
 def encode_heading(yaw_deg):
     """World yaw (deg) -> HeadingTarget: 1..65534 (0.0055 deg steps); 0 is reserved for 'no target', so the
@@ -500,9 +506,12 @@ class PointFly(Classic):
         # Polish (judge "newplayer"): parked free look. At rest (|forward speed| < PFParkSpeed) with no drive, sidestep,
         # turn or boost key, the mouse looks around and the heading holds (as on foot); the first such key takes the
         # camera's yaw as the heading. An outside set (harness, reset) still sets the heading (steering-mode rule).
+        # F-B: once parked it holds at any speed (a hit that pushes the ship past PFParkSpeed doesn't end it) until a
+        # key, Aim, or an outside set above PFParkSpeed (PARK_LATCH)
         move_keys = abs(raw.throttle) > 0.05 or abs(raw.steer) > 0.05 or abs(raw.strafe) > 0.05 or bool(raw.boost)
+        latched = PARK_LATCH and bool(ps.get('parked')) and not external
         parked = (PP.get('PFParkSpeed', 0.0) > 0 and not free and not move_keys
-                  and abs(view['ForwardSpeed']) < PP['PFParkSpeed'])
+                  and (abs(view['ForwardSpeed']) < PP['PFParkSpeed'] or latched))
         if parked:
             if external:
                 H, off = raw.cam_yaw, 0.0

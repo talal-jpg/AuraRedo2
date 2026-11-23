@@ -337,7 +337,10 @@ struct AURA_API FAirshipFlightTelemetry
 	UPROPERTY(BlueprintReadOnly, Category = "Airship")
 	float HeadingTargetDeg = 0.f;
 
-	/** The camera is decoupled from the steering: true unless Point & Fly is in steering mode (Aim up). */
+	/**
+	 * Point & Fly: broadside mode, Aim held (pilot: its own flag; server and observers: the Aim bit). False in steering
+	 * mode and in the parked free look, whose camera is free too (AAirshipPawn::IsPFParked). True in the other schemes.
+	 */
 	UPROPERTY(BlueprintReadOnly, Category = "Airship")
 	bool bFreeLook = true;
 
