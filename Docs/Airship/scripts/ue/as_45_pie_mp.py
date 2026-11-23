@@ -16,6 +16,8 @@
 #  throttle/steer) | fly0 14 (a, no lag) | lag_on 3 (Net PktLag on both worlds) | fly1 14 (a, lag) | lag_off 3 |
 #  c_exit 4 (F) | c_board2 3 (F) | kill 12 (d) | spawn2 3 (Aura.Airship.Spawn) | deck2 4 (client + host onto ship 2's
 #  deck) | host_board 3 (host's F) | host_fly 14 (e: the host flies, the client rides on the deck)
+# Scheme (since 2026-11-23): AS45_SCHEME (default 0 = Classic, the v1 checks) on the server's ship in settle and, since
+# the follow-up (F-E), on ship 2 the moment spawn2 has made it (it used to start in the pawn's default, Point & Fly).
 # Results: Saved/Airship/mp/mp_result.json, mp_report.txt, mp_log.txt; captures Saved/Airship/captures/mp/;
 # X grabs Saved/Airship/mp/xgrab/. In memory only, restored at the end: UnrealEdEngine fixed frame rate 30,
 # BurrowerSettings.bEnabled False, p.NetShowCorrections 1, Net PktLag. One TEMP_AS_Capture SceneCapture2D in the editor
@@ -26,7 +28,7 @@ AS45_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts
 _as45_src = open(AS45_AS30).read()
 exec(compile(_as45_src[:_as45_src.index('\nclass AsRun')], AS45_AS30, 'exec'), globals())   # maths + tl_get/tl_set/gp/valid/parse_struct
 
-AS45_VERSION = 'as_45_pie_mp 2026-11-22'
+AS45_VERSION = 'as_45_pie_mp 2026-11-23'
 MP = os.path.join(OUT, 'mp')
 CAPS = os.path.join(OUT, 'captures', 'mp')
 XG = os.path.join(MP, 'xgrab')
@@ -832,19 +834,25 @@ class MpRun(object):
 
     # ================================================================ phases
     # ---- settle: fps, corrections log on, the client hurt by 25 (restored-at-exit != refilled)
+    def set_scheme(self, ship, which):
+        """AS45_SCHEME on a server ship (it replicates to the client). Ship 1 in the settle phase, ship 2 the moment
+        Aura.Airship.Spawn has made it (follow-up F-E: it started in the pawn's default, Point & Fly, so a Classic run's
+        e3_hud_host_flying saw Point & Fly's two HUD widgets). The console fallback switches every ship of the world."""
+        want = int(globals().get('AS45_SCHEME', 0) or 0)
+        names = {0: 'CLASSIC', 1: 'GALLEON', 2: 'SKY_RACER', 3: 'POINT_FLY'}
+        try:
+            ship.set_control_scheme(getattr(unreal.AirshipControlScheme, names[want]))
+            self.line('INFO', 'control scheme set to %s on the server %s (AS45_SCHEME %d)' % (names[want], which, want))
+        except Exception:  # noqa: BLE001
+            self.err('set_control_scheme')
+            self.cmd(self.sw, 'Aura.Airship.Scheme %d' % want)
+        return names.get(want)
+
     def start_settle(self):
         self.cmd(self.sw, 'p.NetShowCorrections 1')
         # The v1 multiplayer checks run on Classic (AS45_SCHEME, default 0): since the 2026-11-23 polish the pawn's
         # default scheme is Point & Fly. Set on the server's ship (it replicates to the client before boarding).
-        want = int(globals().get('AS45_SCHEME', 0) or 0)
-        names = {0: 'CLASSIC', 1: 'GALLEON', 2: 'SKY_RACER', 3: 'POINT_FLY'}
-        try:
-            self.ship_s.set_control_scheme(getattr(unreal.AirshipControlScheme, names[want]))
-            self.line('INFO', 'control scheme set to %s on the server ship (AS45_SCHEME %d)' % (names[want], want))
-        except Exception:  # noqa: BLE001
-            self.err('set_control_scheme')
-            self.cmd(self.sw, 'Aura.Airship.Scheme %d' % want)
-        self.R.setdefault('setup', {})['scheme'] = names.get(want)
+        self.R.setdefault('setup', {})['scheme'] = self.set_scheme(self.ship_s, 'ship')
         self.D['wall0'] = time.time()
         self.D['f0'] = self.frames
         self.mesh_rest('server', self.ship_s)
@@ -1408,6 +1416,8 @@ class MpRun(object):
                   if s.get_name() not in self.D['before'] and not s.is_airship_dead()]
             if ss:
                 self.ship2_s = ss[0]
+                # AS45_SCHEME on ship 2 too, on the server, before anyone uses it (the host presses F on it about 6 s later)
+                self.R.setdefault('setup', {})['scheme_ship2'] = self.set_scheme(self.ship2_s, 'ship 2')
         if el >= 2.0 and self.ship2_s is not None and self.ship2_c is None:
             p = v3(self.ship2_s.get_actor_location())
             cs = [s for s in unreal.GameplayStatics.get_all_actors_of_class(self.cw, unreal.load_class(None, SHIP_CLS)) if not s.is_airship_dead()]
@@ -1422,6 +1432,15 @@ class MpRun(object):
         if not ok:
             self.finish('no second ship')
             return
+        # F-E record: the scheme ship 2 runs on both machines (the client copy has it once OnRep_ControlScheme arrived)
+        sc = {}
+        for tag, ship in (('server', self.ship2_s), ('client', self.ship2_c)):
+            try:
+                sc[tag] = en(ship.get_control_scheme())
+            except Exception as e:  # noqa: BLE001
+                sc[tag] = 'n/a %r' % e
+        self.R.setdefault('setup', {})['scheme_ship2_both'] = sc
+        self.line('INFO', 'ship 2 control scheme (end of spawn2): %s' % sc)
         self.mesh_rest('server', self.ship2_s)
         self.mesh_rest('client', self.ship2_c)
 

@@ -4,13 +4,22 @@
 # Built on as_30_pie_smoke.py (its AsRun class is exec'd without its auto-arm block and subclassed here), so the smoke
 # checks a..k keep their exact criteria; new checks:
 #   b2/b3/b4  ship HUD on screen + on-foot overlay collapsed while flying; both back after Exit and after death
-#   a3        deck passenger stands 10 s: ship drift / sink / pitch (first smoke: ~18 cm/s down, +2..7 deg)
+#   a3        deck passenger stands 10 s: ship drift / sink / pitch (first smoke: ~18 cm/s down, +2..7 deg); since
+#             2026-11-23 (F-D) the hull is put at rest at its start (AS43_A3_AT_REST; False: as the deck phases left it)
 #   a4        deck passenger walks a 4-leg square on the deck (AddMovementInput, half speed): stays aboard, ship still
 #   f2        boost + brake path: no launch (first smoke: clipped AS_Obstacle_1 at 86 m/s -> +27 m/s up, climbed to 97 m)
 #   d1        head-on into the port cannon wall at full throttle: rebound, no upward launch, damage from the impact speed
 #   d2        top-edge clip of the port cannon wall at boost speed: no upward launch
 #   c2        thruster jets out at once at death, fan wash out within 3 s
 #   j3        wreck: break-off parts' world distance from the hull after the crash, nothing under the ground, hull bounce
+# Since 2026-11-23 (follow-up F-D + Fix2; thresholds unchanged, Classic C++ untouched) the run is independent of the
+# build and of the deck phases. v1 seeds its wind sway per ship by GetUniqueID() % 97, which moves with every build,
+# and has no station keeping, so the unpiloted hull's drift in the deck phases (a3) and where f2 meets AS_Obstacle_1
+# changed from build to build; no check measures gusts. So the run's ship has its wind sway off for the whole run
+# (AS43_WIND_OFF, restored in finish()), and the flight path (lift..brake: c_lift, d_throttle, e_steer, f_boost_brake,
+# f2) starts from the ship's spawn x/y and yaw, level and at rest (AS43_PATH_FROM_SPAWN). Classic: 24/25 on every run,
+# f2 +5.35 m/s against 5.0 m/s, a v1 limit (Docs/Airship/controls/PIE_RESULTS.md "Follow-up", "Fix2"). The AS43_*
+# knobs are read from the inbox globals, which last for the editor session: a wrapper that changes one must reset it.
 # The X window of the editor is grabbed for the HUD (Saved/Airship/val/xgrab/<label>.req -> a bash loop run by the
 # caller: Docs/Airship/scripts/harness/xgrab_loop.sh; read-only X calls, no input). Scene captures (TEMP_AS_Capture as in
 # as_30) -> Saved/Airship/captures/val/. Results: Saved/Airship/val/val_result.json, val_report.txt, val_log.txt.
@@ -21,7 +30,7 @@ AS43_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts
 _as43_src = open(AS43_AS30).read()
 exec(compile(_as43_src[:_as43_src.index("\nif 'AS30_RUN' in globals()")], AS43_AS30, 'exec'), globals())
 
-AS43_VERSION = 'as_43_pie_validate 2026-11-22'
+AS43_VERSION = 'as_43_pie_validate 2026-11-23'
 VAL = os.path.join(OUT, 'val')
 CAPS = os.path.join(OUT, 'captures', 'val')      # AsRun.capture writes here (global name)
 XG = os.path.join(VAL, 'xgrab')
@@ -68,7 +77,82 @@ class AsVal(AsRun):
             self.err('set_control_scheme')
             self.cmd('Aura.Airship.Scheme %d' % want)
         self.R.setdefault('setup', {})['scheme'] = names.get(want)
+        self.spawn_pose = {'loc': self.ship_loc(), 'yaw': float(self.ship.get_actor_rotation().yaw)}
+        self.R['setup']['spawn_pose'] = {'loc_m': r([x / 100.0 for x in self.spawn_pose['loc']], 3), 'yaw': r(self.spawn_pose['yaw'], 2)}
+        self.wind_off()
         AsRun.start_settle(self)
+
+    # ------------------------------------------------------------ run-wide harness settings (Fix2, 2026-11-23)
+    WIND = ('WindLateralAccel', 'WindRollAccel', 'WindPitchAccel')
+
+    def wind_off(self):
+        """v1 (Classic) seeds its wind sway per ship by GetUniqueID() % 97 (AirshipFlightComponent.cpp), which moves with
+        every build (seeds 51 / 56 / 57 in the 2026-11-22/23 runs), and v1 has no station keeping, so the unpiloted hull's
+        drift in the deck phases, and with it where the flight path meets AS_Obstacle_1, changed from build to build. No
+        check measures gusts: the run's ship has its wind sway off from the settle phase on (AS43_WIND_OFF, default True),
+        restored in finish(). The flight component reads these UPROPERTYs every tick."""
+        st = {'enabled': bool(globals().get('AS43_WIND_OFF', True)), 'before': {}, 'restored': None}
+        if st['enabled']:
+            try:
+                fc = self.ship.get_editor_property('Flight')
+                for n in self.WIND:
+                    st['before'][n] = float(fc.get_editor_property(n))
+                    # NEVER: no Pre/PostEditChange on a PIE component (that re-registers it and reruns the BP construction)
+                    fc.set_editor_property(n, 0.0, unreal.PropertyAccessChangeNotifyMode.NEVER)
+                st['now'] = [float(fc.get_editor_property(n)) for n in self.WIND]
+            except Exception:  # noqa: BLE001
+                self.err('wind_off')
+        self.wind = st
+        self.R.setdefault('setup', {})['wind'] = st
+        self.line('INFO', 'wind sway for the run (AS43_WIND_OFF %s): %s -> %s' % (st['enabled'], st['before'], st.get('now')))
+
+    def wind_restore(self):
+        st = getattr(self, 'wind', None)
+        if not st or not st['before'] or st.get('restored') is not None:
+            return
+        try:
+            if self.ship is not None and valid(self.ship):
+                fc = self.ship.get_editor_property('Flight')
+                for n, v in st['before'].items():
+                    fc.set_editor_property(n, v, unreal.PropertyAccessChangeNotifyMode.NEVER)
+                st['restored'] = [float(fc.get_editor_property(n)) for n in self.WIND]
+            else:
+                st['restored'] = 'ship gone'
+        except Exception:  # noqa: BLE001
+            st['restored'] = 'failed'
+            self.err('wind_restore')
+        self.line('INFO', 'wind sway restored %s' % (st['restored'],))
+
+    def finish(self, reason):
+        if self.phase != 'finished':
+            self.wind_restore()
+        AsRun.finish(self, reason)
+
+    # ------------------------------------------------------------ flight path start (Fix2, 2026-11-23)
+    def start_lift(self):
+        """The flight path (lift -> throttle -> steer -> boost -> brake) starts from the ship's spawn x/y and yaw, level and
+        at rest, at its current height (the altitude hold is kept). as_43's deck phases before it (as_30's cannons, exit
+        and board2, plus a3 and a4) leave the unpiloted v1 hull 0-7 m off and moving at up to 0.4 m/s, and f2's clip on
+        AS_Obstacle_1 depends on where the hull meets it (+4.83..+5.98 m/s up in the 2026-11-22/23 Classic runs). From
+        here, with the wind off, every run is the same: f2 +5.35 m/s, a v1 limit (controls/PIE_RESULTS.md "Fix2"). The
+        pilot is aboard; the bumps and the kill teleport the same way. AS43_PATH_FROM_SPAWN False: start where the deck
+        phases left the ship."""
+        p = getattr(self, 'spawn_pose', None)
+        st = {'enabled': bool(globals().get('AS43_PATH_FROM_SPAWN', True)) and p is not None}
+        try:
+            loc = self.ship_loc()
+            rot = self.ship.get_actor_rotation()
+            v = self.hull().get_physics_linear_velocity()
+            st['before'] = {'loc_m': r([x / 100.0 for x in loc], 3), 'pitch_roll_yaw': r([rot.pitch, rot.roll, rot.yaw], 2),
+                            'v_ms': r([v.x / 100.0, v.y / 100.0, v.z / 100.0], 3)}
+            if st['enabled']:
+                self.teleport((p['loc'][0], p['loc'][1], loc[2]), p['yaw'])
+                st['after_loc_m'] = r([x / 100.0 for x in self.ship_loc()], 3)
+        except Exception:  # noqa: BLE001
+            self.err('path_start')
+        self.R.setdefault('setup', {})['path_start'] = st
+        self.line('INFO', 'flight path start (AS43_PATH_FROM_SPAWN %s): before %s -> %s' % (st['enabled'], st.get('before'), st.get('after_loc_m')))
+        AsRun.start_lift(self)
 
     # ------------------------------------------------------------ outputs (own files; as_30's results stay)
     def line(self, tag, msg):
@@ -273,8 +357,41 @@ class AsVal(AsRun):
         self.hud_check('b3_hud_after_exit', False)
 
     # ------------------------------------------------------------ (a) deck passenger
+    def a3_still_start(self):
+        """Follow-up F-D (2026-11-23): a3 is about a player standing on the parked deck, not gusts. v1 (Classic) has no
+        station keeping, so the unpiloted hull coasts on what the wind and the cannons phase left: 0.01-0.31 m/s at the
+        a3 start in the 2026-11-22/23 runs (drift 0.82 / 3.1 / 2.3 m against the 1.5 m limit; the bench gives 2.3 m from
+        0.31 m/s even with no wind). The wind sway is off for the whole run (wind_off, Fix2); here the hull is put at rest
+        at the a3 start (velocities zeroed, no transform change: the passenger stays put). Thresholds unchanged."""
+        st = {}
+        try:
+            fc = self.ship.get_editor_property('Flight')
+            st['wind_now'] = [float(fc.get_editor_property(n)) for n in self.WIND]
+        except Exception:  # noqa: BLE001
+            self.err('a3_wind_read')
+        st['at_rest'] = bool(globals().get('AS43_A3_AT_REST', True))
+        try:
+            h = self.hull()
+            v = h.get_physics_linear_velocity()
+            w = h.get_physics_angular_velocity_in_degrees()
+            st['v_at_start_ms'] = r([v.x / 100.0, v.y / 100.0, v.z / 100.0], 3)
+            st['w_at_start_degs'] = r([w.x, w.y, w.z], 2)
+            rot = self.ship.get_actor_rotation()
+            st['pitch_roll_at_start_deg'] = r([rot.pitch, rot.roll], 2)
+            if st['at_rest']:
+                h.set_physics_linear_velocity(unreal.Vector(0.0, 0.0, 0.0), False, 'None')
+                h.set_physics_angular_velocity_in_degrees(unreal.Vector(0.0, 0.0, 0.0), False, 'None')
+        except Exception:  # noqa: BLE001
+            self.err('a3_at_rest')
+        self.a3_still = st
+        self.R.setdefault('setup', {})['a3_still'] = st
+        self.line('INFO', 'a3 (F-D): wind sway now %s; hull velocity at the start %s m/s, %s deg/s (%s); pitch/roll %s deg' % (
+            st.get('wind_now'), st.get('v_at_start_ms'), st.get('w_at_start_degs'),
+            'zeroed' if st['at_rest'] else 'kept', st.get('pitch_roll_at_start_deg')))
+
     def start_deck_stand(self):
         self.ship.debug_clear_input()
+        self.a3_still_start()
         self.D['loc0'] = self.ship_loc()
         self.D['t0'] = self.tele()
         self.D['c0'] = self.char_info()
@@ -305,12 +422,16 @@ class AsVal(AsRun):
         modes = sorted(set(c['mode'] for c in ci))
         ok = (abs(st['dz_m']) < 0.3 and st['drift_xy_m'] < 1.5 and max(abs(x) for x in st['pitch']) < 1.0 and
               max(abs(x) for x in st['roll']) < 1.0 and st['vz_max_abs'] < 0.2 and riders and relz and max(relz) - min(relz) < 10.0)
+        a3s = getattr(self, 'a3_still', None) or {}
         self.check('a3_deck_stand', 'PASS' if ok else 'FAIL', 'character standing on the deck 10 s (first smoke test: ship sank '
                    '~18 cm/s, 7 m in 3 s at 30 fps, pitch +2..7 deg): ship moved %.3f m sideways, %+.3f m up, pitch %s deg, roll %s '
                    'deg, |vz| max %.3f m/s, altitude %s m; character hull-local z %s..%s cm, modes %s, rider all the time %s, '
-                   'capsule %s' % (st['drift_xy_m'], st['dz_m'], st['pitch'], st['roll'], st['vz_max_abs'], st['alt'],
-                                   r(min(relz), 1) if relz else None, r(max(relz), 1) if relz else None, modes, riders,
-                                   sorted(set(c['coll'] for c in ci))), {'ship': st, 'char': ci[::5]})
+                   'capsule %s; harness: wind sway %s, hull velocity at the start %s m/s %s, pitch/roll at the start %s deg' % (
+                       st['drift_xy_m'], st['dz_m'], st['pitch'], st['roll'], st['vz_max_abs'], st['alt'],
+                       r(min(relz), 1) if relz else None, r(max(relz), 1) if relz else None, modes, riders,
+                       sorted(set(c['coll'] for c in ci)), a3s.get('wind_now'), a3s.get('v_at_start_ms'),
+                       'zeroed' if a3s.get('at_rest') else 'kept', a3s.get('pitch_roll_at_start_deg')),
+                   {'ship': st, 'char': ci[::5], 'harness': a3s})
 
     WALK = [(0.0, 1.5, 'fwd'), (1.5, 3.0, 'stbd'), (3.0, 4.5, 'aft'), (4.5, 6.0, 'port')]
 
