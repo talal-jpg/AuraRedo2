@@ -16,7 +16,10 @@ UAT_SendMouseCursorData* UAT_SendMouseCursorData::GetSendMouseCursorDataTaskInst
 void UAT_SendMouseCursorData::Activate()
 {
 	Super::Activate();
-	bool bIsLocalController= GetAvatarActor()->GetInstigatorController()->IsLocalController();
+	// No controller: the avatar is unpossessed (a player piloting an AAirshipPawn). Cancel the ability too, else it waits for target data forever
+	const AController* InstigatorController=GetAvatarActor()?GetAvatarActor()->GetInstigatorController():nullptr;
+	if (!InstigatorController){if (AbilitySystemComponent.IsValid()) AbilitySystemComponent->CancelAbilityHandle(GetAbilitySpecHandle());EndTask();return;}
+	bool bIsLocalController= InstigatorController->IsLocalController();
 	if (bIsLocalController)
 	{
 		FScopedPredictionWindow PredictionWindow= FScopedPredictionWindow(AbilitySystemComponent.Get());

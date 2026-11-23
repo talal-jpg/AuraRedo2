@@ -296,7 +296,8 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 
 void UGA_GunShoot::MyFunc(FVector InImpactPoint,AActor* InTargetActor)
 {
-		if (AMyCharBase* TargetActor=Cast<AMyCharBase>(InTargetActor))
+		// Characters and any other GAS actor whose ASC has UMyAttributeSet (AAirshipPawn)
+		if (AActor* TargetActor=InTargetActor)
 		{
 			// FVector LaunchVel=(TargetActor->GetActorLocation()- InImpactPoint).GetSafeNormal();
 			// UKismetSystemLibrary::DrawDebugArrow(InTargetActor,TargetActor->GetActorLocation(),TargetActor->GetActorLocation()+LaunchVel*500,100,FLinearColor::Black,30);
@@ -313,7 +314,7 @@ void UGA_GunShoot::MyFunc(FVector InImpactPoint,AActor* InTargetActor)
 				//Make GESpec With Own ASC
 				UAbilitySystemComponent* ASC=GetAbilitySystemComponentFromActorInfo();
 				// UMyAttributeSet* MyAttributeSet=Cast<AMyCharBase>(GetAvatarActorFromActorInfo())->GetMyAttributeSet();
-				UMyAttributeSet* TargetAttributeSet=Cast<AMyCharBase>(InTargetActor)->GetMyAttributeSet();
+				const UMyAttributeSet* TargetAttributeSet=TargetAsc?TargetAsc->GetSet<UMyAttributeSet>():nullptr;
 				if (!TargetAttributeSet)return;
 				FGameplayEffectContextHandle GEContext=ASC->MakeEffectContext();
 				FGameplayEffectSpecHandle GESpecHandle=ASC->MakeOutgoingSpec(DamageEffectClass,1,GEContext);

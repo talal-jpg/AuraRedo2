@@ -1,0 +1,229 @@
+{
+ "meta": {
+  "scheme": "galleon",
+  "scheme_enum": 1,
+  "label": "Galleon",
+  "source": "sim",
+  "sim": "Docs/Airship/controls/sims/airship_sim.py",
+  "fps": 30,
+  "start_agl_m": 60.0,
+  "generated": "2026-11-23 04:18",
+  "runtime_s": 6.4
+ },
+ "M1": {
+  "t80_s": 3.3,
+  "t63_s": 2.533,
+  "speed_at_2s_ms": 24.14,
+  "speed_at_4s_ms": 43.48
+ },
+ "M2": {
+  "top_steady_ms": 47.84,
+  "top_peak_ms": 47.84,
+  "boost_peak_ms": 88.21,
+  "boost_ratio": 1.844,
+  "boost_duration_s": 4.1,
+  "boost_t90_s": 2.9
+ },
+ "M3": {
+  "start_speed_ms": 47.84,
+  "stop_time_s": 3.07,
+  "stop_distance_m": 57.07,
+  "half_speed_s": 1.167,
+  "peak_decel_g": 2.32,
+  "mean_decel_g": 1.59,
+  "coast_half_s": 2.5,
+  "alt_rise_m": 0.07
+ },
+ "M4": {
+  "final_yaw_rate_degs": 34.06,
+  "t63_s": 0.367,
+  "t90_s": 0.867,
+  "overshoot_pct": 2.3,
+  "bank_deg": 26.56,
+  "slip_8s_deg": 13.02,
+  "speed_8s_ms": 50.45,
+  "alt_loss_8s_m": 0.12,
+  "pitch_min_deg": -3.5
+ },
+ "M5": {
+  "time_s": 5.67,
+  "diameter_m": 186.62,
+  "speed_end_ms": 52.21,
+  "speed_kept_pct": 109.1
+ },
+ "M6": {
+  "drive_pitch_min_deg": -3.95,
+  "top_pitch_deg": 0.0,
+  "boost_pitch_min_deg": -5.17,
+  "drive_alt_dip_m": 0.38,
+  "brake_pitch_max_deg": 2.95
+ },
+ "M7": {
+  "climb_rate_ms": 10.01,
+  "sink_rate_ms": 12.98,
+  "step30_rise_s": 3.73,
+  "step30_overshoot_m": 4.01,
+  "step30_vz_1s_ms": 0.2,
+  "step30_vz_2s_ms": 0.07,
+  "step30_error_5s_m": 3.88
+ },
+ "M8": {
+  "t90_s": 0.967,
+  "strafe_speed_ms": 10.17,
+  "strafe_speed_cruise_ms": 10.13
+ },
+ "M9": {
+  "slip_1s_deg": 17.89,
+  "slip_2s_deg": 39.92,
+  "slip_3s_deg": 53.91,
+  "drift_frames_pct": 100.0,
+  "yaw_rate_degs": 54.42,
+  "speed_kept_pct": 51.9,
+  "exit_kick_ms": 2.93,
+  "server_kick_ms": 2.5
+ },
+ "M10": {
+  "lat0": {
+   "turbine_frames": 0,
+   "wheel_frames": 0,
+   "server_turn_frames": 2,
+   "screen_turn_frames": 2,
+   "nozzle_frames": 0,
+   "screen_speed_frames": 1
+  },
+  "lat100": {
+   "turbine_frames": 0,
+   "wheel_frames": 0,
+   "server_turn_frames": 6,
+   "screen_turn_frames": 9,
+   "nozzle_frames": 0,
+   "screen_speed_frames": 8
+  }
+ },
+ "M11": {
+  "precise": {
+   "lat0": {
+    "completion_time_s": 61.07,
+    "finished": true,
+    "gates_total": 11,
+    "gates_missed": 0,
+    "missed_gates": [],
+    "miss_mean_m": 12.05,
+    "miss_max_m": 18.3,
+    "outside_max_m": 0.0,
+    "line_error_mean_m": 3.27,
+    "line_error_max_m": 6.3,
+    "steer_reversals_per_min": 8.8,
+    "camera_reversals_per_min": 0.0,
+    "ground_contacts": 0
+   },
+   "lat100": {
+    "completion_time_s": 62.97,
+    "finished": true,
+    "gates_total": 11,
+    "gates_missed": 0,
+    "missed_gates": [],
+    "miss_mean_m": 9.89,
+    "miss_max_m": 15.43,
+    "outside_max_m": 0.0,
+    "line_error_mean_m": 2.44,
+    "line_error_max_m": 5.14,
+    "steer_reversals_per_min": 6.7,
+    "camera_reversals_per_min": 0.0,
+    "ground_contacts": 0
+   }
+  },
+  "sloppy": {
+   "lat0": {
+    "completion_time_s": 63.3,
+    "finished": true,
+    "gates_total": 11,
+    "gates_missed": 0,
+    "missed_gates": [],
+    "miss_mean_m": 10.96,
+    "miss_max_m": 19.02,
+    "outside_max_m": 0.0,
+    "line_error_mean_m": 5.88,
+    "line_error_max_m": 13.77,
+    "steer_reversals_per_min": 8.5,
+    "camera_reversals_per_min": 0.0,
+    "ground_contacts": 0
+   },
+   "lat100": {
+    "completion_time_s": 62.83,
+    "finished": true,
+    "gates_total": 11,
+    "gates_missed": 1,
+    "missed_gates": [
+     "S5"
+    ],
+    "miss_mean_m": 12.95,
+    "miss_max_m": 31.76,
+    "outside_max_m": 11.75,
+    "line_error_mean_m": 6.73,
+    "line_error_max_m": 16.77,
+    "steer_reversals_per_min": 19.1,
+    "camera_reversals_per_min": 0.0,
+    "ground_contacts": 0
+   }
+  }
+ },
+ "M12": {
+  "precise": {
+   "lat0": {
+    "in_arc_pct": 100.0,
+    "in_arc_both_pct": 100.0,
+    "in_range_pct": 100.0,
+    "speed_ok_pct": 100.0,
+    "camera_port_pct": 100.0,
+    "firing_solution_pct": 100.0,
+    "shots_fired": 40,
+    "range_mean_m": 108.49,
+    "beam_yaw_mean_deg": 3.53,
+    "elev_mean_deg": 1.96,
+    "elev_max_deg": 3.51
+   },
+   "lat100": {
+    "in_arc_pct": 100.0,
+    "in_arc_both_pct": 100.0,
+    "in_range_pct": 100.0,
+    "speed_ok_pct": 100.0,
+    "camera_port_pct": 100.0,
+    "firing_solution_pct": 100.0,
+    "shots_fired": 40,
+    "range_mean_m": 108.45,
+    "beam_yaw_mean_deg": 3.54,
+    "elev_mean_deg": 1.93,
+    "elev_max_deg": 3.64
+   }
+  },
+  "sloppy": {
+   "lat0": {
+    "in_arc_pct": 100.0,
+    "in_arc_both_pct": 100.0,
+    "in_range_pct": 100.0,
+    "speed_ok_pct": 100.0,
+    "camera_port_pct": 100.0,
+    "firing_solution_pct": 100.0,
+    "shots_fired": 40,
+    "range_mean_m": 97.24,
+    "beam_yaw_mean_deg": 3.85,
+    "elev_mean_deg": 2.3,
+    "elev_max_deg": 4.94
+   },
+   "lat100": {
+    "in_arc_pct": 100.0,
+    "in_arc_both_pct": 85.9,
+    "in_range_pct": 100.0,
+    "speed_ok_pct": 100.0,
+    "camera_port_pct": 100.0,
+    "firing_solution_pct": 100.0,
+    "shots_fired": 40,
+    "range_mean_m": 101.25,
+    "beam_yaw_mean_deg": 3.69,
+    "elev_mean_deg": 2.07,
+    "elev_max_deg": 4.91
+   }
+  }
+ }
+}

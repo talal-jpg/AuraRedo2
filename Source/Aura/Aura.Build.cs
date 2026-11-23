@@ -18,6 +18,9 @@ public class Aura : ModuleRules
 		// Burrower (Source/Aura/*/Burrower): AAIController possesses it so its movement runs on the server.
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });
 
+		// Airship (Source/Aura/*/Airship): the anim instance writes CR_Airship's rig variables (ControlRig, RigVM); hull physical material (PhysicsCore).
+		PrivateDependencyModuleNames.AddRange(new string[] { "ControlRig", "RigVM", "PhysicsCore" });
+
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		
