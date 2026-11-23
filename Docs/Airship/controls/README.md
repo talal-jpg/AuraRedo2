@@ -9,8 +9,8 @@ how to fly is in `../HOW_TO_FLY.md`.
 | File | What it is |
 |---|---|
 | `README.md` | This index |
-| `RESULTS.md` | The summary: what was built, how it was tested and judged, why Point & Fly won, the polish, the final play test, multiplayer, known limits, how to try every scheme |
-| `PIE_RESULTS.md` | Every PIE number of pass 1 next to the bench, the acceptance and scheme checks, the images, the issues; the verify step's "Final" section |
+| `RESULTS.md` | The summary: what was built, how it was tested and judged, why Point & Fly won, the polish, the final play test, multiplayer, the follow-up after review, known limits, how to try every scheme |
+| `PIE_RESULTS.md` | Every PIE number of pass 1 next to the bench, the acceptance and scheme checks, the images, the issues; the verify step's "Final" section; the "Follow-up (after the final review)" section (F-A to F-E, and "Fix2" for as_43) |
 | `SCHEME_POINTFLY.md` | The Point & Fly design (the default): concept, controls, behaviour, parameters, camera, feedback, HUD, multiplayer, predicted metrics, risks, review changes, "Polish after judging" |
 | `SCHEME_SKYRACER.md` | The Sky Racer design, same sections |
 | `SCHEME_GALLEON.md` | The Galleon design, same sections |
@@ -63,11 +63,11 @@ how to fly is in `../HOW_TO_FLY.md`.
 | `sims/scheme_skyracer.py` | Sky Racer's bench model |
 | `sims/skyracer_metrics.json` | Sky Racer: M1-M12 from the bench |
 | `sims/skyracer_checks.py` | Sky Racer checks: drift tiers, mini-turbo, chain, tier agreement under lag, boost burst, S brake, gun deck, camera, the 5-seed course |
-| `sims/scheme_pointfly.py` | Point & Fly's bench model (with the polish) |
+| `sims/scheme_pointfly.py` | Point & Fly's bench model (with the polish and the follow-up's parking latch, `PARK_LATCH`) |
 | `sims/pointfly_metrics.json` | Point & Fly after the polish: M1-M12 from the bench |
 | `sims/pointfly_metrics_pass1.json` | Point & Fly as judged (pass 1): M1-M12 from the bench |
-| `sims/pointfly_checks.py` | Point & Fly checks: steps, sweeps, drift, the racing pass, the mouse and keys courses, camera pitch, latency, the charge, and the polish checks (exit, kick, park, rival, m12cam) |
-| `sims/pointfly_checks.json` | Their results after the polish |
+| `sims/pointfly_checks.py` | Point & Fly checks: steps, sweeps, drift, the racing pass, the mouse and keys courses, camera pitch, latency, the charge, the polish checks (exit, kick, park, rival, m12cam) and the follow-up's push |
+| `sims/pointfly_checks.json` | Their results after the polish and the follow-up |
 | `sims/pointfly_checks_pass1.json` | Their results as judged (pass 1) |
 | `sims/review_fps_check.py` | Review check: every scheme at 30 and 120 fps (loop stability) |
 | `sims/review_preset_table.py` | Review tool: prints the preset table of `IMPLEMENTATION_PLAN.md` 1.13 from the bench presets |
@@ -78,10 +78,12 @@ how to fly is in `../HOW_TO_FLY.md`.
 | File | What it is |
 |---|---|
 | `../HOW_TO_FLY.md` | How to fly: keys, HUD and moves for every scheme, switching, console commands |
-| `../CPP_NOTES.md` section 14 | What the control-scheme C++ does (14.12: the polish after judging) |
+| `../CPP_NOTES.md` section 14 | What the control-scheme C++ does (14.12: the polish after judging and the follow-up F-A to F-E) |
 | `../scripts/ue/as_50_pie_controls.py` | The PIE harness (editor inbox script) |
 | `../scripts/ue/as_50_protocol.py` | The harness's maneuvers, bot wiring and metrics, pure Python (`--selftest` against the bench) |
 | `../scripts/ue/as_50s_status.py`, `../scripts/ue/as_50x_stop.py` | Harness status and stop (inbox scripts) |
 | `../scripts/ue/as_50t_mock_pie.py` | Runs the harness without Unreal (the bench in place of the C++) |
 | `../scripts/harness/as_50_post.py` | After PIE: videos, contact sheets, the 2x2 video, compare.md |
+| `../scripts/ue/as_43_pie_validate.py`, `../scripts/ue/as_45_pie_mp.py` | The v1 validation (standalone) and multiplayer (listen server + 1 client) PIE tests, run under Classic by default (`AS43_SCHEME` / `AS45_SCHEME`). Since the follow-up, as_43 runs with v1's wind sway off and its flight path from the spawn pose, and as_45 sets the scheme on both its ships (`PIE_RESULTS.md` "Follow-up") |
 | `Saved/Airship/controls_pass1/` (not in the repo) | Pass 1 outputs: metrics, telemetry, course videos, `compare_course_2x2.mp4`, sheets, HUD grabs |
+| `Saved/Airship/controls_followup/` (not in the repo) | The follow-up PIE checks: `followup_summary.txt`, `followup_checks.json`, X grabs, crops |

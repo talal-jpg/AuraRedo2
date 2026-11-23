@@ -10,8 +10,10 @@ Definitions of the metrics: `sims/README.md` and `TEST_PROTOCOL.md`. "PIE" value
 `Saved/Airship/controls_pass1/<scheme>/metrics.json`, "Sim" values from `sims/<scheme>_metrics.json`. A `!` marks a PIE
 value more than 15 % and more than 0.5 away from the sim (the compare.md rule).
 
-Section **Final** (end of this file, 2026-11-23 02:15 UTC): the verify step of the polished build, with Point & Fly as
-the default scheme.
+Section **Final** (2026-11-23 02:15 UTC): the verify step of the polished build, with Point & Fly as the default
+scheme. Section **Follow-up (after the final review)** (end of this file, 2026-11-23 03:35 UTC): the fixes F-A to F-E
+in PIE (Fire held arms the gun lock, a hit no longer ends the parked free look, the as_43 / as_45 harness fixes), and
+its "Fix2" part (03:50 UTC): as_43 made independent of the build; Classic as_43 is 24/25 every time (f2, a v1 limit).
 
 ## Pass 1
 
@@ -80,6 +82,9 @@ build at +1.23 m/s forward, v1 at +0.80 m/s), which is the whole 0.3-0.4 m/s dif
 speeds agree within 0.05 m/s, the steer run is identical to 0.01 deg/s and the lift run to 0.01 m/s.
 
 ### Why as_43 fails `a3_deck_stand` (and failed `f2_boost_path` once): the wind seed
+
+(Since the follow-up's Fix2, as_43 turns the wind sway off for the whole run and starts the flight path from the spawn
+pose, so its result no longer depends on the seed: section "Follow-up", "Fix2".)
 
 `a3_deck_stand` (a character stands on the deck of the unpiloted ship for 10 s; the ship may move at most 1.5 m)
 fails on the scheme build every time, and passes on v1 every time:
@@ -414,8 +419,8 @@ in session 1, Sky Racer and Point & Fly in session 2, so the two pairs had diffe
 
 | # | Class | Scheme | Issue | Evidence | Status |
 |---|---|---|---|---|---|
-| 1 | HARNESS (acceptance) | Classic | as_43 `a3_deck_stand` fails on the scheme build (3.13-3.17 m in 10 s, limit 1.5 m) | Deterministic per build. The wind seed `GetUniqueID() % 97` is 56 on the scheme build and 51 on v1 (fit above); the flight code is v1 | open: the lead decides (seed-independent `a3`, e.g. wind off or a fixed seed for that check). Threshold untouched |
-| 2 | HARNESS | Classic | as_43 `f2_boost_path` +5.98 m/s in pass 1 (limit 5.0) | Same build, re-run +4.86; v1 +4.83. The obstacle contact point moves with the hover-phase offset (8.4 m in pass 1) | noise of the test; passes on the re-run |
+| 1 | HARNESS (acceptance) | Classic | as_43 `a3_deck_stand` fails on the scheme build (3.13-3.17 m in 10 s, limit 1.5 m) | Deterministic per build. The wind seed `GetUniqueID() % 97` is 56 on the scheme build and 51 on v1 (fit above); the flight code is v1 | open: the lead decides (seed-independent `a3`, e.g. wind off or a fixed seed for that check). Threshold untouched. **Closed in the follow-up** (F-D, then Fix2: the wind sway is off for the whole as_43 run; a3 0.009 m) |
+| 2 | HARNESS | Classic | as_43 `f2_boost_path` +5.98 m/s in pass 1 (limit 5.0) | Same build, re-run +4.86; v1 +4.83. The obstacle contact point moves with the hover-phase offset (8.4 m in pass 1) | noise of the test; passes on the re-run. Since the follow-up's Fix2 the run is the same every time and f2 fails at +5.35 m/s: a v1 limit (section "Follow-up", "Fix2") |
 | 3 | HARNESS | all | Start-pose drift: the reset leaves the shaped throttle decaying | Course times 0.04-0.67 s faster than the sim (table above); "drifted 15 m", "not at rest 4 m/s" warnings | not fixed (the candidates' ranking is unchanged); fix for the next pass in that section |
 | 4 | HARNESS | Galleon, Sky Racer, Point & Fly | 5.4 cases not covered: held-W telegraph, drift with / without W, client HUD tier, 10 / 90 deg camera steps, 40-deg aim | The bench adapters tap the telegraph and set absolute headings | open: add dedicated runs in the verify pass if the winner needs them |
 | 5 | HARNESS | all | The two scheme pairs ran in different editor sessions, so different wind seeds | Classic + Galleon session 1, Sky Racer + Point & Fly session 2 | noted. It affects only low-speed segments (wind fades out at 30 m/s) |
@@ -456,8 +461,8 @@ Clone `/mnt/new_partition/UnrealProjects/_AirshipWork`, branch `claude/project-t
   * P1: the kick snake averages 48.9 m/s (pass 1 bench: 71.5; W held: 48.0). The 180 deg reversal keeps its kick.
   * P3: a 360 deg mouse orbit at rest turns the hull 0 deg. W then turns the ship to the camera.
   * P4: Aim without Fire never locks (0 deg swing, 0 m off the line). With Fire injected every frame it locks after
-    0.23 s: the first press fires a broadside, and that broadside arms the lock (this build never reads Fire as held,
-    `RESULTS.md` "Known limits" 2).
+    0.23 s: the first press fires a broadside, and that broadside arms the lock (this build never reads Fire as held;
+    fixed in the follow-up, F-A).
   * P5: M12 holds the target 4.7 deg aft of the beam (pass 1: 7.4).
   * P6, P7: overlay sizes, the ±180 deg strip and both hints are visible in the HUD grabs.
 * **One HUD bug found and fixed (F1):** the boarding hint's text ran past its plate, and the look hint's tag lost its
@@ -465,10 +470,11 @@ Clone `/mnt/new_partition/UnrealProjects/_AirshipWork`, branch `claude/project-t
   No flight code changed.
 * **Classic is still v1:** `Scheme check` 0 differences, and every run above 30 m/s is identical to pass 1 frame by
   frame. as_43 under Classic: 24/25. The failure is the known wind-seed `a3_deck_stand` (seed 57 on this build, fit
-  100 %).
+  100 %). The follow-up made as_43 independent of the seed: a3 passes, f2 fails on every run (section Follow-up, Fix2).
 * **as_43 and as_45 under Point & Fly** fail only checks written for v1's camera and single HUD widget: the overlay is a
   second widget, a camera set steers, and D is the sidestep. Boarding, replication, exit, death, riders and the host
-  flying all pass. as_45 Classic: 21/22, the same as the multiplayer step.
+  flying all pass. as_45 Classic: 21/22, the same as the multiplayer step (follow-up, with ship 2 set to Classic too:
+  22/22).
 
 ### Sessions
 
@@ -477,7 +483,7 @@ Clone `/mnt/new_partition/UnrealProjects/_AirshipWork`, branch `claude/project-t
 | 1 | 01:14-01:44 | Standalone | `run_controls_pie2.sh "{'schemes': [3, 0], 'xgrab': True}" final`: as_43 (it sets Classic itself since the polish), then as_50 for Point & Fly and Classic with HUD X grabs | as_43 Classic 24/25 (wind seed, below); Point & Fly 17/17 runs, Classic 17/17, 0 script errors, `Scheme check` 0 differences | `Saved/Airship/controls/`, `Saved/Airship/val_final_classic/`; log `_AirshipWork_logs/run_controls_final_011452.log` |
 | 2 | 01:44-01:52 | Standalone | `_AirshipWork_logs/run_polish_checks.sh`: as_43 with `AS43_SCHEME = 3` (the new default), then `scratch/controls/final/as_50p_polish.py`: the polish checks the as_50 protocol does not cover, run on the as_50 machinery (fresh-PIE default, P1 snake and reversal, P3 parked look, P4 lock arming, P7 hint, every scheme's `check` list) | as_43 Point & Fly 23/25 (both failures by design, below); 9/9 polish runs OK | `Saved/Airship/val_final_pf/`, `Saved/Airship/controls_polish/` (`polish_checks.json`, `xgrab/`); log `run_polish_checks_014443.log` |
 | 3 | 01:52-02:01 | Listen, 2 players | `KEEP_CONTROLS=1 SKIP_43=1 run_controls_pie2.sh "{'schemes': [3], 'net': 'listen'}" listen` (the client pilots, 100 ms each way) | 9/9 runs OK; the client flies every course without a missed gate | lat100 values merged into `Saved/Airship/controls/pointfly/metrics.json`; log `run_controls_listen_015230.log` |
-| 4 | 02:01-02:07 | Listen, 2 players | build of the HUD fix, then `_AirshipWork_logs/run_as45_pf.sh`: as_45 with the ship in Point & Fly, then again in Classic (one editor session) | build clean (10 s); as_45 Point & Fly 18/22, Classic 21/22, every failure by design (below); the HUD fix seen on the client | `Saved/Airship/mp_final_pf/`, `Saved/Airship/mp_final_classic/`; log `chain_after_listen.log`, `run_as45_*.log` |
+| 4 | 02:01-02:07 | Listen, 2 players | build of the HUD fix, then `_AirshipWork_logs/run_as45_pf.sh`: as_45 with the ship in Point & Fly, then again in Classic (one editor session) | build clean (10 s); as_45 Point & Fly 18/22, Classic 21/22, every failure by design (below); the HUD fix seen on the client | `Saved/Airship/mp_final_pf/`, `Saved/Airship/mp_final_classic_polish/` (this run's Classic folder; `mp_final_classic/` now holds the follow-up run); log `chain_after_listen.log`, `run_as45_*.log` |
 
 The clone's play settings were set back to Standalone (`set_play_mode.sh standalone`) with the editor closed at the end.
 
@@ -551,7 +557,7 @@ Bench = the same input sequence run on the bench (`scratch/controls/final/bench_
 | P3 | Then a look 120 deg right (injected look) and W held 8 s | the first W frame sends heading 119.99 deg (the camera's yaw); on the heading within 5 deg after 3.3 s, overshoot 0.04 deg; not parked any more | 3.3 s, 0.03 deg | - | met |
 | P3 | At rest, the control rotation set from outside to +60 deg (no look input) | the hull turns 59.93 deg (within 5 deg after 2.13 s), parked the whole time | 59.93 deg, 2.13 s | - | met: absolute sets still steer |
 | P4 | Cruise, Aim held 3 s with the camera 60 / 120 deg off the port bow, no Fire, then the camera back on the course | `bGunLock` 0 frames, free look 90 / 90 frames, heading swing 0.00 deg, track offset 0.00 m (both bearings) | 0 frames, 0.4 deg, 0.15 m | 26.9 deg, 62 m (bench) | met |
-| P4 | The same at 60 deg with Fire held (injected every frame) | lock on after 0.23 s, 83 of 90 frames; the lock swings the beam onto the aim: 26.86 deg, 62.8 m. What arms it is the broadside of the first injected press (`OnFireInput`, Started), not Fire held, which this build never reads (`RESULTS.md` "Known limits" 2): nothing else could arm it, since the run starts with 12 s of cruise and no earlier shot. The run's `shots_fired` 0 is no measurement: the harness counts balls only in m12 runs (`count_balls`) | 83 frames, 26.96 deg, 63.1 m | - | met |
+| P4 | The same at 60 deg with Fire held (injected every frame) | lock on after 0.23 s, 83 of 90 frames; the lock swings the beam onto the aim: 26.86 deg, 62.8 m. What arms it is the broadside of the first injected press (`OnFireInput`, Started), not Fire held, which this build never reads (fixed in the follow-up, F-A): nothing else could arm it, since the run starts with 12 s of cruise and no earlier shot. The run's `shots_fired` 0 is no measurement: the harness counts balls only in m12 runs (`count_balls`) | 83 frames, 26.96 deg, 63.1 m | - | met |
 | P4 | M12 (session 1): lock on in the orbit, first fire before the first lock | 96.9 % / 96.4 % of 2250 orbit frames (100 % after the run-in); first broadside 2.03 s, first lock 2.30 / 2.67 s | - | 97.0 / 96.4 % | met |
 | P5 | M12 target off the port beam, mean (session 1) | -4.72 / -4.71 deg | -4.71 / -4.70 (`m12cam`, harness bot) | -7.39 / -7.32 | met |
 | P5 | Control yaw off the port beam (`m12_beam.py` geometry) | +1.99 / +1.93 deg | +1.99 / +1.94 | -0.48 / -0.54 | met |
@@ -617,7 +623,7 @@ both machines, `Steer` 0.03.
 | k1, k2, b3, a5 exit and board again | PASS | PASS | PASS | |
 | d1, d2, d3 death on both, pilot ejected, HUD | PASS | PASS | PASS | |
 | e0, e1, e2 second ship, two on deck, host boards | PASS | PASS | PASS | |
-| e3_hud_host_flying (1 ship HUD widget) | PASS | **FAIL** | **FAIL** | by design: ship 2 comes from `Aura.Airship.Spawn` in the new default (telemetry `Scheme` 3 in both runs; the harness sets only ship 1), so the host's HUD is panel + overlay |
+| e3_hud_host_flying (1 ship HUD widget) | PASS | **FAIL** | **FAIL** | by design: ship 2 comes from `Aura.Airship.Spawn` in the new default (telemetry `Scheme` 3 in both runs; the harness sets only ship 1), so the host's HUD is panel + overlay. The follow-up (F-E) sets ship 2 too: Classic 22/22 |
 | e4_host_fly_rider | PASS | PASS | PASS | |
 | Total | 21 / 22 | 18 / 22 | 21 / 22 | every failure explained by the scheme; 0 script errors |
 
@@ -627,7 +633,7 @@ both machines, `Steer` 0.03.
 | # | Class | Issue | Evidence | Status |
 |---|---|---|---|---|
 | F1 | BUG (polish P7 / P6, Point & Fly HUD) | The boarding hint's text ran past its dark plate: "Q/E TU**RN**" and "X / B IN A TURN: D**RIFT**" were drawn over the scene, hard to read on sky or platforms; the `HOLD RMB / LB TO LOOK` tag lost its right padding. The plates were sized with the text width measured at scale 1, but the text is drawn at the viewport's DPI scale (about 1.12 in the 2990 x 1170 PIE viewport, from the plate padding in the grab), where the text came out about 7 % wider than measured (glyph advances are rounded at the scaled font size) | `controls_polish/xgrab/x_p0_boarded_1.png`, `x_p7_look_hint_1.png`; crops `final_media/hud_pointfly_boarding_hint_before_fix.png` | **fixed**: new `MeasureWidthAtScale` (`FSlateFontMeasure::Measure` at the paint geometry's layout scale, divided by it) for the overlay's tags and the two hint rows in `PaintPointFlyOverlay`. The v1 panel keeps `MeasureWidth`, so Classic's HUD is unchanged. Built clean 02:01 UTC (`build_020125.log`, `AirshipHUDWidget.cpp` only, no warnings). Verified in session 4: the client's boarding grab (`mp_final_pf/xgrab/x_board_client.png`, a 2533 x 1358 window, another DPI scale) shows both rows inside their plates with even padding |
-| F2 | HARNESS (acceptance, open since pass 1) | as_43 `a3_deck_stand` under Classic: 2.32 m in 10 s (limit 1.5) | v1 wind seed `GetUniqueID() % 97` = 57 on this build (fit 100 %) | open: the lead decides (wind off or a fixed seed for `a3`). Threshold untouched |
+| F2 | HARNESS (acceptance, open since pass 1) | as_43 `a3_deck_stand` under Classic: 2.32 m in 10 s (limit 1.5) | v1 wind seed `GetUniqueID() % 97` = 57 on this build (fit 100 %) | open: the lead decides (wind off or a fixed seed for `a3`). Threshold untouched. **Closed in the follow-up** (F-D, then Fix2: wind off for the whole as_43 run; a3 0.009 m) |
 | F3 | HARNESS | as_43 run under Point & Fly fails `b2_hud_flying` and `i_cannons` | the overlay is a second widget; a camera set steers | by design. as_43 / as_45 set Classic by default (`AS43_SCHEME` / `AS45_SCHEME` 0). To cover Point & Fly in as_43, `b2` would have to skip the overlay widget and `i_cannons` would have to hold Aim |
 | F4 | HARNESS (pass-1 issue 3) | Start-pose drift: Point & Fly starts runs 9.0-9.1 m ahead (shaped throttle still decaying), "not at rest" 0.39-0.43 m/s | `as50_log.txt` | not fixed; course times 0.2 s faster than the bench, as in pass 1 |
 | F5 | NETWORK (information) | The client sees its turn and speed 2-3 frames later than the bench predicts at 100 ms | listen pass M10 | the same RPC path for every scheme; the bench has no replication smoothing |
@@ -658,8 +664,278 @@ does what the bench predicted.
 | What | Where |
 |---|---|
 | Session 1: Point & Fly + Classic as_50 (metrics, telemetry, chase frames, stills, videos, compare.md, X grabs), with the listen values merged | `Saved/Airship/controls/` (before the listen merge: `controls_bak_015230/`; pass 1 stays in `controls_pass1/`, and the live folder of pass 1 moved to `controls_prev_011452/`) |
-| as_43 Classic / Point & Fly | `Saved/Airship/val_final_classic/` (also copied back to `val/`), `Saved/Airship/val_final_pf/` |
+| as_43 Classic / Point & Fly | `Saved/Airship/val_final_classic/` (`val/` now holds the latest as_43 run, section Follow-up), `Saved/Airship/val_final_pf/` |
 | Polish checks | `Saved/Airship/controls_polish/` (`polish_checks.json`: every number above, frames included; `pointfly/telemetry.json` with `pk` = `IsPFParked()` per frame; `xgrab/`) |
-| as_45 | `Saved/Airship/mp_final_pf/`, `Saved/Airship/mp_final_classic/` (the multiplayer step's folder moved to `mp_prev_*`) |
+| as_45 | `Saved/Airship/mp_final_pf/`, `Saved/Airship/mp_final_classic_polish/` (this step's Classic run; `mp_final_classic/` now holds the follow-up run; the multiplayer step's folder moved to `mp_prev_*`) |
 | Runners and logs (`_AirshipWork_logs/`) | `run_controls_final_011452.log`, `run_polish_checks.sh` + `run_polish_checks_014443.log`, `run_controls_listen_015230.log`, `chain_after_listen.sh` + `.log`, `run_as45_pf.sh` + `run_as45_015601.log`, `build_020125.log` |
 | Scripts (`_AirshipWork_logs/scratch/controls/final/`, python3 -B) | `as_50p_polish.py` (the polish checks on the as_50 machinery; `mock_polish.py` runs it on the mock editor), `as45_pf.py` / `as45_classic.py`, `final_analysis.py` (final vs bench vs pass 1, the m9 exit, M12 lock and beam, hover buzz), `listen_analysis.py`, `mp_analysis.py`, `bench_polish_pie.py` (bench predictions for the custom checks) |
+
+## Follow-up (after the final review)
+
+The verify step of the follow-up build: the five items F-A to F-E that the final review left open. Written 2026-11-23
+03:35 UTC by the follow-up verify step. Clone `/mnt/new_partition/UnrealProjects/_AirshipWork`, branch
+`claude/project-thread-0emzt1`, changes uncommitted on `421646d`. Build 02:51 UTC (`_AirshipWork_logs/build_025149.log`):
+clean in 56 s, `AirshipPawn.cpp` compiled alone, only the two known `bIsFocusable` deprecation warnings
+(`MainMenu.cpp:24`, `MainMenu2.cpp:38`). No source file changed after the build.
+
+### What changed
+
+| # | Change | Where |
+|---|---|---|
+| F-A | **Fire held arms the gun lock.** `IA_AirshipFire` gets a value binding (`BindActionValue`) next to its press binding, so `Button(FireAction)` is true while LMB / RB is held. The lock is now armed while Fire is held, or for `PFLockArmTime` (6 s) after the pilot's own broadside. The shot is still the press (`Started`): holding Fire fires once | `AirshipPawn.cpp` (`SetupPlayerInputComponent`, the comment in `GatherLocalInput`), `AirshipPawn.h` |
+| F-B | **A hit no longer ends the parked free look.** Parking still starts only below `PFParkSpeed` (3 m/s) with no W/S, A/D, Q/E or boost held. Once parked it holds at any speed until one of those keys, Aim, or an outside camera set above 3 m/s. After a hit the heading holds (the heading loop turns a knocked hull back) and the camera stays where it looked | `AirshipPawn.cpp` (`UpdatePointFlyCamera`), `AirshipPawn.h` |
+| F-C | Tooltip of `bFreeLook` (comment only): false in steering mode and in the parked free look | `AirshipTypes.h` |
+| F-D | **as_43 `a3_deck_stand`, harness only.** For a3 the PIE ship's wind sway (`WindLateralAccel`, `WindRollAccel`, `WindPitchAccel` on its flight component) is set to 0 and restored right after a3, and the hull's velocities are zeroed at the a3 start (no transform change). Thresholds unchanged. Fix2 (below) turns the wind off for the whole run instead and starts the flight path from the spawn pose | `scripts/ue/as_43_pie_validate.py` |
+| F-E | **as_45, harness only.** `AS45_SCHEME` is applied to ship 2 too, on the server, as soon as `Aura.Airship.Spawn` has made it | `scripts/ue/as_45_pie_mp.py` |
+| bench | F-B mirrored (`PARK_LATCH`) and a new check `push` | `sims/scheme_pointfly.py`, `sims/pointfly_checks.py` (+ `.json`) |
+
+Classic, Galleon and Sky Racer are untouched: the new Fire value is read only by the Point & Fly camera
+(`UpdatePointFlyCamera`), and the parking change is inside it.
+
+### Summary
+
+* **F-A works.** With Fire held for 10 s the lock stays on in all 110 frames after the broadside's 6 s window
+  (6.3-10 s) and drops on the frame Fire is let go (10.0 s). Holding Fire fired one broadside only. A single tap still
+  uses the P4 timer: the lock drops 6.0 s after the broadside.
+* **F-B works.** Parked with the camera 120 deg right of the bow, the hull pushed to 6 m/s (5.5 s above 3 m/s) and
+  knocked round at 70 deg/s: the ship stays parked in every frame, the heading target does not move, the hull swings
+  24.6 deg and comes back to 0.1 deg, and the camera stays put. W then takes the camera's yaw on its first frame, and
+  the ship is within 5 deg of it after 3.3 s. The polish build (bench) unparked and turned the ship 119.9 deg to the
+  camera.
+* **PIE matches the bench** (`pointfly_checks.json` `push` and the fix step's F-A predictions): knock 24.62 / 24.6 deg,
+  back to 0.1 / 0.09 deg, W 3.3 / 3.3 s, lock times within one frame. Only the push fades a little faster in PIE
+  (5.5 s above 3 m/s, bench 6.1 s).
+* **No regression.** The final verify's runs (`p3_park`, `p3_abs`, `p4_aim60`, `p4_fire60`) give the same values; a
+  fresh PIE ship is in Point & Fly; `Scheme check` lists Galleon 82, Sky Racer 114, Point & Fly 41 and Classic 0
+  differences, as before. 9/9 runs PASS, 0 script errors.
+* **as_45 under Classic: 22/22** (polish build 21/22). Ship 2 is Classic on both machines now, so
+  `e3_hud_host_flying` passes.
+* **as_43 under Classic: 24/25.** `a3_deck_stand` passes (1.371 m, limit 1.5 m; polish build 2.315 m) with the wind off
+  for a3 only and restored after it. `f2_boost_path` fails (+5.98 m/s, limit 5.0 m/s): the known contact flake of
+  pass 1. The quieter deck stand leaves the hull 3.7 m further to the side when it reaches `AS_Obstacle_1`, and there
+  it meets the obstacle in its +5.98 m/s way, as in pass 1. The flight code is v1 (below). (Fix2, next bullet, shows
+  it is a v1 limit rather than a flake.)
+* **Fix2 (after the follow-up review, sessions 4-5): as_43 under Classic is 24/25 every time.** The harness now turns
+  the wind sway off for the whole run and starts the flight path from the spawn pose at rest, so the run no longer
+  depends on the build or on the deck phases. a3 passes at 0.009 m. f2 fails the same way in both runs (+5.35 m/s,
+  limit 5.0): a v1 limit of the obstacle clip, not a flake (section "Fix2" below). No threshold or C++ changed.
+
+### Sessions
+
+| # | When (UTC) | Play mode | What ran | Result | Output |
+|---|---|---|---|---|---|
+| 1 | 03:12-03:16 | Standalone | `ONLY_43=1 _AirshipWork_logs/run_controls_pie2.sh "{}" followup43`: as_43 with the harness default, Classic (`AS43_SCHEME` 0) | 24/25 (`f2_boost_path`) | `Saved/Airship/val/` (copy `val_followup_classic/`; the polish build's folder moved to `val_prev/`); log `_AirshipWork_logs/run_controls_followup43_031254.log` |
+| 2 | 03:17-03:21 | Standalone | `_AirshipWork_logs/run_followup_checks.sh`: `scratch/controls/followup/as_50f_followup.py` on the as_50 machinery (Point & Fly, injected `IA_AirshipLook` / `IA_AirshipFire`, push and knock on the server hull) | 9/9 PASS, 0 script errors | `Saved/Airship/controls_followup/` (`followup_summary.txt`, `followup_checks.json`, `xgrab/`, `media/`); log `run_followup_checks_031755.log` |
+| 3 | 03:24-03:27 | Listen, 2 players | `set_play_mode.sh listen 2` (editor closed), then `ONLY_CLASSIC=1 _AirshipWork_logs/run_as45_pf.sh` (`scratch/controls/final/as45_classic.py`) | 22/22, 0 script errors | `Saved/Airship/mp_final_classic/` (the polish build's run copied to `mp_final_classic_polish/` first); log `run_as45_followup_032406.log` |
+| 4 | 03:40-03:44 | Standalone | Fix2: `ONLY_43=1 _AirshipWork_logs/run_controls_pie2.sh "{}" fix2_43` with the Fix2 harness, Classic | 24/25 (`f2_boost_path`), 0 script errors | `Saved/Airship/val_fix2_classic_1/`; log `run_controls_fix2_43_034027.log` |
+| 5 | 03:44-03:48 | Standalone | Fix2: the same again (`fix2_43b`), to see whether f2 repeats | 24/25, 0 script errors. The ship's path is identical to session 4 in every sample up to the kill (0.000 cm, 0.000 m/s); only the cannonballs' and the wreck's flights differ (`i_cannons`, `j2`, `j3` pass in both) | `Saved/Airship/val/` (copy `val_fix2_classic_2/`); log `run_controls_fix2_43b_034416.log` |
+
+After session 3 the clone's play settings went back to Standalone with the editor closed (`set_play_mode.sh
+standalone`: `PlayNetMode=PIE_Standalone`, `PlayNumberOfClients=1`); sessions 4-5 ran in Standalone. L_AirshipTest was
+not saved and no asset changed.
+
+### F-B: a hit while parked (`p3_push`, session 2)
+
+Hover with no keys (4 s settle); `IA_AirshipLook` turns the camera 120 deg right of the bow (2 s); then +6 m/s is added
+to the server hull along the bow and, 1 s later, +70 deg/s of yaw toward the camera; 7 s with no key; then W for 8 s.
+
+| Check | PIE | Bench, follow-up (`push`, latched) | Bench, polish build (no latch) | Verdict |
+|---|---|---|---|---|
+| Before the hit: parked; camera off the bow; hull turned | yes; 120.0 deg; 0.0 deg | yes | yes | met |
+| The push: top forward speed; time above 3 m/s | 5.99 m/s; 5.5 s | 6.1 s | 7.0 s | setup met (>= 1 s) |
+| Parked in the 7 s after the hit (210 frames, no key) | **100 %** | 100 % | 0.5 % | met |
+| Heading target: largest change | 0.0 deg | - | - | met (limit 0.5 deg) |
+| Hull turned toward the camera: peak (time after the push) | 24.62 deg (1.83 s) | 24.6 deg (1.83 s) | 119.9 deg (4.2 s) | met (limit < 60 deg) |
+| Hull off the held heading after 7 s | **+0.1 deg** | +0.09 deg | +119.92 deg | met (limit 3 deg) |
+| Camera moved | 0.0 deg | 0.0 deg | 0.0 deg | met (limit 1 deg) |
+| Then W: heading target vs camera on the first frame; within 5 deg after; overshoot; end error | 0.0 deg; 3.3 s; 0.0 deg; 0.06 deg | -; 3.3 s; 0.0 deg; 0.1 deg | - | met |
+
+The X grab 0.5 s after the knock (`controls_followup/media/fb_push_knock_still_parked.png`) shows the parked HUD at
+6 m/s: faded crosshair, no gap line.
+
+### F-A: Fire held arms the gun lock (`p4_firehold`, `p4_tap60`, session 2)
+
+Cruise at 48 m/s, Aim held for 14 s with the camera 60 deg off the port bow. `p4_firehold`: `IA_AirshipFire` injected
+in every frame of the first 10 s (one press, then held), then let go with Aim still held for 4 s. `p4_tap60`: Fire on
+frame 0 only. t = 0 is the press.
+
+| Check | `p4_firehold` (held 10 s) | `p4_tap60` (one tap) | Bench | Verdict |
+|---|---|---|---|---|
+| Broadsides (reload-alpha drops); balls | 1 at 0.0 s; 2 | 1 at 0.0 s; 2 | 1 | met: holding Fire never fires again |
+| Lock on after | 0.233 s | 0.233 s | 0.233 s | met (limit 1.0 s) |
+| Lock frames in the first 10 s | 293 of 300 | 173 of 300 | - | |
+| Lock in the frames after broadside + 6.3 s while Fire is held | **110 of 110** | 0 of 110 (Fire up) | 110 of 110 | met (F-A) |
+| Lock off at | **10.0 s** (Fire let go; expected max(10.0, 0 + 6) = 10.0 s) | 6.0 s (expected broadside + 6 = 6.0 s) | 10.0 s / 6.033 s | met (±0.2 s) |
+| Lock back on after it dropped | no | no | - | met |
+| Heading swing; heading change after the release | 26.88 deg; 0.0 deg | 26.86 deg; 0.0 deg | 26.9 deg; 0 deg | met (limit 2 deg) |
+
+* The X grabs show it: 8 s after the press, 2 s past the old timer, the `LOCK` tag is under the crosshair with Fire
+  held and gone after the tap, with the ship on the same swung heading in both
+  (`controls_followup/media/fa_fire_held_8s_lock.png`, `fa_tap_8s_no_lock.png`, side by side
+  `fa_fire_held_vs_tap_8s_small.png`).
+* Side note, not a follow-up item: the one broadside came from the starboard pair in `p4_firehold` and from the port
+  pair in `p4_tap60` (the frame-0 yaw kick, +0.18 / -0.17 deg, is that broadside's recoil). The harness turns the
+  camera to port and presses Fire on the same frame. Reading the code (the runs do not log the aim side): the press aims
+  from `GetPlayerViewPoint`, the view of the frame before, which still looked along the course; there the aim point is
+  near the centreline, where `ComputeAimSide` keeps the side the guns had before (3 m hysteresis), and that depends on
+  the run before. This is the unchanged v1 fire path: a press after the camera has turned fires the side it faces. The
+  lock works from the camera's bearing, so both runs lock to port.
+
+### Regression and scheme checks (session 2) against the final verify
+
+"Final verify" = `Saved/Airship/controls_polish/polish_checks.json` (session 2 of section Final).
+
+| Run | Follow-up build | Final verify | Verdict |
+|---|---|---|---|
+| `default`: a fresh PIE ship | Point & Fly on the server and the pilot (telemetry `Scheme` 3) | the same | met |
+| `p3_park` orbit: camera travel, hull turn max, parked | 359.5 deg, 0.0 deg, 100 % | 359.5 deg, 0.0 deg, 100 % | same |
+| `p3_park` pause, look 120 deg: hull turn, parked | 0.0 / 0.0 deg, parked | 0.0 / 0.0 deg, parked | same |
+| `p3_park` W: first heading target, within 5 deg after, overshoot, end error | 119.998 deg, 3.3 s, 0.03 deg, 0.02 deg | 119.995 deg, 3.3 s, 0.04 deg, 0.01 deg | same (0.01 deg noise) |
+| `p3_abs` outside set to +60 deg: hull turn, within 5 deg after, parked | 59.93 deg, 2.133 s, 100 % | 59.93 deg, 2.133 s, 100 % | same |
+| `p4_aim60` Aim, no Fire: lock frames, swing, track offset, free look | 0, 0.0 deg, 0.0 m, 90 of 90 | 0, 0.0 deg, 0.0 m, 90 of 90 | same |
+| `p4_fire60` Fire held 3 s: first lock, lock frames, swing, track offset | 0.233 s, 83 of 90, 26.86 deg, 62.76 m | 0.233 s, 83 of 90, 26.86 deg, 62.76 m | same |
+| `final`: `Aura.Airship.Scheme 1/2/3/0`, each + `check` | Galleon 82, Sky Racer 114, Point & Fly 41 (with `DriftBoostCapSpeed = 4800`, `GyroYawMax = 1.0`), Classic (v1) 0 differences | the same counts | Classic = v1 |
+
+`p4_fire60` is now armed twice over (its first press fires a broadside on frame 0, and Fire stays held), so it gives the
+same numbers as before. The other differences are in the start values (start speed 0.002 instead of 0.0 m/s, yaw
+0.001 deg): the reset, not the code.
+
+### as_43 under Classic (session 1): 24/25
+
+| Check | Follow-up | Polish build (`val_final_classic/`) |
+|---|---|---|
+| `a3_deck_stand`: ship drift in 10 s (limit 1.5 m) | **1.371 m, PASS** | 2.315 m, FAIL |
+| `a3_deck_stand`: height change; pitch; roll; largest vertical speed | -0.015 m; -0.01..0.62 deg; -0.01..0.00 deg; 0.006 m/s | -0.028 m; -0.96..0.75 deg; -0.02..0.00 deg; 0.012 m/s |
+| a3 start (F-D): hull velocity; angular velocity (both zeroed); pitch | -0.005 / -0.002 / -0.01 m/s; -0.01 / -0.28 / 0.01 deg/s; 0.62 deg | not zeroed; 0.63 deg |
+| Wind sway (lateral cm/s², roll, pitch) | 25.0, 0.03, 0.015 → 0, 0, 0 at 28.0 s (a3 start) → back to 25.0, 0.03, 0.015 at 38.0 s (a3 end) | on all the time |
+| `b_hover` (before a3, wind on): drift; pitch max | 1.17 m; 0.30 deg | 1.17 m; 0.30 deg (the same wind seed, 57) |
+| `e_steer` yaw rate | +35.16 deg/s | +35.16 deg/s (v1) |
+| `f2_boost_path`: vertical speed after the hit (limit 5.0 m/s) | **+5.98 m/s, FAIL** | +4.84 m/s, PASS |
+| The other 22 checks | PASS | PASS |
+
+The wind was off for a3 only: the harness logs it going to 0 at the a3 start and back at the a3 end (`val_log.txt`, the
+two "a3 (F-D)" lines; `val_result.json` `setup.a3_still` and the a3 check's `harness` data), and the a3 summary ends
+with "harness (F-D): wind sway off, hull velocity at the start [-0.005, -0.002, -0.01] m/s zeroed".
+
+**What is left of the a3 drift** is the 0.62 deg nose-up pitch the ship has when the deck stand starts. v1 levels it in
+about 2 s, and meanwhile the tilted lift pushes the hull aft to 0.15 m/s. v1 has no station keeping, so the hull coasts
+on at that speed: 0.18 m after 2 s, 0.50 m after 4 s, 0.81 m after 6 s, 1.09 m after 8 s, 1.37 m at the end. The margin
+to the limit is 0.13 m; the fix step's bench predicted about 1.0 m for this start pitch.
+
+**Why `f2_boost_path` failed.** f2 boosts the ship along the as_30 path into `AS_Obstacle_1` at 91.6 m/s and fails if
+the hull comes off it faster than 5.0 m/s upward. The bump depends on where the hull meets the obstacle, and that
+depends on where the slow phases before it left the ship. This run and the polish-build run are identical up to the a3
+start. The quieter deck stand ends 0.94 m from the polish-build position, the slow phases after it (deck walk,
+boarding, lift, with the wind back on) grow that to 3.7 m by 69 s, and from there on, above 30 m/s, the two runs fly the
+same path 3.7 m apart. All as_43 runs so far, at 80.0 s (0.2 s before the hit; heading about -80 deg, so x is the
+sideways position):
+
+| as_43 run (`Saved/Airship/`) | Build / harness | a3 drift (m) | Hull x at 80.0 s (m) | f2 vertical speed (m/s) |
+|---|---|---|---|---|
+| `val_followup_classic` (this run) | follow-up build, F-D harness | 1.371 | 346.05 | **+5.98 FAIL** |
+| `val_pass1_2227` | scheme build (pass 1) | 3.166 | 347.51 | **+5.98 FAIL** |
+| `val_rerun1_2333` | the same build, run again | 3.127 | 348.73 | +4.86 |
+| `val_prev` (= `val_final_classic`) | polish build | 2.315 | 349.76 | +4.84 |
+| `val_v1build_2344` | v1 | 0.817 | 355.92 | +4.83 |
+
+The two failures met the obstacle at x 347.5 m or less, the three passes at 348.7 m or more. Pass 1 and its re-run
+(same build, same harness) differ by 1.2 m here, so the check is not repeatable at this point; this run is 2.7 m on
+the failing side of the nearest pass. Nothing in the flight code changed: the hover before a3 and the fast phases up to
+the hit match the polish build (throttle top 49.52 m/s, steer +35.16 deg/s, boost peak 87.0 m/s), and `Scheme 0` +
+`check` gives 0 differences. Making f2 independent of the slow phases
+(for example by starting the boost run from a fixed pose) is a harness change for the lead to decide. No threshold was
+touched, and as_43 was not re-run. (Done in Fix2, below: f2 then fails the same way every time.)
+
+### as_45 under Classic (session 3): 22/22
+
+| Check | Follow-up | Polish build (`mp_final_classic_polish/`) | Note |
+|---|---|---|---|
+| Ship 1 scheme | CLASSIC, set on the server ship at 0.07 s; at the end of the client's hover CLASSIC on both machines (telemetry `Scheme` 0, `bHeadingTargetActive` false) | the same | |
+| Ship 2 scheme | `Aura.Airship.Spawn` at 89.27 s, set to CLASSIC on the server at 90.57 s; at the end of spawn2 (92.07 s) CLASSIC on the server and on the client (`setup.scheme_ship2` CLASSIC, `setup.scheme_ship2_both` {server: CLASSIC, client: CLASSIC}); the host presses F at 96.27 s (boarded at the 99.07 s check) | Point & Fly (telemetry `Scheme` 3) | F-E |
+| `e3_hud_host_flying` | **PASS**: 1 ship HUD widget, on-foot overlay collapsed | FAIL: 2 widgets (Point & Fly panel + overlay) | F-E |
+| `e4_host_fly_rider` | PASS: top 50.1 m/s; neutral z span 1.0 cm, largest pitch 0.30 deg | PASS: 47.9 m/s; 0.6 cm, 0.14 deg (ship 2 flew Point & Fly) | ship 2 now flies v1 |
+| `a2_hover_sync` position error mean / max | 0.56 / 1.12 cm | 0.64 / 1.2 cm | |
+| `a3_keys_rpc` steer client / server; server speed | 1.00 / 1.00; 0.07 → 32.34 m/s | 1.00 / 1.00; -0.10 → 32.68 m/s | |
+| `a4_fly0` / `a4_fly1` top speed | 52.2 / 54.6 m/s | 52.2 / 54.5 m/s | |
+| The other 16 checks | PASS | PASS | |
+| Total | **22/22**, 0 script errors | 21/22 | |
+
+### Fix2: as_43 independent of the build and of the deck phases (sessions 4-5)
+
+The review of this follow-up (must fix): F-D made a3 pass, but in the same run f2 failed, so as_43 under Classic stayed
+at 24/25. The as_43 phases run on with no reset, so the a3 change moved the ship for every later phase, and both a3
+(1.371 of 1.5 m) and f2 sat close to their limits under v1. Fixed in the harness only
+(`scripts/ue/as_43_pie_validate.py`); no threshold and no C++ changed.
+
+| Change | Why | Knob (default) |
+|---|---|---|
+| v1's wind sway is off for the whole run: `WindLateralAccel`, `WindRollAccel` and `WindPitchAccel` of the run's ship go to 0 in the settle phase (0.0 s) and back in `finish()` (122.0 s); both are logged | v1 seeds the sway per ship by `GetUniqueID() % 97` (`AirshipFlightComponent.cpp:1608`), which moves with every build (seeds 51, 56, 57 so far), and v1 has no station keeping, so the unpiloted hull's drift in the deck phases changed from build to build. No check measures gusts. This replaces F-D's a3-only switch | `AS43_WIND_OFF` (True) |
+| a3 starts at rest, as in F-D: the hull's velocities are zeroed, the transform is not touched | unchanged | `AS43_A3_AT_REST` (True) |
+| The flight path (lift, throttle, steer, boost, brake: `c_lift` to `f2_boost_path`) starts from the ship's spawn x/y and yaw (0 m, 25 m, 0 deg), level and at rest, at its current height (the altitude hold is kept), with the pilot aboard. The bumps and the kill teleport the same way | the deck phases before it (as_30's cannons, exit and board2, plus as_43's a3 and a4) left the unpiloted hull 0-7 m off and moving at up to 0.4 m/s, and f2 depends on where the hull meets `AS_Obstacle_1` | `AS43_PATH_FROM_SPAWN` (True) |
+
+An offline test of the three helpers on fake `unreal` objects passed before the runs
+(`_AirshipWork_logs/scratch/controls/followup/test_as43_fix2.py`). Two runs of the same harness, against the earlier runs:
+
+| Check | Fix2 run 1 (session 4) | Fix2 run 2 (session 5) | Follow-up (F-D) | Polish build |
+|---|---|---|---|---|
+| Total | 24/25 | 24/25 | 24/25 | 24/25 |
+| `a3_deck_stand`: drift in 10 s (limit 1.5 m) | **0.009 m, PASS** | 0.009 m, PASS | 1.371 m, PASS | 2.315 m, FAIL |
+| a3 start: pitch; hull speed before it is zeroed | 0.05 deg; 0.06 m/s | the same | 0.62 deg; 0.01 m/s | 0.63 deg; not zeroed |
+| `b_hover`: drift in 10 s | 0.41 m | the same | 1.17 m (wind on) | 1.17 m |
+| Ship at the lift start, before the reset | (-0.05, 24.99) m, at rest | the same | (-6.02, 25.00) m, 0.38 m/s (no reset) | (-4.31, 25.03) m, 0.17 m/s |
+| `c_lift` gain / `d_throttle` top / `e_steer` rate / `f_boost_brake` peak | +38.4 m / 49.50 m/s / +35.16 deg/s / 87.0 m/s | the same | +38.4 m / 49.52 m/s / +35.16 deg/s / 87.0 m/s | as the follow-up |
+| f2: hull 0.2 s before the hit (x = sideways, y = along the path) | 356.16, -69.80 m | the same | 346.05, -69.75 m | 349.76, -69.79 m |
+| f2: speed at the hit; vertical speed after it (limit 5.0 m/s); rise (limit 8 m) | 91.6 -> 65.9 m/s; **+5.35 m/s, FAIL**; +5.9 m | the same (health 2000.0 -> 1872.118 in both) | 91.6 -> 80.3 m/s; +5.98 m/s, FAIL | 91.6 -> 75.8 m/s; +4.84 m/s, PASS |
+| Every other check; script errors | PASS; 0 | PASS; 0 | PASS; 0 | PASS; 0 |
+
+**a3 is fixed for good.** With no wind the hull is still when the deck stand starts (pitch 0.05 deg instead of 0.62),
+and it moves 9 mm in the 10 s.
+
+**f2 is v1 behaviour.** Nothing before the boost depends on the build or on the deck phases any more, and the two runs
+gave the same hit to the printed digits, so f2 now fails every time, at +5.35 m/s against 5.0 m/s (the rise, +5.9 m,
+is within its 8 m limit). Every as_43 run so far hits `AS_Obstacle_1` on the same frame (80.23 s) with the same attitude
+0.2 s before it (roll 0.30 deg, pitch -17.53 deg); they differ only in where the hull is on that frame:
+
+| as_43 run (`Saved/Airship/`) | Build / harness | a3 drift (m) | Hull at 80.0 s: x, y (m) | Speed at the hit (m/s) | f2 vertical speed (m/s) |
+|---|---|---|---|---|---|
+| `val_ref_oldbuild_1755`, `val_v1build_2344` (identical) | v1 build (seed 51) | 0.817 | 355.92, -68.78 | 91.6 -> 74.7 | +4.83 |
+| `val_pass1_2227` | scheme build (seed 56) | 3.166 | 347.51, -69.01 | 91.6 -> 80.6 | **+5.98 FAIL** |
+| `val_rerun1_2333`, `val_expA_2353` (identical) | the same build | 3.127 | 348.73, -69.04 | 91.6 -> 79.9 | +4.86 |
+| `val_final_classic` | polish build (seed 57) | 2.315 | 349.76, -69.79 | 91.6 -> 75.8 | +4.84 |
+| `val_followup_classic` | follow-up build, F-D | 1.371 | 346.05, -69.75 | 91.6 -> 80.3 | **+5.98 FAIL** |
+| `val_fix2_classic_1`, `val_fix2_classic_2` (identical) | follow-up build, Fix2 | 0.009 | 356.16, -69.80 | 91.6 -> 65.9 | **+5.35 FAIL** |
+
+At 91.6 m/s and 30 fps the hull moves 3.05 m per frame, so how deep it is in the obstacle on the contact frame changes
+by metres with small changes of the path. The windless path is about where the v1-build runs were sideways (356.16
+against 355.92 m) but 1.0 m further along the path; it loses 25.7 m/s in the hit instead of 16.9 and comes off at
++5.35 m/s instead of +4.83. The 5.0 m/s limit lies inside the +4.83..+5.98 m/s spread of this one contact. The flight
+code is v1 (the fast phases match the polish build; `Scheme 0` + `check` gives 0 differences, session 2), the threshold
+is untouched, and the windless start is the natural one, not one picked to pass: so as_43 under Classic is **24/25
+every time**, and the f2 failure is a v1 limit, not a harness flake.
+
+### Issues
+
+| # | Class | Issue | Status |
+|---|---|---|---|
+| U1 | HARNESS (as_43, known since pass 1) | `f2_boost_path` +5.98 m/s (limit 5.0): it depends on where the hull meets `AS_Obstacle_1`, and the F-D deck stand moved the hull 3.7 m sideways there | Fix2: the run no longer depends on the build or the deck phases (wind off for the run, flight path from the spawn pose). f2 then fails the same way every time (+5.35 m/s, 2 of 2 runs identical): a v1 limit of the obstacle clip, reported as such; threshold untouched, Classic C++ unchanged |
+| U2 | HARNESS (as_43, information) | `a3_deck_stand` passes with 0.13 m to spare; the rest is the 0.62 deg start pitch, which the earlier phases (and so the wind seed) set | Fix2: with the wind off for the whole run the hull is level at the a3 start (0.05 deg) and a3 drifts 0.009 m; threshold untouched |
+| U3 | COVERAGE (information) | F-A and F-B were checked standalone only (session 2: the host pilots); no client-pilot run at 100 ms of `p3_push` / `p4_firehold`. Both run only on the pilot's machine (`GatherLocalInput` when locally controlled), the server code is unchanged, and a client pilot's `LastOwnBroadsideTime` comes from its predicted shot (`HandleCannonsFired`) | not run (optional) |
+| - | cleanup | the editor's Python wrote `__pycache__` into `Docs/Airship/scripts/ue/` (untracked) and `Docs/Airship/controls/sims/` while session 2 ran | deleted |
+
+No flight-code or C++ bug was found. This step changed nothing but this section, the intro line pointing to it, and the
+media crops in `Saved/Airship/controls_followup/media/`. Fix2 changed `scripts/ue/as_43_pie_validate.py` and the docs
+(`HOW_TO_FLY.md`, `CPP_NOTES.md` 14.1 / 14.12, `RESULTS.md`, `SCHEME_POINTFLY.md`, this file), no C++. The docs step
+after it brought the rest in line: `RESULTS.md` (new section "Follow-up after review", "Known limits"),
+`CPP_NOTES.md` (2, 14, 14.6, 14.12 rows F-A to F-E with file:line), `HOW_TO_FLY.md`, `SCHEME_POINTFLY.md`,
+`TEST_PROTOCOL.md`, `README.md`, the header comments of as_43 / as_45, and the pointers in this file's pass-1 and
+"Final" sections.
+
+### Files
+
+| What | Where |
+|---|---|
+| Follow-up checks: verdicts, every number, frames, X grabs, crops | `Saved/Airship/controls_followup/` (`followup_summary.txt`, `followup_checks.json` with `lock_per_frame`, `pointfly/telemetry.json` with `pk` = `IsPFParked()` per frame, `as50_log.txt`, `status.txt`, `xgrab/`, `media/`) |
+| as_43 Classic | Follow-up: `val_followup_classic/` (`val_report.txt`, `val_result.json`, `val_log.txt`); Fix2: `val_fix2_classic_1/` (= `val_prev/`), `val_fix2_classic_2/` (= `val/`); the polish build's run: `val_final_classic/` |
+| as_45 Classic | `Saved/Airship/mp_final_classic/` (`mp_report.txt`, `mp_result.json`, `mp_log.txt`; this now holds the follow-up run); the polish build's run: `mp_final_classic_polish/` |
+| Runners and logs (`_AirshipWork_logs/`) | `run_controls_pie2.sh` + `run_controls_followup43_031254.log`, `run_followup_checks.sh` + `run_followup_checks_031755.log`, `run_as45_pf.sh` (`ONLY_CLASSIC=1`) + `run_as45_followup_032406.log`, `build_025149.log`; Fix2: `run_controls_fix2_43_034027.log`, `run_controls_fix2_43b_034416.log` |
+| Scripts (`_AirshipWork_logs/scratch/controls/followup/`, python3 -B) | `as_50f_followup.py` (the PIE checks), `mock_followup.py` (its offline test on the mock editor), `test_as43_a3.py` (F-D's a3-only helpers, replaced in Fix2), bench probes; Fix2: `test_as43_fix2.py` (offline test of the Fix2 helpers), `f2_table.py` and `phase_starts.py` (the f2 tables above, run from `Saved/Airship`) |

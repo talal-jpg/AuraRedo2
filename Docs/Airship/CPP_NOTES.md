@@ -35,7 +35,7 @@ Folder `/Game/Assets/MyShip/Drivable/` (RIG_CONTRACT section 1). Input assets in
 | `IA_AirshipStrafe` | Axis1D | E; Q + Negate; Gamepad D-pad Right; D-pad Left + Negate | value each frame |
 | `IA_AirshipBoost` | Digital (bool) | Left Shift; Gamepad Face Button Bottom (A) | held, each frame |
 | `IA_AirshipBrake` | Digital (bool) | X; Gamepad Face Button Right (B) | held, each frame |
-| `IA_AirshipFire` | Digital (bool) | Left Mouse Button; Gamepad Right Shoulder | `Started` |
+| `IA_AirshipFire` | Digital (bool) | Left Mouse Button; Gamepad Right Shoulder | `Started` (the shot); since 2026-11-23 also held, each frame, read only by Point & Fly's gun lock (14.12 F-A) |
 | `IA_AirshipLook` | Axis2D | Mouse XY 2D-Axis with the same modifiers IA_Rotate has in IMC_PlayerMappings; Gamepad Right Thumbstick 2D-Axis (Response Curve Exponential 2.0) | `Triggered` -> AddControllerYaw/PitchInput (Options look sensitivity/invert applied) |
 | `IA_AirshipZoom` | Axis1D | Mouse Wheel Axis (+ = in); D-pad Up; D-pad Down + Negate | `Triggered` |
 | `IA_AirshipExit` | Digital (bool) | F; Gamepad Face Button Top (Y) | `Started` |
@@ -410,7 +410,8 @@ numbers are in `Docs/Airship/controls/`: `IMPLEMENTATION_PLAN.md` (the change li
 `SCHEME_*.md` specs, `BASELINE.md` (v1 and the base fixes) and the Python bench in `controls/sims/`. **Status:** built
 clean on the first try (2026-11-22 22:24 UTC), PIE pass 1 for all four schemes (`controls/PIE_RESULTS.md`), judged:
 **Point & Fly won and is the default** since the polish of 14.12 (built clean 2026-11-23 01:03 UTC; the final play
-test of that build: `controls/PIE_RESULTS.md` "Final"). Classic, Galleon and Sky Racer stay switchable: console
+test of that build: `controls/PIE_RESULTS.md` "Final"; the follow-up fixes F-A to F-E after the final review: 14.12,
+`controls/PIE_RESULTS.md` "Follow-up"). Classic, Galleon and Sky Racer stay switchable: console
 `Aura.Airship.Scheme <0-3>` on the server (0 Classic (v1), 1 Galleon, 2 Sky Racer, 3 Point & Fly; section 6), the
 `ControlScheme` property (BP_AirshipPawn's Details panel, Airship > Controls) or `SetControlScheme` (14.3). User docs:
 `Docs/Airship/HOW_TO_FLY.md` (v2: keys, HUD and moves per scheme), `controls/RESULTS.md` (what was built, tested,
@@ -423,7 +424,7 @@ judged and polished), `controls/README.md` (the folder index).
 | `Classic` = 0, "Classic (v1)" | throttle pedal | turn | sidestep | brake; + A/D = drift | free look, recentres | FOV -15 |
 | `Galleon` = 1 | engine telegraph: one notch per press (ASTERN, STOP, SLOW, HALF, FULL), held = auto-step, STOP is a detent; the ship holds the ordered speed | helm with "meet her" | sidle | air brake, then the order resumes; + A/D = stern swing | ship-relative camera; past 55 deg off the bow = beam watch | broadside stations (level gun deck, helm x 0.5), also from beam watch within 6 s of an own broadside |
 | `SkyRacer` = 2, "Sky Racer" | W drive, S progressive brake (reverse below 3 m/s) | fast planted turn | sidestep | brake; + A/D above 15 m/s = drift that charges a 3-tier mini-turbo, released with X | chase camera that looks into the turn | gun deck |
-| `PointFly` = 3, "Point & Fly" (**the default**) | drive / firm slow-down | sidestep | turn the heading target | brake; with a big turn left = brake-drift (kick only up to cruise) | **the camera yaw is the heading target**; at rest with no key it only looks (parked free look) | free look, the ship holds its heading; for 6 s after an own broadside the gun lock keeps a broadside on an aim 55-150 deg off the bow (Fire held was meant to arm it too, but is never read: 14.12 P4 note) |
+| `PointFly` = 3, "Point & Fly" (**the default**) | drive / firm slow-down | sidestep | turn the heading target | brake; with a big turn left = brake-drift (kick only up to cruise) | **the camera yaw is the heading target**; at rest with no key it only looks (parked free look, 14.12 P3; a push past 3 m/s does not end it, F-B) | free look, the ship holds its heading; while Fire is held and for 6 s after an own broadside the gun lock keeps a broadside on an aim 55-150 deg off the bow (14.12 P4, F-A) |
 
 All four share the base fixes of BASELINE 4f (off in Classic), the shared mechanisms of IMPLEMENTATION_PLAN 1.9 and
 one feedback implementation (camera shake, FOV punch, camera roll, rumble; off in Classic).
@@ -500,7 +501,7 @@ change). A Sky Racer drift in progress is dropped without a turbo.
 | `ThrottleOrder` | float | Galleon: -1 ASTERN, 0 STOP, 1/3 SLOW, 2/3 HALF, 1 FULL (every machine, decoded from the controls); else -2 |
 | `DriftCharge` | float | Sky Racer: 0..1 while drifting (every machine runs the drift); else 0 |
 | `bHeadingTargetActive`, `HeadingTargetDeg` | bool, float | Point & Fly: pilot = its own target (with the lock lead), server = the received one, observers = from `RepInput`; else false / 0 |
-| `bFreeLook` | bool | false only in Point & Fly's steering mode (pilot: Aim up; others: the Aim bit). The parked free look (14.12 P3) is not in it: `AAirshipPawn::IsPFParked()` |
+| `bFreeLook` | bool | Point & Fly: broadside mode, Aim held (pilot: its own flag; server and observers: the Aim bit); false in steering mode and in the parked free look, whose camera is free too (read that with `AAirshipPawn::IsPFParked()`, 14.12 P3 / F-B). True in the other schemes (14.12 F-C) |
 | `DriftDir`, `DriftTier` | int32 | Sky Racer: drift direction, the tier of the charge (no grace); other schemes: the v1 drift / swing direction, tier 0 |
 | `TurboAlpha`, `TurboChain` | float, int32 | Sky Racer: burn left 1 -> 0, chain links of the current / last drift; else 0 |
 | `bGunDeck` | bool | the steady gun deck (Galleon: stations bit; others: Aim) |
@@ -617,34 +618,51 @@ after `Aura.Airship.Scheme 0`.
 Three judges ranked the schemes on PIE pass 1 and the bench (weighted totals: Point & Fly 22.31, Sky Racer 22.07,
 Galleon 21.17, Classic 14.03). The winner became the default and got the changes below: tuning values first, three
 small mechanics where the judges agreed and the bench showed the gain. Each one was modelled in the bench first
-(`controls/sims/scheme_pointfly.py`, checks `exit kick park rival m12cam` in `pointfly_checks.py`); the design notes and
-the rejected ideas are in `SCHEME_POINTFLY.md` "Review changes", "Polish after judging". **Built clean** (01:03 UTC,
-0 new warnings). **Verified in PIE** 01:14-02:07 UTC (`controls/PIE_RESULTS.md` "Final"): a fresh ship starts in Point
-& Fly, 17/17 standalone and 9/9 client-pilot runs, every polish check met, Classic still v1 (`check` 0 differences).
-The verify step found one HUD bug and fixed it (F1, last row), built clean at 02:01 UTC (`build_020125.log`).
+(`controls/sims/scheme_pointfly.py`, checks `exit kick park rival m12cam` in `pointfly_checks.py`; F-B: `PARK_LATCH`
+and the check `push`); the design notes and the rejected ideas are in `SCHEME_POINTFLY.md` "Review changes", "Polish
+after judging". **Built clean** (01:03 UTC, 0 new warnings). **Verified in PIE** 01:14-02:07 UTC
+(`controls/PIE_RESULTS.md` "Final"): a fresh ship starts in Point & Fly, 17/17 standalone and 9/9 client-pilot runs,
+every polish check met, Classic still v1 (`check` 0 differences). The verify step found one HUD bug and fixed it (F1),
+built clean at 02:01 UTC (`build_020125.log`). **Follow-up after the final review** (rows F-A to F-E, after F1; the
+F-A and F-C notes below the table): Fire held arms the gun lock, a hit no longer ends the parked free look, the
+`bFreeLook` tooltip, and two harness fixes. Built clean 02:51 UTC (`build_025149.log`); PIE in
+`controls/PIE_RESULTS.md` "Follow-up": 9/9 follow-up checks, as_45 Classic 22/22, as_43 Classic 24/25 on every run
+(`f2_boost_path`, a v1 limit, "Fix2"). Line numbers are those of the follow-up build.
 
 | # | What | Where | Old -> new |
 |---|---|---|---|
 | P0 | Default scheme | `AAirshipPawn::ControlScheme` initializer (AirshipPawn.h); the HUD's first `LayoutScheme`; the enum comment; the `Aura.Airship.Scheme` help | Classic -> **PointFly**. No tunable's class default changed, so `Aura.Airship.Scheme 0` + `check` still lists 0 differences. `UAirshipFlightComponent::ActiveScheme` stays Classic until the pawn applies its scheme (its tunables are v1 until then). `BP_AirshipPawn` and `L_AirshipTest` can't override it: neither file (unchanged since 90e164b, saved before the property existed) has the name `ControlScheme` in its name table |
 | P1 | Drift-kick cap: the kick only tops the ship up to cruise | new FC tunable `DriftBoostCapSpeed` (0 = off, the v1 kick) + `GetDriftKickDV(Vf)`, used in `ApplyForces` and by the pilot's drift-kick feedback (scaled by the share paid) | 0 (all schemes) -> **4800 cm/s** in the Point & Fly preset |
 | P2 | A fast turn stops where the pilot looks | Point & Fly preset (shared tunables) | `GyroYawMax` 0.5 -> **1.0** rad/s²; "meet her" `KrSteady` 0 -> **5.5** /s, `AlphaYawMaxSteady` 0 -> **1.5** rad/s² |
-| P3 | Parked free look: at rest the mouse only looks; the first drive / sidestep / turn / boost key takes the camera's yaw as the heading (the 150 deg reach clamp keeps the camera still) | new pawn tunable `PFParkSpeed`; `UpdatePointFlyCamera` (new arguments `bMoveKeys`, `bFireHeld`), `bPFParked`, `IsPFParked()` (BlueprintPure) | new, **300 cm/s** (0 = off). An outside set of the control rotation (harness, reset) still sets the heading while parked |
-| P4 | The gun lock is armed only while Fire is held or for a while after the pilot's own broadside (`LastOwnBroadsideTime`), so Aim alone is a clean free look. **Note:** the Fire-held half never fires (below) | new pawn tunable `PFLockArmTime`; `UpdatePointFlyCamera` | new, **6 s** (0 = always armed, pass 1) |
+| P3 | Parked free look: at rest the mouse only looks; the first drive / sidestep / turn / boost key takes the camera's yaw as the heading (the 150 deg reach clamp keeps the camera still). Since F-B a push past `PFParkSpeed` no longer ends it | new pawn tunable `PFParkSpeed`; `UpdatePointFlyCamera` (new arguments `bMoveKeys`, `bFireHeld`), `bPFParked`, `IsPFParked()` (BlueprintPure) | new, **300 cm/s** (0 = off). An outside set of the control rotation (harness, reset) still sets the heading while parked |
+| P4 | The gun lock is armed only while Fire is held or for a while after the pilot's own broadside (`LastOwnBroadsideTime`), so Aim alone is a clean free look. The Fire-held half works only since F-A | new pawn tunable `PFLockArmTime`; `UpdatePointFlyCamera` | new, **6 s** (0 = always armed, pass 1) |
 | P5 | Lock lead for a crosshair-held target | `PFLockLeadTime` | 0.45 -> **0.6 s** |
 | P6 | Overlay legibility and the broadside strip | `UAirshipHUDWidget::PaintPointFlyOverlay` / `RefreshOverlayValues` | crosshair 14 -> 24 px (2 px lines; faded while parked); nose chevron 10 -> 18 px; gap line 1 px ink -> 2 px amber with an ink outline (hidden while parked); LOCK tag 1.5 x (font 11 -> 16); heading strip +-60 deg around the camera at 3 px/deg -> **+-180 deg around the bow** at 1.5 px/deg, ticks every 30 deg, the two guns' arcs (beam +-`CannonYawLimitDeg`, the facing side amber in arc and loaded), the aim as a ring, the heading target as a diamond, the bow fixed at the centre |
 | P7 | Look hints | same | boarding hint 8 s -> at least 8 s and until Aim has been held once (at most 45 s); new contextual "HOLD RMB / LB TO LOOK" under the crosshair while steering with the camera more than 50 deg off the nose for 0.3 s, until Aim has been held once (per local player and session: `PointFlyLookLearned`) |
 | - | Comment fix | `HullPhysicalMaterial` (AirshipPawn.h) | "restitution 0.35 suggested" -> PM_AirshipHull's real values: friction 0.2, restitution 0.08, combine Min + override (as_42) |
-| - | Harness | `as_43_pie_validate.py`, `as_45_pie_mp.py` (`start_settle`: `AS43_SCHEME` / `AS45_SCHEME`, default 0 = Classic, the v1 checks), `as_50t_mock_pie.py` (mock ship starts in Point & Fly), `_AirshipWork_logs/run_controls_pie2.sh` comment | they used the pawn's default scheme. as_45 sets only the first ship: its second ship (`Aura.Airship.Spawn`) starts in Point & Fly, so `e3_hud_host_flying` sees 2 HUD widgets even in a Classic run |
+| - | Harness | `as_43_pie_validate.py`, `as_45_pie_mp.py` (`start_settle`: `AS43_SCHEME` / `AS45_SCHEME`, default 0 = Classic, the v1 checks), `as_50t_mock_pie.py` (mock ship starts in Point & Fly), `_AirshipWork_logs/run_controls_pie2.sh` comment | they used the pawn's default scheme. as_45 set only its first ship (fixed in F-E) |
 | F1 | Overlay text plates sized at the paint scale (verify step) | `AirshipHUDWidget.cpp`: new `AirshipHUDPrivate::MeasureWidthAtScale` (`FSlateFontMeasure::Measure` at the paint geometry's accumulated layout scale, divided by it), used by the overlay's `Tag` (LOCK, "HOLD RMB / LB TO LOOK") and the two boarding-hint rows in `PaintPointFlyOverlay` | the text was measured at scale 1 but drawn at the viewport's DPI scale (about 1.12 in PIE), where the rounded glyph advances made it about 7 % wider: "Q/E TU\|RN" ran past its plate. The v1 panel keeps `MeasureWidth`, so Classic's HUD is unchanged. Seen fixed on the client's boarding grab (as_45, another window size) |
+| F-A | Follow-up: Fire held arms the gun lock (P4) | `AirshipPawn.cpp:670-673` (`SetupPlayerInputComponent`: `FireAction.Get()` joins the `BindActionValue` list; the `Started` binding to `OnFireInput`, :693, is unchanged), `:801-803` (the comment in `GatherLocalInput`, which passes `Button(FireAction)` as `bFireHeld` at :808); `AirshipPawn.h:1152-1153` (the `bFireHeld` doc) | `Button(FireAction)` was always false (F-A note), so only `PFLockArmTime` after an own broadside armed the lock -> `bLockArmed` (:3442) is also true while LMB / RB is held. The shot is still the press: holding Fire fires once, and a press during the reload fires nothing and is not repeated. Only Point & Fly reads the value |
+| F-B | Follow-up: a hit no longer ends the parked free look (P3) | `AirshipPawn.cpp:3405-3411` (`bParkedNow` and its comment), `:3468-3471` (the comment on the first frame out of parking); `AirshipPawn.h:253` (`IsPFParked`), `:982-987` (`PFParkSpeed`), `:1258` (`bPFParked`) | `bParkedNow = PFParkSpeed > 0 && !bPFFree && !bMoveKeys && \|fwd\| < PFParkSpeed` -> `... && (\|fwd\| < PFParkSpeed \|\| (bPFParked && !bExternal))`. Entering still needs < 3 m/s; once parked it holds at any speed until W/S, A/D, Q/E, boost, Aim or an outside set above `PFParkSpeed` (which then steers to the set yaw). Before, a push past 3 m/s ended it with no key and the heading jumped to the camera's yaw (up to the 150 deg reach); now the heading holds and the heading loop turns a knocked hull back. Aim ends the latch: let go above 3 m/s and it is steering mode until the ship is slower. `ResetSchemePilotState` (:3258: switch, board, exit, death) and the start block (:3379) clear `bPFParked`. Pilot's machine only (`GatherLocalInput` when locally controlled and alive); the server code is unchanged |
+| F-C | Follow-up: the `bFreeLook` tooltip | `AirshipTypes.h:340-343` | comment only (F-C note) |
+| F-D | Follow-up, harness: as_43 independent of the build (with "Fix2") | `scripts/ue/as_43_pie_validate.py`: `wind_off` :88-107 (called from `start_settle` :68), `wind_restore` :109-124 (from `finish` :126), `start_lift` :132-155, `a3_still_start` :360-390; the header comment :7-8, :15-22 | v1 seeds its wind sway per ship by `GetUniqueID() % 97` (`AirshipFlightComponent.cpp:1608`), which moves with every build (seeds 51, 56, 57), and v1 has no station keeping, so `a3_deck_stand` passed or failed with the build -> `WindLateralAccel`, `WindRollAccel` and `WindPitchAccel` of the run's ship are 0 for the whole run and restored at its end (`AS43_WIND_OFF`; notify mode NEVER, so the PIE component is not re-registered), the hull is at rest at the a3 start (`AS43_A3_AT_REST`), and the flight path (lift..brake) starts from the spawn x/y and yaw, level and at rest (`AS43_PATH_FROM_SPAWN`). Classic 24/25 on every run: a3 0.009 m, `f2_boost_path` +5.35 m/s (limit 5.0), a v1 limit. No threshold changed, v1's C++ untouched |
+| F-E | Follow-up, harness: the scheme of as_45's second ship | `scripts/ue/as_45_pie_mp.py`: `set_scheme` :837-849 (used by `start_settle` :851), `ph_spawn2` :1419-1420, `end_spawn2` :1435-1443; the header comment :19-20 | ship 2 (`Aura.Airship.Spawn`) started in the pawn's default, Point & Fly, so a Classic run's `e3_hud_host_flying` saw 2 HUD widgets (21/22) -> `AS45_SCHEME` is set on ship 2 too, on the server, as soon as it exists, and recorded on both machines (`setup.scheme_ship2_both`). Classic 22/22 |
 
-**P4 note (docs step, from the code):** `GatherLocalInput` passes `Button(FireAction)` as `bFireHeld`, but
-`Button` reads `UEnhancedInputComponent::GetBoundActionValue`, which only knows the actions bound with
-`BindActionValue`. `SetupPlayerInputComponent` binds Throttle, Steer, Lift, Strafe, Boost, Brake and Aim that way and
-`IA_AirshipFire` only with `BindAction(..., Started, OnFireInput)`, so the value is always false (the engine returns
-zero for an unbound action, EnhancedInputComponent.cpp:106). In play the lock is armed only for `PFLockArmTime` after
-each own broadside; a press fires at once when the facing side is loaded, so the gap is small (holding Fire past those
-6 s does not keep it armed). The bench's charge check holds Fire, so it models the intended rule. One-line fix: add
-`FireAction.Get()` to the `BindActionValue` list in `SetupPlayerInputComponent`. Not changed here (docs only).
+**F-A note (2026-11-23):** as polished, the Fire-held half never fired. `GatherLocalInput` passes `Button(FireAction)`
+as `bFireHeld`, and `Button` reads `UEnhancedInputComponent::GetBoundActionValue`, which only knows the actions bound
+with `BindActionValue` (the engine returns zero for an unbound action, EnhancedInputComponent.cpp:106);
+`IA_AirshipFire` was bound only with `BindAction(..., Started, OnFireInput)`, so only the `PFLockArmTime` after an own
+broadside armed the lock. The fix adds `FireAction.Get()` to the `BindActionValue` list in
+`SetupPlayerInputComponent`. Value bindings and event bindings are separate lists in Enhanced Input 5.8, and the values
+are copied after the event delegates have run, so the press (the Started binding, used by every scheme) behaves as
+before; only Point & Fly reads the held value. PIE (`controls/PIE_RESULTS.md` "Follow-up"): with Fire held the lock
+stays armed past the 6 s broadside timer (110 of 110 frames) and drops when Fire is let go; a single tap still drops
+it at 6.0 s.
+
+**F-C note:** the `FAirshipFlightTelemetry::bFreeLook` tooltip (AirshipTypes.h:340-343) said "true unless Point & Fly
+is in steering mode (Aim up)", but the parked free look (Aim up too) reports false. It now says: Point & Fly broadside
+mode (Aim held), false in steering mode and in the parked free look (use `IsPFParked`, 14.6), true in the other
+schemes. Comment only.
 
 Bench (pass 1 -> polish; `pointfly_metrics_pass1.json` / `pointfly_checks_pass1.json` keep pass 1):
 

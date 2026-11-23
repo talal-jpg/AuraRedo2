@@ -4,9 +4,10 @@ The PIE harness that measures the four control schemes (Classic, Galleon, Sky Ra
 the same maneuvers, bots and metric code as the bench in `sims/`, and makes the judging inputs (metrics next to the
 sim predictions, per-frame telemetry, course videos, key-moment stills).
 
-**Status:** written, not yet run in Unreal. Checked offline two ways (section 8): the protocol code reproduces every
-value of the four `sims/<scheme>_metrics.json` files exactly when it drives the bench, and the whole editor-side harness
-runs end to end against a mock `unreal` module whose world is the bench.
+**Status:** run in PIE for pass 1 (all four schemes), the final play test and the follow-up after the final review
+(`PIE_RESULTS.md`). Before the first run it was checked offline two ways (section 8): the protocol code reproduces
+every value of the four `sims/<scheme>_metrics.json` files exactly when it drives the bench, and the whole editor-side
+harness runs end to end against a mock `unreal` module whose world is the bench.
 
 ## 1. Files
 
@@ -111,7 +112,7 @@ the PlayerController's control rotation. `DebugSetInput` is used only by the opt
 |---|---|
 | throttle, steer, lift, strafe | `IA_AirshipThrottle` / `Steer` / `Lift` / `Strafe` = the value, every frame it is non-zero |
 | boost, brake, aim | `IA_AirshipBoost` / `Brake` / `Aim` = 1 every frame held |
-| fire | `IA_AirshipFire` on alternate frames while held (it is bound on Started; the C++ ignores presses while reloading) |
+| fire | `IA_AirshipFire` on alternate frames while held (the shot is bound on Started; the C++ ignores presses while reloading). Since the follow-up its held value also arms Point & Fly's gun lock, but alternate frames reset the lock's 0.25 s dwell (`PFArcLockDelay`), so in M12 the lock is armed by the broadsides, as before |
 | cam_yaw / cam_pitch | `set_control_rotation(Rotator(0, pitch, yaw))`, absolute, on the frames the bench sets them |
 | look | Classic, Galleon, Sky Racer: also `IA_AirshipLook` (0.01, 0), which stamps `LastLookInputTime` (no recentre against the set camera). Point & Fly: never, so the set is the absolute heading set (`SCHEME_POINTFLY.md` 13; the C++ external-set rule is `LookDelta != 0 && LastLookInputFrame != GFrameCounter`) |
 
@@ -133,7 +134,11 @@ Unchanged bench code (`course.Bot`, `CoursePlanner`, `GateJudge`, `metrics.Orbit
 | Point & Fly `pilot_state` | never holds `'H'`, so `mouse_to_heading` returns the wanted heading (an absolute set) |
 
 Seeds as the bench uses them: the sloppy bot uses 7 on the course and 11 on the orbit. The wind phase is the ship's
-`GetUniqueID() % 97` and the world time, not the bench's seeds 1 / 7 / 3.
+`GetUniqueID() % 97` and the world time, not the bench's seeds 1 / 7 / 3. as_50 keeps the wind sway on. The v1
+validation as_43 (`Docs/Airship/scripts/ue/as_43_pie_validate.py`, not this harness) has turned it off for its whole
+run since the follow-up: the seed moves with every build (51, 56, 57 so far) and the unpiloted v1 hull has no station
+keeping, so its deck-stand check `a3_deck_stand` passed or failed with the build, and no as_43 check measures gusts
+(`PIE_RESULTS.md` "Follow-up", "Fix2").
 
 ## 4. Runs and metrics
 

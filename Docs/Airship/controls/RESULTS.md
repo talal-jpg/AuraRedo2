@@ -15,6 +15,10 @@ tested and judged, and what won. 2026-11-23, clone `_AirshipWork`, branch `claud
   exactly v1.
 * The final play test of the polished build passed: 17 of 17 standalone runs and 9 of 9 runs with a client pilot at
   100 ms, 0 missed gates, every polish change confirmed in PIE, and Classic still v1 (section "Final play test").
+* A follow-up after the final review fixed two Point & Fly edge cases (holding Fire now arms the gun lock; a hit no
+  longer ends the parked free look) and two harness issues. PIE: 9 of 9 follow-up checks, as_45 under Classic 22 of
+  22, as_43 under Classic 24 of 25 on every run (its `f2_boost_path` failure is a v1 limit). Section "Follow-up after
+  review".
 * How to fly every scheme: `../HOW_TO_FLY.md`.
 
 ## What was built
@@ -126,15 +130,16 @@ The next step for Point & Fly's skill ceiling, if it needs one: Sky Racer's tier
 
 Each change was modelled in the bench first and kept only where the bench and the judges agreed
 (`SCHEME_POINTFLY.md` "Polish after judging", `../CPP_NOTES.md` 14.12). Built clean on 2026-11-23 at 01:03 UTC and
-confirmed in PIE ("Final play test").
+confirmed in PIE ("Final play test"). Two edge cases of P3 and P4 were fixed after the final review ("Follow-up after
+review").
 
 | # | Change | Why | Bench, before -> after |
 |---|---|---|---|
 | P0 | Point & Fly is the default scheme (Classic's tuning values are untouched) | the judging | - |
 | P1 | The brake-drift kick only tops the ship up to cruise (48 m/s) | Rhythmic brake-drifts beat holding W by 49 % on a straight | Drift snake on a straight 71.5 / 57.7 / 60.5 -> 48.8 / 47.4 / 48.1 m/s (W: 48.0). A 180 deg brake-drift reversal still pays 6 m/s |
 | P2 | A fast turn stops where you look: the hidden yaw stabiliser may add up to 1.0 rad/s² (was 0.5), plus Galleon's "meet her" | PIE: 8.6 deg past the target after a 49 deg/s turn | Drift-exit overshoot 8.63 -> 1.67 deg (100 ms: 11.62 -> 6.33); 179 deg reversal 2.9 -> 0.3 deg; turn onset unchanged |
-| P3 | Parked free look: below 3 m/s with no drive, sidestep, turn or boost key, the mouse only looks | Orbiting the camera after boarding spun the ship | 360 deg camera orbit at a hover: the ship turned 111 -> 0 deg |
-| P4 | The gun lock is armed only while Fire is held or for 6 s after your own broadside, so Aim alone is a plain look (in this build only the 6 s work: "Known limits" 2) | Holding Aim on a rival 60 or 120 deg off the bow swung the ship | Swing 26.9 -> 0 deg, 62 -> 0 m off the line; the orbit and the racing pass unchanged |
+| P3 | Parked free look: below 3 m/s with no drive, sidestep, turn or boost key, the mouse only looks. Since the follow-up (F-B), a hit or a collision that pushes the ship past 3 m/s no longer ends it | Orbiting the camera after boarding spun the ship | 360 deg camera orbit at a hover: the ship turned 111 -> 0 deg. F-B, a 6 m/s push and a 70 deg/s knock while parked (check `push`): the hull ends 119.92 -> 0.09 deg off the held heading |
+| P4 | The gun lock is armed only while Fire is held or for 6 s after your own broadside, so Aim alone is a plain look. Fire held arms it only since the follow-up (F-A) | Holding Aim on a rival 60 or 120 deg off the bow swung the ship | Swing 26.9 -> 0 deg, 62 -> 0 m off the line; the orbit and the racing pass unchanged |
 | P5 | Gun-lock lead 0.45 -> 0.6 s | PIE held the target 7.4 deg aft of the beam | Explained by the spring arm's lag (a camera model fitted to the PIE frames reproduces -7.38 deg). A pilot who keeps the crosshair on the target: -2.9 -> -0.2 deg. The harness bot: about -4.7 deg |
 | P6 | Bigger, clearer overlay: crosshair 24 px, nose chevron 18 px, amber gap line, LOCK 1.5 x, a heading strip of the whole circle around the bow with both guns' arcs | The marks were too small; the old strip showed only edge arrows in a broadside | HUD only |
 | P7 | Hints: the boarding hint stays until Aim has been held once (8-45 s); "HOLD RMB / LB TO LOOK" when you steer far off the nose | A new player learns that the right mouse button looks around | HUD only |
@@ -157,15 +162,16 @@ and as_45 multiplayer. Every number and file: `PIE_RESULTS.md` "Final".
   moved are low-speed ones the v1 wind seed changes: for example M1 at 2 s is 22.61 m/s (pass 1 22.91), and the sloppy
   course missed 0 gates (pass 1: 2). as_43 scored 24 of 25. Its one failure is the known wind-seed check
   `a3_deck_stand`: 2.32 m of drift against a 1.5 m limit; this build's seed is 57 and the wind fit explains 100 % of
-  it. `f2_boost_path` passes at +4.84 m/s.
+  it. `f2_boost_path` passes at +4.84 m/s. (The follow-up made as_43 independent of the wind seed; a3 now passes and
+  f2 fails on every run: "Follow-up after review".)
 * **The v1 validation tests under Point & Fly** fail only checks written for v1:
   * as_43 scores 23 of 25. `a3_deck_stand` now passes (0.04 m). `b2_hud_flying` fails because the overlay counts as a
     second HUD widget, and `i_cannons` because the harness's camera sets steer the hull (30 deg/s).
   * as_45 (listen server + 1 client) scores 18 of 22. `b1` and `e3` count the overlay as a second widget, in `a3` D is
     the sidestep (`Strafe` 1.00 on both machines, throttle 1.00, 0 to 32.5 m/s), and in `c_cannons` the camera sets
     steer the ship.
-  * as_45 with the ship in Classic scores 21 of 22, as the 2026-11-22 reference run did. Its `e3` fails only because
-    the second ship spawns in the new default.
+  * as_45 with the ship in Classic scores 21 of 22, as the 2026-11-22 reference run did. Its `e3` failed only because
+    the second ship spawned in the new default; the follow-up sets that ship too (22 of 22).
   * Boarding, replication (hover 0.5 cm apart), exit, death, riders on deck and the host flying pass in every run.
 * **One HUD bug found and fixed** (F1): the boarding hint's text ran past its plate ("Q/E TU|RN"). The width was
   measured at scale 1 but drawn at the viewport's DPI scale, about 7 % wider. `AirshipHUDWidget.cpp` now measures the
@@ -207,7 +213,7 @@ orbit's "about -4.7" is the bench with the camera fitted to the PIE frames, for 
 | P1 | Kick snake (camera ±90 deg, X held 1.23 s, 0.1 s gaps): 48.91 m/s over the ground (bench 48.91; W held 47.97). The 180 deg brake-drift reversal slows from 47.97 to 7.86 m/s and is back at 47.86 m/s 8 s later, with +5.37 m/s in one frame when the drift ends; the M9 exit kick is 4.84 m/s | 71.5 m/s (bench, no cap) |
 | P2 | The m9 drift exit overshoots 1.67 deg and is within 0.5 deg after 1.03 s; the turn onset is unchanged (M4 t63 / t90 0.433 / 0.70 s) | 8.63 deg, 1.8 s |
 | P3 | A 359.5 deg look orbit (injected `IA_AirshipLook`) at a hover turns the hull 0.00 deg, parked in 100 % of the frames. W then takes the camera's 120 deg as the heading: within 5 deg after 3.3 s, 0.04 deg overshoot. A camera set from outside at rest still turns the hull (59.93 deg) | 111 deg (bench) |
-| P4 | Aim without Fire, 60 or 120 deg off the bow: 0 lock frames, 0.00 deg swing, 0.00 m off the line. With Fire injected every frame, the lock engages after 0.23 s (26.9 deg swing, as the bench predicts); its first press fires a broadside, which is what arms the lock in this build ("Known limits" 2). In the orbit the lock is on in 96.9 / 96.4 % of the frames, and the first broadside (2.03 s) comes before the first lock (2.30 / 2.67 s) | 26.9 deg, 62 m (bench) |
+| P4 | Aim without Fire, 60 or 120 deg off the bow: 0 lock frames, 0.00 deg swing, 0.00 m off the line. With Fire injected every frame, the lock engages after 0.23 s (26.9 deg swing, as the bench predicts); its first press fires a broadside, which is what armed the lock in the polish build (Fire held did not; fixed in the follow-up, F-A). In the orbit the lock is on in 96.9 / 96.4 % of the frames, and the first broadside (2.03 s) comes before the first lock (2.30 / 2.67 s) | 26.9 deg, 62 m (bench) |
 | P5 | The orbit target sits 4.72 / 4.71 deg aft of the beam, the control yaw +1.99 / +1.93 deg off it; in arc and firing solution 100 % | 7.39 / 7.32 deg |
 | P6 | The HUD grabs show a 24 px crosshair, an 18 px chevron and a 2 px amber gap line with an ink outline; in a broadside, the ±180 deg strip with the bow at its centre, both gun arcs, the aim ring and the larger LOCK tag. Parked, the crosshair fades and the gap line is hidden | 14 / 10 px, a ±60 deg strip |
 | P7 | The boarding hint stays up past 10 s while Aim has not been held, and is gone 51 s after boarding (the 45 s limit and its fade). "HOLD RMB / LB TO LOOK" shows under the crosshair while steering 89 deg off the nose. Both fit their plates after F1 | an 8 s hint |
@@ -245,20 +251,53 @@ The client sees its inputs 2-3 frames later than the bench says: the bench has n
 copy, and the lag was 104 ms, not 100. Every scheme sends the same RPC. as_45 with the ship in Point & Fly: see "Final
 play test" above.
 
+## Follow-up after review
+
+The final review of the polished build left five items open (F-A to F-E). They were fixed on 2026-11-23 (built clean
+at 02:51 UTC) and tested in PIE between 03:12 and 03:48 UTC. Every number and file: `PIE_RESULTS.md` "Follow-up";
+the code: `../CPP_NOTES.md` 14.12.
+
+| # | What was wrong | Fix | PIE |
+|---|---|---|---|
+| F-A | Holding Fire never armed the gun lock: only the 6 s after a broadside did. `IA_AirshipFire` was bound only to its press, so the C++ always read it as not held | Fire also gets a value binding; the press still fires once | With Fire held for 10 s, the lock stays on in all 110 frames after the 6 s timer and drops at 10.0 s, when Fire is let go; one broadside. A single tap still drops it 6.0 s after the broadside |
+| F-B | A hit or a collision that pushed a parked ship past 3 m/s ended the parked free look with no key pressed: the heading jumped to the camera's yaw and the ship turned by itself (bench: 119.9 deg) | Entering still needs less than 3 m/s; once parked, the ship stays parked at any speed until W/S, A/D, Q/E, Shift or the right mouse button (or a camera set from outside above 3 m/s, as the harness does) | Parked with the camera 120 deg off the bow, pushed to 6 m/s and knocked round at 70 deg/s: parked in every frame, the hull swings 24.6 deg and comes back to 0.1 deg, the camera does not move. W then turns the ship to the camera (within 5 deg after 3.3 s) |
+| F-C | The `bFreeLook` telemetry tooltip said it is false only in steering mode; it is false while parked too | Comment only | - |
+| F-D | as_43 `a3_deck_stand` failed under Classic because v1 seeds its wind sway per ship by `GetUniqueID() % 97`, which moves with every build | Harness only: v1's wind sway is off for the whole as_43 run, the hull is at rest when a3 starts, and the flight path starts from the spawn pose, level and at rest ("Fix2"). No threshold changed | a3 drift 0.009 m (limit 1.5 m; polish build 2.315 m) |
+| F-E | as_45 set the scheme on its first ship only; the second ship started in Point & Fly, so a Classic run's `e3_hud_host_flying` failed | Harness only: the second ship gets the scheme on the server as soon as it spawns | Both ships Classic on both machines; `e3` passes |
+
+| Test | Polish build ("Final play test") | Follow-up |
+|---|---|---|
+| Follow-up checks: `p3_push`, `p4_firehold`, `p4_tap60`, the regression runs `p3_park`, `p3_abs`, `p4_aim60`, `p4_fire60`, the fresh-ship default, the scheme `check` lists | - | 9 of 9 PASS, 0 script errors |
+| as_45 under Classic | 21 of 22 (`e3_hud_host_flying`) | **22 of 22**, 0 script errors |
+| as_43 under Classic | 24 of 25 (`a3_deck_stand`) | **24 of 25** on every run (`f2_boost_path`), 0 script errors |
+
+* **No regression.** The regression runs give the final verify's values, a fresh PIE ship is in Point & Fly, and the
+  `check` lists are unchanged: Galleon 82, Sky Racer 114, Point & Fly 41 and Classic 0 differences. Classic, Galleon
+  and Sky Racer did not change.
+* **PIE matches the bench**, which mirrors F-B (`PARK_LATCH` in `sims/scheme_pointfly.py`, the new check `push`):
+  knock 24.62 / 24.6 deg, back to 0.1 / 0.09 deg, W 3.3 / 3.3 s.
+* **as_43 under Classic is now the same on every build.** Two runs with the new harness gave the same result to the
+  printed digits: `a3_deck_stand` passes (0.009 m), and `f2_boost_path` fails at +5.35 m/s against 5.0 m/s. f2 clips
+  `AS_Obstacle_1` at 91.6 m/s, and the bump off it depends on where the hull meets it: +4.83 to +5.98 m/s across all
+  the as_43 runs so far. That is v1 behaviour; the threshold and Classic's C++ stay as they are ("Known limits" 9).
+* **Not covered:** F-A and F-B were tested standalone, with the host at the helm. Both run only on the pilot's machine
+  and the server code did not change, so no client-pilot run at 100 ms was made.
+
 ## Known limits
 
 | # | Limit | Note |
 |---|---|---|
 | 1 | Looking around without the right mouse button steers | It is the scheme's identity: ignoring glances would delay every real input. The bench's human-like mouse pilot, glancing around, misses about one gate per course (always the H1 hairpin). The hints teach the right mouse button |
-| 2 | The gun lock is not armed while Fire is held | The polish meant Fire held to arm it, but `GatherLocalInput` reads Fire through `GetBoundActionValue`, and `IA_AirshipFire` is only bound to its press (`BindAction`, Started), so the value is always false. In play the lock is armed only in the 6 s after each broadside (a press fires at once when the side is loaded, so little changes). One-line fix: add `FireAction` to the `BindActionValue` list in `AAirshipPawn::SetupPlayerInputComponent` |
-| 3 | A low skill ceiling | The precise and sloppy bots finish 0.67 s apart in PIE. Next step: Sky Racer's tiered mini-turbo on the brake-drift |
-| 4 | A softer brake than Classic | 57 m from cruise (Classic 39 m) at 2.4 g instead of 4.3 g. Tunable: `BrakeMaxAccel` 1960 gives 47 m (bench) |
-| 5 | Classic players must relearn two keys | A/D sidestep and Q/E turn. The boarding hint shows it; Classic is one command away |
-| 6 | No in-game menu to pick a scheme | Console, the Details panel or Blueprint only |
-| 7 | Fan-wash smoke at cruise | In pass 1, Point & Fly and Galleon trailed a thick smoke column through the whole course (the same FX code as v1; their speed and heading loops keep the fans working). The final run of the polished Point & Fly shows only light puffs (compare `media/pass1_contact_pointfly.png` with `media/final_contact_pointfly.png`); Galleon was not re-run. Visual only |
-| 8 | The PIE harness cannot hold a real mouse | It sets the camera directly; only the parked-look check (P3) injects `IA_AirshipLook`. Glances during a race and the hand-on-crosshair lock lead were checked in the bench only |
-| 9 | Seen in PIE since pass 1 | The final play test covered the two open items of pass 1: riders on deck under Point & Fly's stiffer yaw loop (as_45 `e1` and `e4` pass; at a hover the steer stays 0.000 and the yaw rate under 0.03 deg/s, no buzz) and a client pilot at 100 ms (9 of 9 runs, 0 missed gates) |
-| 10 | Harness | as_43 `a3_deck_stand` fails under Classic because of the wind seed (v1 wind, not the code; seed 57 on this build). as_43 and as_45 were written for v1: run under Point & Fly, `b1` / `b2` / `e3` (the overlay is a second HUD widget), `i_cannons` / `c_cannons` (their camera sets steer) and `a3_keys_rpc` (D is the sidestep) fail by design. Both set Classic by default (`AS43_SCHEME` / `AS45_SCHEME`), but as_45's second ship spawns in the new default, so its `e3` fails in a Classic run too. The reset before each run leaves the throttle decaying, which biases course times by 0.2-0.67 s |
+| 2 | A low skill ceiling | The precise and sloppy bots finish 0.67 s apart in PIE. Next step: Sky Racer's tiered mini-turbo on the brake-drift |
+| 3 | A softer brake than Classic | 57 m from cruise (Classic 39 m) at 2.4 g instead of 4.3 g. Tunable: `BrakeMaxAccel` 1960 gives 47 m (bench) |
+| 4 | Classic players must relearn two keys | A/D sidestep and Q/E turn. The boarding hint shows it; Classic is one command away |
+| 5 | No in-game menu to pick a scheme | Console, the Details panel or Blueprint only |
+| 6 | Fan-wash smoke at cruise | In pass 1, Point & Fly and Galleon trailed a thick smoke column through the whole course (the same FX code as v1; their speed and heading loops keep the fans working). The final run of the polished Point & Fly shows only light puffs (compare `media/pass1_contact_pointfly.png` with `media/final_contact_pointfly.png`); Galleon was not re-run. Visual only |
+| 7 | The PIE harness cannot hold a real mouse | It sets the camera directly; only the parked-look checks (P3 and the follow-up's `p3_push`) inject `IA_AirshipLook`. Glances during a race and the hand-on-crosshair lock lead were checked in the bench only |
+| 8 | Seen in PIE since pass 1 | The final play test covered the two open items of pass 1: riders on deck under Point & Fly's stiffer yaw loop (as_45 `e1` and `e4` pass; at a hover the steer stays 0.000 and the yaw rate under 0.03 deg/s, no buzz) and a client pilot at 100 ms (9 of 9 runs, 0 missed gates) |
+| 9 | Harness | as_43 under Classic scores 24 of 25 on every run: `f2_boost_path` fails at +5.35 m/s against 5.0 m/s. The bump after clipping `AS_Obstacle_1` at 91.6 m/s depends on where the hull meets it (+4.83 to +5.98 m/s across the as_43 runs so far); that is v1 behaviour, and the threshold stays. as_43 and as_45 were written for v1: run under Point & Fly, `b1` / `b2` / `e3` (the overlay is a second HUD widget), `i_cannons` / `c_cannons` (their camera sets steer) and `a3_keys_rpc` (D is the sidestep) fail by design. Both set Classic by default (`AS43_SCHEME` / `AS45_SCHEME`, as_45 on both its ships). The reset before each run leaves the throttle decaying, which biases course times by 0.2-0.67 s |
+| 10 | A gamepad left stick that rests off centre counts as W/S | `IMC_Airship` maps the left stick's Y axis to `IA_AirshipThrottle` with no dead zone (`../scripts/ue/as_01_input.py`), and Point & Fly counts more than 0.05 as a move key. A stick that rests further off keeps the ship from parking, or ends parking and turns the ship to the camera. A fix would be a larger stick threshold in Point & Fly only (Classic reads the same mapping). Seen in the follow-up review; not changed |
+| 11 | After a hit, letting go of the right mouse button above 3 m/s gives steering mode | Parking holds through a hit (F-B), not through broadside mode: let go of the right mouse button while the ship still moves faster than 3 m/s and the mouse steers again until it is slower, when it parks again. The heading holds, so the ship does not turn by itself. Below 3 m/s it parks again at once |
 
 ## Try every scheme
 
@@ -291,7 +330,7 @@ play test" above.
 |---|---|
 | `../HOW_TO_FLY.md` | How to fly: keys, HUD and moves for every scheme, switching, console commands |
 | `README.md` | The index of this folder |
-| `PIE_RESULTS.md` | Every PIE number of pass 1 next to the bench, the checks, the images, the issues; the "Final" section |
+| `PIE_RESULTS.md` | Every PIE number of pass 1 next to the bench, the checks, the images, the issues; the "Final" and "Follow-up (after the final review)" sections |
 | `SCHEME_POINTFLY.md`, `SCHEME_SKYRACER.md`, `SCHEME_GALLEON.md` | The designs: concept, controls, behaviour, parameters, camera, feedback, HUD, multiplayer, predicted metrics, risks, review and polish |
 | `BASELINE.md` | v1 as a code reference, the measured feel problems and the base fixes |
 | `IMPLEMENTATION_PLAN.md` | The C++ plan the code follows |

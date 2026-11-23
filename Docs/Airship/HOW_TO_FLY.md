@@ -1,8 +1,9 @@
 # How to fly the airship
 
-Version 2 (2026-11-23). The ship has four control schemes in one build. **Point & Fly is the default.** Classic (the
-v1 controls of 2026-11-22), Galleon and Sky Racer are one console command away ("Switch schemes" below). How the
-schemes were built, tested and judged: `controls/RESULTS.md`.
+Version 2 (2026-11-23, with the follow-up fixes to the gun lock and the parked free look). The ship has four control
+schemes in one build. **Point & Fly is the default.** Classic (the v1 controls of 2026-11-22), Galleon and Sky Racer
+are one console command away ("Switch schemes" below). How the schemes were built, tested and judged:
+`controls/RESULTS.md`.
 
 ## Try it
 
@@ -31,7 +32,7 @@ and to aim a broadside.
 | Boost (uses boost fuel; each start costs 10, forward kick every 1.5 s at most) | Left Shift | A |
 | Air brake (stops from 48 m/s in about 2.5 s). With a big turn still to come at speed: brake-drift (below) | X | B |
 | Look around and aim (broadside mode, below); the ship holds its heading | hold right mouse | hold LB |
-| Fire both cannons on the side the camera faces (1.5 s reload per side) | left mouse | RB |
+| Fire both cannons on the side the camera faces (1.5 s reload per side). One press, one broadside; held, it also arms the gun lock (below) | left mouse | RB |
 | Zoom the camera between 40 and 120 m | mouse wheel | D-pad up / down |
 | Leave the helm | F | Y |
 
@@ -46,21 +47,26 @@ from -10 to +8.5 deg of elevation.
 * **Broadside** (right mouse button held). The camera is free and the ship keeps its heading. The view tightens (FOV
   -15 deg), the deck flattens (bank x 0.4), and Q/E turn the ship while the camera stays where it looks. Let go and
   the camera eases back onto the heading in about 0.7 s; moving the mouse during that steers at once.
-* **Parked**. Below 3 m/s, with none of W/S, A/D, Q/E or Shift held, the mouse only looks around and the heading holds,
-  as on foot. The first of those keys turns the ship to where the camera looks. Space, Ctrl and X do not end it, so you
-  can climb at a hover while looking around.
+* **Parked**. Below 3 m/s, with none of W/S, A/D, Q/E or Shift held (gamepad: left stick, D-pad left / right, A), the
+  mouse only looks around and the heading holds, as on foot. Only those keys end it: the first of them turns the ship
+  to where the camera looks. Space, Ctrl and X do not, so you can climb at a hover while looking around. A hit or a
+  collision does not end it either, even when it pushes the ship past 3 m/s: the heading holds, the ship turns back to
+  it, and the camera stays where you looked. Holding the right mouse button gives broadside mode, as in flight. Let go
+  below 3 m/s and you are parked again; if a hit still has the ship moving faster, you are in steering mode, as after a
+  broadside in flight, and it parks again once it is slower than 3 m/s.
 
 ### The gun lock (broadside mode)
 
-For 6 s after each broadside you fire, holding the right mouse button on a target 55-150 deg off the bow keeps your
-broadside on it. When the target has been out of the guns' arc for 0.25 s and is not coming back in, the ship swings
-(at most 45 deg/s) to keep its beam within 3 deg of your aim. The HUD shows **LOCK** with an arrow toward the swing,
-and a gamepad ticks. W then circles the target, and A/D close or open the range. Q/E override the lock, and letting
-go of the right mouse button ends it. Without a recent broadside, the right mouse button is a plain look around and
-never swings the ship.
+While you hold Fire (left mouse / RB), and for 6 s after each broadside you fire, holding the right mouse button with
+your aim 55-150 deg off the bow keeps your broadside on it. When the aim has been out of the guns' arc for 0.25 s and is
+not coming back in, the ship swings (at most 45 deg/s) to keep its beam within 3 deg of your aim. The lock follows your
+aim, not a target, so it swings the ship even with nothing under the crosshair. The HUD shows **LOCK** with an arrow
+toward the swing, and a gamepad ticks. W then circles the target, and A/D close or open the range. Q/E override the
+lock, and letting go of the right mouse button ends it. Without Fire held or a recent broadside, the right mouse button
+is a plain look around and never swings the ship.
 
-The design also arms the lock while Fire is held. This build reads Fire only at the press, so only the 6 s after a
-broadside count (`controls/RESULTS.md`, "Known limits").
+A press of Fire fires one broadside, or nothing while that side reloads. Holding it never fires again (press again
+when the side shows READY), but it keeps the lock armed for as long as you hold it.
 
 ### What the HUD shows
 
@@ -92,7 +98,8 @@ Over the view:
 4. **Drift broadside.** With a target ahead, flick the camera to put it on your beam and hold X, then hold the right
    mouse button and fire as the guns come round.
 5. **Circle and fire.** Right mouse button on the target and fire: the lock keeps the broadside on it while W carries
-   you round. Fire again every 1.5 s; each broadside renews the lock's 6 s.
+   you round. Press Fire again each time the side is loaded (every 1.5 s); each broadside renews the lock's 6 s, and
+   holding Fire keeps the lock on in between.
 6. **Line up with Q/E.** In broadside mode Q/E turn the ship under a still camera, so you never lose the target.
 
 ## The other schemes
