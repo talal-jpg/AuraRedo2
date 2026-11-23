@@ -1,0 +1,368 @@
+{
+ "telegraph": {
+  "SLOW": {
+   "speed_ms": 14.01,
+   "t90_s": 1.37,
+   "overshoot_ms": 0.33
+  },
+  "HALF": {
+   "speed_ms": 28.0,
+   "t90_s": 2.2,
+   "overshoot_ms": 0.35
+  },
+  "FULL": {
+   "speed_ms": 47.84,
+   "t90_s": 3.93,
+   "overshoot_ms": 0.0
+  },
+  "FULL->HALF": {
+   "from_ms": 47.8,
+   "to_ms": 28.0,
+   "t90_s": 2.27,
+   "undershoot_ms": 0.05
+  },
+  "HALF->SLOW": {
+   "from_ms": 28.0,
+   "to_ms": 14.01,
+   "t90_s": 2.07,
+   "undershoot_ms": 0.05
+  },
+  "SLOW->STOP": {
+   "from_ms": 14.0,
+   "to_ms": -0.01,
+   "t90_s": 2.27,
+   "undershoot_ms": 0.01
+  },
+  "FULL->STOP": {
+   "half_s": 2.5,
+   "stop_s": 6.17,
+   "dist_m": 123.3,
+   "final_ms": 0.0
+  },
+  "STOP->ASTERN": {
+   "speed_ms": -11.99
+  },
+  "hold_W_from_STOP": {
+   "SLOW": 0.0,
+   "HALF": 0.267,
+   "FULL": 0.433
+  },
+  "hold_S_from_FULL_ends_at": "STOP"
+ },
+ "helm_half": {
+  "rate_degs": 39.4,
+  "t63_s": 0.47,
+  "t90_s": 0.87,
+  "overshoot_pct": 2.9,
+  "bank_deg": 26.5,
+  "bank_t50_s": 0.53,
+  "bank_t90_s": 0.83,
+  "bank_overshoot_deg": 0.3,
+  "speed_ms": 30.6,
+  "alt_change_m": -0.19,
+  "release_carry_deg": 11.7,
+  "release_stop_s": 1.0,
+  "release_bank_level_s": 0.8
+ },
+ "helm_full": {
+  "rate_degs": 34.1,
+  "t63_s": 0.37,
+  "t90_s": 0.87,
+  "overshoot_pct": 2.3,
+  "bank_deg": 26.6,
+  "bank_t50_s": 0.53,
+  "bank_t90_s": 0.8,
+  "bank_overshoot_deg": 1.0,
+  "speed_ms": 50.2,
+  "alt_change_m": -0.15,
+  "release_carry_deg": 8.6,
+  "release_stop_s": 0.97,
+  "release_bank_level_s": 0.8
+ },
+ "helm_full_classic": {
+  "rate_degs": 35.1,
+  "t63_s": 0.5,
+  "t90_s": 0.9,
+  "overshoot_pct": 2.4,
+  "bank_deg": 17.9,
+  "bank_t50_s": 0.73,
+  "bank_t90_s": 1.87,
+  "bank_overshoot_deg": 0.0,
+  "speed_ms": 48.2,
+  "alt_change_m": -5.04,
+  "release_carry_deg": 13.5,
+  "release_stop_s": 1.17,
+  "release_bank_level_s": 1.9
+ },
+ "uturn": {
+  "galleon_helm": {
+   "time_s": 6.07,
+   "diameter_m": 188.1,
+   "speed_end_ms": 51.5,
+   "from_ms": 47.8
+  },
+  "galleon_swing_1_5s": {
+   "time_s": 5.2,
+   "diameter_m": 124.0,
+   "speed_end_ms": 50.0,
+   "from_ms": 47.8
+  },
+  "galleon_swing_2_5s": {
+   "time_s": 4.37,
+   "diameter_m": 70.2,
+   "speed_end_ms": 41.0,
+   "from_ms": 47.8
+  },
+  "galleon_half_helm": {
+   "time_s": 5.17,
+   "diameter_m": 90.7,
+   "speed_end_ms": 30.9,
+   "from_ms": 28.0
+  },
+  "galleon_half_swing_2_5s": {
+   "time_s": 4.4,
+   "diameter_m": 55.7,
+   "speed_end_ms": 31.0,
+   "from_ms": 28.0
+  },
+  "classic_helm": {
+   "time_s": 6.1,
+   "diameter_m": 183.5,
+   "speed_end_ms": 50.8,
+   "from_ms": 48.0
+  },
+  "classic_drift_1_5s": {
+   "time_s": 5.83,
+   "diameter_m": 157.5,
+   "speed_end_ms": 49.2,
+   "from_ms": 48.0
+  }
+ },
+ "swing_full": {
+  "from_ms": 47.8,
+  "heading_change_deg": 86.2,
+  "course_change_deg": 44.7,
+  "slip_max_deg": 39.9,
+  "speed_end_ms": 33.8,
+  "speed_kept_pct": 70.7,
+  "bank_max_deg": 28.5,
+  "exit_speed_3s_ms": 47.6,
+  "exit_kick_ms": 2.5,
+  "slip_after_1s_deg": 15.0
+ },
+ "swing_half": {
+  "from_ms": 28.0,
+  "heading_change_deg": 82.0,
+  "course_change_deg": 58.6,
+  "slip_max_deg": 23.5,
+  "speed_end_ms": 22.7,
+  "speed_kept_pct": 80.9,
+  "bank_max_deg": 28.2,
+  "exit_speed_3s_ms": 28.0,
+  "exit_kick_ms": 2.5,
+  "slip_after_1s_deg": 2.1
+ },
+ "stations": {
+  "bank_deg_aiming": 5.6,
+  "rate_degs": 19.5
+ },
+ "camera_galleon": {
+  "lat0": {
+   "camera_frames": 3,
+   "camera_5deg_frames": 9,
+   "screen_turn_frames": 2
+  },
+  "lat100": {
+   "camera_frames": 3,
+   "camera_5deg_frames": 11,
+   "screen_turn_frames": 9
+  }
+ },
+ "camera_classic": {
+  "lat0": {
+   "camera_frames": 13,
+   "camera_5deg_frames": 27,
+   "screen_turn_frames": 2
+  },
+  "lat100": {
+   "camera_frames": 19,
+   "camera_5deg_frames": 33,
+   "screen_turn_frames": 9
+  }
+ },
+ "sidle": {
+  "speed_ms": 10.17,
+  "t90_s": 0.97,
+  "bank_deg": 3.0
+ },
+ "brake": {
+  "stop_s": 3.07,
+  "peak_g": 2.32,
+  "backup_ms": -0.1,
+  "flare_deg": 3.0
+ },
+ "course_sloppy_12_seeds": {
+  "galleon": {
+   "lat0": {
+    "gates_missed_mean": 1.08,
+    "gates_missed": [
+     1,
+     1,
+     0,
+     2,
+     2,
+     2,
+     0,
+     1,
+     0,
+     2,
+     2,
+     0
+    ],
+    "time_mean_s": 62.6
+   },
+   "lat100": {
+    "gates_missed_mean": 1.25,
+    "gates_missed": [
+     2,
+     2,
+     0,
+     1,
+     1,
+     1,
+     1,
+     0,
+     1,
+     3,
+     3,
+     0
+    ],
+    "time_mean_s": 63.2
+   }
+  },
+  "classic": {
+   "lat0": {
+    "gates_missed_mean": 1.58,
+    "gates_missed": [
+     1,
+     1,
+     3,
+     2,
+     2,
+     3,
+     1,
+     0,
+     2,
+     0,
+     2,
+     2
+    ],
+    "time_mean_s": 61.5
+   },
+   "lat100": {
+    "gates_missed_mean": 5.33,
+    "gates_missed": [
+     4,
+     5,
+     7,
+     6,
+     4,
+     6,
+     6,
+     4,
+     6,
+     6,
+     5,
+     5
+    ],
+    "time_mean_s": 76.3
+   }
+  }
+ },
+ "beam_glances": {
+  "designed": {
+   "precise_lat0": {
+    "gates_missed": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "gates_missed_mean": 2.0,
+    "time_mean_s": 61.6
+   },
+   "precise_lat100": {
+    "gates_missed": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "gates_missed_mean": 1.0,
+    "time_mean_s": 63.2
+   },
+   "sloppy_lat0": {
+    "gates_missed": [
+     2,
+     1,
+     4,
+     2
+    ],
+    "gates_missed_mean": 2.25,
+    "time_mean_s": 62.7
+   },
+   "sloppy_lat100": {
+    "gates_missed": [
+     0,
+     1,
+     1,
+     1
+    ],
+    "gates_missed_mean": 0.75,
+    "time_mean_s": 64.1
+   }
+  },
+  "review": {
+   "precise_lat0": {
+    "gates_missed": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "gates_missed_mean": 0.0,
+    "time_mean_s": 61.1
+   },
+   "precise_lat100": {
+    "gates_missed": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "gates_missed_mean": 0.0,
+    "time_mean_s": 62.6
+   },
+   "sloppy_lat0": {
+    "gates_missed": [
+     0,
+     1,
+     1,
+     0
+    ],
+    "gates_missed_mean": 0.5,
+    "time_mean_s": 62.8
+   },
+   "sloppy_lat100": {
+    "gates_missed": [
+     1,
+     2,
+     2,
+     0
+    ],
+    "gates_missed_mean": 1.25,
+    "time_mean_s": 63.3
+   }
+  }
+ }
+}

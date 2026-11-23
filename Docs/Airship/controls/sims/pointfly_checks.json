@@ -1,0 +1,1120 @@
+{
+ "steps": [
+  {
+   "where": "cruise",
+   "lat_ms": 0.0,
+   "step_deg": 2.0,
+   "settle_s": 0.53,
+   "tol_deg": 0.25,
+   "overshoot_deg": 0.01,
+   "peak_rate_degs": 5.0,
+   "t63_rate_s": 0.13,
+   "peak_bank_deg": 1.3,
+   "wheel_max_deg": 45,
+   "fan_yaw_max_deg": 2.6
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 0.0,
+   "step_deg": 10.0,
+   "settle_s": 0.87,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.02,
+   "peak_rate_degs": 18.9,
+   "t63_rate_s": 0.23,
+   "peak_bank_deg": 6.8,
+   "wheel_max_deg": 215,
+   "fan_yaw_max_deg": 9.0
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 0.0,
+   "step_deg": 45.0,
+   "settle_s": 2.07,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 34.9,
+   "t63_rate_s": 0.43,
+   "peak_bank_deg": 17.0,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 0.0,
+   "step_deg": 90.0,
+   "settle_s": 3.43,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 35.1,
+   "t63_rate_s": 0.43,
+   "peak_bank_deg": 19.1,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 0.0,
+   "step_deg": 150.0,
+   "settle_s": 5.13,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 35.1,
+   "t63_rate_s": 0.43,
+   "peak_bank_deg": 19.4,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 100.0,
+   "step_deg": 2.0,
+   "settle_s": 0.67,
+   "tol_deg": 0.25,
+   "overshoot_deg": 0.02,
+   "peak_rate_degs": 5.0,
+   "t63_rate_s": 0.27,
+   "peak_bank_deg": 1.3,
+   "wheel_max_deg": 90,
+   "fan_yaw_max_deg": 4.0
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 100.0,
+   "step_deg": 10.0,
+   "settle_s": 1.0,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.02,
+   "peak_rate_degs": 18.9,
+   "t63_rate_s": 0.37,
+   "peak_bank_deg": 6.8,
+   "wheel_max_deg": 274,
+   "fan_yaw_max_deg": 10.6
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 100.0,
+   "step_deg": 45.0,
+   "settle_s": 2.2,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 34.9,
+   "t63_rate_s": 0.57,
+   "peak_bank_deg": 17.0,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 100.0,
+   "step_deg": 90.0,
+   "settle_s": 3.57,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 35.1,
+   "t63_rate_s": 0.57,
+   "peak_bank_deg": 19.1,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "cruise",
+   "lat_ms": 100.0,
+   "step_deg": 150.0,
+   "settle_s": 5.27,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 35.1,
+   "t63_rate_s": 0.57,
+   "peak_bank_deg": 19.4,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "hover",
+   "lat_ms": 0.0,
+   "step_deg": 2.0,
+   "settle_s": 0.53,
+   "tol_deg": 0.25,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 5.0,
+   "t63_rate_s": 0.13,
+   "peak_bank_deg": 0.7,
+   "wheel_max_deg": 53,
+   "fan_yaw_max_deg": 3.0
+  },
+  {
+   "where": "hover",
+   "lat_ms": 0.0,
+   "step_deg": 10.0,
+   "settle_s": 0.87,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 18.9,
+   "t63_rate_s": 0.23,
+   "peak_bank_deg": 3.1,
+   "wheel_max_deg": 250,
+   "fan_yaw_max_deg": 10.4
+  },
+  {
+   "where": "hover",
+   "lat_ms": 0.0,
+   "step_deg": 45.0,
+   "settle_s": 2.1,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 30.1,
+   "t63_rate_s": 0.4,
+   "peak_bank_deg": 4.8,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "hover",
+   "lat_ms": 0.0,
+   "step_deg": 90.0,
+   "settle_s": 3.6,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 30.1,
+   "t63_rate_s": 0.4,
+   "peak_bank_deg": 4.8,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "hover",
+   "lat_ms": 0.0,
+   "step_deg": 150.0,
+   "settle_s": 5.6,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 30.1,
+   "t63_rate_s": 0.4,
+   "peak_bank_deg": 4.7,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "hover",
+   "lat_ms": 100.0,
+   "step_deg": 2.0,
+   "settle_s": 0.67,
+   "tol_deg": 0.25,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 5.0,
+   "t63_rate_s": 0.27,
+   "peak_bank_deg": 0.7,
+   "wheel_max_deg": 106,
+   "fan_yaw_max_deg": 4.7
+  },
+  {
+   "where": "hover",
+   "lat_ms": 100.0,
+   "step_deg": 10.0,
+   "settle_s": 1.0,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 18.9,
+   "t63_rate_s": 0.37,
+   "peak_bank_deg": 3.1,
+   "wheel_max_deg": 304,
+   "fan_yaw_max_deg": 11.7
+  },
+  {
+   "where": "hover",
+   "lat_ms": 100.0,
+   "step_deg": 45.0,
+   "settle_s": 2.23,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 30.1,
+   "t63_rate_s": 0.53,
+   "peak_bank_deg": 4.8,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "hover",
+   "lat_ms": 100.0,
+   "step_deg": 90.0,
+   "settle_s": 3.73,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 30.1,
+   "t63_rate_s": 0.53,
+   "peak_bank_deg": 4.8,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  },
+  {
+   "where": "hover",
+   "lat_ms": 100.0,
+   "step_deg": 150.0,
+   "settle_s": 5.73,
+   "tol_deg": 0.5,
+   "overshoot_deg": 0.0,
+   "peak_rate_degs": 30.1,
+   "t63_rate_s": 0.53,
+   "peak_bank_deg": 4.7,
+   "wheel_max_deg": 321,
+   "fan_yaw_max_deg": 12.0
+  }
+ ],
+ "sweeps": [
+  {
+   "lat_ms": 0.0,
+   "sweep_degs": 10.0,
+   "lag_deg": 3.3,
+   "overshoot_deg": 0.0,
+   "settle_after_stop_s": 0.4
+  },
+  {
+   "lat_ms": 0.0,
+   "sweep_degs": 20.0,
+   "lag_deg": 7.2,
+   "overshoot_deg": 0.0,
+   "settle_after_stop_s": 0.57
+  },
+  {
+   "lat_ms": 0.0,
+   "sweep_degs": 30.0,
+   "lag_deg": 13.6,
+   "overshoot_deg": 0.0,
+   "settle_after_stop_s": 0.87
+  },
+  {
+   "lat_ms": 100.0,
+   "sweep_degs": 10.0,
+   "lag_deg": 4.7,
+   "overshoot_deg": 0.0,
+   "settle_after_stop_s": 0.53
+  },
+  {
+   "lat_ms": 100.0,
+   "sweep_degs": 20.0,
+   "lag_deg": 9.9,
+   "overshoot_deg": 0.0,
+   "settle_after_stop_s": 0.7
+  },
+  {
+   "lat_ms": 100.0,
+   "sweep_degs": 30.0,
+   "lag_deg": 17.6,
+   "overshoot_deg": 0.0,
+   "settle_after_stop_s": 1.0
+  }
+ ],
+ "drift": [
+  {
+   "reversal_deg": 90.0,
+   "mode": "turn",
+   "lat_ms": 0.0,
+   "heading_5deg_s": 2.8,
+   "course_10deg_s": 2.97,
+   "offset_m": 79.0,
+   "overshoot_deg": 0.0,
+   "drift_s": 0.0,
+   "kick_ms": 0.0,
+   "slip_max_deg": 10.0,
+   "speed_min_ms": 48.0,
+   "speed_at_course_ms": 52.4
+  },
+  {
+   "reversal_deg": 90.0,
+   "mode": "turn",
+   "lat_ms": 100.0,
+   "heading_5deg_s": 2.93,
+   "course_10deg_s": 3.1,
+   "offset_m": 79.0,
+   "overshoot_deg": 0.0,
+   "drift_s": 0.0,
+   "kick_ms": 0.0,
+   "slip_max_deg": 10.0,
+   "speed_min_ms": 48.0,
+   "speed_at_course_ms": 52.4
+  },
+  {
+   "reversal_deg": 90.0,
+   "mode": "brake-turn",
+   "lat_ms": 0.0,
+   "heading_5deg_s": 2.67,
+   "course_10deg_s": 2.73,
+   "offset_m": 47.0,
+   "overshoot_deg": 0.1,
+   "drift_s": 0.0,
+   "kick_ms": 0.0,
+   "slip_max_deg": 9.0,
+   "speed_min_ms": 29.4,
+   "speed_at_course_ms": 30.0
+  },
+  {
+   "reversal_deg": 90.0,
+   "mode": "brake-turn",
+   "lat_ms": 100.0,
+   "heading_5deg_s": 2.77,
+   "course_10deg_s": 2.9,
+   "offset_m": 47.0,
+   "overshoot_deg": 0.1,
+   "drift_s": 0.0,
+   "kick_ms": 0.0,
+   "slip_max_deg": 9.0,
+   "speed_min_ms": 28.1,
+   "speed_at_course_ms": 28.2
+  },
+  {
+   "reversal_deg": 90.0,
+   "mode": "drift",
+   "lat_ms": 0.0,
+   "heading_5deg_s": 2.37,
+   "course_10deg_s": 3.4,
+   "offset_m": 81.0,
+   "overshoot_deg": 0.0,
+   "drift_s": 2.07,
+   "kick_ms": 6.0,
+   "slip_max_deg": 43.0,
+   "speed_min_ms": 48.0,
+   "speed_at_course_ms": 51.2
+  },
+  {
+   "reversal_deg": 90.0,
+   "mode": "drift",
+   "lat_ms": 100.0,
+   "heading_5deg_s": 2.6,
+   "course_10deg_s": 3.53,
+   "offset_m": 78.0,
+   "overshoot_deg": 0.0,
+   "drift_s": 2.07,
+   "kick_ms": 6.0,
+   "slip_max_deg": 43.0,
+   "speed_min_ms": 48.0,
+   "speed_at_course_ms": 49.5
+  },
+  {
+   "reversal_deg": 179.0,
+   "mode": "turn",
+   "lat_ms": 0.0,
+   "heading_5deg_s": 5.37,
+   "course_10deg_s": 5.63,
+   "offset_m": 178.0,
+   "overshoot_deg": 0.0,
+   "drift_s": 0.0,
+   "kick_ms": 0.0,
+   "slip_max_deg": 14.0,
+   "speed_min_ms": 48.0,
+   "speed_at_course_ms": 50.7
+  },
+  {
+   "reversal_deg": 179.0,
+   "mode": "turn",
+   "lat_ms": 100.0,
+   "heading_5deg_s": 5.5,
+   "course_10deg_s": 5.77,
+   "offset_m": 178.0,
+   "overshoot_deg": 0.0,
+   "drift_s": 0.0,
+   "kick_ms": 0.0,
+   "slip_max_deg": 14.0,
+   "speed_min_ms": 48.0,
+   "speed_at_course_ms": 50.7
+  },
+  {
+   "reversal_deg": 179.0,
+   "mode": "brake-turn",
+   "lat_ms": 0.0,
+   "heading_5deg_s": 4.97,
+   "course_10deg_s": 5.07,
+   "offset_m": 112.0,
+   "overshoot_deg": 0.0,
+   "drift_s": 0.0,
+   "kick_ms": 0.0,
+   "slip_max_deg": 10.0,
+   "speed_min_ms": 29.4,
+   "speed_at_course_ms": 50.9
+  },
+  {
+   "reversal_deg": 179.0,
+   "mode": "brake-turn",
+   "lat_ms": 100.0,
+   "heading_5deg_s": 5.07,
+   "course_10deg_s": 5.13,
+   "offset_m": 106.0,
+   "overshoot_deg": 0.0,
+   "drift_s": 0.0,
+   "kick_ms": 0.0,
+   "slip_max_deg": 10.0,
+   "speed_min_ms": 28.1,
+   "speed_at_course_ms": 50.2
+  },
+  {
+   "reversal_deg": 179.0,
+   "mode": "drift",
+   "lat_ms": 0.0,
+   "heading_5deg_s": 4.1,
+   "course_10deg_s": 5.23,
+   "offset_m": 122.0,
+   "overshoot_deg": 0.3,
+   "drift_s": 3.77,
+   "kick_ms": 6.0,
+   "slip_max_deg": 79.0,
+   "speed_min_ms": 30.8,
+   "speed_at_course_ms": 35.8
+  },
+  {
+   "reversal_deg": 179.0,
+   "mode": "drift",
+   "lat_ms": 100.0,
+   "heading_5deg_s": 4.3,
+   "course_10deg_s": 5.37,
+   "offset_m": 121.0,
+   "overshoot_deg": 0.2,
+   "drift_s": 3.77,
+   "kick_ms": 6.0,
+   "slip_max_deg": 79.0,
+   "speed_min_ms": 26.1,
+   "speed_at_course_ms": 30.3
+  }
+ ],
+ "pass": [
+  {
+   "scheme": "pointfly",
+   "lock": true,
+   "lat_ms": 0.0,
+   "aim_time_s": 2.93,
+   "solution_s": 1.53,
+   "broadsides": 2,
+   "heading_swing_max_deg": 0.4,
+   "track_offset_max_m": 0.8,
+   "back_on_heading_s": 0.0
+  },
+  {
+   "scheme": "pointfly",
+   "lock": true,
+   "lat_ms": 100.0,
+   "aim_time_s": 2.97,
+   "solution_s": 1.63,
+   "broadsides": 2,
+   "heading_swing_max_deg": 0.5,
+   "track_offset_max_m": 0.8,
+   "back_on_heading_s": 0.0
+  },
+  {
+   "scheme": "pointfly",
+   "lock": false,
+   "lat_ms": 0.0,
+   "aim_time_s": 2.93,
+   "solution_s": 1.53,
+   "broadsides": 2,
+   "heading_swing_max_deg": 0.4,
+   "track_offset_max_m": 0.8,
+   "back_on_heading_s": 0.0
+  },
+  {
+   "scheme": "pointfly",
+   "lock": false,
+   "lat_ms": 100.0,
+   "aim_time_s": 2.97,
+   "solution_s": 1.63,
+   "broadsides": 2,
+   "heading_swing_max_deg": 0.4,
+   "track_offset_max_m": 0.8,
+   "back_on_heading_s": 0.0
+  },
+  {
+   "scheme": "classic",
+   "lock": null,
+   "lat_ms": 0.0,
+   "aim_time_s": 2.93,
+   "solution_s": 1.53,
+   "broadsides": 2,
+   "heading_swing_max_deg": 1.4,
+   "track_offset_max_m": 1.3,
+   "back_on_heading_s": 0.0
+  },
+  {
+   "scheme": "classic",
+   "lock": null,
+   "lat_ms": 100.0,
+   "aim_time_s": 2.97,
+   "solution_s": 1.67,
+   "broadsides": 2,
+   "heading_swing_max_deg": 1.5,
+   "track_offset_max_m": 1.4,
+   "back_on_heading_s": 0.0
+  }
+ ],
+ "mouse": [
+  {
+   "time_s": 59.33,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 1.06,
+   "line_max_m": 1.66,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 62.7,
+   "ground": 0,
+   "variant": "analog (bench)",
+   "lat_ms": 0.0
+  },
+  {
+   "time_s": 58.83,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 3.38,
+   "line_max_m": 6.9,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 82.6,
+   "ground": 0,
+   "variant": "analog (bench)",
+   "lat_ms": 100.0
+  },
+  {
+   "time_s": 59.87,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 1.31,
+   "line_max_m": 2.6,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 79.2,
+   "ground": 0,
+   "variant": "hand + jitter",
+   "lat_ms": 0.0
+  },
+  {
+   "time_s": 59.03,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 4.05,
+   "line_max_m": 9.38,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 61.0,
+   "ground": 0,
+   "variant": "hand + jitter",
+   "lat_ms": 100.0
+  },
+  {
+   "time_s": 62.73,
+   "missed": 1,
+   "missed_gates": [
+    "H1"
+   ],
+   "line_mean_m": 9.52,
+   "line_max_m": 27.92,
+   "outside_max_m": 133.87,
+   "cam_rev_min": 65.0,
+   "ground": 0,
+   "variant": "+ glances",
+   "lat_ms": 0.0
+  },
+  {
+   "time_s": 61.13,
+   "missed": 1,
+   "missed_gates": [
+    "H1"
+   ],
+   "line_mean_m": 11.82,
+   "line_max_m": 30.49,
+   "outside_max_m": 124.73,
+   "cam_rev_min": 56.9,
+   "ground": 0,
+   "variant": "+ glances",
+   "lat_ms": 100.0
+  },
+  {
+   "time_s": 59.87,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 2.1,
+   "line_max_m": 6.43,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 81.2,
+   "ground": 0,
+   "variant": "+ glances on Aim",
+   "lat_ms": 0.0
+  },
+  {
+   "time_s": 62.13,
+   "missed": 1,
+   "missed_gates": [
+    "H1"
+   ],
+   "line_mean_m": 11.11,
+   "line_max_m": 31.24,
+   "outside_max_m": 120.52,
+   "cam_rev_min": 70.5,
+   "ground": 0,
+   "variant": "+ glances on Aim",
+   "lat_ms": 100.0
+  }
+ ],
+ "keys": [
+  {
+   "time_s": 60.07,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 1.72,
+   "line_max_m": 5.97,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 0.0,
+   "ground": 0,
+   "skill": "precise",
+   "lat_ms": 0.0
+  },
+  {
+   "time_s": 61.23,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 3.86,
+   "line_max_m": 9.13,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 0.0,
+   "ground": 0,
+   "skill": "precise",
+   "lat_ms": 100.0
+  },
+  {
+   "time_s": 60.17,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 2.47,
+   "line_max_m": 4.5,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 0.0,
+   "ground": 0,
+   "skill": "sloppy",
+   "lat_ms": 0.0
+  },
+  {
+   "time_s": 59.63,
+   "missed": 0,
+   "missed_gates": [],
+   "line_mean_m": 5.83,
+   "line_max_m": 14.72,
+   "outside_max_m": 0.0,
+   "cam_rev_min": 0.0,
+   "ground": 0,
+   "skill": "sloppy",
+   "lat_ms": 100.0
+  }
+ ],
+ "pitch": {
+  "course": [
+   {
+    "time_s": 59.13,
+    "missed": 0,
+    "missed_gates": [],
+    "line_mean_m": 2.74,
+    "line_max_m": 5.88,
+    "outside_max_m": 0.0,
+    "cam_rev_min": 59.9,
+    "ground": 0,
+    "scheme": "pointfly",
+    "skill": "precise",
+    "lat_ms": 0.0,
+    "climb_gate_vert_m": -5.9,
+    "dive_gate_vert_m": 1.6
+   },
+   {
+    "time_s": 60.1,
+    "missed": 0,
+    "missed_gates": [],
+    "line_mean_m": 1.38,
+    "line_max_m": 4.69,
+    "outside_max_m": 0.0,
+    "cam_rev_min": 51.9,
+    "ground": 0,
+    "scheme": "pointfly",
+    "skill": "precise",
+    "lat_ms": 100.0,
+    "climb_gate_vert_m": -4.7,
+    "dive_gate_vert_m": 1.4
+   },
+   {
+    "time_s": 59.33,
+    "missed": 0,
+    "missed_gates": [],
+    "line_mean_m": 1.06,
+    "line_max_m": 1.66,
+    "outside_max_m": 0.0,
+    "cam_rev_min": 62.7,
+    "ground": 0,
+    "scheme": "pointfly",
+    "skill": "sloppy",
+    "lat_ms": 0.0,
+    "climb_gate_vert_m": 1.7,
+    "dive_gate_vert_m": 1.0
+   },
+   {
+    "time_s": 58.83,
+    "missed": 0,
+    "missed_gates": [],
+    "line_mean_m": 3.38,
+    "line_max_m": 6.9,
+    "outside_max_m": 0.0,
+    "cam_rev_min": 82.6,
+    "ground": 0,
+    "scheme": "pointfly",
+    "skill": "sloppy",
+    "lat_ms": 100.0,
+    "climb_gate_vert_m": 0.4,
+    "dive_gate_vert_m": -4.8
+   },
+   {
+    "time_s": 59.13,
+    "missed": 0,
+    "missed_gates": [],
+    "line_mean_m": 2.74,
+    "line_max_m": 5.91,
+    "outside_max_m": 0.0,
+    "cam_rev_min": 59.9,
+    "ground": 0,
+    "scheme": "pointfly_pitch",
+    "skill": "precise",
+    "lat_ms": 0.0,
+    "climb_gate_vert_m": -5.9,
+    "dive_gate_vert_m": 1.6
+   },
+   {
+    "time_s": 60.1,
+    "missed": 0,
+    "missed_gates": [],
+    "line_mean_m": 1.41,
+    "line_max_m": 4.68,
+    "outside_max_m": 0.0,
+    "cam_rev_min": 51.9,
+    "ground": 0,
+    "scheme": "pointfly_pitch",
+    "skill": "precise",
+    "lat_ms": 100.0,
+    "climb_gate_vert_m": -4.7,
+    "dive_gate_vert_m": 1.7
+   },
+   {
+    "time_s": 59.3,
+    "missed": 0,
+    "missed_gates": [],
+    "line_mean_m": 1.34,
+    "line_max_m": 4.8,
+    "outside_max_m": 0.0,
+    "cam_rev_min": 62.7,
+    "ground": 0,
+    "scheme": "pointfly_pitch",
+    "skill": "sloppy",
+    "lat_ms": 0.0,
+    "climb_gate_vert_m": -4.8,
+    "dive_gate_vert_m": 1.4
+   },
+   {
+    "time_s": 58.8,
+    "missed": 0,
+    "missed_gates": [],
+    "line_mean_m": 3.04,
+    "line_max_m": 6.9,
+    "outside_max_m": 0.0,
+    "cam_rev_min": 82.7,
+    "ground": 0,
+    "scheme": "pointfly_pitch",
+    "skill": "sloppy",
+    "lat_ms": 100.0,
+    "climb_gate_vert_m": -2.9,
+    "dive_gate_vert_m": 0.6
+   }
+  ],
+  "glances": [
+   {
+    "pitch_climb": false,
+    "alt_change_max_m": 0.0,
+    "alt_change_end_m": -0.0
+   },
+   {
+    "pitch_climb": true,
+    "alt_change_max_m": 20.7,
+    "alt_change_end_m": -20.6
+   }
+  ]
+ },
+ "latency": [
+  {
+   "scheme": "classic",
+   "lat_ms": 0.0,
+   "camera_frames": 13,
+   "wheel_frames": 0,
+   "fans_frames": 0,
+   "server_turn_frames": 2,
+   "screen_turn_frames": 2,
+   "screen_bank_frames": 6
+  },
+  {
+   "scheme": "classic",
+   "lat_ms": 100.0,
+   "camera_frames": 19,
+   "wheel_frames": 0,
+   "fans_frames": 0,
+   "server_turn_frames": 6,
+   "screen_turn_frames": 9,
+   "screen_bank_frames": 13
+  },
+  {
+   "scheme": "pointfly",
+   "lat_ms": 0.0,
+   "camera_frames": 0,
+   "wheel_frames": 0,
+   "fans_frames": 0,
+   "server_turn_frames": 1,
+   "screen_turn_frames": 1,
+   "screen_bank_frames": 7
+  },
+  {
+   "scheme": "pointfly",
+   "lat_ms": 100.0,
+   "camera_frames": 0,
+   "wheel_frames": 0,
+   "fans_frames": 0,
+   "server_turn_frames": 5,
+   "screen_turn_frames": 8,
+   "screen_bank_frames": 14
+  }
+ ],
+ "charge": [
+  {
+   "mode": "turn",
+   "lat_ms": 0.0,
+   "first_solution_s": 2.97,
+   "solution_s": 4.4,
+   "broadsides": 6,
+   "closest_m": 156.0,
+   "speed_end_ms": 54.6
+  },
+  {
+   "mode": "turn",
+   "lat_ms": 100.0,
+   "first_solution_s": 4.37,
+   "solution_s": 3.67,
+   "broadsides": 5,
+   "closest_m": 145.0,
+   "speed_end_ms": 53.8
+  },
+  {
+   "mode": "drift",
+   "lat_ms": 0.0,
+   "first_solution_s": 2.7,
+   "solution_s": 4.67,
+   "broadsides": 6,
+   "closest_m": 137.0,
+   "speed_end_ms": 55.5
+  },
+  {
+   "mode": "drift",
+   "lat_ms": 100.0,
+   "first_solution_s": 2.87,
+   "solution_s": 4.1,
+   "broadsides": 6,
+   "closest_m": 126.0,
+   "speed_end_ms": 54.4
+  }
+ ],
+ "exit": [
+  {
+   "variant": "pass 1 (GyroYawMax 0.5, no meet her)",
+   "lat_ms": 0.0,
+   "rate_at_exit_degs": 50.7,
+   "to_go_deg": 15.2,
+   "overshoot_deg": 8.63,
+   "settle_05_s": 1.8
+  },
+  {
+   "variant": "pass 1 (GyroYawMax 0.5, no meet her)",
+   "lat_ms": 100.0,
+   "rate_at_exit_degs": 50.7,
+   "to_go_deg": 15.2,
+   "overshoot_deg": 11.62,
+   "settle_05_s": null
+  },
+  {
+   "variant": "polish (GyroYawMax 1, KrSteady 5.5, AlphaYawMaxSteady 1.5)",
+   "lat_ms": 0.0,
+   "rate_at_exit_degs": 50.7,
+   "to_go_deg": 15.2,
+   "overshoot_deg": 1.67,
+   "settle_05_s": 1.07
+  },
+  {
+   "variant": "polish (GyroYawMax 1, KrSteady 5.5, AlphaYawMaxSteady 1.5)",
+   "lat_ms": 100.0,
+   "rate_at_exit_degs": 50.7,
+   "to_go_deg": 15.2,
+   "overshoot_deg": 6.33,
+   "settle_05_s": null
+  }
+ ],
+ "kick": [
+  {
+   "variant": "cap off (pass 1)",
+   "w_held_ms": 47.97,
+   "snake_123_01_ms": 71.47,
+   "snake_123_04_ms": 57.73,
+   "snake_15_01_ms": 60.52,
+   "reversal": {
+    "speed_min_ms": 7.9,
+    "speed_8s_ms": 47.9,
+    "kick_ms": 6.0
+   }
+  },
+  {
+   "variant": "cap 48 m/s (polish)",
+   "w_held_ms": 47.97,
+   "snake_123_01_ms": 48.75,
+   "snake_123_04_ms": 47.43,
+   "snake_15_01_ms": 48.06,
+   "reversal": {
+    "speed_min_ms": 7.9,
+    "speed_8s_ms": 47.9,
+    "kick_ms": 6.0
+   }
+  }
+ ],
+ "park": [
+  {
+   "variant": "parked free look off (pass 1)",
+   "orbit_turn_deg": 111.0,
+   "turn_6s_after_deg": 100.0,
+   "w_heading_5deg_s": 2.17,
+   "w_overshoot_deg": 0.3
+  },
+  {
+   "variant": "parked free look on (polish)",
+   "orbit_turn_deg": 0.0,
+   "turn_6s_after_deg": 0.0,
+   "w_heading_5deg_s": 3.3,
+   "w_overshoot_deg": 0.0
+  }
+ ],
+ "rival": [
+  {
+   "variant": "lock always armed (pass 1)",
+   "bearing_deg": 60.0,
+   "heading_swing_deg": 26.9,
+   "track_offset_m": 62.2,
+   "lock_frames": 83
+  },
+  {
+   "variant": "lock always armed (pass 1)",
+   "bearing_deg": 120.0,
+   "heading_swing_deg": 26.9,
+   "track_offset_m": 62.1,
+   "lock_frames": 83
+  },
+  {
+   "variant": "armed by Fire (polish)",
+   "bearing_deg": 60.0,
+   "heading_swing_deg": 0.0,
+   "track_offset_m": 0.0,
+   "lock_frames": 0
+  },
+  {
+   "variant": "armed by Fire (polish)",
+   "bearing_deg": 120.0,
+   "heading_swing_deg": 0.0,
+   "track_offset_m": 0.0,
+   "lock_frames": 0
+  }
+ ],
+ "m12cam": [
+  {
+   "beam_yaw_deg": -7.38,
+   "target_vs_beam_deg": -7.05,
+   "control_vs_beam_deg": -0.48,
+   "aim": "control",
+   "lead_s": 0.45,
+   "skill": "precise"
+  },
+  {
+   "beam_yaw_deg": -7.31,
+   "target_vs_beam_deg": -6.99,
+   "control_vs_beam_deg": -0.54,
+   "aim": "control",
+   "lead_s": 0.45,
+   "skill": "sloppy"
+  },
+  {
+   "beam_yaw_deg": -4.71,
+   "target_vs_beam_deg": -4.6,
+   "control_vs_beam_deg": 1.99,
+   "aim": "control",
+   "lead_s": 0.6,
+   "skill": "precise"
+  },
+  {
+   "beam_yaw_deg": -4.7,
+   "target_vs_beam_deg": -4.58,
+   "control_vs_beam_deg": 1.94,
+   "aim": "control",
+   "lead_s": 0.6,
+   "skill": "sloppy"
+  },
+  {
+   "beam_yaw_deg": -2.06,
+   "target_vs_beam_deg": -2.15,
+   "control_vs_beam_deg": 4.48,
+   "aim": "control",
+   "lead_s": 0.75,
+   "skill": "precise"
+  },
+  {
+   "beam_yaw_deg": -2.07,
+   "target_vs_beam_deg": -2.15,
+   "control_vs_beam_deg": 4.4,
+   "aim": "control",
+   "lead_s": 0.75,
+   "skill": "sloppy"
+  },
+  {
+   "beam_yaw_deg": -2.92,
+   "target_vs_beam_deg": -2.95,
+   "control_vs_beam_deg": -0.48,
+   "aim": "view",
+   "lead_s": 0.45,
+   "skill": "precise"
+  },
+  {
+   "beam_yaw_deg": -3.03,
+   "target_vs_beam_deg": -3.04,
+   "control_vs_beam_deg": -0.6,
+   "aim": "view",
+   "lead_s": 0.45,
+   "skill": "sloppy"
+  },
+  {
+   "beam_yaw_deg": -0.19,
+   "target_vs_beam_deg": -0.43,
+   "control_vs_beam_deg": 2.12,
+   "aim": "view",
+   "lead_s": 0.6,
+   "skill": "precise"
+  },
+  {
+   "beam_yaw_deg": -0.38,
+   "target_vs_beam_deg": -0.59,
+   "control_vs_beam_deg": 1.86,
+   "aim": "view",
+   "lead_s": 0.6,
+   "skill": "sloppy"
+  },
+  {
+   "beam_yaw_deg": 2.61,
+   "target_vs_beam_deg": 2.14,
+   "control_vs_beam_deg": 4.7,
+   "aim": "view",
+   "lead_s": 0.75,
+   "skill": "precise"
+  },
+  {
+   "beam_yaw_deg": 2.31,
+   "target_vs_beam_deg": 1.89,
+   "control_vs_beam_deg": 4.36,
+   "aim": "view",
+   "lead_s": 0.75,
+   "skill": "sloppy"
+  }
+ ]
+}

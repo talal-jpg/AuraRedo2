@@ -1,0 +1,147 @@
+{
+ "source": "Docs/Airship/sims/fix2/ucx.json (8 UCX convexes, uniform density)",
+ "mass_kg": 40000.0,
+ "natural_com_cm": [
+  -8.27,
+  3.19,
+  96.6
+ ],
+ "com_nudge_cm": [
+  -161.73,
+  -3.19,
+  -96.6
+ ],
+ "com_cm": [
+  -170.0,
+  0.0,
+  0.0
+ ],
+ "tensor_actor_kgcm2": [
+  [
+   12053600000.0,
+   102173000.0,
+   -7723180000.0
+  ],
+  [
+   102173000.0,
+   65746900000.0,
+   103746000.0
+  ],
+  [
+   -7723180000.0,
+   103746000.0,
+   67528400000.0
+  ]
+ ],
+ "chaos_I_kgcm2": [
+  68586300000.0,
+  10998200000.0,
+  65744300000.0
+ ],
+ "chaos_principal_axes_rows": [
+  [
+   -0.13523,
+   0.03132,
+   0.99032
+  ],
+  [
+   0.99079,
+   -0.00211,
+   0.13537
+  ],
+  [
+   0.00632,
+   0.99951,
+   -0.03074
+  ]
+ ],
+ "chaos_diagonalized": true,
+ "hull_axis_I_kgcm2": [
+  12053600000.0,
+  65746900000.0,
+  67528400000.0
+ ],
+ "parts": [
+  {
+   "name": "UCX_SM_Airship_00",
+   "volume_m3": 3026.84,
+   "com_cm": [
+    -285.5,
+    -0.3,
+    26.1
+   ],
+   "hull_triangles": 198
+  },
+  {
+   "name": "UCX_SM_Airship_01",
+   "volume_m3": 856.19,
+   "com_cm": [
+    2051.4,
+    -5.2,
+    655.3
+   ],
+   "hull_triangles": 72
+  },
+  {
+   "name": "UCX_SM_Airship_02",
+   "volume_m3": 142.02,
+   "com_cm": [
+    -312.9,
+    25.5,
+    327.6
+   ],
+   "hull_triangles": 34
+  },
+  {
+   "name": "UCX_SM_Airship_04",
+   "volume_m3": 238.07,
+   "com_cm": [
+    -1701.2,
+    -735.8,
+    167.7
+   ],
+   "hull_triangles": 80
+  },
+  {
+   "name": "UCX_SM_Airship_05",
+   "volume_m3": 239.47,
+   "com_cm": [
+    -1700.5,
+    723.3,
+    170.6
+   ],
+   "hull_triangles": 94
+  },
+  {
+   "name": "UCX_SM_Airship_06",
+   "volume_m3": 108.04,
+   "com_cm": [
+    976.5,
+    2.6,
+    -225.8
+   ],
+   "hull_triangles": 46
+  },
+  {
+   "name": "UCX_SM_Airship_09",
+   "volume_m3": 366.7,
+   "com_cm": [
+    361.7,
+    16.1,
+    -262.6
+   ],
+   "hull_triangles": 92
+  },
+  {
+   "name": "UCX_SM_Airship_10",
+   "volume_m3": 427.21,
+   "com_cm": [
+    -745.2,
+    34.3,
+    -291.9
+   ],
+   "hull_triangles": 92
+  }
+ ],
+ "note": "GetInertiaTensor() returns chaos_I in the principal frame (largest, smallest, middle). The flight component uses its components as if they were (roll, pitch, yaw) about the hull axes."
+}

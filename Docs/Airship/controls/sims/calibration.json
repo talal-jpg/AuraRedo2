@@ -1,0 +1,723 @@
+{
+ "val_errors": {
+  "lift": {
+   "ForwardSpeedMS": {
+    "rms": 0.11515357907098285,
+    "max": 0.40143549696677827
+   },
+   "LateralSpeedMS": {
+    "rms": 0.011599209062076473,
+    "max": 0.02236014629992238
+   },
+   "VerticalSpeedMS": {
+    "rms": 0.12427104584419242,
+    "max": 0.40304693138375614
+   },
+   "AltitudeM": {
+    "rms": 0.48558490057223697,
+    "max": 0.5244015811778411
+   },
+   "YawRateDegS": {
+    "rms": 0.026449048644068218,
+    "max": 0.05553079135646313
+   },
+   "RollDeg": {
+    "rms": 0.02133691723931879,
+    "max": 0.04252228589664214
+   },
+   "PitchDeg": {
+    "rms": 0.46193811422736425,
+    "max": 1.1742710919046293
+   }
+  },
+  "throttle": {
+   "ForwardSpeedMS": {
+    "rms": 0.05629668962682875,
+    "max": 0.11876236351998415
+   },
+   "LateralSpeedMS": {
+    "rms": 0.005102975811859727,
+    "max": 0.016470400622740702
+   },
+   "VerticalSpeedMS": {
+    "rms": 0.012261683263067535,
+    "max": 0.02449988508947654
+   },
+   "AltitudeM": {
+    "rms": 0.016870893507093747,
+    "max": 0.039192778120536786
+   },
+   "YawRateDegS": {
+    "rms": 0.0011291683089799378,
+    "max": 0.0032866210053730596
+   },
+   "RollDeg": {
+    "rms": 0.001002313211290034,
+    "max": 0.002577049699813448
+   },
+   "PitchDeg": {
+    "rms": 0.1546028032560716,
+    "max": 0.393994525440295
+   }
+  },
+  "steer": {
+   "ForwardSpeedMS": {
+    "rms": 0.0930386584786541,
+    "max": 0.18252309072815365
+   },
+   "LateralSpeedMS": {
+    "rms": 0.0792976988412388,
+    "max": 0.1262756925909887
+   },
+   "VerticalSpeedMS": {
+    "rms": 0.010905450140967854,
+    "max": 0.03101076147095483
+   },
+   "AltitudeM": {
+    "rms": 0.0184047713010674,
+    "max": 0.04115837083475782
+   },
+   "YawRateDegS": {
+    "rms": 0.03315297018035552,
+    "max": 0.13307586252321002
+   },
+   "RollDeg": {
+    "rms": 0.0692229235634577,
+    "max": 0.28500404976417437
+   },
+   "PitchDeg": {
+    "rms": 0.22120873583036899,
+    "max": 0.5443271282497859
+   }
+  },
+  "boost": {
+   "ForwardSpeedMS": {
+    "rms": 0.013209653491897446,
+    "max": 0.02554206286406213
+   },
+   "LateralSpeedMS": {
+    "rms": 0.05009555700381877,
+    "max": 0.10542851432058686
+   },
+   "VerticalSpeedMS": {
+    "rms": 0.013245783232857824,
+    "max": 0.030549703403363326
+   },
+   "AltitudeM": {
+    "rms": 0.00542513680096012,
+    "max": 0.009436821150512031
+   },
+   "YawRateDegS": {
+    "rms": 0.03737206969690263,
+    "max": 0.1289367009203648
+   },
+   "RollDeg": {
+    "rms": 0.1364848004078528,
+    "max": 0.31514702109180703
+   },
+   "PitchDeg": {
+    "rms": 0.0110862702034084,
+    "max": 0.01448341527603425
+   }
+  },
+  "brake": {
+   "ForwardSpeedMS": {
+    "rms": 0.10932672554457655,
+    "max": 0.16253681698945144
+   },
+   "LateralSpeedMS": {
+    "rms": 0.01508142145234623,
+    "max": 0.026960806062581923
+   },
+   "VerticalSpeedMS": {
+    "rms": 0.22500278595618237,
+    "max": 0.4935706056606829
+   },
+   "AltitudeM": {
+    "rms": 0.21767299609076082,
+    "max": 0.3608008201631989
+   },
+   "YawRateDegS": {
+    "rms": 0.005547981034341694,
+    "max": 0.0196074782583694
+   },
+   "RollDeg": {
+    "rms": 0.026087069024517538,
+    "max": 0.08628353588940996
+   },
+   "PitchDeg": {
+    "rms": 0.6803093063581975,
+    "max": 1.0451848020529657
+   }
+  }
+ },
+ "hover": {
+  "pitch_p10": 0.23590492268152274,
+  "pitch_med": 0.567385229368683,
+  "pitch_p90": 0.8503086947388474,
+  "roll_med": 0.02000993329396451,
+  "alt_span_med": 0.01813755376653603
+ },
+ "mp_fly0_rms": {
+  "forward_speed": 0.3609052633794707,
+  "yaw_rate": 0.7243461567041631
+ },
+ "mp_fly1_rms": {
+  "forward_speed": 0.35427249561755614,
+  "yaw_rate": 0.5382248665792682
+ },
+ "mp_latency": {
+  "fly0": {
+   "pie": {
+    "E1_throttle": {
+     "client_controls": 15,
+     "server_controls": 16,
+     "server_physics": 18,
+     "client_physics": 19,
+     "k0": 15
+    },
+    "E2_steer_right": {
+     "client_controls": 150,
+     "server_controls": 151,
+     "server_physics": 151,
+     "client_physics": 153,
+     "k0": 150
+    },
+    "E3_steer_left": {
+     "client_controls": 270,
+     "server_controls": 271,
+     "server_physics": 271,
+     "client_physics": 271,
+     "k0": 270
+    },
+    "E4_brake": {
+     "client_controls": 330,
+     "server_controls": 331,
+     "server_physics": 331,
+     "client_physics": 331,
+     "k0": 330
+    }
+   },
+   "sim": {
+    "E1_throttle": {
+     "client_controls": 16,
+     "server_controls": 17,
+     "server_physics": 19,
+     "client_physics": 19,
+     "k0": 15
+    },
+    "E2_steer_right": {
+     "client_controls": 151,
+     "server_controls": 152,
+     "server_physics": 152,
+     "client_physics": 152,
+     "k0": 150
+    },
+    "E3_steer_left": {
+     "client_controls": 271,
+     "server_controls": 272,
+     "server_physics": 272,
+     "client_physics": 272,
+     "k0": 270
+    },
+    "E4_brake": {
+     "client_controls": 331,
+     "server_controls": 332,
+     "server_physics": 332,
+     "client_physics": 332,
+     "k0": 330
+    }
+   }
+  },
+  "fly1": {
+   "pie": {
+    "E1_throttle": {
+     "client_controls": 15,
+     "server_controls": 19,
+     "server_physics": 19,
+     "client_physics": 23,
+     "k0": 15
+    },
+    "E2_steer_right": {
+     "client_controls": 150,
+     "server_controls": 155,
+     "server_physics": 155,
+     "client_physics": 158,
+     "k0": 150
+    },
+    "E3_steer_left": {
+     "client_controls": 270,
+     "server_controls": 274,
+     "server_physics": 274,
+     "client_physics": 270,
+     "k0": 270
+    },
+    "E4_brake": {
+     "client_controls": 330,
+     "server_controls": 335,
+     "server_physics": 335,
+     "client_physics": 330,
+     "k0": 330
+    }
+   },
+   "sim": {
+    "E1_throttle": {
+     "client_controls": 16,
+     "server_controls": 20,
+     "server_physics": 21,
+     "client_physics": 23,
+     "k0": 15
+    },
+    "E2_steer_right": {
+     "client_controls": 151,
+     "server_controls": 155,
+     "server_physics": 155,
+     "client_physics": 158,
+     "k0": 150
+    },
+    "E3_steer_left": {
+     "client_controls": 271,
+     "server_controls": 275,
+     "server_physics": 275,
+     "client_physics": 278,
+     "k0": 270
+    },
+    "E4_brake": {
+     "client_controls": 331,
+     "server_controls": 335,
+     "server_physics": 335,
+     "client_physics": 338,
+     "k0": 330
+    }
+   }
+  }
+ },
+ "table": [
+  {
+   "name": "Lift +1 4 s: climb rate max (m/s)",
+   "pie": 12.003,
+   "sim": 12.003,
+   "err": 0.0
+  },
+  {
+   "name": "Lift +1 4 s: height gained (m)",
+   "pie": 37.599,
+   "sim": 38.114,
+   "err": 0.515
+  },
+  {
+   "name": "Lift -1 4 s: sink rate min (m/s)",
+   "pie": -14.222,
+   "sim": -14.221,
+   "err": 0.001
+  },
+  {
+   "name": "Lift release (from -14 m/s): |vz| 1 s after (m/s)",
+   "pie": 6.456,
+   "sim": 6.458,
+   "err": 0.002
+  },
+  {
+   "name": "Lift release: |vz| 2 s after (m/s)",
+   "pie": 0.467,
+   "sim": 0.457,
+   "err": -0.01
+  },
+  {
+   "name": "Lift release: altitude 3 s after minus the held altitude (m)",
+   "pie": -0.295,
+   "sim": -0.305,
+   "err": -0.01
+  },
+  {
+   "name": "Lift release: held altitude (m)",
+   "pie": 34.289,
+   "sim": 34.793,
+   "err": 0.504
+  },
+  {
+   "name": "Lift: nose up while climbing (deg)",
+   "pie": 3.139,
+   "sim": 3.23,
+   "err": 0.091
+  },
+  {
+   "name": "Throttle: forward speed at 1 s (m/s)",
+   "pie": 9.37,
+   "sim": 9.413,
+   "err": 0.043
+  },
+  {
+   "name": "Throttle: forward speed at 2 s (m/s)",
+   "pie": 22.24,
+   "sim": 22.344,
+   "err": 0.104
+  },
+  {
+   "name": "Throttle: forward speed at 3 s (m/s)",
+   "pie": 34.654,
+   "sim": 34.771,
+   "err": 0.117
+  },
+  {
+   "name": "Throttle: forward speed at 4 s (m/s)",
+   "pie": 44.155,
+   "sim": 44.226,
+   "err": 0.071
+  },
+  {
+   "name": "Throttle: forward speed at 5 s (m/s)",
+   "pie": 48.727,
+   "sim": 48.736,
+   "err": 0.009
+  },
+  {
+   "name": "Throttle: forward speed at 6 s (m/s)",
+   "pie": 49.47,
+   "sim": 49.452,
+   "err": -0.018
+  },
+  {
+   "name": "Throttle: forward speed at 7 s (m/s)",
+   "pie": 48.643,
+   "sim": 48.631,
+   "err": -0.012
+  },
+  {
+   "name": "Throttle: forward speed at 8 s (m/s)",
+   "pie": 47.939,
+   "sim": 47.937,
+   "err": -0.002
+  },
+  {
+   "name": "Throttle: forward speed at 9 s (m/s)",
+   "pie": 47.723,
+   "sim": 47.725,
+   "err": 0.002
+  },
+  {
+   "name": "Throttle: forward speed at 10 s (m/s)",
+   "pie": 47.772,
+   "sim": 47.774,
+   "err": 0.002
+  },
+  {
+   "name": "Throttle: peak forward speed (m/s)",
+   "pie": 49.52,
+   "sim": 49.505,
+   "err": -0.015
+  },
+  {
+   "name": "Throttle: speed at 10 s (steady, m/s)",
+   "pie": 47.772,
+   "sim": 47.774,
+   "err": 0.002
+  },
+  {
+   "name": "Throttle: nose pitch min (deg)",
+   "pie": -16.46,
+   "sim": -16.366,
+   "err": 0.094
+  },
+  {
+   "name": "Throttle: nose pitch max (deg)",
+   "pie": 1.727,
+   "sim": 1.702,
+   "err": -0.025
+  },
+  {
+   "name": "Throttle: altitude dip (m)",
+   "pie": 1.125,
+   "sim": 1.128,
+   "err": 0.003
+  },
+  {
+   "name": "Steer: yaw rate mean 2-8 s (deg/s)",
+   "pie": 35.162,
+   "sim": 35.165,
+   "err": 0.003
+  },
+  {
+   "name": "Steer: yaw rate at 0.4 s (deg/s)",
+   "pie": 19.02,
+   "sim": 19.023,
+   "err": 0.003
+  },
+  {
+   "name": "Steer: bank 2-8 s min (deg)",
+   "pie": 16.532,
+   "sim": 16.504,
+   "err": -0.028
+  },
+  {
+   "name": "Steer: bank 2-8 s max (deg)",
+   "pie": 17.913,
+   "sim": 17.91,
+   "err": -0.003
+  },
+  {
+   "name": "Steer: nose pitch min (deg)",
+   "pie": -7.049,
+   "sim": -6.711,
+   "err": 0.338
+  },
+  {
+   "name": "Steer: slip speed at 8 s (m/s)",
+   "pie": -17.01,
+   "sim": -16.94,
+   "err": 0.07
+  },
+  {
+   "name": "Steer: altitude lost (m)",
+   "pie": 5.112,
+   "sim": 5.109,
+   "err": -0.003
+  },
+  {
+   "name": "Boost: forward speed at 3.0 s (m/s)",
+   "pie": 86.446,
+   "sim": 86.443,
+   "err": -0.003
+  },
+  {
+   "name": "Boost: nose pitch min before the hit (deg)",
+   "pie": -17.526,
+   "sim": -17.536,
+   "err": -0.01
+  },
+  {
+   "name": "Boost: fuel at 3.0 s",
+   "pie": 14.167,
+   "sim": 14.167,
+   "err": 0.0
+  },
+  {
+   "name": "Brake from 68.0 m/s: speed at 1 s (m/s)",
+   "pie": 25.223,
+   "sim": 25.308,
+   "err": 0.085
+  },
+  {
+   "name": "Brake: speed at 2 s (m/s)",
+   "pie": 4.808,
+   "sim": 4.962,
+   "err": 0.154
+  },
+  {
+   "name": "Brake: half speed after (s)",
+   "pie": 0.833,
+   "sim": 0.833,
+   "err": 0.0
+  },
+  {
+   "name": "Brake: peak decel 0-0.4 s (g)",
+   "pie": 5.162,
+   "sim": 5.19,
+   "err": 0.028
+  },
+  {
+   "name": "Brake: nose flare max (deg)",
+   "pie": 10.325,
+   "sim": 10.129,
+   "err": -0.196
+  },
+  {
+   "name": "Brake: climb over the latched hold (m)",
+   "pie": 3.435,
+   "sim": 3.646,
+   "err": 0.211
+  },
+  {
+   "name": "Hover 10 s: |pitch| max (deg), PIE runs 0.57 / 0.90; sim median of 97 wind seeds",
+   "pie": 0.57,
+   "sim": 0.567,
+   "err": -0.003
+  },
+  {
+   "name": "Hover: |pitch| max over seeds, 10-90 % range (0.24-0.85)",
+   "pie": 0.9,
+   "sim": 0.85,
+   "err": -0.05
+  },
+  {
+   "name": "Hover 10 s: |roll| max (deg), sim median",
+   "pie": 0.04,
+   "sim": 0.02,
+   "err": -0.02
+  },
+  {
+   "name": "Hover 10 s: altitude span (m), sim median",
+   "pie": 0.04,
+   "sim": 0.018,
+   "err": -0.022
+  },
+  {
+   "name": "MP keys (client): throttle 2 s + steer 1 s, max forward speed (m/s)",
+   "pie": 32.558,
+   "sim": 32.621,
+   "err": 0.063
+  },
+  {
+   "name": "MP keys: forward speed at release 2.3 s (m/s)",
+   "pie": 23.44,
+   "sim": 23.46,
+   "err": 0.02
+  },
+  {
+   "name": "MP fly0 (no lag): top forward speed (m/s)",
+   "pie": 52.157,
+   "sim": 52.001,
+   "err": -0.156
+  },
+  {
+   "name": "MP fly0 E1_throttle: server_controls, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E1_throttle: server_physics, frames after the pilot's controls",
+   "pie": 3,
+   "sim": 3,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E1_throttle: client_physics, frames after the pilot's controls",
+   "pie": 4,
+   "sim": 3,
+   "err": -1
+  },
+  {
+   "name": "MP fly0 E2_steer_right: server_controls, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E2_steer_right: server_physics, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E2_steer_right: client_physics, frames after the pilot's controls",
+   "pie": 3,
+   "sim": 1,
+   "err": -2
+  },
+  {
+   "name": "MP fly0 E3_steer_left: server_controls, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E3_steer_left: server_physics, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E3_steer_left: client_physics, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E4_brake: server_controls, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E4_brake: server_physics, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly0 E4_brake: client_physics, frames after the pilot's controls",
+   "pie": 1,
+   "sim": 1,
+   "err": 0
+  },
+  {
+   "name": "MP fly1 (100 ms each way): top forward speed (m/s)",
+   "pie": 54.491,
+   "sim": 54.637,
+   "err": 0.146
+  },
+  {
+   "name": "MP fly1 E1_throttle: server_controls, frames after the pilot's controls",
+   "pie": 4,
+   "sim": 4,
+   "err": 0
+  },
+  {
+   "name": "MP fly1 E1_throttle: server_physics, frames after the pilot's controls",
+   "pie": 4,
+   "sim": 5,
+   "err": 1
+  },
+  {
+   "name": "MP fly1 E1_throttle: client_physics, frames after the pilot's controls",
+   "pie": 8,
+   "sim": 7,
+   "err": -1
+  },
+  {
+   "name": "MP fly1 E2_steer_right: server_controls, frames after the pilot's controls",
+   "pie": 5,
+   "sim": 4,
+   "err": -1
+  },
+  {
+   "name": "MP fly1 E2_steer_right: server_physics, frames after the pilot's controls",
+   "pie": 5,
+   "sim": 4,
+   "err": -1
+  },
+  {
+   "name": "MP fly1 E2_steer_right: client_physics, frames after the pilot's controls",
+   "pie": 8,
+   "sim": 7,
+   "err": -1
+  },
+  {
+   "name": "MP fly1 E3_steer_left: server_controls, frames after the pilot's controls",
+   "pie": 4,
+   "sim": 4,
+   "err": 0
+  },
+  {
+   "name": "MP fly1 E3_steer_left: server_physics, frames after the pilot's controls",
+   "pie": 4,
+   "sim": 4,
+   "err": 0
+  },
+  {
+   "name": "MP fly1 E3_steer_left: client_physics, frames after the pilot's controls",
+   "pie": 0,
+   "sim": 7,
+   "err": 7
+  },
+  {
+   "name": "MP fly1 E4_brake: server_controls, frames after the pilot's controls",
+   "pie": 5,
+   "sim": 4,
+   "err": -1
+  },
+  {
+   "name": "MP fly1 E4_brake: server_physics, frames after the pilot's controls",
+   "pie": 5,
+   "sim": 4,
+   "err": -1
+  },
+  {
+   "name": "MP fly1 E4_brake: client_physics, frames after the pilot's controls",
+   "pie": 0,
+   "sim": 7,
+   "err": 7
+  }
+ ]
+}
