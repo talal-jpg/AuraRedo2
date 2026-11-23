@@ -3,6 +3,8 @@
 
 #include "Character/MyCharacterMovementComponent.h"
 
+#include "AbilitySystem/Abilities/GA_GrappleSwing2.h"
+#include "Character/MyCharPlayer.h"
 #include "GameFramework/Character.h"
 
 /** Saved move with GA_JumpHover's hover wish */
@@ -124,6 +126,7 @@ void UMyCharacterMovementComponent::ControlledCharacterMove(const FVector& Input
 bool UMyCharacterMovementComponent::DoJump(bool bReplayingMoves, float DeltaTime)
 {
 	bPendingAirJumpRedirect=false;
+	bPendingAirJumpNotify=false;
 	// Root motion owns the velocity (GA_GrappleSwing2's swing, montages): no jump, so the air jump is kept. The jump
 	// flag still travels with the move, which is what lets go of the rope
 	if (HasAnimRootMotion() || CurrentRootMotion.HasOverrideVelocity())
@@ -142,6 +145,7 @@ bool UMyCharacterMovementComponent::DoJump(bool bReplayingMoves, float DeltaTime
 	}
 
 	bPendingAirJumpRedirect=bAirJump;
+	bPendingAirJumpNotify=bAirJump && !bReplayingMoves;
 	if (bAirJump)
 	{
 		// Super only raises the upward speed to JumpZVelocity on the first jump or with bDontFallBelowJumpZVelocityDuringJump
@@ -172,6 +176,36 @@ void UMyCharacterMovementComponent::UpdateCharacterStateBeforeMovement(float Del
 		bPendingAirJumpRedirect=false;
 		ApplyAirJumpRedirect();
 	}
+	if (bPendingAirJumpNotify)
+	{
+		bPendingAirJumpNotify=false;
+		// After the redirect: the montage can't change this move's velocity
+		if (AMyCharPlayer* Player=Cast<AMyCharPlayer>(CharacterOwner))
+		{
+			Player->OnAirJumped();
+		}
+	}
+
+	// On the rope the air jump comes back (inside the move, so the server and replays do the same). The jump that lets
+	// go of the rope doesn't jump (DoJump above), so the air jump is still there after the release
+	if (bAirJumpResetsOnSwing && CharacterOwner && IsOnGrappleRope())
+	{
+		CharacterOwner->JumpCurrentCount=0;
+		CharacterOwner->JumpCurrentCountPreJump=0;
+	}
+}
+
+bool UMyCharacterMovementComponent::IsOnGrappleRope() const
+{
+	for (const TSharedPtr<FRootMotionSource>& Source:CurrentRootMotion.RootMotionSources)
+	{
+		if (Source.IsValid() && Source->GetScriptStruct()==FRootMotionSource_GrappleSwing2::StaticStruct()
+			&& static_cast<const FRootMotionSource_GrappleSwing2*>(Source.Get())->Phase==EGS2Phase::Swing)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void UMyCharacterMovementComponent::ApplyHover()
