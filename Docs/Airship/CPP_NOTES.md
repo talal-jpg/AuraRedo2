@@ -16,7 +16,7 @@ Code: `Source/Aura/Public/Airship/`, `Source/Aura/Private/Airship/`. Design: `RI
 | `UAirshipSettings` (UDeveloperSettings, Config=Game, DefaultConfig) | `AirshipSettings.h` | Project Settings > Game > Airship (`[/Script/Aura.AirshipSettings]`). `AirshipClass` (soft class), spawn distance/height, `bAddPilotComponent`, `BoardDistance` 1200 (to the pilot seat) / `BoardHullDistance` 400 (to the hull collision), `BoardCooldown` 0.5, `PassengerCheckInterval` 0.1 s, all IMC/IA soft pointers with default paths (section 2). No ini change needed. |
 | `AAirshipCannonball` | `AirshipCannonball.h/.cpp` | Replicated ball, UProjectileMovementComponent (gravity 1, no homing), movement not replicated: every machine flies it from the replicated launch velocity. Server only: ignores its ship, everything attached to it (pilot) and other balls; direct hit on a GAS actor -> the ship's spec; splash (450 cm, falloff to 0.3); Mech Sentinels swept along the flight (60 cm) and in the blast (`SplashRadius`, same falloff), each sentinel once per ball (shared hit set; `SweepSentinels` + the rules' damage spec, next-tick timer). If the ship is gone when the ball lands and the damage effect has an execution (UExecCalc_Damage reads the source ASC unchecked), the GAS hit is skipped; the built-in effect still applies. Then hides, `MulticastImpact` (ImpactFX + `BP_OnImpact`), removed after 1 s. |
 | `UAirshipDamageEffect` (UGameplayEffect) | `AirshipDamageEffect.h/.cpp` | Built-in instant GE: Additive `UMyAttributeSet::IncomingDamage`, SetByCaller `SetDamageByCaller`. Default for impacts, console damage and cannonballs when `DamageEffectClass` is unset. |
-| types | `AirshipTypes.h` | `FAirshipPilotInput` (int8 axes, button bits, uint8 Seq, FVector_NetQuantize AimPoint), `FAirshipFlightTelemetry` (BlueprintType), `FAirshipCosmeticState` (C++ only), `EAirshipSide`, `Airship::` constants (pod order FL FR RL RR, fans L R, cannons L1 L2 R1 R2). |
+| types | `AirshipTypes.h` | `FAirshipPilotInput` (int8 axes, button bits, uint8 Seq, FVector_NetQuantize AimPoint, uint16 HeadingTarget), `FAirshipFlightTelemetry` (BlueprintType), `FAirshipCosmeticState` (C++ only), `EAirshipSide`, `EAirshipControlScheme`, `FAirshipFeedbackEvent`, `FPointFlyLoopState`, `Airship::` constants (pod order FL FR RL RR, fans L R, cannons L1 L2 R1 R2, button bits), `AirshipGalleon::` (the engine order code). Control schemes: section 14. |
 
 No new gameplay tags (damage uses `MyTags::SetDamageByCaller`).
 
@@ -224,7 +224,8 @@ machine (pilot: local camera, others: replicated aim point); the other side rest
 | `Aura.Airship.Set <Name> <Value>` | any (forces: server) | sets a property on every ship by reflection: flight component by default, `Pawn.<Name>`, `Anim.<Name>`; any text-importable type; re-applies body settings |
 | `Aura.Airship.Get <Name>` | any | prints it |
 | `Aura.Airship.Input <thr> <steer> [lift] [strafe] [boost] [brake]` / `Aura.Airship.InputClear` | server (a client's own ship: its client, through the input RPC) | flies every ship (DebugSetInput) |
-| `Aura.Airship.Telemetry` | any | logs the telemetry of every ship |
+| `Aura.Airship.Telemetry` | any | logs the telemetry of every ship, a second line with the control scheme's state (scheme, Galleon order, Sky Racer drift / turbo, Point & Fly heading target, free look, gun deck, gun lock) and a third with the hull inertia (`GetInertiaTensor`, the mass frame from `GetMassSpaceLocal`, the hull-space COM; BASELINE 4f row 0) |
+| `Aura.Airship.Scheme [0-3 \| check]` | `0-3`: server; no argument and `check`: any | `0-3`: every ship switches control scheme (0 Classic (v1), 1 Galleon, 2 Sky Racer, 3 Point & Fly = the default; replicated, section 14). No argument: each ship's scheme and the flight model's copy. `check`: every scheme-owned property that differs from the class defaults, and the count (0 after `Aura.Airship.Scheme 0`) |
 | `Aura.Airship.Debug 0/1` (CVar) | server | draws pod (yellow, exhaust direction), fan (cyan), COM force (green), torque (magenta), velocity (white), hold altitude (blue), ground traces |
 | `Aura.Airship.RepMode 0/1` (CVar) | every machine | Default / PredictiveInterpolation (1 only with Physics Prediction on; otherwise Default + one warning) |
 | `Aura.Airship.Passengers` | any | re-checks the deck passengers of this world now and logs each (root collision enabled value (1 = QueryOnly), whether the root has a physics body, actor collision, attached or not) |
@@ -235,7 +236,8 @@ and reaches the server through `ServerSetPilotInput` like them; on the server's 
 by nobody it drives the forces directly), `DebugClearInput`, `GetFlightTelemetry()` -> `FAirshipFlightTelemetry`
 (SpeedMS, ForwardSpeedMS, LateralSpeedMS, AltitudeM, GroundClearanceM, VerticalSpeedMS, YawRateDegS, RollDeg, PitchDeg,
 YawDeg, HoldAltitudeM, BoostFuel, Health, MaxHealth, MassKg, shaped Throttle/Steer/Lift/Strafe/Boost, bBraking,
-bDrifting, bHasPilot, bIsDead), `ApplyShipDamage`, `RequestFire` (locally controlled only), `GetPilot`, `HasPilot`,
+bDrifting, bHasPilot, bIsDead, and the control-scheme fields of section 14.6), `SetControlScheme` / `GetControlScheme`
+(section 14), `ApplyShipDamage`, `RequestFire` (locally controlled only), `GetPilot`, `HasPilot`,
 `IsAirshipDead`, `GetPassengers()` (this machine's riders), `IsShipHUDShown()` (the pilot's machine: true only with the
 widget on screen), `TraceGroundDistance(MaxDistance)` (cm from the bottom of the hull's bounds to the ground, -1 =
 nothing). The pilot component: `RequestBoard`, `RequestExit`, `FindBoardableAirship`. From Python a passenger's capsule
@@ -400,3 +402,260 @@ work over the network; the C++ changes:
 
 Builds: `_AirshipWork_logs/build_161635.log` (DebugSetInput), `build_164949.log` (every-frame replication + RepMode
 guard), both clean.
+
+## 14. Control schemes (2026-11-23)
+
+Four ways to fly the ship in one build: Classic (v1), Galleon, Sky Racer and Point & Fly. Design, tuning and the bench
+numbers are in `Docs/Airship/controls/`: `IMPLEMENTATION_PLAN.md` (the change list this code follows), the three
+`SCHEME_*.md` specs, `BASELINE.md` (v1 and the base fixes) and the Python bench in `controls/sims/`. **Status:** built
+clean on the first try (2026-11-22 22:24 UTC), PIE pass 1 for all four schemes (`controls/PIE_RESULTS.md`), judged:
+**Point & Fly won and is the default** since the polish of 14.12 (built clean 2026-11-23 01:03 UTC; the final play
+test of that build: `controls/PIE_RESULTS.md` "Final"). Classic, Galleon and Sky Racer stay switchable: console
+`Aura.Airship.Scheme <0-3>` on the server (0 Classic (v1), 1 Galleon, 2 Sky Racer, 3 Point & Fly; section 6), the
+`ControlScheme` property (BP_AirshipPawn's Details panel, Airship > Controls) or `SetControlScheme` (14.3). User docs:
+`Docs/Airship/HOW_TO_FLY.md` (v2: keys, HUD and moves per scheme), `controls/RESULTS.md` (what was built, tested,
+judged and polished), `controls/README.md` (the folder index).
+
+### 14.1 The schemes
+
+| Scheme (`EAirshipControlScheme`) | W / S | A / D | Q / E | X (brake) | Mouse / right stick | Aim (RMB / LB) |
+|---|---|---|---|---|---|---|
+| `Classic` = 0, "Classic (v1)" | throttle pedal | turn | sidestep | brake; + A/D = drift | free look, recentres | FOV -15 |
+| `Galleon` = 1 | engine telegraph: one notch per press (ASTERN, STOP, SLOW, HALF, FULL), held = auto-step, STOP is a detent; the ship holds the ordered speed | helm with "meet her" | sidle | air brake, then the order resumes; + A/D = stern swing | ship-relative camera; past 55 deg off the bow = beam watch | broadside stations (level gun deck, helm x 0.5), also from beam watch within 6 s of an own broadside |
+| `SkyRacer` = 2, "Sky Racer" | W drive, S progressive brake (reverse below 3 m/s) | fast planted turn | sidestep | brake; + A/D above 15 m/s = drift that charges a 3-tier mini-turbo, released with X | chase camera that looks into the turn | gun deck |
+| `PointFly` = 3, "Point & Fly" (**the default**) | drive / firm slow-down | sidestep | turn the heading target | brake; with a big turn left = brake-drift (kick only up to cruise) | **the camera yaw is the heading target**; at rest with no key it only looks (parked free look) | free look, the ship holds its heading; for 6 s after an own broadside the gun lock keeps a broadside on an aim 55-150 deg off the bow (Fire held was meant to arm it too, but is never read: 14.12 P4 note) |
+
+All four share the base fixes of BASELINE 4f (off in Classic), the shared mechanisms of IMPLEMENTATION_PLAN 1.9 and
+one feedback implementation (camera shake, FOV punch, camera roll, rumble; off in Classic).
+
+### 14.2 What runs where
+
+| Part | Pilot's machine | Server | Observers |
+|---|---|---|---|
+| The scheme | applies the preset (OnRep or host) | owns `ControlScheme`, applies the preset | apply the preset (OnRep) |
+| Galleon telegraph, beam watch, stations flag | `GatherLocalInput` (`UpdateGalleonOrders`): the order rides `Throttle` as a code, stations ride `Buttons` bit 4 | reads them | - |
+| Galleon speed loop, order pulses, stern swing | `ShapeControls` (`ShapeGalleon`) | the same, plus the forces | the same from `RepInput` |
+| Sky Racer drift state machine (charge, tier, chain, turbo, S-brake ramp) | `ShapeControls` (`ShapeSkyRacer`), from its own controls | the same; pays the turbo kick and fuel (`ApplyForces`) | the same from `RepInput` |
+| Point & Fly camera -> heading target, gun lock, lock lead | `UpdatePointFlyCamera` at the start of `GatherLocalInput`; sends `HeadingTarget`, and its own copy of the heading loop's steer (its wheel / fans / bank) | runs `ComputeHeadingSteer` on the authoritative hull and writes `Controls.Steer` before `RepInput` | shape the server's steer |
+| Forces (every scheme, every base fix) | - | `ApplyForces` | - |
+| Camera, feedback, HUD | `UpdateCamera`, `UpdateFeedback`, `UAirshipHUDWidget` | - | - |
+
+### 14.3 Switching and the preset table
+
+* `AAirshipPawn::ControlScheme` (EditAnywhere, BlueprintReadOnly, `ReplicatedUsing = OnRep_ControlScheme`, every
+  connection; default **Point & Fly** since the polish, 14.12; Classic before. The tunables' class defaults are still
+  v1, so the Classic preset is unchanged). `SetControlScheme(NewScheme)` (BlueprintCallable): authority applies, replicates and
+  `ForceNetUpdate`s; a client only logs a warning. `GetControlScheme()` (BlueprintPure). From Python:
+  `ship.set_control_scheme(unreal.AirshipControlScheme.SKY_RACER)`.
+* Applying (`ApplyControlScheme`, private): BeginPlay (after the components), `SetControlScheme`, `OnRep_ControlScheme`
+  (only after BeginPlay). Steps: `ApplySchemePreset`, `Flight->SetActiveScheme` (the flight model's copy,
+  `UAirshipFlightComponent::ActiveScheme`, which every scheme branch tests), `OnTuningChanged`, `ZoomTarget =
+  CameraArmLength` (the arm eases there), `ResetSchemePilotState`, the camera component's relative transform zeroed,
+  the FOV filter re-synced, `RefreshShipHUDLayout`.
+* **The preset table** is in `AirshipPawn.cpp`: the X-macro lists at the top (`AIRSHIP_FC_*_PROPS`,
+  `AIRSHIP_PAWN_*_PROPS`, `AIRSHIP_BOOM_SCHEME_PROPS`: every scheme-owned property), `ApplySchemePreset` (copies all of
+  them from the archetype: the Blueprint class defaults, which override none of them, so Classic is v1 by
+  construction and switching is order-independent) and `ApplyGalleonPreset` / `ApplySkyRacerPreset` /
+  `ApplyPointFlyPreset` (plain assignments of the values that differ from Classic, as in IMPLEMENTATION_PLAN 1.13).
+  A level instance's own overrides of these properties are discarded on every apply.
+* Scheme-only tunables (`Galleon*`, `Sky*`, `PF*` on the flight component and the pawn) default to their scheme's
+  value and are only read under that scheme. Tunables are never replicated: every machine writes the same preset.
+  `Aura.Airship.Set` stays per machine and lasts until the next scheme apply.
+
+### 14.4 Wire and replication
+
+* `FAirshipPilotInput::HeadingTarget` (uint16, +2 bytes per packet): Point & Fly's heading target, 1..65534 = the
+  yaw, 0 = none (so neutral input never means "head north"). Not in `SameControls`: it rides the `InputSendRate`
+  heartbeat like `AimPoint`. `EncodeHeading`, `HasHeadingTarget`, `GetHeadingTargetDeg`.
+* `Airship::Button_Stations` (bit 4): Galleon's broadside stations; only read under Galleon.
+* Galleon's order on `Throttle`: `AirshipGalleon::NotchToThrottle` (-127, 0, 42, 85, 127) / `ThrottleToNotch`, a
+  latched code (a lost packet changes nothing). Neutral input = STOP. Server timeout under Galleon: the last accepted
+  packet is kept with helm, lift, sidle and buttons neutral (`LastGoodServerInput`), so a hiccup costs the helm, not
+  the speed.
+* `DebugSetInput` / `Aura.Airship.Input` carry no heading target and no stations bit: Classic-style cross-checks in
+  every scheme (under Galleon the throttle value is the order code: 1 FULL, 0.67 HALF, 0.33 SLOW, 0 STOP, -1 ASTERN).
+* Switch window (half a round trip before the client's OnRep): Galleon reads Classic throttle values as order codes (at
+  most one notch of lurch); Point & Fly uses a packet's Steer axis when it carries no target. No scheme id in the packet.
+
+### 14.5 Reset rules
+
+| Event | Machine | Flight component | Pawn (pilot side) |
+|---|---|---|---|
+| Scheme applied | all | `SetActiveScheme` -> `ResetSchemeState(true)` (also the v1 drift timer) | `ResetSchemePilotState(true)`: Galleon's notch from the speed (`NotchForSpeed`), camera transform zeroed |
+| Pilot changes (`OnRep_PilotCharacter`, also called by the server at board / exit) | all | `ResetSchemeState(false)` | `ResetSchemePilotState(false)`: Galleon rings STOP |
+| Local player boards (`UpdateLocalMappingContext` adds the IMC) | pilot | - | `ResetSchemePilotState(false)` + `bPendingCameraReset` |
+| Possession change (`PossessedBy` / `UnPossessed` -> `ResetInput`) | server | `ResetSchemeState(false)`, `LastGoodServerInput` cleared | - |
+| Death (`SetFlightEnabled(false)` -> `ResetInput`; every frame while dead) | all | `ResetSchemeState(false)` | `ResetSchemePilotState(false)` in `HandleDeath` |
+| Debug input on the pilot's machine | pilot | - | Point & Fly: `bPFValid = false` every frame |
+
+`ResetSchemeState` never touches the hold altitude, the pod spool, the boost latch, the fuel or the shaped controls
+(no jump in forces or cosmetics). `SkyTurboEventCount` keeps counting (the pawn and the HUD detect releases by its
+change). A Sky Racer drift in progress is dropped without a turbo.
+
+### 14.6 Telemetry (`FAirshipFlightTelemetry`, `GetFlightTelemetry()`)
+
+| Field | Type | Meaning |
+|---|---|---|
+| `Scheme` | uint8 | the flight model's `ActiveScheme`, every machine |
+| `ThrottleOrder` | float | Galleon: -1 ASTERN, 0 STOP, 1/3 SLOW, 2/3 HALF, 1 FULL (every machine, decoded from the controls); else -2 |
+| `DriftCharge` | float | Sky Racer: 0..1 while drifting (every machine runs the drift); else 0 |
+| `bHeadingTargetActive`, `HeadingTargetDeg` | bool, float | Point & Fly: pilot = its own target (with the lock lead), server = the received one, observers = from `RepInput`; else false / 0 |
+| `bFreeLook` | bool | false only in Point & Fly's steering mode (pilot: Aim up; others: the Aim bit). The parked free look (14.12 P3) is not in it: `AAirshipPawn::IsPFParked()` |
+| `DriftDir`, `DriftTier` | int32 | Sky Racer: drift direction, the tier of the charge (no grace); other schemes: the v1 drift / swing direction, tier 0 |
+| `TurboAlpha`, `TurboChain` | float, int32 | Sky Racer: burn left 1 -> 0, chain links of the current / last drift; else 0 |
+| `bGunDeck` | bool | the steady gun deck (Galleon: stations bit; others: Aim) |
+| `bGunLock` | bool | Point & Fly gun lock (pilot's machine only) |
+
+`Aura.Airship.Telemetry` prints them on a second line per ship (section 6).
+
+### 14.7 Feedback (pilot's machine)
+
+One implementation for every scheme (`AddFeedback`, `PlayRumble`, `UpdateFeedback` at the end of `UpdateCamera`), all
+off in Classic: trauma shake on the camera component (`ShakeRotDeg`, `ShakeLocCm`, `ShakeFrequency`, `ShakeDecay`;
+Perlin noise on the relative rotation / location, never the control rotation), a FOV punch added after the FOV
+interpolation (`FOVKickDecay`, `FOVMaxDeg`), camera roll (`CameraRollPerBank`, `CameraRollPerSteerDeg`,
+`CameraRollMaxDeg`, `CameraRollInterpSpeed`), rumble through the native `APlayerController::PlayDynamicForceFeedback`
+overload (`RumbleScale`), a drift trauma floor and continuous rumble (`DriftTrauma*`, `DriftRumble*`) and hull-hit
+shake / rumble (`ShakeHitPerMS`, `ShakeHitMax`, `RumbleHitPerMS`). Per event an `FAirshipFeedbackEvent` (trauma, FOV
+kick, rumble, rumble time, large motors): `FeedbackBoostStart`, `FeedbackOwnBroadside` (`HandleCannonsFired` on the
+pilot's machine), `FeedbackDriftKick` (the v1 drift / Galleon swing exit), `FeedbackTurbo1/2/3`, `FeedbackOrderChange`
+(Galleon telegraph, FOV sign = direction), `FeedbackLockEngage` (Point & Fly). With everything at 0 the camera's
+relative transform is never written and the FOV path is v1's exactly.
+
+### 14.8 HUD
+
+* The panel (`UAirshipHUDWidget`) reads the ship's scheme every frame. Galleon (+`GalleonExtraHeight` 78): the
+  telegraph row (the ordered notch inverted, a blink on a change, STEAM on FULL while boosting), a speed rule (fill =
+  forward speed, hollow triangle = the ordered speed), the helm row (needle, turn rate, SWING / STATIONS tags) and the
+  facing side's in-arc outline / FIRE. Sky Racer (+`SkyRowHeight` 26): the DRIFT / TURBO row (charge or burn, tier
+  colour and I / II / III, chain xN, an outline flash on a release). Classic and Point & Fly: the v1 panel.
+* After a switch the pawn re-applies the panel's viewport slot at the new size (`RefreshShipHUDLayout`,
+  `UGameViewportSubsystem::SetWidgetSlot`); no hide / re-show.
+* Point & Fly adds a second widget in overlay mode over the whole viewport (`ShipOverlayWidget`, ZOrder 0): a 24 px
+  crosshair (steering; faded while parked) or the gun ring with brackets (broadside: the ring solid in the arc and
+  dashed out of it, filling amber while the facing side reloads in the arc, the brackets amber in the arc and loaded),
+  the nose chevron (projected with `UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition`) with an amber line to
+  the centre while the turn still to come is over 3 deg (not while parked), the heading strip (broadside: +-180 deg
+  around the bow with both guns' arcs, the aim ring and the heading-target diamond), the LOCK tag with the swing arrow,
+  the boarding hint (at least 8 s and until Aim has been held once, at most 45 s; once per local player and session)
+  and the contextual "HOLD RMB / LB TO LOOK" hint (14.12 P6, P7). All marks are lines and the engine font (no assets).
+
+### 14.9 How to add a scheme
+
+1. Add the enumerator to `EAirshipControlScheme` (`AirshipTypes.h`), with a `DisplayName`.
+2. New tunables: flight component or pawn UPROPERTYs whose default is v1-neutral (shared) or the scheme's own value
+   (scheme-only, read only under `ActiveScheme == NewScheme` / `ControlScheme == NewScheme`). Add each one to the matching
+   X-macro list at the top of `AirshipPawn.cpp`, so every apply resets it and `Aura.Airship.Scheme check` sees it.
+3. Write `ApplyNewSchemePreset()` (assignments of the values that differ from Classic) and call it from the `switch`
+   in `ApplySchemePreset`.
+4. Behaviour: shaping in a `ShapeNewScheme` branch of `ShapeControls` (it must set `bShBrake`, `bDrifting`,
+   `ShBrakeAmount` and the throttle target), forces in `ApplyForces` gated by `ActiveScheme`, pilot-side input in
+   `GatherLocalInput`, camera in `UpdateCamera`. Anything the server needs from the pilot's keys or camera goes into
+   `FAirshipPilotInput` (a small quantized field or a free `Buttons` bit: bits 5-7 are free).
+5. Runtime state: reset it in `UAirshipFlightComponent::ResetSchemeState` / `AAirshipPawn::ResetSchemePilotState`.
+6. Telemetry, HUD (`GetPanelSize` / `NativePaint` by `LayoutScheme`), `Aura.Airship.Scheme` (its range check and help
+   text), this section, and a bench plug-in in `controls/sims/` (`scheme_template.py`).
+7. Check: `Aura.Airship.Scheme 0` then `Aura.Airship.Scheme check` must print 0 differences.
+
+### 14.10 Where the code differs from IMPLEMENTATION_PLAN.md
+
+* Sky Racer's nozzle roll into the slide is added after the v1 cone limit and the result is limited again, as the
+  bench's `SkyFlightModel.compute_gimbals` does (the plan and the spec say "before the cone clamp"; with the throttle
+  lean saturated in a drift that would lose most of the roll on the front pods, and the bench numbers were made with
+  the bench's order).
+* Galleon's look-ahead follows the shaped helm (`GetShapedSteer`, as the bench), the camera roll the cosmetic steer
+  (`C.Steer`, x1.3 in a swing), as the plan writes.
+* Point & Fly: a control yaw change under 0.001 deg counts as no change (the float round trip through the
+  PlayerController), so the external-set rule only fires on a real set. The gun lock also reports its swing direction
+  (`GetPFLockSwingDir`, for the LOCK arrow).
+* The shake's Perlin time is wrapped mod 256 (the noise's period), so it keeps its precision in a long session; rumble
+  intensities are clamped to 1.
+* Helpers not named in the plan: `GetSchemePropertyDifferences` (the `check` command), `MeasureHullImpactSpeed` (the
+  damage's impact speed, shared with the hull-hit feedback), `UAirshipHUDWidget::RefreshLayoutScheme`,
+  `AddShipOverlay` / `RemoveShipOverlay`.
+* The Point & Fly overlay draws its gun ring with lines, not with two rounded-box brushes.
+
+### 14.11 Pre-build review (2026-11-23)
+
+A review of the unbuilt code and of the PIE harness `Docs/Airship/scripts/ue/as_50_pie_controls.py`, before the first
+build. No compiler, UHT or editor was allowed, so the code was read against the UE 5.8 headers and checked with
+scripts. **Result: no compile error and no logic error found in the schemes; one robustness fix.**
+
+| Check | How | Result |
+|---|---|---|
+| Declarations vs definitions | script over the three headers and their .cpp files (both ways) | all match (signature and const) |
+| X-macro preset lists | every name a public UPROPERTY of the flight component (160), a pawn UPROPERTY (85) or a `USpringArmComponent` member (4); every assignment in `Apply*Preset` in a list; every new tunable in a list | complete: switching Galleon -> Classic restores every value a preset writes |
+| Preset values | script: `Apply*Preset` against the IMPLEMENTATION_PLAN 1.13 table; Classic column against the header / constructor defaults | all equal |
+| UE 5.8 APIs | `PlayDynamicForceFeedback` (the 6- and 8-argument native calls can't bind to the latent one: a `uint64` is no `FLatentActionInfo`), `FindFProperty(UStruct*, const TCHAR*)`, `Identical_InContainer` / `ExportTextItem_InContainer` (`TNotNull<const void*>`), `GetMassSpaceLocal`, `GetInertiaTensor`, `GetPhysicsAngularVelocityInDegrees`, `SetWidgetSlot`, `FGameViewportWidgetSlot` defaults, `ProjectWorldLocationToWidgetPosition`, `MakeLines(TArray<FVector2f>)`, `TArray` initializer lists, spring arm members, `UEnum::GetDisplayValueAsText` | all as used |
+| Warnings that are errors here (`-Wall -Werror -Wshadow -Wundef -Wunreachable-code-aggressive`, from the build's .rsp) | heuristic scan: locals against outer locals, locals and parameters against own and engine base-class fields; new `#if`s; code after `return`; discarded `[[nodiscard]]` results; `UE_LOG` / `Printf` specifiers against their arguments | none found |
+| Unity build | the new helpers (`WrapDeg`, `ApproachExp`, `MakeFeedback`, `MakeCornerSlot`, `ArcPoints`, `PointFlyHintSeen`) are only in the three named namespaces; no file-scope `using namespace` in `Source/Aura` | no clash |
+| Classic = v1 | every changed code path compared with `git diff` | v1 arithmetic in `ShapeControls`, `ApplyForces`, `ComputeGimbals`, `UpdateCosmetic`, `UpdateCamera`, `UpdateFX`, `LimitImpactResponse`, `OnHullHit` (new terms are `x * 1` or `x + 0`). The only extra work: BeginPlay's scheme apply runs `OnTuningChanged` once more, so `ApplyBodySettings` sets the same mass and centre of mass a second time (idempotent; float noise in the COM nudge at most) |
+| Multiplayer | the pilot-side state, the wire fields, OnRep before / after BeginPlay, late joiners, the switch window, host pilot vs client pilot | as IMPLEMENTATION_PLAN 1.3 |
+| Stability, guards | every new loop is an exact exponential filter or a time-based timer; every new division has a floor | no NaN or zero-divide path found |
+| Harness | protocol self-test against the bench (`as_50_protocol.py --selftest` for all four schemes: 0 differences); mock PIE (`as_50t_mock_pie.py`) standalone with all four schemes and the listen pass with two (0 script errors, 0 TEMP actors left, settings restored); every `unreal` name compared with as_30 / as_43 / as_45, which ran (the names those don't use, `StaticMeshActor`, `ComponentMobility`, `spawn_actor_from_object`, `set_actor_scale3d`, `set_collision_profile_name`, `set_material`, `get_control_rotation`, `get_aim_side` and the two scheme UFUNCTIONs, are all engine or Aura UFUNCTIONs / types that exist) | OK; CONTRACT names (telemetry fields, `AirshipControlScheme.CLASSIC / GALLEON / SKY_RACER / POINT_FLY`, the `check` and inertia log lines) match the C++ |
+
+Fix made: `ResetSchemePilotState(true)` sets Galleon's notch (`NotchForSpeed`) from the hull's live forward speed
+(the expression `UpdateFlight` uses), no longer from the cosmetic state, which is last frame's and was stale right
+after a teleport (a scheme apply just after a teleport from cruise would have rung FULL). The harness's 2-frame wait
+before its re-apply stays as a margin; its comment and TEST_PROTOCOL.md 3.1 say so.
+
+Checked and right as written: Point & Fly's start-frame guard in `UpdatePointFlyCamera` (no look delta on the frame
+the target is re-initialised: without it, boarding would read the character's old control yaw as an outside set and
+send the target there); the gun lock and the lock lead against the bench's `arc_assist` / `pilot_input`; the
+Galleon telegraph, detent, beam watch and stern swing against `scheme_galleon.py`; Sky Racer's state machine, drift
+forces, turbo and gimbal order against `scheme_skyracer.py`; the shared base fixes and the hull-axis tensor against
+the bench's `TENSOR_ACTOR` form.
+
+To watch in the first build and PIE (not errors, the places a compiler or the engine could still disagree with a
+reader): the X-macro expansions in `AirshipPawn.cpp` (one long list; a typo there is a compile error in a macro),
+the HUD's braced point lists passed to the `Lines` / `Stroke` lambdas, the inertia line of `Aura.Airship.Telemetry`
+(IMPLEMENTATION_PLAN 5.4: principal moments about (6.86, 1.10, 6.57) e10 kg cm²) and `Aura.Airship.Scheme check` = 0
+after `Aura.Airship.Scheme 0`.
+
+### 14.12 Polish after judging (2026-11-23): Point & Fly is the default
+
+Three judges ranked the schemes on PIE pass 1 and the bench (weighted totals: Point & Fly 22.31, Sky Racer 22.07,
+Galleon 21.17, Classic 14.03). The winner became the default and got the changes below: tuning values first, three
+small mechanics where the judges agreed and the bench showed the gain. Each one was modelled in the bench first
+(`controls/sims/scheme_pointfly.py`, checks `exit kick park rival m12cam` in `pointfly_checks.py`); the design notes and
+the rejected ideas are in `SCHEME_POINTFLY.md` "Review changes", "Polish after judging". **Built clean** (01:03 UTC,
+0 new warnings). **Verified in PIE** 01:14-02:07 UTC (`controls/PIE_RESULTS.md` "Final"): a fresh ship starts in Point
+& Fly, 17/17 standalone and 9/9 client-pilot runs, every polish check met, Classic still v1 (`check` 0 differences).
+The verify step found one HUD bug and fixed it (F1, last row), built clean at 02:01 UTC (`build_020125.log`).
+
+| # | What | Where | Old -> new |
+|---|---|---|---|
+| P0 | Default scheme | `AAirshipPawn::ControlScheme` initializer (AirshipPawn.h); the HUD's first `LayoutScheme`; the enum comment; the `Aura.Airship.Scheme` help | Classic -> **PointFly**. No tunable's class default changed, so `Aura.Airship.Scheme 0` + `check` still lists 0 differences. `UAirshipFlightComponent::ActiveScheme` stays Classic until the pawn applies its scheme (its tunables are v1 until then). `BP_AirshipPawn` and `L_AirshipTest` can't override it: neither file (unchanged since 90e164b, saved before the property existed) has the name `ControlScheme` in its name table |
+| P1 | Drift-kick cap: the kick only tops the ship up to cruise | new FC tunable `DriftBoostCapSpeed` (0 = off, the v1 kick) + `GetDriftKickDV(Vf)`, used in `ApplyForces` and by the pilot's drift-kick feedback (scaled by the share paid) | 0 (all schemes) -> **4800 cm/s** in the Point & Fly preset |
+| P2 | A fast turn stops where the pilot looks | Point & Fly preset (shared tunables) | `GyroYawMax` 0.5 -> **1.0** rad/s²; "meet her" `KrSteady` 0 -> **5.5** /s, `AlphaYawMaxSteady` 0 -> **1.5** rad/s² |
+| P3 | Parked free look: at rest the mouse only looks; the first drive / sidestep / turn / boost key takes the camera's yaw as the heading (the 150 deg reach clamp keeps the camera still) | new pawn tunable `PFParkSpeed`; `UpdatePointFlyCamera` (new arguments `bMoveKeys`, `bFireHeld`), `bPFParked`, `IsPFParked()` (BlueprintPure) | new, **300 cm/s** (0 = off). An outside set of the control rotation (harness, reset) still sets the heading while parked |
+| P4 | The gun lock is armed only while Fire is held or for a while after the pilot's own broadside (`LastOwnBroadsideTime`), so Aim alone is a clean free look. **Note:** the Fire-held half never fires (below) | new pawn tunable `PFLockArmTime`; `UpdatePointFlyCamera` | new, **6 s** (0 = always armed, pass 1) |
+| P5 | Lock lead for a crosshair-held target | `PFLockLeadTime` | 0.45 -> **0.6 s** |
+| P6 | Overlay legibility and the broadside strip | `UAirshipHUDWidget::PaintPointFlyOverlay` / `RefreshOverlayValues` | crosshair 14 -> 24 px (2 px lines; faded while parked); nose chevron 10 -> 18 px; gap line 1 px ink -> 2 px amber with an ink outline (hidden while parked); LOCK tag 1.5 x (font 11 -> 16); heading strip +-60 deg around the camera at 3 px/deg -> **+-180 deg around the bow** at 1.5 px/deg, ticks every 30 deg, the two guns' arcs (beam +-`CannonYawLimitDeg`, the facing side amber in arc and loaded), the aim as a ring, the heading target as a diamond, the bow fixed at the centre |
+| P7 | Look hints | same | boarding hint 8 s -> at least 8 s and until Aim has been held once (at most 45 s); new contextual "HOLD RMB / LB TO LOOK" under the crosshair while steering with the camera more than 50 deg off the nose for 0.3 s, until Aim has been held once (per local player and session: `PointFlyLookLearned`) |
+| - | Comment fix | `HullPhysicalMaterial` (AirshipPawn.h) | "restitution 0.35 suggested" -> PM_AirshipHull's real values: friction 0.2, restitution 0.08, combine Min + override (as_42) |
+| - | Harness | `as_43_pie_validate.py`, `as_45_pie_mp.py` (`start_settle`: `AS43_SCHEME` / `AS45_SCHEME`, default 0 = Classic, the v1 checks), `as_50t_mock_pie.py` (mock ship starts in Point & Fly), `_AirshipWork_logs/run_controls_pie2.sh` comment | they used the pawn's default scheme. as_45 sets only the first ship: its second ship (`Aura.Airship.Spawn`) starts in Point & Fly, so `e3_hud_host_flying` sees 2 HUD widgets even in a Classic run |
+| F1 | Overlay text plates sized at the paint scale (verify step) | `AirshipHUDWidget.cpp`: new `AirshipHUDPrivate::MeasureWidthAtScale` (`FSlateFontMeasure::Measure` at the paint geometry's accumulated layout scale, divided by it), used by the overlay's `Tag` (LOCK, "HOLD RMB / LB TO LOOK") and the two boarding-hint rows in `PaintPointFlyOverlay` | the text was measured at scale 1 but drawn at the viewport's DPI scale (about 1.12 in PIE), where the rounded glyph advances made it about 7 % wider: "Q/E TU\|RN" ran past its plate. The v1 panel keeps `MeasureWidth`, so Classic's HUD is unchanged. Seen fixed on the client's boarding grab (as_45, another window size) |
+
+**P4 note (docs step, from the code):** `GatherLocalInput` passes `Button(FireAction)` as `bFireHeld`, but
+`Button` reads `UEnhancedInputComponent::GetBoundActionValue`, which only knows the actions bound with
+`BindActionValue`. `SetupPlayerInputComponent` binds Throttle, Steer, Lift, Strafe, Boost, Brake and Aim that way and
+`IA_AirshipFire` only with `BindAction(..., Started, OnFireInput)`, so the value is always false (the engine returns
+zero for an unbound action, EnhancedInputComponent.cpp:106). In play the lock is armed only for `PFLockArmTime` after
+each own broadside; a press fires at once when the facing side is loaded, so the gap is small (holding Fire past those
+6 s does not keep it armed). The bench's charge check holds Fire, so it models the intended rule. One-line fix: add
+`FireAction.Get()` to the `BindActionValue` list in `SetupPlayerInputComponent`. Not changed here (docs only).
+
+Bench (pass 1 -> polish; `pointfly_metrics_pass1.json` / `pointfly_checks_pass1.json` keep pass 1):
+
+| Check | Pass 1 | Polish |
+|---|---|---|
+| Kick snake: 1.23 s brake-drifts, 0.1 / 0.4 s gaps; 1.5 s drifts (W held: 48.0 m/s) | 71.5 / 57.7 / 60.5 m/s | 48.8 / 47.4 / 48.1 m/s |
+| 180 deg brake-drift reversal: speed 8 s later, kick paid | 47.9 m/s, 6 m/s | same |
+| M9 drift exit (PIE m9 protocol): overshoot, host / 100 ms | 8.63 / 11.62 deg | 1.67 / 6.33 deg; within 0.5 deg after 1.07 s (was 1.8) |
+| 179 deg brake-drift reversal overshoot | 2.9 deg | 0.3 deg |
+| Camera orbit 360 deg in 4 s at hover, no keys: hull turn during / 6 s later | 111 / 100 deg | 0 / 0 deg |
+| Aim held 3 s on a rival 60 or 120 deg off the bow, no Fire | 26.9 deg swing, 62 m off the line | 0 deg, 0 m |
+| M12 with the PIE-calibrated camera, precise: harness bot / a hand on the crosshair | -7.38 / -2.92 deg (PIE -7.39) | -4.71 / -0.19 deg |
+| Steps, sweeps, M1-M8, M10, the racing pass | - | unchanged (M4 t63 0.43 s, no overshoot) |
+| M11 course (0 / 100 ms): precise, sloppy | 59.13 / 60.2, 59.83 / 59.1 s, 0 missed | 59.13 / 60.1, 59.33 / 58.83 s, 0 missed |
