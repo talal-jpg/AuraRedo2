@@ -24,6 +24,10 @@ class UPrimitiveComponent;
  * copy) through the same filters and writes the cosmetic state (gimbals, fan yaw, thrust levels) the anim instance and
  * the Niagara update read.
  *
+ * Control schemes (CPP_NOTES.md section 14): ActiveScheme, the pawn's replicated ControlScheme set on every machine,
+ * selects the Galleon / Sky Racer / Point & Fly branches of the shaping and the forces. Classic runs v1 line for line:
+ * every base fix and shared mechanism below is off at its default.
+ *
  * Units: cm, s, kg, degrees in properties (radians inside). Tune live with Aura.Airship.Set <Property> <Value>.
  */
 UCLASS(ClassGroup = (Airship), meta = (BlueprintSpawnableComponent))
@@ -85,6 +89,52 @@ public:
 	/** Unreliable, about InputSendRate per second while possessed. Seq drops reordered packets. */
 	UFUNCTION(Server, Unreliable)
 	void ServerSetPilotInput(const FAirshipPilotInput& Input);
+
+
+	// -------------------------------------------------------------------------
+	// Control schemes (CPP_NOTES.md "Control schemes"). The pawn owns the replicated scheme and applies its preset; this
+	// is the flight model's copy, set on every machine.
+	// -------------------------------------------------------------------------
+
+	/** ActiveScheme = InScheme, then ResetSchemeState(true). */
+	void SetActiveScheme(EAirshipControlScheme InScheme);
+
+	EAirshipControlScheme GetActiveScheme() const { return ActiveScheme; }
+
+	/**
+	 * Clears the schemes' runtime state (Galleon order pulses, Sky Racer drift / charge / chain / turbo / S-brake / burst
+	 * timers, Point & Fly server heading loop); bSchemeSwitch also the v1 drift timer. Never the hold altitude, the pod
+	 * spool, the boost latch, the fuel or the shaped controls (no jump in forces or cosmetics).
+	 */
+	void ResetSchemeState(bool bSchemeSwitch);
+
+	/** Full-steer turn rate (deg/s) of the yaw table at |ForwardSpeed| (cm/s), lerped to YawRateBoost by Boost; YawRateDrift when drifting. */
+	float GetYawRateMaxDeg(float ForwardSpeed, float Boost, bool bDrift) const;
+
+	/** The drift kick (cm/s) a drift ending at ForwardSpeed (cm/s) pays: DriftBoostDV, capped by DriftBoostCapSpeed when that is set. */
+	float GetDriftKickDV(float ForwardSpeed) const
+	{
+		return DriftBoostCapSpeed > 0.f ? FMath::Min(DriftBoostDV, FMath::Max(0.f, DriftBoostCapSpeed - ForwardSpeed)) : DriftBoostDV;
+	}
+
+	/** Shaped controls and states of this frame on this machine. */
+	float GetShapedSteer() const { return ShSteer; }
+	float GetShapedBoost() const { return ShBoost; }
+	bool IsDrifting() const { return bDrifting; }
+	bool IsGunDeck() const { return bShGunDeck; }
+
+	/** Galleon: the engine order notch (-1..3) of the controls used this frame. */
+	int32 GetGalleonNotch() const;
+
+	/** Sky Racer: the turn rate (deg/s, + right) this machine's own shaped controls command now (drift path rate or grip rate). */
+	float GetPilotYawRateCmdDeg() const;
+
+	/**
+	 * Point & Fly heading loop: the Classic-shaped steer (-1..1) that turns the hull from YawDeg (turning at YawRateDegS)
+	 * onto TargetYawDeg without overshoot, at ForwardSpeed (cm/s) and shaped Boost. bBrake with a big turn left starts a
+	 * brake-drift (State keeps its hysteresis). The server's call is authoritative, the pilot's only drives its cosmetics.
+	 */
+	float ComputeHeadingSteer(float TargetYawDeg, float YawDeg, float YawRateDegS, float ForwardSpeed, float Boost, bool bBrake, FPointFlyLoopState& State) const;
 
 
 	// -------------------------------------------------------------------------
@@ -536,6 +586,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Lateral", meta = (ClampMin = "0.0"))
 	float DriftBoostDV = 600.f;
 
+	/**
+	 * The drift kick only tops the ship up to this forward speed (cm/s): kick = min(DriftBoostDV, max(0, this - forward
+	 * speed)), so rhythmic drifts can't beat holding W on a straight. 0 = off (the full kick, v1). Point & Fly: 4800.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Lateral", meta = (ClampMin = "0.0"))
+	float DriftBoostCapSpeed = 0.f;
+
 
 	// -------------------------------------------------------------------------
 	// Boost (fuel gated by the server)
@@ -629,9 +686,349 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Network", meta = (ClampMin = "1.0", ClampMax = "120.0"))
 	float InputSendRate = 30.f;
 
-	/** Server: no packet for this long (s) = neutral controls. */
+	/** Server: no packet for this long (s) = neutral controls (Galleon keeps the last engine order). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Network", meta = (ClampMin = "0.05"))
 	float InputTimeout = 0.5f;
+
+
+	// -------------------------------------------------------------------------
+	// Base fixes (Docs/Airship/controls/BASELINE.md 4f). The defaults are v1 (off): Classic keeps them.
+	// -------------------------------------------------------------------------
+
+	/** 4a-1: build the roll / pitch / yaw torque requests from the hull-axis inertia tensor (v1 read the principal moments as hull axes). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix")
+	bool bHullAxisInertia = false;
+
+	/** 4a-2: the pods' attitude solve takes out the roll / pitch torque of the fans' forward force (pushing 1.4 m above the COM). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix")
+	bool bFanTorqueFeedForward = false;
+
+	/** 4b-1: hidden vertical brake (cm/s^2) while the vertical speed runs past its command in its own direction. 0 = off. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix", meta = (ClampMin = "0.0"))
+	float VertBrakeAccel = 0.f;
+
+	/** 4b-2: the hold loop stops with at most this deceleration (cm/s^2): sqrt speed limit, stopping-distance capture. 0 = v1 (linear, HoldCaptureLead). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix", meta = (ClampMin = "0.0"))
+	float HoldBrakeAccel = 0.f;
+
+	/** 4b-3: lift filter time constant (s) toward a smaller command on the same side (the release). 0 = LiftTau. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix", meta = (ClampMin = "0.0"))
+	float LiftTauRelease = 0.f;
+
+	/** 4c-1: a brake press in hold mode holds at the stopping point (the release lead), not at the current height. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix")
+	bool bBrakeHoldLead = false;
+
+	/** 4c-2: the brake's reverse throttle fades out below this forward speed (cm/s). 0 = v1 (full reverse above 100 cm/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix", meta = (ClampMin = "0.0"))
+	float BrakeFadeSpeed = 0.f;
+
+	/** 4d: station keeping with no throttle, strafe or boost: forward speed loop gain (1/s), full below StationKeepSpeed (cm/s), gone at twice it, capped (cm/s^2). 0 = off. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix", meta = (ClampMin = "0.0"))
+	float StationKeepGain = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix", meta = (ClampMin = "1.0"))
+	float StationKeepSpeed = 300.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|BaseFix", meta = (ClampMin = "0.0"))
+	float StationKeepAccelMax = 150.f;
+
+
+	// -------------------------------------------------------------------------
+	// Shared scheme mechanisms (IMPLEMENTATION_PLAN.md 1.9). The defaults are v1 (off): Classic keeps them.
+	// -------------------------------------------------------------------------
+
+	/** The grip / sidle force acts level (no turn sink from a banked hull), along bLevelGripAlongHeading's direction. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Lateral")
+	bool bLevelGripForce = false;
+
+	/** With bLevelGripForce: level and perpendicular to the heading (Sky Racer); false = the hull's right axis made level (Galleon). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Lateral")
+	bool bLevelGripAlongHeading = false;
+
+	/** Air brake cap (cm/s^2): a constant-deceleration stop. 0 = no cap (v1). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Forward", meta = (ClampMin = "0.0"))
+	float BrakeMaxAccel = 0.f;
+
+	/** Steer filter time constant (s) while the steer is being taken off (the helm returns). 0 = SteerTau. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Shaping", meta = (ClampMin = "0.0"))
+	float SteerTauRelease = 0.f;
+
+	/** "Meet her": the yaw loop gain (1/s) and cap (rad/s^2, at least AlphaYawMax) while a turn is being taken off. 0 = Kr. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Yaw", meta = (ClampMin = "0.0"))
+	float KrSteady = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Yaw", meta = (ClampMin = "0.0"))
+	float AlphaYawMaxSteady = 0.f;
+
+	/** Yaw loop gain (1/s) and cap (rad/s^2) while drifting. 0 = Kr / AlphaYawMax. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Yaw", meta = (ClampMin = "0.0"))
+	float DriftKr = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Yaw", meta = (ClampMin = "0.0"))
+	float DriftAlphaYawMax = 0.f;
+
+	/** Wheel and rudder swing (cosmetic Steer, clamped to 1.3) per unit shaped steer while drifting. The fan yaw stays the forces'. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cosmetic", meta = (ClampMin = "0.0"))
+	float DriftCosmeticSteerScale = 1.f;
+
+	/**
+	 * The steady gun deck (Galleon: broadside stations; Sky Racer and Point & Fly: Aim held). Bank always; turn rate,
+	 * forward thrust and air brake when not drifting. 1 = v1.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|GunDeck", meta = (ClampMin = "0.0"))
+	float GunDeckBankScale = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|GunDeck", meta = (ClampMin = "0.0"))
+	float GunDeckYawScale = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|GunDeck", meta = (ClampMin = "0.0"))
+	float GunDeckThrottleScale = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|GunDeck", meta = (ClampMin = "0.0"))
+	float GunDeckBrakeScale = 1.f;
+
+
+	// -------------------------------------------------------------------------
+	// Galleon (SCHEME_GALLEON.md). Only read while ActiveScheme == Galleon: the defaults are Galleon's values.
+	// -------------------------------------------------------------------------
+
+	/** Speeds the SLOW / HALF / FULL ASTERN orders hold (cm/s); FULL is throttle 1. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderSlowSpeed = 1400.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderHalfSpeed = 2800.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderAsternSpeed = 1200.f;
+
+	/** Speed loop P gain (throttle per cm/s of error), on top of the drag-balancing throttle. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderSpeedGain = 0.001f;
+
+	/** The engines back at this (cm/s^2) to slow the ship to a lower order while it still moves forward. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderReverseAccel = 800.f;
+
+	/** Cosmetic pod thrust pulse on an order change or a boost start, and its fade (s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderPulse = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderPulseTime = 0.45f;
+
+
+	// -------------------------------------------------------------------------
+	// Sky Racer (SCHEME_SKYRACER.md). Only read while ActiveScheme == SkyRacer: the defaults are Sky Racer's values.
+	// -------------------------------------------------------------------------
+
+	/** Drift entry: brake + |steer| >= SkyDriftEnterSteer at SkyDriftEnterSpeed (cm/s) or faster; it ends below SkyDriftExitSpeed. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftEnterSteer = 0.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftEnterSpeed = 1500.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftExitSpeed = 800.f;
+
+	/** The steer sets the drift's path turn rate (deg/s, counter-steer .. full in) and the slip it holds (deg). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftPathRateMinDeg = 24.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftPathRateMaxDeg = 46.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftSlipMinDeg = 16.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftSlipMaxDeg = 26.f;
+
+	/** Slip hold gain (1/s), how far the path may lead the hull at turn-in (deg/s), and the nose's yaw rate limit (deg/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftSlipGain = 3.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftPathLeadDeg = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftYawRateMaxDeg = 65.f;
+
+	/** Path force cap (g), slide scrub (1/s), drift bank (deg) and the pods' roll into the slide (deg). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftALatMaxG = 5.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftScrub = 0.08f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftBankDeg = 24.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftGimbalRollDeg = 4.f;
+
+	/** Exit snap after a drift: window (s, 0 = off), grip gain (1/s) and cap (g), the nose's swing back per rad of slip (1/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftExitTime = 0.4f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftExitKlat = 8.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftExitALatMaxG = 5.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftExitYawGain = 6.f;
+
+	/** While drifting with S not held, the throttle target is at least this: a drift drives at full power, W optional (review R1; 0 = as designed). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDriftThrottle = 1.f;
+
+	/** Charge per second (counter-steer .. full in), the tier thresholds, and the server's charge grace for remote pilots. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyChargeRateMin = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyChargeRateMax = 0.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTier1 = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTier2 = 0.55f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTier3 = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTierGrace = 0.03f;
+
+	/** Mini-turbo per tier: forward kick (cm/s), burn length (s), boost fuel paid. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboKickDV1 = 300.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboKickDV2 = 500.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboKickDV3 = 750.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboTime1 = 0.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboTime2 = 0.8f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboTime3 = 1.2f;
+
+	/** Burn acceleration (cm/s^2, fading 1 -> 0 over the burn) and the speed (cm/s) where it fades out. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboAccel = 490.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "1.0"))
+	float SkyTurboVTop = 9000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboFuel1 = 4.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboFuel2 = 8.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboFuel3 = 15.f;
+
+	/** A drift started within this (s) of a turbo chains: the kick grows by SkyChainBonus per link, up to SkyChainMax links. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyChainWindow = 2.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyChainBonus = 0.15f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0"))
+	int32 SkyChainMax = 3;
+
+	/** S is a progressive brake above this forward speed (cm/s; 0 = v1 reverse), ramping in / out with these time constants (s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkySBrakeSpeed = 300.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkySBrakeTauUp = 0.3f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkySBrakeTauDown = 0.08f;
+
+	/** Grip turn: share of the centripetal acceleration fed forward, and the share of the scrubbed side energy given back forward. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyGripCentripetalFF = 0.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyGripEnergyKeep = 0.85f;
+
+	/** Diving (lift held down, sinking) above SkyDiveMinSpeed (cm/s) adds this forward acceleration per cm/s of sink (1/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDiveAccelPerSink = 0.06f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyDiveMinSpeed = 1500.f;
+
+	/** Every boost press gives at least this much boost (s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyBoostMinBurst = 0.5f;
+
+	/** Cosmetic (guesses): rear pod thrust flicker per unit charge, pod thrust per unit burn, Niagara Boost glow at tier 1 / 2 / 3. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyFXDriftPulse = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyFXTurboThrust = 0.4f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyFXChargeGlow1 = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyFXChargeGlow2 = 0.45f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyFXChargeGlow3 = 0.65f;
+
+
+	// -------------------------------------------------------------------------
+	// Point & Fly (SCHEME_POINTFLY.md). Only read while ActiveScheme == PointFly: the defaults are Point & Fly's values.
+	// -------------------------------------------------------------------------
+
+	/** Heading loop: turn rate per degree of predicted error (1/s), prediction time (s), planned yaw deceleration (deg/s^2), dead band (deg). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFHeadingKp = 6.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFHeadingLead = 0.18f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFHeadingDecelDeg = 55.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFHeadingDeadbandDeg = 0.25f;
+
+	/** Brake with this much turn left (deg) starts a drift, which ends with PFDriftEndDeg left; the sliding hull's deceleration scale. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFDriftStartDeg = 40.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFDriftEndDeg = 15.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFDriftDecelScale = 0.8f;
+
+	/** S while moving forward slows at this (cm/s^2), then backs up as v1. 0 = off. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFReverseBrakeAccel = 980.f;
+
+	/** Share (0..1) of the turn's downward grip the collective makes up (no sink in turns). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFTurnLiftComp = 1.f;
 
 protected:
 
@@ -655,8 +1052,20 @@ private:
 	/** Server: fuel, the boost latch and its kick. Returns the gated boost. */
 	bool UpdateBoostServer(bool bWantBoost, float Dt, UPrimitiveComponent* Body);
 
-	/** First-order filters toward the controls. */
+	/** First-order filters toward the controls (and each scheme's throttle / brake / drift decisions). */
 	void ShapeControls(const FAirshipPilotInput& Controls, float Dt, float ForwardSpeed);
+
+	/** Galleon shaping: order decode and pulses, the stern swing, the speed loop's throttle target, the brake. */
+	void ShapeGalleon(const FAirshipPilotInput& Controls, float Dt, float ForwardSpeed, float RawSteer, float& ThrottleTarget);
+
+	/** Sky Racer shaping: the drift state machine (charge, tier, chain, turbo release), the S-brake ramp, the throttle target. */
+	void ShapeSkyRacer(const FAirshipPilotInput& Controls, float Dt, float ForwardSpeed, float RawSteer, float& ThrottleTarget);
+
+	/** Galleon: the throttle (-1..1) that balances the drag at OrderSpeed (cm/s), forward or astern. */
+	float GalleonHoldThrottle(float OrderSpeed) const;
+
+	/** Sky Racer: the tier (0..3) a drift charge has reached. */
+	int32 SkyTierOf(float Charge) const;
 
 	/** Thrust lean of each pod (deg) from the shaped controls. */
 	void ComputeGimbals(float OutPitchDeg[Airship::NumPods], float OutRollDeg[Airship::NumPods]) const;
@@ -694,6 +1103,49 @@ private:
 	bool bShBrake = false;
 	bool bShAiming = false;
 	bool bDrifting = false;
+
+	/** The steady gun deck this frame (Galleon: the stations bit; other schemes: Aim). */
+	bool bShGunDeck = false;
+
+	/** Air brake share this frame (0..1): 1 with the brake bit (v1), Sky Racer's analog S-brake, 0 in a Sky Racer drift. */
+	float ShBrakeAmount = 0.f;
+
+	// Control scheme (the pawn's ControlScheme, set on every machine by the pawn's BeginPlay / OnRep). Classic until then on
+	// purpose: this component's tunables are the class defaults (v1) until the pawn writes its scheme's preset.
+	EAirshipControlScheme ActiveScheme = EAirshipControlScheme::Classic;
+
+	// Galleon (every machine: from the controls it has)
+	int32 GalleonLastNotch = 0;
+	float GalleonOrderPulse01 = 0.f;
+	float GalleonBoostPulse01 = 0.f;
+	bool bGalleonPrevBoost = false;
+
+	/** Server: the last packet accepted, for Galleon's timeout rule (the engine room keeps the order). */
+	FAirshipPilotInput LastGoodServerInput;
+
+	// Sky Racer (every machine runs the drift state machine from the controls it has; the server pays the turbo)
+	double SkyClock = 0.0;
+	int8 SkyDriftDir = 0;
+	float SkyCharge = 0.f;
+	float SkyDriftTime = 0.f;
+	uint8 SkyChain = 0;
+	double SkyLastReleaseTime = -1000.0;
+	uint8 SkyTurboTier = 0;
+	float SkyTurboLeft = 0.f;
+	float SkyTurboTotal = 1.f;
+	/** Tier released this frame (0 = none): ApplyForces pays its kick and fuel. */
+	uint8 SkyTurboEvent = 0;
+	uint8 SkyTurboChain = 0;
+	uint8 SkyTurboEventCount = 0;
+	float SkyExitLeft = 0.f;
+	float SkySBrake = 0.f;
+	double SkyBoostStartTime = -1000.0;
+	double SkyLocalBoostStartTime = -1000.0;
+
+	// Point & Fly (server)
+	FPointFlyLoopState ServerHeadingLoop;
+	/** The vertical part of last frame's lateral grip (cm/s^2): the collective makes it up (PFTurnLiftComp). */
+	float LastGripAccelZ = 0.f;
 
 	// Server state
 	bool bBoostActive = false;

@@ -38,6 +38,12 @@ namespace AirshipFlightPrivate
 		return Approach(Current, Target, Dt, FMath::Abs(Target) > FMath::Abs(Current) ? TauUp : TauDown);
 	}
 
+	/** -180..180 (float). */
+	float WrapDeg(float AngleDeg)
+	{
+		return static_cast<float>(FRotator::NormalizeAxis(static_cast<double>(AngleDeg)));
+	}
+
 	/** Solves M x = B for a 3x3 M (rows). False when M is (nearly) singular. */
 	bool Solve3x3(const double M[3][3], const double B[3], double X[3])
 	{
@@ -201,6 +207,128 @@ void UAirshipFlightComponent::SetFlightEnabled(bool bEnabled)
 
 
 // =============================================================================
+// Control schemes
+// =============================================================================
+
+void UAirshipFlightComponent::SetActiveScheme(EAirshipControlScheme InScheme)
+{
+	ActiveScheme = InScheme;
+	ResetSchemeState(true);
+}
+
+void UAirshipFlightComponent::ResetSchemeState(bool bSchemeSwitch)
+{
+	// Galleon: the order the controls carry now is no change (no pulse); a boost held through the reset is no start
+	GalleonLastNotch = AirshipGalleon::ThrottleToNotch(CurrentControls.Throttle);
+	GalleonOrderPulse01 = 0.f;
+	GalleonBoostPulse01 = 0.f;
+	bGalleonPrevBoost = CurrentControls.IsBoost();
+
+	// Sky Racer: a drift in progress is dropped without a turbo (SkyTurboEventCount keeps counting: the pawn and the HUD
+	// detect releases by its change)
+	SkyClock = 0.0;
+	SkyDriftDir = 0;
+	SkyCharge = 0.f;
+	SkyDriftTime = 0.f;
+	SkyChain = 0;
+	SkyLastReleaseTime = -1000.0;
+	SkyTurboTier = 0;
+	SkyTurboLeft = 0.f;
+	SkyTurboTotal = 1.f;
+	SkyTurboEvent = 0;
+	SkyTurboChain = 0;
+	SkyExitLeft = 0.f;
+	SkySBrake = 0.f;
+	SkyBoostStartTime = -1000.0;
+	SkyLocalBoostStartTime = -1000.0;
+
+	// Point & Fly
+	ServerHeadingLoop = FPointFlyLoopState();
+	LastGripAccelZ = 0.f;
+
+	if (bSchemeSwitch)
+	{
+		DriftTime = 0.f;
+	}
+}
+
+float UAirshipFlightComponent::GetYawRateMaxDeg(float ForwardSpeed, float Boost, bool bDrift) const
+{
+	const float AbsVf = FMath::Abs(ForwardSpeed);
+	const float TableDeg = AbsVf <= YawRateMidSpeed
+		? FMath::Lerp(YawRateAtRest, YawRateAtMid, AbsVf / FMath::Max(YawRateMidSpeed, 1.f))
+		: FMath::Lerp(YawRateAtMid, YawRateAtTop, FMath::Clamp((AbsVf - YawRateMidSpeed) / FMath::Max(YawRateTopSpeed - YawRateMidSpeed, 1.f), 0.f, 1.f));
+	return bDrift ? YawRateDrift : FMath::Lerp(TableDeg, YawRateBoost, Boost);
+}
+
+int32 UAirshipFlightComponent::GetGalleonNotch() const
+{
+	return AirshipGalleon::ThrottleToNotch(CurrentControls.Throttle);
+}
+
+float UAirshipFlightComponent::GetPilotYawRateCmdDeg() const
+{
+	if (ActiveScheme == EAirshipControlScheme::SkyRacer && SkyDriftDir != 0)
+	{
+		// The drift's path rate (the steer sets it)
+		const float Dir = static_cast<float>(SkyDriftDir);
+		return Dir * FMath::Lerp(SkyDriftPathRateMinDeg, SkyDriftPathRateMaxDeg, 0.5f * (FMath::Clamp(ShSteer * Dir, -1.f, 1.f) + 1.f));
+	}
+
+	return ShSteer * GetYawRateMaxDeg(Cosmetic.ForwardSpeed, ShBoost, false) * (bShGunDeck ? GunDeckYawScale : 1.f);
+}
+
+float UAirshipFlightComponent::ComputeHeadingSteer(float TargetYawDeg, float YawDeg, float YawRateDegS, float ForwardSpeed, float Boost, bool bBrake, FPointFlyLoopState& State) const
+{
+	using namespace AirshipFlightPrivate;
+
+	const float Error = WrapDeg(TargetYawDeg - YawDeg);
+
+	// Drift: brake + a big turn at speed (hysteresis). ShapeControls sees it as |Steer| above the drift threshold.
+	if (!bBrake || ForwardSpeed <= DriftMinSpeed)
+	{
+		State.bDrift = false;
+	}
+	else if (!State.bDrift && FMath::Abs(Error) >= PFDriftStartDeg)
+	{
+		State.bDrift = true;
+	}
+	else if (State.bDrift && FMath::Abs(Error) < PFDriftEndDeg)
+	{
+		State.bDrift = false;
+	}
+
+	// Turn at full rate, brake onto the target (sqrt profile), on the error the loop will see after its own lag
+	const float RateMaxDeg = FMath::Max(1.f, GetYawRateMaxDeg(ForwardSpeed, Boost, State.bDrift));
+	const float Predicted = Error - YawRateDegS * PFHeadingLead;
+	const float DecelDeg = FMath::Max(0.f, PFHeadingDecelDeg * (State.bDrift ? PFDriftDecelScale : 1.f));
+	float Magnitude = FMath::Min(RateMaxDeg, FMath::Min(PFHeadingKp * FMath::Abs(Predicted), FMath::Sqrt(2.f * DecelDeg * FMath::Abs(Predicted))));
+
+	// Wheel and fans rest on the target
+	if (FMath::Abs(Error) < PFHeadingDeadbandDeg && FMath::Abs(YawRateDegS) < 2.f)
+	{
+		Magnitude = 0.f;
+	}
+
+	float SteerOut = (Predicted < 0.f ? -Magnitude : Magnitude) / RateMaxDeg;
+
+	if (State.bDrift)
+	{
+		// Keep the slide alive until the end of the turn
+		const float Dir = FMath::Abs(SteerOut) < 1e-6f ? (Error < 0.f ? -1.f : 1.f) : (SteerOut < 0.f ? -1.f : 1.f);
+		SteerOut = Dir * FMath::Max(FMath::Abs(SteerOut), DriftSteerThreshold + 0.05f);
+	}
+	else if (bBrake && ForwardSpeed > DriftMinSpeed)
+	{
+		// Braking without a drift: stay under the drift threshold
+		SteerOut = FMath::Clamp(SteerOut, -(DriftSteerThreshold - 0.02f), DriftSteerThreshold - 0.02f);
+	}
+
+	return FMath::Clamp(SteerOut, -1.f, 1.f);
+}
+
+
+// =============================================================================
 // Controls
 // =============================================================================
 
@@ -212,6 +340,7 @@ void UAirshipFlightComponent::SetLocalInput(const FAirshipPilotInput& Input)
 	{
 		// Listen server host: no RPC
 		ServerInput = Input;
+		LastGoodServerInput = Input;
 		bHasServerInput = true;
 		LastServerInputTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
 		return;
@@ -258,6 +387,7 @@ void UAirshipFlightComponent::ServerSetPilotInput_Implementation(const FAirshipP
 	}
 
 	ServerInput = Input;
+	LastGoodServerInput = Input;
 	bHasServerInput = true;
 	LastServerInputTime = Now;
 }
@@ -267,7 +397,11 @@ void UAirshipFlightComponent::ResetInput()
 	ServerInput = FAirshipPilotInput();
 	LocalInput = FAirshipPilotInput();
 	LastSentInput = FAirshipPilotInput();
+	LastGoodServerInput = FAirshipPilotInput();
 	bHasServerInput = false;
+
+	// A new pilot (or none) starts the schemes' runtime state fresh (the shaped controls and the hold stay)
+	ResetSchemeState(false);
 }
 
 void UAirshipFlightComponent::SetDebugInput(const FAirshipPilotInput& Input)
@@ -309,8 +443,29 @@ FAirshipPilotInput UAirshipFlightComponent::SelectControls() const
 		const UWorld* World = GetWorld();
 		const bool bFresh = bHasServerInput && World && World->GetTimeSeconds() - LastServerInputTime <= InputTimeout;
 
+		if (bFresh && Ship->GetController())
+		{
+			return ServerInput;
+		}
+
+		// Galleon, a pilot gone quiet: the engine room keeps the last order (a network hiccup costs the helm, not a
+		// slow-down); the helm, lift, sidle and buttons go neutral
+		if (ActiveScheme == EAirshipControlScheme::Galleon && Ship->GetController())
+		{
+			FAirshipPilotInput Held = LastGoodServerInput;
+			Held.Steer = 0;
+			Held.Lift = 0;
+			Held.Strafe = 0;
+			Held.SetButton(Airship::Button_Boost, false);
+			Held.SetButton(Airship::Button_Brake, false);
+			Held.SetButton(Airship::Button_Aim, false);
+			Held.SetButton(Airship::Button_Stations, false);
+			Held.HeadingTarget = 0;
+			return Held;
+		}
+
 		// No pilot, or the pilot went quiet: neutral controls (the ship holds its altitude)
-		return (bFresh && Ship->GetController()) ? ServerInput : FAirshipPilotInput();
+		return FAirshipPilotInput();
 	}
 
 	return RepInput;
@@ -318,13 +473,22 @@ FAirshipPilotInput UAirshipFlightComponent::SelectControls() const
 
 bool UAirshipFlightComponent::UpdateBoostServer(bool bWantBoost, float Dt, UPrimitiveComponent* Body)
 {
+	const double Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+
+	// Sky Racer: every press gives at least SkyBoostMinBurst of boost
+	if (ActiveScheme == EAirshipControlScheme::SkyRacer && SkyBoostMinBurst > 0.f && bBoostActive && Now - SkyBoostStartTime < SkyBoostMinBurst)
+	{
+		bWantBoost = true;
+	}
+
+	const bool bWasBoostActive = bBoostActive;
+
 	if (bWantBoost && !bBoostActive && BoostFuel >= BoostMinFuelToStart)
 	{
 		bBoostActive = true;
 
 		// Every start costs fuel and the kick has a cooldown: tapping Shift is no cheaper than holding it
 		BoostFuel = FMath::Max(0.f, BoostFuel - BoostStartFuelCost);
-		const double Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
 
 		if (Body && Body->IsSimulatingPhysics() && BoostKickDV > 0.f && Now - LastBoostKickTime >= BoostKickCooldown)
 		{
@@ -360,6 +524,11 @@ bool UAirshipFlightComponent::UpdateBoostServer(bool bWantBoost, float Dt, UPrim
 		}
 	}
 
+	if (bBoostActive && !bWasBoostActive)
+	{
+		SkyBoostStartTime = Now;
+	}
+
 	return bBoostActive;
 }
 
@@ -368,30 +537,241 @@ void UAirshipFlightComponent::ShapeControls(const FAirshipPilotInput& Controls, 
 	using namespace AirshipFlightPrivate;
 
 	const float RawSteer = Controls.GetSteer();
-	bShBrake = Controls.IsBrake();
 	bShAiming = Controls.IsAiming();
-	bDrifting = bShBrake && FMath::Abs(RawSteer) > DriftSteerThreshold && ForwardSpeed > DriftMinSpeed;
+	bShGunDeck = ActiveScheme == EAirshipControlScheme::Galleon ? Controls.HasButton(Airship::Button_Stations) : bShAiming;
 
-	// Braking: the fans reverse while still moving forward and the throttle key is ignored. A drift (brake + steer)
-	// keeps the throttle: it slides, it doesn't stop.
 	float ThrottleTarget = Controls.GetThrottle();
+	ShBrakeAmount = 0.f;
 
-	if (bShBrake && !bDrifting)
+	switch (ActiveScheme)
 	{
-		ThrottleTarget = ForwardSpeed > 100.f ? -BrakeReverseThrottle : 0.f;
+	case EAirshipControlScheme::Galleon:
+		ShapeGalleon(Controls, Dt, ForwardSpeed, RawSteer, ThrottleTarget);
+		break;
+
+	case EAirshipControlScheme::SkyRacer:
+		ShapeSkyRacer(Controls, Dt, ForwardSpeed, RawSteer, ThrottleTarget);
+		break;
+
+	default:
+		// Classic, Point & Fly (v1). Braking: the fans reverse while still moving forward and the throttle key is
+		// ignored. A drift (brake + steer) keeps the throttle: it slides, it doesn't stop.
+		bShBrake = Controls.IsBrake();
+		bDrifting = bShBrake && FMath::Abs(RawSteer) > DriftSteerThreshold && ForwardSpeed > DriftMinSpeed;
+		ShBrakeAmount = bShBrake ? 1.f : 0.f;
+
+		if (bShBrake && !bDrifting)
+		{
+			// Base fix 4c-2: the reverse fades out below BrakeFadeSpeed (no back-up after the stop); 0 = v1
+			ThrottleTarget = BrakeFadeSpeed > 0.f
+				? -BrakeReverseThrottle * FMath::Clamp(ForwardSpeed / BrakeFadeSpeed, 0.f, 1.f)
+				: (ForwardSpeed > 100.f ? -BrakeReverseThrottle : 0.f);
+		}
+		break;
 	}
 
 	ShThrottle = ApproachUpDown(ShThrottle, ThrottleTarget, Dt, ThrottleTauUp, ThrottleTauDown);
 	ShBoost = Approach(ShBoost, Controls.IsBoost() ? 1.f : 0.f, Dt, Controls.IsBoost() ? BoostTauUp : BoostTauDown);
-	ShLift = Approach(ShLift, Controls.GetLift(), Dt, LiftTau);
-	ShSteer = Approach(ShSteer, RawSteer, Dt, SteerTau);
+
+	// Base fix 4b-3: the release (a smaller command on the same side) uses LiftTauRelease
+	const float LiftTarget = Controls.GetLift();
+	const bool bLiftRelease = LiftTauRelease > 0.f && FMath::Abs(LiftTarget) < FMath::Abs(ShLift) && LiftTarget * ShLift >= 0.f;
+	ShLift = Approach(ShLift, LiftTarget, Dt, bLiftRelease ? LiftTauRelease : LiftTau);
+
+	// "Meet her": the helm returns with SteerTauRelease
+	const bool bSteerRelease = SteerTauRelease > 0.f && FMath::Abs(RawSteer) < FMath::Abs(ShSteer);
+	ShSteer = Approach(ShSteer, RawSteer, Dt, bSteerRelease ? SteerTauRelease : SteerTau);
 	ShStrafe = Approach(ShStrafe, Controls.GetStrafe(), Dt, StrafeTau);
+}
+
+float UAirshipFlightComponent::GalleonHoldThrottle(float OrderSpeed) const
+{
+	const float Drag = DragC1 * OrderSpeed + DragC2 * OrderSpeed * FMath::Abs(OrderSpeed);
+
+	if (OrderSpeed >= 0.f)
+	{
+		const float FadeForward = FMath::Max(1e-3f, 1.f - FMath::Pow(OrderSpeed / FMath::Max(VTop, 1.f), ThrustFadeExponent));
+		return FMath::Clamp(Drag / FMath::Max(AFan * FadeForward, KINDA_SMALL_NUMBER), 0.f, 1.f);
+	}
+
+	const float FadeReverse = FMath::Max(1e-3f, 1.f - FMath::Square(-OrderSpeed / FMath::Max(VTopRev, 1.f)));
+	return FMath::Clamp(Drag / FMath::Max(AFanRev * FadeReverse, KINDA_SMALL_NUMBER), -1.f, 0.f);
+}
+
+void UAirshipFlightComponent::ShapeGalleon(const FAirshipPilotInput& Controls, float Dt, float ForwardSpeed, float RawSteer, float& ThrottleTarget)
+{
+	// The order on the wire (a latched code: a lost packet changes nothing) and the telegraph "ring"
+	const int32 Notch = AirshipGalleon::ThrottleToNotch(Controls.Throttle);
+
+	if (Notch != GalleonLastNotch)
+	{
+		GalleonOrderPulse01 = 1.f;
+		GalleonLastNotch = Notch;
+	}
+
+	// The gated boost bit: FULL STEAM
+	const bool bBoostOn = Controls.IsBoost();
+
+	if (bBoostOn && !bGalleonPrevBoost)
+	{
+		GalleonBoostPulse01 = 1.f;
+	}
+	bGalleonPrevBoost = bBoostOn;
+
+	// The stern swing is the v1 drift test with Galleon's values
+	bShBrake = Controls.IsBrake();
+	bDrifting = bShBrake && FMath::Abs(RawSteer) > DriftSteerThreshold && ForwardSpeed > DriftMinSpeed;
+	ShBrakeAmount = bShBrake ? 1.f : 0.f;
+
+	// The speed loop: FULL and FULL STEAM are open loop (as Classic W), the other orders hold their speed hands-free
+	if (bBoostOn || Notch >= AirshipGalleon::Full)
+	{
+		ThrottleTarget = 1.f;
+	}
+	else
+	{
+		const float OrderSpeed = Notch < 0 ? -GalleonOrderAsternSpeed
+			: (Notch == AirshipGalleon::Slow ? GalleonOrderSlowSpeed : (Notch == AirshipGalleon::Half ? GalleonOrderHalfSpeed : 0.f));
+		ThrottleTarget = FMath::Clamp(GalleonHoldThrottle(OrderSpeed) + GalleonOrderSpeedGain * (OrderSpeed - ForwardSpeed), -1.f, 1.f);
+	}
+
+	// The air brake while held (the order resumes on release); the swing keeps the order's throttle
+	if (bShBrake && !bDrifting)
+	{
+		ThrottleTarget = BrakeFadeSpeed > 0.f
+			? -BrakeReverseThrottle * FMath::Clamp(ForwardSpeed / BrakeFadeSpeed, 0.f, 1.f)
+			: (ForwardSpeed > 100.f ? -BrakeReverseThrottle : 0.f);
+	}
+
+	const float PulseTime = FMath::Max(GalleonOrderPulseTime, 1e-3f);
+	GalleonOrderPulse01 = FMath::Max(0.f, GalleonOrderPulse01 - Dt / PulseTime);
+	GalleonBoostPulse01 = FMath::Max(0.f, GalleonBoostPulse01 - Dt / PulseTime);
+}
+
+int32 UAirshipFlightComponent::SkyTierOf(float Charge) const
+{
+	if (Charge >= SkyTier3 - 1e-6f)
+	{
+		return 3;
+	}
+	if (Charge >= SkyTier2 - 1e-6f)
+	{
+		return 2;
+	}
+	if (Charge >= SkyTier1 - 1e-6f)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+void UAirshipFlightComponent::ShapeSkyRacer(const FAirshipPilotInput& Controls, float Dt, float ForwardSpeed, float RawSteer, float& ThrottleTarget)
+{
+	using namespace AirshipFlightPrivate;
+
+	// This machine's own clock (the sum of the shaping steps): the chain window, the burn
+	SkyClock += Dt;
+	SkyTurboEvent = 0;
+
+	const bool bBrakeButton = Controls.IsBrake();
+	const float ThrottleRaw = Controls.GetThrottle();
+
+	// ---- Drift state machine (every machine, from the controls it has, like v1's bDrifting) -------------------------
+	if (SkyDriftDir == 0)
+	{
+		if (bBrakeButton && FMath::Abs(RawSteer) >= SkyDriftEnterSteer && ForwardSpeed >= SkyDriftEnterSpeed)
+		{
+			SkyDriftDir = static_cast<int8>(RawSteer > 0.f ? 1 : -1);
+			SkyCharge = 0.f;
+			SkyDriftTime = 0.f;
+
+			// Started within the window of the last turbo: one more chain link
+			const bool bLinked = SkyClock - SkyLastReleaseTime <= SkyChainWindow;
+			SkyChain = bLinked ? static_cast<uint8>(FMath::Clamp(static_cast<int32>(SkyChain) + 1, 0, FMath::Clamp(SkyChainMax, 0, 255))) : static_cast<uint8>(0);
+		}
+	}
+	else if (!bBrakeButton || ForwardSpeed < SkyDriftExitSpeed)
+	{
+		// Release: the server gives a remote pilot a little charge grace (packet timing can cost its copy 1-2 frames)
+		const AAirshipPawn* Ship = GetShip();
+		const bool bRemotePilot = GetOwner() && GetOwner()->HasAuthority() && Ship && !Ship->IsLocallyControlled();
+		const int32 Tier = SkyTierOf(SkyCharge + (bRemotePilot ? SkyTierGrace : 0.f));
+
+		if (Tier > 0 && ForwardSpeed >= SkyDriftExitSpeed)
+		{
+			const float BurnTime = Tier >= 3 ? SkyTurboTime3 : (Tier == 2 ? SkyTurboTime2 : SkyTurboTime1);
+			SkyTurboTier = static_cast<uint8>(Tier);
+			SkyTurboTotal = FMath::Max(BurnTime, 1e-3f);
+			SkyTurboLeft = SkyTurboTotal;
+			SkyTurboEvent = static_cast<uint8>(Tier);
+			SkyTurboChain = SkyChain;
+			SkyLastReleaseTime = SkyClock;
+			++SkyTurboEventCount;
+		}
+		else
+		{
+			SkyChain = 0;
+		}
+
+		SkyDriftDir = 0;
+		SkyCharge = 0.f;
+		SkyExitLeft = SkyDriftExitTime;
+	}
+	else
+	{
+		// Charging: faster the harder the steer goes into the drift
+		const float SteerIn = FMath::Clamp(RawSteer * static_cast<float>(SkyDriftDir), -1.f, 1.f);
+		SkyCharge = FMath::Min(1.f, SkyCharge + FMath::Lerp(SkyChargeRateMin, SkyChargeRateMax, 0.5f * (SteerIn + 1.f)) * Dt);
+		SkyDriftTime += Dt;
+	}
+
+	if (SkyTurboLeft > 0.f)
+	{
+		SkyTurboLeft = FMath::Max(0.f, SkyTurboLeft - Dt);
+	}
+
+	if (SkyExitLeft > 0.f && SkyDriftDir == 0 && SkyTurboEvent == 0)
+	{
+		SkyExitLeft = FMath::Max(0.f, SkyExitLeft - Dt);
+	}
+
+	bDrifting = SkyDriftDir != 0;
+
+	// ---- Brake: X when not drifting, or S above SkySBrakeSpeed (analog, progressive) -------------------------------
+	const float SBrakeTarget = (!bDrifting && ThrottleRaw < 0.f && SkySBrakeSpeed > 0.f && ForwardSpeed > SkySBrakeSpeed) ? -ThrottleRaw : 0.f;
+	SkySBrake = ApproachUpDown(SkySBrake, SBrakeTarget, Dt, SkySBrakeTauUp, SkySBrakeTauDown);
+
+	if (SBrakeTarget <= 0.f && SkySBrake < 0.02f)
+	{
+		SkySBrake = 0.f;
+	}
+
+	ShBrakeAmount = (bBrakeButton && !bDrifting) ? 1.f : (bDrifting ? 0.f : SkySBrake);
+	bShBrake = ShBrakeAmount > 0.f;
+
+	// W/S as read (S below SkySBrakeSpeed = reverse); a drift drives at full power unless S is held (review R1)
+	ThrottleTarget = ThrottleRaw;
+
+	if (bDrifting && SkyDriftThrottle > 0.f && ThrottleRaw >= 0.f)
+	{
+		ThrottleTarget = FMath::Max(ThrottleTarget, SkyDriftThrottle);
+	}
+
+	if (bShBrake)
+	{
+		// Base fix 4c-2
+		const float Fade = BrakeFadeSpeed > 0.f ? FMath::Clamp(ForwardSpeed / BrakeFadeSpeed, 0.f, 1.f) : (ForwardSpeed > 100.f ? 1.f : 0.f);
+		ThrottleTarget = -BrakeReverseThrottle * ShBrakeAmount * Fade;
+	}
 }
 
 void UAirshipFlightComponent::ComputeGimbals(float OutPitchDeg[Airship::NumPods], float OutRollDeg[Airship::NumPods]) const
 {
 	const float MaxDeg = FMath::Max(ThrusterGimbalMaxDeg, 0.f);
 	const float Pitch = GimbalPitchPerThrottle * ShThrottle + GimbalPitchPerBoost * ShBoost - (bShBrake ? GimbalPitchPerBrake : 0.f);
+
+	// Sky Racer: the nozzles lean into the slide (a real side force; the drift's path loop takes it into account)
+	const bool bSkyRoll = ActiveScheme == EAirshipControlScheme::SkyRacer && SkyDriftDir != 0 && SkyDriftGimbalRollDeg > 0.f;
 
 	for (int32 Pod = 0; Pod < Airship::NumPods; ++Pod)
 	{
@@ -406,6 +786,19 @@ void UAirshipFlightComponent::ComputeGimbals(float OutPitchDeg[Airship::NumPods]
 		{
 			P *= MaxDeg / Total;
 			R *= MaxDeg / Total;
+		}
+
+		// On top of the v1 lean, back inside the cone (as the bench's SkyFlightModel.compute_gimbals)
+		if (bSkyRoll)
+		{
+			R = FMath::Clamp(R + SkyDriftGimbalRollDeg * static_cast<float>(SkyDriftDir), -MaxDeg, MaxDeg);
+			const float SkyTotal = FMath::Sqrt(P * P + R * R);
+
+			if (SkyTotal > MaxDeg && SkyTotal > KINDA_SMALL_NUMBER)
+			{
+				P *= MaxDeg / SkyTotal;
+				R *= MaxDeg / SkyTotal;
+			}
 		}
 
 		OutPitchDeg[Pod] = P;
@@ -444,19 +837,48 @@ void UAirshipFlightComponent::UpdateFlight(float DeltaSeconds)
 	{
 		Controls.SetButton(Airship::Button_Boost, bFlightEnabled && UpdateBoostServer(Controls.IsBoost(), Dt, Body));
 
+		// Point & Fly: the heading loop on the authoritative hull writes the steer the forces and every observer use
+		// (last frame's shaped boost, as the pilot's copy has it)
+		if (ActiveScheme == EAirshipControlScheme::PointFly && bFlightEnabled && Controls.HasHeadingTarget())
+		{
+			const float BodyYawDeg = static_cast<float>(Body->GetComponentRotation().Yaw);
+			const float BodyYawRateDeg = static_cast<float>(Body->GetPhysicsAngularVelocityInDegrees().Z);
+			Controls.Steer = FAirshipPilotInput::QuantizeAxis(ComputeHeadingSteer(Controls.GetHeadingTargetDeg(), BodyYawDeg, BodyYawRateDeg, ForwardSpeed, ShBoost,
+				Controls.IsBrake(), ServerHeadingLoop));
+		}
+		else
+		{
+			ServerHeadingLoop = FPointFlyLoopState();
+		}
+
 		// The other machines shape the same controls for their cosmetics
 		RepInput = Controls;
 	}
 	else if (Ship->IsLocallyControlled())
 	{
-		// The pilot's client: gate the boost by the replicated fuel, like the server does
-		if (Controls.IsBoost() && !bLocalBoostActive && BoostFuel >= BoostMinFuelToStart)
+		// The pilot's client: gate the boost by the replicated fuel, like the server does (Sky Racer: the same burst
+		// latch on this machine's clock)
+		const double Now = World->GetTimeSeconds();
+		bool bWantBoost = Controls.IsBoost();
+
+		if (ActiveScheme == EAirshipControlScheme::SkyRacer && SkyBoostMinBurst > 0.f && bLocalBoostActive && Now - SkyLocalBoostStartTime < SkyBoostMinBurst)
+		{
+			bWantBoost = true;
+		}
+
+		const bool bWasLocalBoostActive = bLocalBoostActive;
+
+		if (bWantBoost && !bLocalBoostActive && BoostFuel >= BoostMinFuelToStart)
 		{
 			bLocalBoostActive = true;
 		}
-		if (!Controls.IsBoost() || BoostFuel <= 0.f)
+		if (!bWantBoost || BoostFuel <= 0.f)
 		{
 			bLocalBoostActive = false;
+		}
+		if (bLocalBoostActive && !bWasLocalBoostActive)
+		{
+			SkyLocalBoostStartTime = Now;
 		}
 		Controls.SetButton(Airship::Button_Boost, bLocalBoostActive);
 	}
@@ -489,6 +911,7 @@ void UAirshipFlightComponent::UpdateFlight(float DeltaSeconds)
 		bHoldValid = false;
 		bPodForceInitialized = false;
 		DriftTime = 0.f;
+		ResetSchemeState(false);
 	}
 
 	UpdateCosmetic(ForwardSpeed, static_cast<float>(Velocity.Size()));
@@ -566,37 +989,114 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 	// Local principal inertia (kg cm^2), the loops scale with it
 	const FVector Inertia = Body->GetInertiaTensor();
 
+	// Base fix 4a-1: GetInertiaTensor is the diagonal in the principal mass frame (Chaos orders it largest, smallest,
+	// middle); the hull-axis torque is R diag(I) R^-1 alpha with the mass frame rotation R
+	FQuat MassRot = FQuat::Identity;
+
+	if (bHullAxisInertia)
+	{
+		if (const FBodyInstance* BodyInstance = Body->GetBodyInstance())
+		{
+			MassRot = BodyInstance->GetMassSpaceLocal().GetRotation();
+		}
+	}
+
+	auto HullTorque = [&MassRot, &Inertia](const FVector& AlphaHull)
+	{
+		return MassRot.RotateVector(Inertia * MassRot.UnrotateVector(AlphaHull));
+	};
+
 	const float Boost = ShBoost;
 	const float Steer = ShSteer;
 	const float Strafe = ShStrafe;
 	const float Lift = ShLift;
 	const float Throttle = ShThrottle;
 
+	const bool bGalleon = ActiveScheme == EAirshipControlScheme::Galleon;
+	const bool bSky = ActiveScheme == EAirshipControlScheme::SkyRacer;
+	const bool bPointFly = ActiveScheme == EAirshipControlScheme::PointFly;
+
+	// Sky Racer drift: direction, the shaped steer into the drift (-1 counter .. +1 full in) as 0..1
+	const bool bSkyDrift = bSky && SkyDriftDir != 0;
+	const float SkyDir = static_cast<float>(SkyDriftDir);
+	const float SkyIn01 = bSkyDrift ? 0.5f * (FMath::Clamp(Steer * SkyDir, -1.f, 1.f) + 1.f) : 0.5f;
+	const float VH = static_cast<float>(V.Size2D());
+
 	// ---- Forward command (also sets the pitch lean) -------------------------------------------------------------
 	// Aura.Airship.Set skips the ClampMin metadata: keep every divisor above zero
 	const float AFanEff = FMath::Lerp(AFan, AFanBoost, Boost);
 	const float VTopEff = FMath::Max(FMath::Lerp(VTop, VTopBoost, Boost), 1.f);
+	// Sky Racer drift: the thrust fade uses the whole horizontal speed (the slide is no free speed)
+	const float VFade = bSkyDrift ? VH : Vf;
 	float AFanCmd = 0.f;
 
 	if (Throttle >= 0.f)
 	{
-		AFanCmd = AFanEff * Throttle * FMath::Max(0.f, 1.f - FMath::Pow(FMath::Max(Vf, 0.f) / VTopEff, ThrustFadeExponent));
+		AFanCmd = AFanEff * Throttle * FMath::Max(0.f, 1.f - FMath::Pow(FMath::Max(VFade, 0.f) / VTopEff, ThrustFadeExponent));
 	}
 	else
 	{
-		// Braking reverses the fans at full power (48 -> 0 m/s in about 2 s); S alone backs up gently
-		const float ARev = (bShBrake && !bDrifting) ? AFan : AFanRev;
+		// Braking reverses the fans at full power (48 -> 0 m/s in about 2 s); S alone backs up gently. Galleon: moving
+		// forward, the engines back at GalleonOrderReverseAccel to slow the ship to a lower order.
+		const float ARev = (bShBrake && !bDrifting) ? AFan : ((bGalleon && Vf > 0.f) ? GalleonOrderReverseAccel : AFanRev);
 		AFanCmd = ARev * Throttle * FMath::Max(0.f, 1.f - FMath::Square(FMath::Max(-Vf, 0.f) / FMath::Max(VTopRev, 1.f)));
 	}
 
-	const float ADrag = -(DragC1 * Vf + DragC2 * Vf * FMath::Abs(Vf));
-	const float ABrake = bShBrake ? -Kbrake * Vf * (bDrifting ? DriftBrakeScale : 1.f) : 0.f;
+	// Point & Fly: S while moving forward is a firm slow-down (then the gentle reverse)
+	if (bPointFly && PFReverseBrakeAccel > 0.f && Throttle < 0.f && !bShBrake && Vf > 200.f)
+	{
+		AFanCmd = FMath::Min(AFanCmd, PFReverseBrakeAccel * Throttle * FMath::Clamp(Vf / 600.f, 0.f, 1.f));
+	}
+
+	float ADrag = -(DragC1 * Vf + DragC2 * Vf * FMath::Abs(Vf));
+	float ADragPath = 0.f;
+
+	if (bSkyDrift)
+	{
+		// Drag along the horizontal velocity plus a scrub growing with the slip; ADrag keeps its share along the hull
+		// (the pitch lean only: it is left out of the COM force)
+		const FVector VbHorizontal = Q.UnrotateVector(FVector(V.X, V.Y, 0.0));
+		const float SinSlip = static_cast<float>(FMath::Abs(VbHorizontal.Y)) / FMath::Max(VH, 1.f);
+		ADragPath = -(DragC1 * VH + DragC2 * VH * VH + SkyDriftScrub * VH * SinSlip);
+		ADrag = ADragPath * FMath::Sqrt(FMath::Max(0.f, 1.f - SinSlip * SinSlip));
+	}
+
+	// Air brake, capped by BrakeMaxAccel (0 = v1), times the brake share (Sky Racer's analog S-brake)
+	float ABrake = 0.f;
+
+	if (bShBrake)
+	{
+		float BrakeRaw = Kbrake * Vf * (bDrifting ? DriftBrakeScale : 1.f);
+
+		if (BrakeMaxAccel > 0.f)
+		{
+			BrakeRaw = FMath::Clamp(BrakeRaw, -BrakeMaxAccel, BrakeMaxAccel);
+		}
+		ABrake = -BrakeRaw * ShBrakeAmount;
+	}
+
+	// The steady gun deck: gentler thrust and brake (not while drifting)
+	if (bShGunDeck && !bDrifting)
+	{
+		if (AFanCmd > 0.f)
+		{
+			AFanCmd *= GunDeckThrottleScale;
+		}
+		ABrake *= GunDeckBrakeScale;
+	}
+
 	const float ACmd = AFanCmd + ADrag + ABrake;
 
 	// ---- Vertical: speed command, altitude hold, floor, ceiling --------------------------------------------------
 	float VzCmd = 0.f;
 	const bool bBrakePressed = bShBrake && !bBrakeWasHeld;
 	bBrakeWasHeld = bShBrake;
+
+	// Base fix 4b-2: with HoldBrakeAccel the capture lead is the stopping distance (v1: HoldCaptureLead seconds)
+	auto StopLead = [this](float VzNow)
+	{
+		return HoldBrakeAccel > 0.f ? VzNow * FMath::Abs(VzNow) / (2.f * HoldBrakeAccel) : VzNow * HoldCaptureLead;
+	};
 
 	if (FMath::Abs(Lift) >= LiftDeadZone)
 	{
@@ -607,17 +1107,26 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 	{
 		if (!bHoldValid)
 		{
-			HoldZ = Z + Vz * HoldCaptureLead;
+			HoldZ = Z + StopLead(Vz);
 			bHoldValid = true;
 		}
 
-		// Brake = hover here
+		// Brake = hover here (base fix 4c-1: at the stopping point)
 		if (bBrakePressed)
 		{
-			HoldZ = Z;
+			HoldZ = Z + (bBrakeHoldLead ? StopLead(Vz) : 0.f);
 		}
 
-		VzCmd = FMath::Clamp(Kz * (HoldZ - Z), -HoldMaxSpeed, HoldMaxSpeed);
+		const float HoldError = HoldZ - Z;
+		VzCmd = Kz * HoldError;
+
+		// Base fix 4b-2: no faster than it can stop with HoldBrakeAccel
+		if (HoldBrakeAccel > 0.f)
+		{
+			VzCmd = HoldError == 0.f ? 0.f : FMath::Sign(HoldError) * FMath::Min(FMath::Abs(VzCmd), FMath::Sqrt(2.f * HoldBrakeAccel * FMath::Abs(HoldError)));
+		}
+
+		VzCmd = FMath::Clamp(VzCmd, -HoldMaxSpeed, HoldMaxSpeed);
 	}
 
 	if (MinClearance > 0.f && MinGroundDist >= 0.f)
@@ -636,12 +1145,40 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 		VzCmd = FMath::Min(VzCmd, Kceil * (CeilingZ - Z));
 	}
 
-	const float FvWorld = FMath::Clamp(Mass * (Gravity + Kvz * (VzCmd - Vz)), CollectiveMin * Weight, CollectiveMax * Weight);
+	// Point & Fly: the collective makes up the turn's downward grip (last frame's value)
+	const float ATurnZ = bPointFly ? PFTurnLiftComp * LastGripAccelZ : 0.f;
+	const float FvWorld = FMath::Clamp(Mass * (Gravity + Kvz * (VzCmd - Vz) - ATurnZ), CollectiveMin * Weight, CollectiveMax * Weight);
 	const float FvBody = FvWorld / FMath::Max(0.5f, static_cast<float>(Up.Z));
 
+	// Base fix 4b-1: a hidden vertical brake while the vertical speed runs past its command in its own direction
+	float AVert = 0.f;
+
+	if (VertBrakeAccel > 0.f && Vz * (Vz - VzCmd) > 0.f && FMath::Abs(Vz) > FMath::Abs(VzCmd))
+	{
+		AVert = -FMath::Sign(Vz) * FMath::Min(VertBrakeAccel, Kvz * FMath::Abs(Vz - VzCmd));
+	}
+
 	// ---- Attitude: lean targets, quaternion error, PD --------------------------------------------------------------
-	const float BankMax = bDrifting ? BankMaxDriftDeg : FMath::Lerp(BankMaxDeg, BankMaxBoostDeg, Boost);
-	const float BankDeg = BankMax * Steer * FMath::Clamp(Vf / FMath::Max(BankFullSpeed, 1.f), BankMinFraction, 1.f) + StrafeBankDeg * Strafe;
+	float BankDeg = 0.f;
+
+	if (bSkyDrift)
+	{
+		// The bank follows the drift direction (counter-steer only shallows it), not the momentary steer
+		BankDeg = SkyDriftBankDeg * SkyDir * FMath::Lerp(0.7f, 1.f, SkyIn01) * FMath::Clamp(Vf / FMath::Max(BankFullSpeed, 1.f), BankMinFraction, 1.f)
+			+ StrafeBankDeg * Strafe;
+	}
+	else
+	{
+		const float BankMax = bDrifting ? BankMaxDriftDeg : FMath::Lerp(BankMaxDeg, BankMaxBoostDeg, Boost);
+		BankDeg = BankMax * Steer * FMath::Clamp(Vf / FMath::Max(BankFullSpeed, 1.f), BankMinFraction, 1.f) + StrafeBankDeg * Strafe;
+	}
+
+	// The steady gun deck keeps the deck near level (also while drifting)
+	if (bShGunDeck)
+	{
+		BankDeg *= GunDeckBankScale;
+	}
+
 	const float PitchDeg = FMath::Clamp(-PitchPerG * ACmd / Gravity, PitchMinDeg, PitchMaxDeg) - BoostPitchDeg * Boost + LiftPitchDeg * Lift;
 
 	const FRotator Current = Q.Rotator();
@@ -666,8 +1203,84 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 		Right * (KpPitch * FVector::DotProduct(Error, Right) - KdPitch * FVector::DotProduct(TiltRate, Right));
 
 	const FVector AlphaTiltBody = Q.UnrotateVector(AlphaTilt);
-	const double TauX = Inertia.X * AlphaTiltBody.X;
-	const double TauY = Inertia.Y * AlphaTiltBody.Y;
+
+	// ---- Yaw command (above the mixer: the hull-axis tensor couples it into the roll / pitch torques) -------------------
+	const float YawRate = static_cast<float>(AngVel.Z);
+	float RmaxDeg = GetYawRateMaxDeg(Vf, Boost, bDrifting);
+	float YawRateCmd = Steer * FMath::DegreesToRadians(RmaxDeg);
+	float SkyPathRate = 0.f;
+
+	if (bSky)
+	{
+		// Slip: nose relative to the horizontal velocity (deg, + = nose right of it)
+		const float CourseDeg = VH > 100.f ? static_cast<float>(FMath::RadiansToDegrees(FMath::Atan2(V.Y, V.X))) : static_cast<float>(Current.Yaw);
+		const float SlipDeg = WrapDeg(static_cast<float>(Current.Yaw) - CourseDeg);
+
+		if (bSkyDrift)
+		{
+			// The steer sets the PATH turn rate; the yaw loop swings the nose in to hold a slip on top of it
+			SkyPathRate = SkyDir * FMath::DegreesToRadians(FMath::Lerp(SkyDriftPathRateMinDeg, SkyDriftPathRateMaxDeg, SkyIn01));
+			const float SlipTargetDeg = SkyDir * FMath::Lerp(SkyDriftSlipMinDeg, SkyDriftSlipMaxDeg, SkyIn01);
+			const float NoseRateMax = FMath::DegreesToRadians(SkyDriftYawRateMaxDeg);
+			YawRateCmd = FMath::Clamp(SkyPathRate + SkyDriftSlipGain * FMath::DegreesToRadians(SlipTargetDeg - SlipDeg), -NoseRateMax, NoseRateMax);
+			RmaxDeg = FMath::RadiansToDegrees(FMath::Abs(YawRateCmd));
+
+			// Turn-in first, then the tail steps out: the path never runs ahead of the hull plus what its slip allows
+			SkyPathRate = SkyDir * FMath::Min(FMath::Abs(SkyPathRate), FMath::Max(0.f, YawRate * SkyDir + FMath::DegreesToRadians(SkyDriftPathLeadDeg)
+				+ SkyDriftSlipGain * FMath::DegreesToRadians(FMath::Max(0.f, SlipDeg * SkyDir))));
+		}
+		else if (SkyExitLeft > 0.f)
+		{
+			// Drift exit: the nose swings back part of the slip while the grip pulls the path onto it
+			YawRateCmd -= SkyDriftExitYawGain * FMath::DegreesToRadians(SlipDeg);
+		}
+	}
+
+	// The steady gun deck: fine helm (not while drifting)
+	if (bShGunDeck && !bDrifting)
+	{
+		YawRateCmd *= GunDeckYawScale;
+		RmaxDeg *= GunDeckYawScale;
+	}
+
+	// Loop gain / cap: the drift's own, or "meet her" while a turn is being taken off
+	float KrEff = Kr;
+	float AlphaYawCap = AlphaYawMax;
+
+	if (bDrifting)
+	{
+		KrEff = DriftKr > 0.f ? DriftKr : Kr;
+		AlphaYawCap = DriftAlphaYawMax > 0.f ? DriftAlphaYawMax : AlphaYawMax;
+	}
+	else if (KrSteady > 0.f && FMath::Abs(YawRateCmd) < FMath::Abs(YawRate) - 1e-3f)
+	{
+		KrEff = KrSteady;
+		AlphaYawCap = FMath::Max(AlphaYawMax, AlphaYawMaxSteady);
+	}
+
+	const float AlphaZ = FMath::Clamp(KrEff * (YawRateCmd - YawRate) + AngularDamping * YawRateCmd, -AlphaYawCap, AlphaYawCap);
+
+	// ---- Torque requests ------------------------------------------------------------------------------------------------
+	double TauX = 0.0;
+	double TauY = 0.0;
+	double TauZ = 0.0;
+	double Izz = 0.0;
+
+	if (bHullAxisInertia)
+	{
+		const FVector TauHull = HullTorque(FVector(AlphaTiltBody.X, AlphaTiltBody.Y, AlphaZ));
+		TauX = TauHull.X;
+		TauY = TauHull.Y;
+		TauZ = TauHull.Z;
+		Izz = HullTorque(FVector::UpVector).Z;
+	}
+	else
+	{
+		TauX = Inertia.X * AlphaTiltBody.X;
+		TauY = Inertia.Y * AlphaTiltBody.Y;
+		TauZ = Inertia.Z * AlphaZ;
+		Izz = Inertia.Z;
+	}
 
 	// ---- Thruster mixing: collective + roll/pitch torque over 4 pods ---------------------------------------------
 	float GimbalPitch[Airship::NumPods];
@@ -703,14 +1316,41 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 		}
 	}
 
+	// Fan geometry (also needed by base fix 4a-2 before the attitude solve)
+	const float Psi = FMath::DegreesToRadians(-FanYawMaxDeg * Steer);
+	const FVector FanDir(1.0, FMath::Tan(Psi), 0.0);
+	const double FanMaxForce = FMath::Lerp(FanMax, FanMaxBoost, Boost) * Weight;
+
 	double Collective[Airship::NumPods] = {};
 	double Attitude[Airship::NumPods] = {};
 	const double BCollective[3] = { FvBody, 0.0, 0.0 };
-	const double BAttitude[3] = { 0.0, TauX, TauY };
 	double YC[3];
 	double YA[3];
+	const bool bCollectiveSolved = Solve3x3(M, BCollective, YC);
 
-	if (Solve3x3(M, BCollective, YC) && Solve3x3(M, BAttitude, YA))
+	// Base fix 4a-2: the fans' estimated forward total (from the collective's share), its roll / pitch torque at the
+	// fan points comes off the pods' attitude request (the yaw differential adds none)
+	FVector TauFan = FVector::ZeroVector;
+
+	if (bFanTorqueFeedForward && bCollectiveSolved)
+	{
+		double TotalEstimate = Mass * AFanCmd;
+
+		for (int32 Pod = 0; Pod < Airship::NumPods; ++Pod)
+		{
+			TotalEstimate -= (A[0][Pod] * YC[0] + A[1][Pod] * YC[1] + A[2][Pod] * YC[2]) * PodDir[Pod].X;
+		}
+		TotalEstimate = FMath::Clamp(TotalEstimate, -2.0 * FanMaxForce, 2.0 * FanMaxForce);
+
+		for (int32 Fan = 0; Fan < Airship::NumFans; ++Fan)
+		{
+			TauFan += FVector::CrossProduct(FanLocal[Fan] - COMLocal, FanDir * (0.5 * TotalEstimate));
+		}
+	}
+
+	const double BAttitude[3] = { 0.0, TauX - TauFan.X, TauY - TauFan.Y };
+
+	if (bCollectiveSolved && Solve3x3(M, BAttitude, YA))
 	{
 		for (int32 Pod = 0; Pod < Airship::NumPods; ++Pod)
 		{
@@ -783,72 +1423,182 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 	FVector AlphaGyroTilt = AlphaTilt * (1.0 - S);
 	AlphaGyroTilt = AlphaGyroTilt.GetClampedToMaxSize(GyroTiltMax);
 
-	// ---- Yaw command -------------------------------------------------------------------------------------------------
-	const float AbsVf = FMath::Abs(Vf);
-	float RmaxDeg = AbsVf <= YawRateMidSpeed
-		? FMath::Lerp(YawRateAtRest, YawRateAtMid, AbsVf / FMath::Max(YawRateMidSpeed, 1.f))
-		: FMath::Lerp(YawRateAtMid, YawRateAtTop, FMath::Clamp((AbsVf - YawRateMidSpeed) / FMath::Max(YawRateTopSpeed - YawRateMidSpeed, 1.f), 0.f, 1.f));
-	RmaxDeg = bDrifting ? YawRateDrift : FMath::Lerp(RmaxDeg, YawRateBoost, Boost);
-
-	const float YawRateCmd = Steer * FMath::DegreesToRadians(RmaxDeg);
-	const float YawRate = static_cast<float>(AngVel.Z);
-	const float AlphaZ = FMath::Clamp(Kr * (YawRateCmd - YawRate) + AngularDamping * YawRateCmd, -AlphaYawMax, AlphaYawMax);
-	const double TauZ = Inertia.Z * AlphaZ;
-
 	// ---- Fans: forward thrust + differential for yaw -----------------------------------------------------------------
-	const float Psi = FMath::DegreesToRadians(-FanYawMaxDeg * Steer);
-	const FVector FanDir(1.0, FMath::Tan(Psi), 0.0);
 	const double KL = FVector::CrossProduct(FanLocal[0] - COMLocal, FanDir).Z;
 	const double KR = FVector::CrossProduct(FanLocal[1] - COMLocal, FanDir).Z;
 	const double KDiff = 0.5 * (KL - KR);
 
-	const double FanMaxForce = FMath::Lerp(FanMax, FanMaxBoost, Boost) * Weight;
 	const double Total = FMath::Clamp(Mass * AFanCmd - PodSumBody.X, -2.0 * FanMaxForce, 2.0 * FanMaxForce);
 
 	// Rudder: inside the yaw loop, it gives what the pods and the fan housings don't (never more), up to an authority
 	// that grows with forward speed squared. Open loop it overpowered the gyro on a boost turn and spun the ship out.
-	const float RudderCap = FMath::Min(RudderAuthority * FMath::Square(Vf / FMath::Max(RudderRefSpeed, 1.f)), RudderMaxAlpha) * FMath::Abs(Steer);
-	const float RudderAlpha = Inertia.Z > KINDA_SMALL_NUMBER
-		? FMath::Clamp(static_cast<float>(AlphaZ - (PodTauZ + 0.5 * Total * (KL + KR)) / Inertia.Z), -RudderCap, RudderCap)
+	// A Sky Racer drift turns with the rudder whatever the steer.
+	const float RudderSteer = bSkyDrift ? 1.f : FMath::Abs(Steer);
+	const float RudderCap = FMath::Min(RudderAuthority * FMath::Square(Vf / FMath::Max(RudderRefSpeed, 1.f)), RudderMaxAlpha) * RudderSteer;
+	const float RudderAlpha = Izz > KINDA_SMALL_NUMBER
+		? FMath::Clamp(static_cast<float>(AlphaZ - (PodTauZ + 0.5 * Total * (KL + KR)) / Izz), -RudderCap, RudderCap)
 		: 0.f;
 
-	const double TauKnown = PodTauZ + 0.5 * Total * (KL + KR) + Inertia.Z * RudderAlpha;
+	const double TauKnown = PodTauZ + 0.5 * Total * (KL + KR) + Izz * RudderAlpha;
 	const double DMax = FMath::Max(0.0, 2.0 * FanMaxForce - FMath::Abs(Total));
 	const double D = FMath::Abs(KDiff) > 1.0 ? FMath::Clamp((TauZ - TauKnown) / KDiff, -DMax, DMax) : 0.0;
 	const double FanForce[Airship::NumFans] = { 0.5 * Total + 0.5 * D, 0.5 * Total - 0.5 * D };
-	const float AlphaGyroZ = Inertia.Z > KINDA_SMALL_NUMBER ? FMath::Clamp(static_cast<float>((TauZ - TauKnown - KDiff * D) / Inertia.Z), -GyroYawMax, GyroYawMax) : 0.f;
+	const float AlphaGyroZ = Izz > KINDA_SMALL_NUMBER ? FMath::Clamp(static_cast<float>((TauZ - TauKnown - KDiff * D) / Izz), -GyroYawMax, GyroYawMax) : 0.f;
 
 	// ---- Lateral grip, strafe, drift ----------------------------------------------------------------------------------
-	const float Klat = bDrifting ? DriftKlat : FMath::Lerp(GripKlat, BoostKlat, Boost);
-	const float ALatMax = (bDrifting ? DriftALatMaxG : FMath::Lerp(GripALatMaxG, BoostALatMaxG, Boost)) * Gravity;
+	float Klat = bDrifting ? DriftKlat : FMath::Lerp(GripKlat, BoostKlat, Boost);
+	float ALatMax = (bDrifting ? DriftALatMaxG : FMath::Lerp(GripALatMaxG, BoostALatMaxG, Boost)) * Gravity;
 	const float Eta = bDrifting ? DriftEta : FMath::Lerp(GripEta, BoostEta, Boost);
 
-	const float ALatCmd = FMath::Clamp(Klat * (Strafe * StrafeSpeed - Vl), -ALatMax, ALatMax);
-	const float ALatPhys = static_cast<float>((PodSumBody.Y + (FanForce[0] + FanForce[1]) * FanDir.Y) / Mass);
-	const float AGrip = ALatCmd - ALatPhys;
+	float AGrip = 0.f;
+	float ARedirect = 0.f;
+	float APath = 0.f;
+	FVector PathN = FVector::ZeroVector;
 
-	// Turning carves: part of the scrubbed side speed comes back as forward speed
-	const float ARedirect = (Vf > RedirectMinSpeed && AGrip * Vl < 0.f) ? Eta * FMath::Abs(AGrip) : 0.f;
-
-	// Drift boost when a long drift ends
-	if (bDrifting)
+	if (bSkyDrift)
 	{
-		DriftTime += Dt;
+		// Sky Racer drift: a level path force perpendicular to the velocity turns it at the path rate; the physical
+		// forces' share along it comes off, the rest is hidden, capped. It replaces the grip loop.
+		PathN = VH > 1.f ? FVector(-V.Y / VH, V.X / VH, 0.0) : Right;
+		FVector PhysicalForce = FVector::ZeroVector;
+
+		for (int32 Pod = 0; Pod < Airship::NumPods; ++Pod)
+		{
+			PhysicalForce += PodForceWorld[Pod];
+		}
+		for (int32 Fan = 0; Fan < Airship::NumFans; ++Fan)
+		{
+			PhysicalForce += Q.RotateVector(FanDir * FanForce[Fan]);
+		}
+
+		const float PathAccelMax = SkyDriftALatMaxG * Gravity;
+		APath = FMath::Clamp(SkyPathRate * VH - static_cast<float>(FVector::DotProduct(PhysicalForce, PathN)) / Mass, -PathAccelMax, PathAccelMax);
 	}
 	else
 	{
-		if (DriftTime >= DriftBoostMinTime && DriftBoostDV > 0.f)
+		float CentripetalFF = 0.f;
+		float EnergyKeep = 0.f;
+
+		if (bSky)
 		{
-			const FVector KickDV = Fwd * DriftBoostDV;
+			// Drift exit snap: the slide straightens out fast
+			if (SkyExitLeft > 0.f)
+			{
+				Klat = FMath::Max(Klat, SkyDriftExitKlat);
+				ALatMax = FMath::Max(ALatMax, SkyDriftExitALatMaxG * Gravity);
+			}
+
+			// A planted carve: part of the centripetal acceleration fed forward, the scrubbed energy given back
+			CentripetalFF = SkyGripCentripetalFF * YawRate * FMath::Max(Vf, 0.f);
+			EnergyKeep = SkyGripEnergyKeep;
+		}
+
+		const float GripTerm = Klat * (Strafe * StrafeSpeed - Vl);
+		const float ALatCmd = FMath::Clamp(bSky ? CentripetalFF + GripTerm : GripTerm, -ALatMax, ALatMax);
+		const float ALatPhys = static_cast<float>((PodSumBody.Y + (FanForce[0] + FanForce[1]) * FanDir.Y) / Mass);
+		AGrip = ALatCmd - ALatPhys;
+
+		if (EnergyKeep > 0.f)
+		{
+			// The energy the side force really scrubs (power -a_lat * vl), given back along Fwd
+			ARedirect = Vf > RedirectMinSpeed ? EnergyKeep * FMath::Max(0.f, -ALatCmd * Vl) / FMath::Max(Vf, 500.f) : 0.f;
+		}
+		else
+		{
+			// Turning carves: part of the scrubbed side speed comes back as forward speed
+			ARedirect = (Vf > RedirectMinSpeed && AGrip * Vl < 0.f) ? Eta * FMath::Abs(AGrip) : 0.f;
+		}
+	}
+
+	// Point & Fly: the vertical part of the grip, made up by next frame's collective
+	LastGripAccelZ = bPointFly ? AGrip * static_cast<float>(Right.Z) : 0.f;
+
+	// Level grip (no turn sink): perpendicular to the heading, or the hull's right axis made level
+	FVector GripDir = Right;
+
+	if (bLevelGripForce)
+	{
+		const FVector LevelDir = (bLevelGripAlongHeading ? FVector(-Fwd.Y, Fwd.X, 0.0) : FVector(Right.X, Right.Y, 0.0)).GetSafeNormal();
+
+		if (!LevelDir.IsZero())
+		{
+			GripDir = LevelDir;
+		}
+	}
+
+	// ---- Kicks and extras -----------------------------------------------------------------------------------------------
+	if (!bSky)
+	{
+		// Drift boost when a long drift ends (Galleon: the stern swing's exit surge)
+		if (bDrifting)
+		{
+			DriftTime += Dt;
+		}
+		else
+		{
+			// DriftBoostCapSpeed (Point & Fly): the kick only tops the ship up to that forward speed (0 = the full v1 kick)
+			const float KickSpeed = GetDriftKickDV(Vf);
+
+			if (DriftTime >= DriftBoostMinTime && DriftBoostDV > 0.f && KickSpeed > 0.f)
+			{
+				const FVector KickDV = Fwd * KickSpeed;
+				Body->AddImpulse(KickDV, NAME_None, true);
+
+				// The ship's own speed for the impact cap (DriftBoostDV is more than ImpactMaxSpeedGain)
+				if (AAirshipPawn* Ship = GetShip())
+				{
+					Ship->NoteFlightKick(KickDV);
+				}
+			}
+			DriftTime = 0.f;
+		}
+	}
+
+	float ATurbo = 0.f;
+	float ADive = 0.f;
+
+	if (bSky)
+	{
+		// Mini-turbo released this frame: a kick (the ship's own speed for the impact cap) and boost fuel
+		if (SkyTurboEvent > 0)
+		{
+			const int32 Tier = SkyTurboEvent;
+			const float KickBase = Tier >= 3 ? SkyTurboKickDV3 : (Tier == 2 ? SkyTurboKickDV2 : SkyTurboKickDV1);
+			const float Links = static_cast<float>(FMath::Min(static_cast<int32>(SkyTurboChain), FMath::Max(SkyChainMax, 0)));
+			const FVector KickDV = Fwd * (KickBase * (1.f + SkyChainBonus * Links));
 			Body->AddImpulse(KickDV, NAME_None, true);
 
-			// The ship's own speed for the impact cap (DriftBoostDV is more than ImpactMaxSpeedGain)
 			if (AAirshipPawn* Ship = GetShip())
 			{
 				Ship->NoteFlightKick(KickDV);
 			}
+
+			const float TurboFuel = Tier >= 3 ? SkyTurboFuel3 : (Tier == 2 ? SkyTurboFuel2 : SkyTurboFuel1);
+			BoostFuel = FMath::Min(BoostFuelMax, BoostFuel + TurboFuel);
 		}
-		DriftTime = 0.f;
+
+		// The burn fades 1 -> 0 over its time
+		const float TurboAlpha = SkyTurboLeft > 0.f ? SkyTurboLeft / FMath::Max(SkyTurboTotal, 1e-3f) : 0.f;
+
+		if (TurboAlpha > 0.f)
+		{
+			ATurbo = SkyTurboAccel * TurboAlpha * FMath::Max(0.f, 1.f - FMath::Pow(FMath::Max(Vf, 0.f) / FMath::Max(SkyTurboVTop, 1.f), 4.f));
+		}
+
+		// Diving turns height into speed
+		if (SkyDiveAccelPerSink > 0.f && Lift <= -LiftDeadZone && Vz < 0.f && Vf > SkyDiveMinSpeed)
+		{
+			ADive = SkyDiveAccelPerSink * -Vz;
+		}
+	}
+
+	// Base fix 4d: station keeping at low speed with no throttle, strafe or boost
+	float AKeepF = 0.f;
+
+	if (StationKeepGain > 0.f && FMath::Abs(Throttle) < 0.05f && FMath::Abs(Strafe) < 0.05f && Boost < 0.05f)
+	{
+		const float Fade = FMath::Clamp(2.f - FMath::Sqrt(Vf * Vf + Vl * Vl) / FMath::Max(StationKeepSpeed, 1.f), 0.f, 1.f);
+		AKeepF = FMath::Clamp(-StationKeepGain * Vf, -StationKeepAccelMax, StationKeepAccelMax) * Fade;
 	}
 
 	// ---- Wind ---------------------------------------------------------------------------------------------------------
@@ -874,7 +1624,24 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 		Body->AddForceAtLocation(FanForceWorld[Fan], BodyTM.TransformPosition(FanLocal[Fan]));
 	}
 
-	FVector ACom = Right * (AGrip + WindLat) + Fwd * (ADrag + ABrake + ARedirect);
+	// The v1 terms (grip along Right, drag, brake, redirect), then the schemes' (all 0 in Classic). A Sky Racer drift
+	// drags along the velocity instead of along the hull.
+	const float ADragFwd = bSkyDrift ? 0.f : ADrag;
+	FVector ACom = bLevelGripForce ? GripDir * AGrip + Right * WindLat : Right * (AGrip + WindLat);
+	ACom += Fwd * (ADragFwd + ABrake + ARedirect + ATurbo + ADive + AKeepF);
+
+	if (bSkyDrift)
+	{
+		ACom += PathN * APath;
+
+		if (VH > 1.f)
+		{
+			ACom += FVector(V.X / VH, V.Y / VH, 0.0) * ADragPath;
+		}
+	}
+
+	ACom.Z += AVert;
+
 	const float SpeedNow = static_cast<float>(V.Size());
 
 	if (SpeedNow > HardSpeedCap)
@@ -954,6 +1721,77 @@ void UAirshipFlightComponent::UpdateCosmetic(float ForwardSpeed, float Speed)
 
 	C.FanThrust[0] = bFlightEnabled ? FMath::Clamp(Forward + Diff, -1.f, 1.f) : 0.f;
 	C.FanThrust[1] = bFlightEnabled ? FMath::Clamp(Forward - Diff, -1.f, 1.f) : 0.f;
+
+	// ---- Control schemes (every value v1-neutral outside its scheme) -----------------------------------------------
+	C.bDrifting = bDrifting;
+	C.bGunDeck = bShGunDeck;
+	C.FXBoost = ShBoost;
+	C.FXFanThrust = 0.f;
+	C.DriftDir = 0;
+	C.DriftCharge = 0.f;
+	C.DriftTier = 0;
+	C.TurboAlpha = 0.f;
+	C.TurboTier = 0;
+	C.TurboChain = 0;
+	C.TurboEventCount = SkyTurboEventCount;
+
+	// Wheel and rudder thrown hard over in a drift (only they read C.Steer; the fan yaw stays the forces')
+	if (bDrifting && DriftCosmeticSteerScale != 1.f)
+	{
+		C.Steer = FMath::Clamp(ShSteer * DriftCosmeticSteerScale, -1.3f, 1.3f);
+	}
+
+	if (ActiveScheme == EAirshipControlScheme::Galleon && bFlightEnabled)
+	{
+		// The engines answer the telegraph and full steam: a short thrust pulse on the pods
+		const float Pulse = GalleonOrderPulse * FMath::Max(GalleonOrderPulse01, GalleonBoostPulse01);
+
+		if (Pulse > 0.f)
+		{
+			for (int32 Pod = 0; Pod < Airship::NumPods; ++Pod)
+			{
+				C.PodThrustAlpha[Pod] = FMath::Clamp(C.PodThrustAlpha[Pod] + Pulse, 0.f, 1.5f);
+			}
+		}
+	}
+	else if (ActiveScheme == EAirshipControlScheme::SkyRacer)
+	{
+		const int32 Tier = SkyDriftDir != 0 ? SkyTierOf(SkyCharge) : 0;
+		const float TurboAlpha = SkyTurboLeft > 0.f ? SkyTurboLeft / FMath::Max(SkyTurboTotal, 1e-3f) : 0.f;
+		const float ClockSeconds = static_cast<float>(FMath::Fmod(SkyClock, 64.0));
+
+		C.DriftDir = SkyDriftDir;
+		C.DriftCharge = SkyDriftDir != 0 ? SkyCharge : 0.f;
+		C.DriftTier = static_cast<uint8>(Tier);
+		C.TurboAlpha = TurboAlpha;
+		C.TurboTier = SkyTurboTier;
+		C.TurboChain = SkyChain;
+
+		if (bFlightEnabled)
+		{
+			// Drift held: the rear pods flicker with the charge (4 / 6 / 9 Hz by tier); the burn lifts every pod
+			const float FlickerHz = Tier >= 3 ? 9.f : (Tier == 2 ? 6.f : 4.f);
+			const float DriftPulse = SkyDriftDir != 0 ? SkyFXDriftPulse * SkyCharge * (0.75f + 0.25f * FMath::Sin(2.f * UE_PI * FlickerHz * ClockSeconds)) : 0.f;
+
+			for (int32 Pod = 0; Pod < Airship::NumPods; ++Pod)
+			{
+				const float RearPulse = Airship::IsFrontPod(Pod) ? 0.f : DriftPulse;
+				C.PodThrustAlpha[Pod] = FMath::Clamp(C.PodThrustAlpha[Pod] + RearPulse + SkyFXTurboThrust * TurboAlpha, 0.f, 1.5f);
+			}
+
+			// The exhaust heats up as the drift charges (Niagara Boost), the burn on top; the fans spin with the burn
+			float ChargeGlow = 0.f;
+
+			if (SkyDriftDir != 0)
+			{
+				ChargeGlow = Tier >= 3 ? SkyFXChargeGlow3 + 0.1f * FMath::Sin(2.f * UE_PI * 8.f * ClockSeconds)
+					: (Tier == 2 ? SkyFXChargeGlow2 : (Tier == 1 ? SkyFXChargeGlow1 : 0.3f * SkyCharge));
+			}
+
+			C.FXBoost = FMath::Max(ShBoost, FMath::Max(ChargeGlow, TurboAlpha));
+			C.FXFanThrust = TurboAlpha;
+		}
+	}
 }
 
 void UAirshipFlightComponent::FillTelemetry(FAirshipFlightTelemetry& Out) const
@@ -992,4 +1830,21 @@ void UAirshipFlightComponent::FillTelemetry(FAirshipFlightTelemetry& Out) const
 	Out.Boost = ShBoost;
 	Out.bBraking = bShBrake;
 	Out.bDrifting = bDrifting;
+
+	// Control schemes (the pawn overrides the Point & Fly pilot-side values on the pilot's machine)
+	const bool bSky = ActiveScheme == EAirshipControlScheme::SkyRacer;
+	const bool bPointFly = ActiveScheme == EAirshipControlScheme::PointFly;
+
+	Out.Scheme = static_cast<uint8>(ActiveScheme);
+	Out.ThrottleOrder = ActiveScheme == EAirshipControlScheme::Galleon ? AirshipGalleon::NotchToOrderValue(GetGalleonNotch()) : -2.f;
+	Out.DriftCharge = (bSky && SkyDriftDir != 0) ? SkyCharge : 0.f;
+	Out.bHeadingTargetActive = bPointFly && CurrentControls.HasHeadingTarget();
+	Out.HeadingTargetDeg = Out.bHeadingTargetActive ? CurrentControls.GetHeadingTargetDeg() : 0.f;
+	Out.bFreeLook = bPointFly ? CurrentControls.IsAiming() : true;
+	Out.DriftDir = bSky ? static_cast<int32>(SkyDriftDir) : (bDrifting ? static_cast<int32>(FMath::Sign(ShSteer)) : 0);
+	Out.DriftTier = (bSky && SkyDriftDir != 0) ? SkyTierOf(SkyCharge) : 0;
+	Out.TurboAlpha = (bSky && SkyTurboLeft > 0.f) ? SkyTurboLeft / FMath::Max(SkyTurboTotal, 1e-3f) : 0.f;
+	Out.TurboChain = bSky ? static_cast<int32>(SkyChain) : 0;
+	Out.bGunDeck = bShGunDeck;
+	Out.bGunLock = false;
 }

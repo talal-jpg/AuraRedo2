@@ -61,6 +61,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAirshipPilotChangedSignature, AA
  * to it ride with QueryOnly collision, so their kinematic capsules don't push the simulated hull (IsPassengerCandidate).
  * Hull hits (every machine): the rebound, speed gain and spin kick of one hit are capped (bLimitImpactResponse).
  * Pilot's machine: the on-foot HUD overlay is hidden and a small ship HUD (UAirshipHUDWidget) shows instead.
+ *
+ * Control schemes (CPP_NOTES.md section 14): ControlScheme (replicated) picks Classic (v1), Galleon, Sky Racer or
+ * Point & Fly; applying it writes a compiled-in preset of every scheme-owned tunable on every machine.
  */
 UCLASS()
 class AURA_API AAirshipPawn : public APawn, public IAbilitySystemInterface, public IMyCombatInterface
@@ -159,6 +162,15 @@ public:
 	/** Yaw / elevation (deg, clamped to the cannon's limits) that point Cannon at the world point Target. */
 	void ComputeCannonAim(int32 Cannon, const FVector& Target, float& OutYawDeg, float& OutElevDeg) const;
 
+	/** The same without the limits (the arc test). */
+	void ComputeCannonAimRaw(int32 Cannon, const FVector& Target, float& OutYawDeg, float& OutElevDeg) const;
+
+	/** True if either cannon of Side can reach AimPoint inside its yaw and elevation limits (the HUD's arc marks). */
+	bool IsAimInCannonArc(EAirshipSide Side, const FVector& AimPoint) const;
+
+	/** The pilot's machine: this frame's camera aim point (world, cm). */
+	const FVector& GetLocalAimPoint() const { return LocalAimPoint; }
+
 	/** Hull-local firing direction for a yaw / elevation. */
 	FVector GetCannonDirLocal(int32 Cannon, float YawDeg, float ElevDeg) const;
 
@@ -202,6 +214,48 @@ public:
 	/** The pilot's machine: true while the ship HUD is on screen (and the on-foot overlay hidden). */
 	UFUNCTION(BlueprintPure, Category = "Airship|HUD")
 	bool IsShipHUDShown() const { return bShipHUDActive; }
+
+
+	// -------------------------------------------------------------------------
+	// Control schemes (CPP_NOTES.md "Control schemes")
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Authority: switches the ship to NewScheme (every scheme-owned tunable from the compiled-in preset, the schemes'
+	 * runtime state reset) and replicates it. A client only logs a warning.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Airship|Controls")
+	void SetControlScheme(EAirshipControlScheme NewScheme);
+
+	UFUNCTION(BlueprintPure, Category = "Airship|Controls")
+	EAirshipControlScheme GetControlScheme() const { return ControlScheme; }
+
+	/**
+	 * Console check (Aura.Airship.Scheme check): every scheme-owned property (flight component, pawn, camera boom) whose
+	 * value differs from the archetype's, as "Owner.Name = value (default)". Returns the count: 0 under Classic.
+	 */
+	int32 GetSchemePropertyDifferences(TArray<FString>& OutDifferences) const;
+
+	/** Galleon, the pilot's machine: the ordered notch (-1 ASTERN .. 3 FULL) and the broadside stations flag it sends. */
+	int32 GetGalleonNotch() const { return GalleonNotch; }
+	bool IsGalleonStations() const { return bGalleonStations; }
+
+	/** Galleon: the notch whose speed is nearest ForwardSpeedCms (a scheme switch at cruise keeps cruising). */
+	static int32 NotchForSpeed(float ForwardSpeedCms);
+
+	/** Point & Fly, the pilot's machine: the scheme is on (and the ship alive), the heading target sent (world yaw), Aim held (free look), the gun lock engaged and its swing (-1 left, +1 right, 0 none). */
+	bool IsPointFlyActive() const { return ControlScheme == EAirshipControlScheme::PointFly && !bIsDead; }
+	float GetPFHeadingTargetDeg() const { return PFSentHeading; }
+	bool IsPFFreeLook() const { return bPFFree; }
+	bool IsPFGunLocked() const { return bPFLock; }
+	int32 GetPFLockSwingDir() const { return PFLockSwingDir; }
+
+	/** Point & Fly, the pilot's machine: parked free look (at rest with no drive / turn key: the mouse looks around, the heading holds). */
+	UFUNCTION(BlueprintPure, Category = "Airship|PointFly")
+	bool IsPFParked() const { return bPFParked; }
+
+	/** The cannons' yaw limit (deg either side of their rest direction): the HUD's arc marks. */
+	float GetCannonYawLimitDeg() const { return CannonYawLimitDeg; }
 
 
 	// -------------------------------------------------------------------------
@@ -449,6 +503,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Impact", meta = (ClampMin = "0.0", EditCondition = "bLimitImpactResponse"))
 	float ImpactEpisodeAccel = 2500.f;
 
+	/**
+	 * Base fix 4e: the free upward change per second (cm/s per s) in place of ImpactEpisodeAccel. 0 = the same as
+	 * ImpactEpisodeAccel (v1). Keep it at or above the largest upward flight acceleration, (CollectiveMax - 1) g +
+	 * 0.35 g + VertBrakeAccel, or a scrape caps the flight forces like kicks.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Impact", meta = (ClampMin = "0.0", EditCondition = "bLimitImpactResponse"))
+	float ImpactEpisodeAccelUp = 0.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Impact", meta = (ClampMin = "0.0", EditCondition = "bLimitImpactResponse"))
 	float ImpactEpisodeSpinAccelDeg = 90.f;
 
@@ -456,7 +518,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Debug")
 	bool bShowHullWithoutMesh = true;
 
-	/** Optional physical material for the hull (friction 0.2, restitution 0.35 suggested). */
+	/**
+	 * Optional physical material for the hull. BP_AirshipPawn uses PM_AirshipHull: friction 0.2, restitution 0.08 with
+	 * Restitution Combine Mode Min + override, so the hull's low bounce wins against any surface (as_42; it was 0.35 Max).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Impact")
 	TObjectPtr<UPhysicalMaterial> HullPhysicalMaterial;
 
@@ -667,6 +732,266 @@ protected:
 
 
 	// -------------------------------------------------------------------------
+	// Control scheme (CPP_NOTES.md "Control schemes")
+	// -------------------------------------------------------------------------
+
+	/**
+	 * How the pilot's keys and camera fly the ship. Applying it (BeginPlay, SetControlScheme, OnRep) writes every
+	 * scheme-owned tunable of the flight component, this pawn and the camera boom from a compiled-in preset (Classic =
+	 * the class defaults, i.e. v1), on every machine. Change it at runtime with SetControlScheme or Aura.Airship.Scheme.
+	 * Default Point & Fly (the judged winner, 2026-11-23); the tunables' class defaults stay Classic's (v1), so Classic is
+	 * still exact v1 and "Aura.Airship.Scheme 0" + "check" still lists 0 differences.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_ControlScheme, Category = "Airship|Controls")
+	EAirshipControlScheme ControlScheme = EAirshipControlScheme::PointFly;
+
+
+	// -------------------------------------------------------------------------
+	// Feedback: camera shake, FOV kick, camera roll, rumble (pilot's machine; the defaults are off = v1)
+	// -------------------------------------------------------------------------
+
+	/** Camera relative rotation (deg) / location (cm) jitter at trauma 1 (it grows with trauma squared), its Perlin frequency (Hz) and the trauma decay (1/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float ShakeRotDeg = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float ShakeLocCm = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float ShakeFrequency = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float ShakeDecay = 2.f;
+
+	/** FOV punch decay (1/s, exponential) and the FOV clamp (deg; 0 = 170). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float FOVKickDecay = 3.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float FOVMaxDeg = 0.f;
+
+	/**
+	 * Camera roll (deg, + = right side down) = CameraRollPerBank x hull roll + CameraRollPerSteerDeg x cosmetic steer (x
+	 * GunDeckBankScale on the gun deck), clamped to CameraRollMaxDeg, interpolated at CameraRollInterpSpeed (1/s; 0 = none).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	float CameraRollPerBank = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	float CameraRollPerSteerDeg = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float CameraRollMaxDeg = 6.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float CameraRollInterpSpeed = 0.f;
+
+	/** Multiplies every gamepad rumble (0 = off). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float RumbleScale = 0.f;
+
+	/** Hull hit: trauma and rumble per m/s of impact speed above ImpactMinSpeed (trauma capped at ShakeHitMax). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float ShakeHitPerMS = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float ShakeHitMax = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float RumbleHitPerMS = 0.f;
+
+	/** While drifting: a trauma floor and a continuous small-motor rumble, each base + per unit Sky Racer charge. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float DriftTraumaBase = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float DriftTraumaPerCharge = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float DriftRumbleBase = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback", meta = (ClampMin = "0.0"))
+	float DriftRumblePerCharge = 0.f;
+
+	/** Per event: boost start, own broadside, drift kick (v1 drift / Galleon swing exit), Sky Racer turbo tier 1 / 2 / 3, Galleon order change (FOV sign = direction), Point & Fly gun lock. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	FAirshipFeedbackEvent FeedbackBoostStart;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	FAirshipFeedbackEvent FeedbackOwnBroadside;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	FAirshipFeedbackEvent FeedbackDriftKick;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	FAirshipFeedbackEvent FeedbackTurbo1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	FAirshipFeedbackEvent FeedbackTurbo2;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	FAirshipFeedbackEvent FeedbackTurbo3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	FAirshipFeedbackEvent FeedbackOrderChange;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Feedback")
+	FAirshipFeedbackEvent FeedbackLockEngage;
+
+
+	// -------------------------------------------------------------------------
+	// Galleon, pilot side (only read while ControlScheme == Galleon: the defaults are Galleon's values)
+	// -------------------------------------------------------------------------
+
+	/** Telegraph: the throttle axis past Press is a press, back under Release a release (keys and stick). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float GalleonOrderAxisPress = 0.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float GalleonOrderAxisRelease = 0.3f;
+
+	/** Holding W / S auto-steps after this (s), then every interval (s). Auto-repeat never passes STOP. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderRepeatDelay = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonOrderRepeatInterval = 0.15f;
+
+	/** Beam watch: the camera more than Enter (deg) off the bow, until back within Exit. It never recentres. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonBeamWatchEnterDeg = 55.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonBeamWatchExitDeg = 40.f;
+
+	/** Beam watch gives broadside stations only this long (s) after an own broadside (review R1; 0 = always). Aim held gives them at once. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonStationsFireHoldTime = 6.f;
+
+	/** Camera yaw into the turn per unit shaped helm (deg) and its filter (s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon")
+	float GalleonLookAheadDeg = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Galleon", meta = (ClampMin = "0.0"))
+	float GalleonLookAheadTau = 0.12f;
+
+
+	// -------------------------------------------------------------------------
+	// Sky Racer, pilot side (only read while ControlScheme == SkyRacer: the defaults are Sky Racer's values)
+	// -------------------------------------------------------------------------
+
+	/** Auto-follow aims this long (s) ahead of the commanded turn (capped, deg) ... */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyLookIntoTurnTime = 0.3f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyLookIntoTurnMaxDeg = 14.f;
+
+	/** ... minus this share of the slip (the slide reads) ... */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyCamSlipShare = 0.35f;
+
+	/** ... and also turns at the commanded rate (no follow lag). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer")
+	bool bSkyCamYawRateFF = true;
+
+	/** Look down into a dive: deg per m/s of sink, capped (deg). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyCamDivePitchPerMS = 0.4f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyCamDivePitchMaxDeg = 8.f;
+
+	/** The arm grows by this (cm) with a fresh mini-turbo burn. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Sky Racer", meta = (ClampMin = "0.0"))
+	float SkyTurboArmExtra = 600.f;
+
+
+	// -------------------------------------------------------------------------
+	// Point & Fly, pilot side (only read while ControlScheme == PointFly: the defaults are Point & Fly's values)
+	// -------------------------------------------------------------------------
+
+	/** Q/E turn the heading target at this x the ship's own full turn rate for its speed. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFNudgeRateScale = 1.f;
+
+	/** In steering mode the target stays within this (deg) of the nose (no flip at 180). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFHeadingMaxLeadDeg = 150.f;
+
+	/** After broadside mode the camera eases back onto the heading target (s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFLookReturnTau = 0.22f;
+
+	/** Broadside mode: the gun lock swings the ship to keep the beam on an aim that left the arc. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly")
+	bool bPFArcAssist = true;
+
+	/** The arc counts as the cannon yaw limit minus this (deg). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFArcMarginDeg = 6.f;
+
+	/** Broadside sector (deg off the bow): outside it the aim never swings the ship (review R1: 55). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFArcMinBearingDeg = 55.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFArcMaxBearingDeg = 150.f;
+
+	/** An aim closing on the arc faster than this (deg/s, filtered with PFArcApproachTau s, review R2) is waited for. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFArcApproachRateDeg = 3.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFArcApproachTau = 0.1f;
+
+	/** Outside the arc and not coming in this long (s) = lock; locked, the beam stays this close (deg) to the aim, swinging at most this fast (deg/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFArcLockDelay = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFArcLockDeadbandDeg = 3.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFArcRateDeg = 45.f;
+
+	/**
+	 * Locked: the sent target leads by its own rate x this (s); the rate estimate's clamp (deg/s) and filter (s). 0.6 (was
+	 * 0.45): with the spring arm's lag (PIE-calibrated) a pilot who keeps the crosshair on a target in a 100 m orbit has it
+	 * on the beam (0.45: 3 deg aft); the 0.45 already cancelled the hull's own lag (aim 0.5 deg off the hull's beam).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFLockLeadTime = 0.6f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFHeadingLeadRateMax = 30.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFHeadingLeadTau = 0.12f;
+
+	/** Camera pitch away from CameraDefaultPitch climbs / sinks (tested, off): dead band and full-rate distance (deg). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly")
+	bool bPFPitchClimb = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFPitchClimbDeadbandDeg = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "1.0"))
+	float PFPitchClimbFullDeg = 20.f;
+
+	/**
+	 * Parked free look: below this forward speed (cm/s) with no W/S, A/D, Q/E or boost held, the mouse looks around and the
+	 * heading holds (as on foot); the first such key takes the camera's yaw as the heading. 0 = off (the camera always steers).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFParkSpeed = 300.f;
+
+	/** The gun lock is armed only while Fire is held or this long (s) after the pilot's own broadside, so Aim alone is a clean free look. 0 = always armed. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|PointFly", meta = (ClampMin = "0.0"))
+	float PFLockArmTime = 6.f;
+
+
+	// -------------------------------------------------------------------------
 	// FX (every machine)
 	// -------------------------------------------------------------------------
 
@@ -736,6 +1061,10 @@ protected:
 	UFUNCTION()
 	void OnRep_IsDead();
 
+	/** Clients: applies the scheme the server chose (the first bunch arrives before BeginPlay, which applies it then). */
+	UFUNCTION()
+	void OnRep_ControlScheme();
+
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastHandleDeath();
 
@@ -784,6 +1113,55 @@ private:
 	/** Every machine: caps the rebound, speed gain and spin kick of this frame's hits (kick budgets of the contact). */
 	void LimitImpactResponse();
 
+	/**
+	 * The impact speed (cm/s) of a hull hit as the damage measures it (closing speed along the normal before the step);
+	 * -1 if the hit doesn't count (the ship's own pilot / balls, characters, pawns, resting contact).
+	 */
+	float MeasureHullImpactSpeed(const AActor* OtherActor, const UPrimitiveComponent* OtherComp, const FVector& NormalImpulse, const FHitResult& Hit) const;
+
+	// Control schemes (every machine)
+	/** The preset of ControlScheme, the flight model's copy, the runtime state reset, the HUD layout. bSwitch: a runtime switch. */
+	void ApplyControlScheme(bool bSwitch);
+
+	/** Every scheme-owned tunable from the archetype (Classic = the class defaults), then Scheme's overrides. */
+	void ApplySchemePreset(EAirshipControlScheme Scheme);
+	void ApplyGalleonPreset();
+	void ApplySkyRacerPreset();
+	void ApplyPointFlyPreset();
+
+	/** The pawn's scheme-local pilot state: Galleon telegraph and camera (bFromSwitch: the notch from the speed, else STOP), Point & Fly heading target, feedback. */
+	void ResetSchemePilotState(bool bFromSwitch);
+
+	// Galleon (pilot's machine)
+	/** Beam watch and broadside stations (from this frame's camera, so the bit leaves this frame), then the telegraph. */
+	void UpdateGalleonOrders(float ThrottleAxis, bool bAimHeld, const APlayerController* PC, double Now);
+	void StepGalleonOrder(int32 Dir, bool bRepeat);
+
+	/** The ship-relative camera: offset, look-ahead, slow recentre outside beam watch. Consumes bPendingCameraReset. */
+	void UpdateGalleonCamera(float DeltaSeconds, double Now, const FAirshipCosmeticState& C, FRotator& Control);
+
+	// Sky Racer (pilot's machine)
+	/** The chase camera's auto-follow step (look into the turn, slip share, yaw rate feed-forward, dive pitch). */
+	void UpdateSkyRacerFollow(float DeltaSeconds, double Alpha, FRotator& Control) const;
+
+	// Point & Fly (pilot's machine)
+	/**
+	 * Camera -> heading target (free look, Q/E nudge, gun lock, lead clamp, parked free look); writes the control rotation.
+	 * bMoveKeys: W/S, A/D, Q/E or boost held (ends the parked free look); bFireHeld: arms the gun lock (PFLockArmTime).
+	 */
+	void UpdatePointFlyCamera(float Dt, APlayerController* PC, float NudgeAxis, bool bAimHeld, bool bMoveKeys, bool bFireHeld);
+
+	/** Broadside mode: the heading target the gun lock wants (H while it doesn't act). */
+	float PointFlyGunLock(float H, float CamYaw, float Dt);
+
+	// Feedback (pilot's machine)
+	void AddFeedback(const FAirshipFeedbackEvent& Event, float FOVSign = 1.f);
+	void PlayRumble(float Intensity, float Duration, bool bLarge);
+
+	/** End of UpdateCamera: events, trauma shake, camera roll, the drift rumble. */
+	void UpdateFeedback(float DeltaSeconds, const FAirshipCosmeticState& C);
+	void StopDriftRumble();
+
 	// HUD (pilot's machine)
 	void UpdateShipHUD();
 
@@ -792,6 +1170,11 @@ private:
 	void HideShipHUD();
 	void HideOnFootHUD(APlayerController* PC);
 	void RestoreOnFootHUD();
+
+	/** After a scheme switch: the panel's slot at its new size, the Point & Fly overlay added or removed (no hide / re-show). */
+	void RefreshShipHUDLayout();
+	bool AddShipOverlay(APlayerController* PC);
+	void RemoveShipOverlay();
 
 	/** The side whose cannons face AimPoint (with hysteresis around the keel). */
 	EAirshipSide ComputeAimSide(const FVector& AimPoint) const;
@@ -845,9 +1228,62 @@ private:
 	// Local controls
 	bool bPendingCameraReset = false;
 	double LastLookInputTime = -1000.0;
+	/** GFrameCounter of the last look input (Point & Fly: a control rotation change without one was set from outside). */
+	uint64 LastLookInputFrame = 0;
 	float ZoomTarget = 0.f;
 	bool bLocalAimValid = false;
 	FVector LocalAimPoint = FVector::ZeroVector;
+
+	// Galleon (pilot's machine)
+	int32 GalleonNotch = 0;
+	bool bGalleonUpHeld = false;
+	bool bGalleonDownHeld = false;
+	int32 GalleonRepeatDir = 0;
+	double GalleonNextRepeatTime = 0.0;
+	float GalleonCamOffsetYaw = 0.f;
+	float GalleonLookAhead = 0.f;
+	float GalleonLastHullYaw = 0.f;
+	float GalleonLastLookAhead = 0.f;
+	bool bGalleonBeamWatch = false;
+	bool bGalleonStations = false;
+	bool bGalleonCamInit = false;
+
+	// Point & Fly (pilot's machine): heading target H, camera offset from it, last control yaw this code set, lock
+	bool bPFValid = false;
+	bool bPFFree = false;
+	bool bPFLock = false;
+	/** Parked free look this frame (the first drive / turn key then takes the camera's yaw as the heading). */
+	bool bPFParked = false;
+	float PFHeading = 0.f;
+	float PFLookOffset = 0.f;
+	float PFLastSetYaw = 0.f;
+	float PFSentHeading = 0.f;
+	float PFLockDwell = 0.f;
+	/** -1 = no previous sample. */
+	float PFPrevOffBeam = -1.f;
+	float PFOffBeamRate = 0.f;
+	float PFHeadingRate = 0.f;
+	float PFPrevHeading = 0.f;
+	int32 PFLockSwingDir = 0;
+	FPointFlyLoopState PilotHeadingLoop;
+
+	// Feedback (pilot's machine)
+	float CameraTrauma = 0.f;
+	float CameraFOVKick = 0.f;
+	float CameraRollDeg = 0.f;
+	/** The FOV before the kick (interpolated toward the target) and the FOV last written (someone else's write is followed). */
+	float SmoothedFOV = 0.f;
+	float LastAppliedFOV = 0.f;
+	bool bCameraFeedbackApplied = false;
+	uint8 LastTurboEventCount = 0;
+	bool bPrevBoostBit = false;
+	bool bPrevLocalDrift = false;
+	float LocalDriftTime = 0.f;
+	uint64 LastFeedbackHitFrame = 0;
+	double LastOwnBroadsideTime = -1000.0;
+	/** FDynamicForceFeedbackHandle (PlayerController.h) of the continuous drift rumble, and the controller playing it. */
+	uint64 DriftRumbleHandle = 0;
+	TWeakObjectPtr<APlayerController> DriftRumblePC;
 
 	// Cannons
 	FVector CannonMuzzleLocal[Airship::NumCannons];
@@ -892,6 +1328,10 @@ private:
 	// HUD (pilot's machine)
 	UPROPERTY(Transient)
 	TObjectPtr<UAirshipHUDWidget> ShipHUDWidget;
+
+	/** Point & Fly: a second UAirshipHUDWidget in overlay mode over the whole viewport (crosshair, nose marker, gun state). */
+	UPROPERTY(Transient)
+	TObjectPtr<UAirshipHUDWidget> ShipOverlayWidget;
 
 	TWeakObjectPtr<APlayerController> ShipHUDOwner;
 	TWeakObjectPtr<UUserWidget> HiddenOnFootWidget;

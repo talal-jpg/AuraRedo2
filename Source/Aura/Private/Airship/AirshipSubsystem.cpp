@@ -12,6 +12,7 @@
 #include "Animation/AnimInstance.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -805,7 +806,7 @@ namespace AirshipConsole
 
 	FAutoConsoleCommandWithWorld GTelemetryCommand(
 		TEXT("Aura.Airship.Telemetry"),
-		TEXT("Aura.Airship.Telemetry - logs speed, altitude, attitude, fuel and health of every airship of this world."),
+		TEXT("Aura.Airship.Telemetry - logs speed, altitude, attitude, fuel, health and the control scheme's state of every airship of this world, then its hull inertia (Chaos principal moments, mass frame, hull-space COM)."),
 		FConsoleCommandWithWorldDelegate::CreateLambda([](UWorld* World)
 		{
 			if (UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World))
@@ -816,7 +817,91 @@ namespace AirshipConsole
 					UE_LOG(LogAirship, Log, TEXT("%s: speed %.1f m/s (fwd %.1f, side %.1f, up %.1f), alt %.1f m (hold %.1f, ground %.1f), yaw rate %.1f deg/s, roll %.1f pitch %.1f yaw %.1f, fuel %.0f, health %.0f/%.0f, pilot %d, dead %d"),
 						*Ship->GetName(), T.SpeedMS, T.ForwardSpeedMS, T.LateralSpeedMS, T.VerticalSpeedMS, T.AltitudeM, T.HoldAltitudeM, T.GroundClearanceM,
 						T.YawRateDegS, T.RollDeg, T.PitchDeg, T.YawDeg, T.BoostFuel, T.Health, T.MaxHealth, T.bHasPilot ? 1 : 0, T.bIsDead ? 1 : 0);
+					UE_LOG(LogAirship, Log, TEXT("%s: scheme %d order %.2f drift %.2f (dir %d tier %d turbo %.2f chain %d) heading %d %.1f freelook %d gundeck %d lock %d"),
+						*Ship->GetName(), static_cast<int32>(T.Scheme), T.ThrottleOrder, T.DriftCharge, T.DriftDir, T.DriftTier, T.TurboAlpha, T.TurboChain,
+						T.bHeadingTargetActive ? 1 : 0, T.HeadingTargetDeg, T.bFreeLook ? 1 : 0, T.bGunDeck ? 1 : 0, T.bGunLock ? 1 : 0);
+
+					// BASELINE.md 4a / 4f row 0: what GetInertiaTensor returns (Chaos's principal moments, largest / smallest /
+					// middle), the mass frame's rotation and position in the hull, and the hull-space COM. Read it before
+					// judging any pitch or roll numbers (bHullAxisInertia).
+					UPrimitiveComponent* Hull = Ship->GetHull();
+					const FBodyInstance* BodyInstance = Hull ? Hull->GetBodyInstance() : nullptr;
+
+					if (Hull && BodyInstance && Hull->IsSimulatingPhysics())
+					{
+						const FVector Inertia = Hull->GetInertiaTensor();
+						const FTransform MassSpace = BodyInstance->GetMassSpaceLocal();
+						const FVector COMHull = Hull->GetComponentTransform().InverseTransformPosition(Hull->GetCenterOfMass());
+						UE_LOG(LogAirship, Log, TEXT("%s: inertia (principal, kg cm^2) %s, mass frame rotation %s translation %s, hull-space COM %s"),
+							*Ship->GetName(), *Inertia.ToString(), *MassSpace.GetRotation().Rotator().ToString(), *MassSpace.GetTranslation().ToString(), *COMHull.ToString());
+					}
 				}
+			}
+		})
+	);
+
+	FAutoConsoleCommandWithWorldAndArgs GSchemeCommand(
+		TEXT("Aura.Airship.Scheme"),
+		TEXT("Aura.Airship.Scheme <0-3> - server: every airship of this world switches control scheme (0 Classic (v1), 1 Galleon, 2 Sky Racer, 3 Point & Fly = the default; it replicates). No argument (any machine): prints each ship's scheme. 'check' (any machine): lists every scheme-owned property that differs from the class defaults (0 after Aura.Airship.Scheme 0)."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World);
+
+			if (!Subsystem)
+			{
+				return;
+			}
+
+			// No argument: each ship's replicated scheme and the flight model's copy
+			if (Args.Num() == 0)
+			{
+				for (const AAirshipPawn* Ship : Subsystem->GetAirships())
+				{
+					const EAirshipControlScheme Scheme = Ship->GetControlScheme();
+					const EAirshipControlScheme Active = Ship->GetFlight() ? Ship->GetFlight()->GetActiveScheme() : Scheme;
+					UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Scheme: %s: %s (%d), active %s (%d)"), *Ship->GetName(),
+						*UEnum::GetDisplayValueAsText(Scheme).ToString(), static_cast<int32>(Scheme), *UEnum::GetDisplayValueAsText(Active).ToString(), static_cast<int32>(Active));
+				}
+				return;
+			}
+
+			// The Classic exactness test (and a quick look at a preset): what differs from the archetype
+			if (Args[0].Equals(TEXT("check"), ESearchCase::IgnoreCase))
+			{
+				for (const AAirshipPawn* Ship : Subsystem->GetAirships())
+				{
+					TArray<FString> Differences;
+					const int32 NumDifferences = Ship->GetSchemePropertyDifferences(Differences);
+
+					for (const FString& Line : Differences)
+					{
+						UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Scheme check: %s: %s"), *Ship->GetName(), *Line);
+					}
+					UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Scheme check: %s: %s, %d difference(s) from the class defaults"), *Ship->GetName(),
+						*UEnum::GetDisplayValueAsText(Ship->GetControlScheme()).ToString(), NumDifferences);
+				}
+				return;
+			}
+
+			const int32 Value = Args[0].IsNumeric() ? FCString::Atoi(*Args[0]) : -1;
+
+			if (Value < 0 || Value > 3)
+			{
+				UE_LOG(LogAirship, Warning, TEXT("Usage: Aura.Airship.Scheme [0-3 | check] (0 Classic (v1), 1 Galleon, 2 Sky Racer, 3 Point & Fly)"));
+				return;
+			}
+
+			if (!CheckServer(World, TEXT("Aura.Airship.Scheme")))
+			{
+				return;
+			}
+
+			const EAirshipControlScheme NewScheme = static_cast<EAirshipControlScheme>(Value);
+
+			for (AAirshipPawn* Ship : Subsystem->GetAirships())
+			{
+				Ship->SetControlScheme(NewScheme);
+				UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Scheme: %s = %s (%d)"), *Ship->GetName(), *UEnum::GetDisplayValueAsText(NewScheme).ToString(), Value);
 			}
 		})
 	);

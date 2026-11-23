@@ -30,7 +30,7 @@ class UPrimitiveComponent;
  * the world ends. Never while the character's actor collision is off (the attached pilot): a physics on/off switch then
  * destroys the body and makes none, so the change waits until the collision is back (RepairPhysicsState).
  * Console (non-shipping): Aura.Airship.Spawn / Board / Exit / Damage / Kill / Set / Get / Input / InputClear /
- * Telemetry, and the CVars Aura.Airship.Debug and Aura.Airship.RepMode.
+ * Telemetry / Scheme, and the CVars Aura.Airship.Debug and Aura.Airship.RepMode.
  */
 UCLASS()
 class AURA_API UAirshipSubsystem : public UWorldSubsystem

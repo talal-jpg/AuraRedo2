@@ -16,6 +16,10 @@ class AAirshipPawn;
  * starboard broadside (the side the cannons face is drawn inverted). No assets: everything is drawn in NativePaint
  * with Slate boxes, lines and the engine font. The ship adds it to the viewport and removes it (AAirshipPawn::UpdateShipHUD).
  * A Blueprint child can change the colours / size (AAirshipPawn::ShipHUDClass).
+ *
+ * Control schemes (read every frame): Galleon adds the engine telegraph, a speed rule and a helm row (+GalleonExtraHeight),
+ * Sky Racer a DRIFT / TURBO row (+SkyRowHeight); the ship re-applies the viewport slot when the scheme changes. Overlay
+ * mode (a second instance over the whole viewport): Point & Fly's crosshair, nose marker, heading strip and gun state.
  */
 UCLASS(Blueprintable)
 class AURA_API UAirshipHUDWidget : public UUserWidget
@@ -29,11 +33,25 @@ public:
 	/** The ship to show (null: draws nothing). */
 	void SetAirship(AAirshipPawn* InAirship);
 
-	/** Size of the panel (slate units) the ship gives the viewport slot. */
-	FVector2D GetPanelSize() const { return PanelSize; }
+	/** Size of the panel (slate units) the ship gives the viewport slot: PanelSize plus the scheme's rows. */
+	FVector2D GetPanelSize() const;
+
+	/** Reads the ship's control scheme now (the ship calls it before it re-applies the slot after a switch). */
+	void RefreshLayoutScheme();
+
+	/** Overlay mode (set before the widget is added): draws only Point & Fly's marks, over the whole viewport. */
+	void SetOverlayMode(bool bInOverlayMode) { bOverlayMode = bInOverlayMode; }
+	bool IsOverlayMode() const { return bOverlayMode; }
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD")
 	FVector2D PanelSize = FVector2D(292.0, 136.0);
+
+	/** Extra panel height (slate units): Galleon's telegraph, speed rule and helm rows, Sky Racer's TURBO row. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD", meta = (ClampMin = "0.0"))
+	float GalleonExtraHeight = 78.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD", meta = (ClampMin = "0.0"))
+	float SkyRowHeight = 26.f;
 
 	/** Paper (panel), ink (outlines, text, drop shadow), hull bar, boost bar, reloading mark. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD")
@@ -74,7 +92,20 @@ private:
 	/** Reads the ship's values for the next paint (bForceAltitude: trace the ground now). */
 	void RefreshValues(float DeltaSeconds, bool bForceAltitude);
 
+	/** Overlay mode: the projected nose marker, heading strip and gun state (NativeTick, cached for the paint). */
+	void RefreshOverlayValues(float DeltaSeconds);
+
+	/** Overlay mode's paint (Point & Fly only). */
+	int32 PaintPointFlyOverlay(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) const;
+
+	/** The tier colour (Sky Racer): ink grey, BoostColor, ReloadColor, HullColor. */
+	FLinearColor GetTierColor(int32 Tier) const;
+
 	TWeakObjectPtr<AAirshipPawn> Airship;
+
+	/** The ship's scheme (read every frame; the initial value is the pawn's default scheme) and overlay mode. */
+	EAirshipControlScheme LayoutScheme = EAirshipControlScheme::PointFly;
+	bool bOverlayMode = false;
 
 	// Values of this frame (NativeTick)
 	float HealthAlpha = 1.f;
@@ -87,6 +118,67 @@ private:
 	bool bBoosting = false;
 	EAirshipSide AimSide = EAirshipSide::Port;
 	float AltitudeTimer = 0.f;
+
+	// Galleon: the order, its ring (the new tag blinks), the speed rule (m/s), the helm, stations, the facing side's arc
+	int32 GalleonNotch = 0;
+	float GalleonRingTime = 0.f;
+	float ForwardSpeedMS = 0.f;
+	float OrderAsternMS = 12.f;
+	float OrderSlowMS = 14.f;
+	float OrderHalfMS = 28.f;
+	float OrderFullMS = 48.f;
+	float HelmSteer = 0.f;
+	float TurnRateDegS = 0.f;
+	bool bHelmDrifting = false;
+	bool bGalleonStations = false;
+	bool bFacingInArc = false;
+
+	// Sky Racer: drift charge / tier, turbo burn / tier / chain, the outline flash on a release
+	bool bDriftActive = false;
+	float DriftCharge = 0.f;
+	int32 DriftTier = 0;
+	float TurboAlpha = 0.f;
+	int32 TurboTier = 0;
+	int32 TurboChain = 0;
+	bool bChainLive = false;
+	float FlashTime = 0.f;
+	float SinceRelease = 1000.f;
+	uint8 LastTurboEventCount = 0;
+	float SkyTier1 = 0.25f;
+	float SkyTier2 = 0.55f;
+
+	// Point & Fly overlay (viewport-relative slate units)
+	bool bPFActive = false;
+	bool bPFFreeLook = false;
+	bool bPFLock = false;
+	int32 PFSwingDir = 0;
+	bool bNoseOnScreen = false;
+	FVector2D NosePosition = FVector2D::ZeroVector;
+	float NoseGapDeg = 0.f;
+	float NoseFlashTime = 0.f;
+	/**
+	 * The broadside heading strip (polish): +-180 deg around the bow (the centre), so the aim 55-150 deg off the bow is on
+	 * it; the heading target and the aim (camera yaw) relative to the bow (deg), and the guns' yaw limit (deg).
+	 */
+	float StripTargetDeg = 0.f;
+	float StripAimDeg = 0.f;
+	float StripArcDeg = 20.f;
+
+	/** Parked free look (the gap line hides: no turn is coming until a drive / turn key). */
+	bool bPFParked = false;
+
+	/** Seconds since the boarding hint started (-1: not yet decided; it shows once per local player and session). */
+	float HintAge = -1.f;
+
+	/** The boarding hint fades out from this age (s): 8 s after boarding, or when Aim is first held (whichever is later, at most 45 s). */
+	float HintEndAge = 8.f;
+
+	/** The pilot has held Aim (RMB / LB) this session: the look hints retire. */
+	bool bLookLearned = false;
+
+	/** Steering mode with the camera far off the nose (s), and the contextual "hold RMB to look" hint's alpha. */
+	float OffNoseTime = 0.f;
+	float LookHintAlpha = 0.f;
 
 	// Rounded-box brushes (made from the colours in NativeConstruct; NativePaint only reads them)
 	FSlateBrush PanelBrush;
