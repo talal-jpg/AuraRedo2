@@ -20,6 +20,9 @@
 # f2) starts from the ship's spawn x/y and yaw, level and at rest (AS43_PATH_FROM_SPAWN). Classic: 24/25 on every run,
 # f2 +5.35 m/s against 5.0 m/s, a v1 limit (Docs/Airship/controls/PIE_RESULTS.md "Follow-up", "Fix2"). The AS43_*
 # knobs are read from the inbox globals, which last for the editor session: a wrapper that changes one must reset it.
+# Since round 2 (2026-11-25) the run also has UAirshipSettings.CrewDamageShare 0 (as_30's arm, knob AS30_CREW_SHARE,
+# restored at the end): D4's crew share of the damage phase's 3 x 300 would kill the pilot (85 health) on the second hit,
+# the GameMode's respawn would destroy self.char, and j2_death / b4_hud_after_death would not run.
 # The X window of the editor is grabbed for the HUD (Saved/Airship/val/xgrab/<label>.req -> a bash loop run by the
 # caller: Docs/Airship/scripts/harness/xgrab_loop.sh; read-only X calls, no input). Scene captures (TEMP_AS_Capture as in
 # as_30) -> Saved/Airship/captures/val/. Results: Saved/Airship/val/val_result.json, val_report.txt, val_log.txt.
@@ -30,7 +33,7 @@ AS43_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts
 _as43_src = open(AS43_AS30).read()
 exec(compile(_as43_src[:_as43_src.index("\nif 'AS30_RUN' in globals()")], AS43_AS30, 'exec'), globals())
 
-AS43_VERSION = 'as_43_pie_validate 2026-11-23'
+AS43_VERSION = 'as_43_pie_validate 2026-11-25'
 VAL = os.path.join(OUT, 'val')
 CAPS = os.path.join(OUT, 'captures', 'val')      # AsRun.capture writes here (global name)
 XG = os.path.join(VAL, 'xgrab')

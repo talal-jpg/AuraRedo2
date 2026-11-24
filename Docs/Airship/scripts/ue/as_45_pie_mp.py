@@ -20,15 +20,18 @@
 # the follow-up (F-E), on ship 2 the moment spawn2 has made it (it used to start in the pawn's default, Point & Fly).
 # Results: Saved/Airship/mp/mp_result.json, mp_report.txt, mp_log.txt; captures Saved/Airship/captures/mp/;
 # X grabs Saved/Airship/mp/xgrab/. In memory only, restored at the end: UnrealEdEngine fixed frame rate 30,
-# BurrowerSettings.bEnabled False, p.NetShowCorrections 1, Net PktLag. One TEMP_AS_Capture SceneCapture2D in the editor
-# level (removed after PIE; the map is never saved). The user's own Play is never stopped.
+# BurrowerSettings.bEnabled False, p.NetShowCorrections 1, Net PktLag, UAirshipSettings.CrewDamageShare 0 (AS45_CREW_SHARE,
+# default 0.0, None = keep: since round 2 the crew takes a share of every ship Health loss, and the 'gun' phase's hits on
+# the client's ship would fail k1_client_exit / d2_pilot_ejected, which compare the pilot's health with its value before
+# boarding). One TEMP_AS_Capture SceneCapture2D in the editor level (removed after PIE; the map is never saved). The
+# user's own Play is never stopped.
 import json, math, os, time, traceback  # unreal = inbox namespace
 
 AS45_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_30_pie_smoke.py'
 _as45_src = open(AS45_AS30).read()
 exec(compile(_as45_src[:_as45_src.index('\nclass AsRun')], AS45_AS30, 'exec'), globals())   # maths + tl_get/tl_set/gp/valid/parse_struct
 
-AS45_VERSION = 'as_45_pie_mp 2026-11-23'
+AS45_VERSION = 'as_45_pie_mp 2026-11-25'
 MP = os.path.join(OUT, 'mp')
 CAPS = os.path.join(OUT, 'captures', 'mp')
 XG = os.path.join(MP, 'xgrab')
@@ -216,6 +219,12 @@ class MpRun(object):
             bcdo.set_editor_property('bEnabled', False, unreal.PropertyAccessChangeNotifyMode.NEVER)
         except Exception:  # noqa: BLE001
             self.err('burrower_settings')
+        try:
+            msg = crew_share_set(self.orig, globals().get('AS45_CREW_SHARE', 0.0))
+            if msg:
+                self.line('INFO', msg)
+        except Exception:  # noqa: BLE001
+            self.err('crew_share')
         for n in ('IA_AirshipBoard', 'IA_AirshipFire', 'IA_AirshipExit', 'IA_AirshipThrottle', 'IA_AirshipSteer'):
             self.act[n] = unreal.load_asset(IA + n)
         self.act['IA_LMB'] = unreal.load_asset(IA_LMB_PATH)
@@ -254,6 +263,12 @@ class MpRun(object):
                 bcdo.set_editor_property('bEnabled', self.orig['burrower_enabled'], unreal.PropertyAccessChangeNotifyMode.NEVER)
         except Exception:  # noqa: BLE001
             self.err('restore_burrower')
+        try:
+            msg = crew_share_restore(self.orig)
+            if msg:
+                self.line('INFO', msg)
+        except Exception:  # noqa: BLE001
+            self.err('restore_crew_share')
         try:
             ew = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
             unreal.SystemLibrary.execute_console_command(ew, 'p.NetShowCorrections 0')
