@@ -98,17 +98,19 @@ The BP and input assets are referenced only from config/soft pointers: add
 
 * Board (server, `BoardPilot`): the pawn must be a living ACharacter with a PlayerState, the ship alive without a pilot,
   the pawn within BoardDistance of the seat or BoardHullDistance of the hull. Then: cancel the pilot's active non-passive
-  abilities (like AMyGameMode), save Health/Mana, stop + disable movement, collision off, attach to the hull root at
+  abilities (like AMyGameMode), stop + disable movement, collision off, attach to the hull root at
   the seat (+ capsule half height + 5 cm, facing +X), `bAlwaysRelevant` on, `PilotCharacter` replicated, `PC->Possess`.
   Clients turn the pilot's collision off themselves (OnRep + any character attached to the hull) and back on once it
   is detached.
 * Exit (F = `IA_AirshipExit` -> `ServerRequestExit`, or the pilot component): detach next to the seat (`ExitOffset` (0,
   -250, 0): 2.5 m to port of the PilotSeat; a line trace on HullCollision only, from 3 m above to 6 m below that point,
   puts the feet on the top hull surface there + 5 cm), collision and relevancy restored, falling,
-  `PC->Possess(character)`, saved Health/Mana restored (re-possessing refills them), the ship's velocity given to the
-  character. Its capsule goes query only right then (it is a passenger, below), with the collision already back on. A
+  `PC->Possess(character)`, the Health/Mana the character had right before the possession written back (re-possessing
+  refills them; since round 2 there is no boarding snapshot, so the crew's share of the ship's damage stays, section
+  15.3), the ship's velocity given to the character. Its capsule goes query only right then (it is a passenger, below), with the collision already back on. A
   plain AAirshipPawn without SK_Airship shows its hull in game (`bShowHullWithoutMesh`), so C++-only tests can see it.
-  The ship then holds its altitude with neutral controls. **The top hull surface at the helm is not the deck**:
+  The ship then holds its altitude with neutral controls; since round 2 it also drifts slowly ahead after a moving exit
+  or holds its spot after an exit at rest (section 15.5). **The top hull surface at the helm is not the deck**:
   SM_Airship's `UCX_SM_Airship_00` is a sloped lid 5.8 m (stern) .. 3.5 m (bow) high on the centreline, 4.6 m at the
   exit point, while the planks are at 2.3-2.9 m (`deck_slabs.json`). exit_probe.json agrees: feet 4.61 m above the hull
   origin after Exit, 1.9 m above the seat. So the exited pilot (and anyone walking "on deck") stands on an invisible lid
@@ -180,6 +182,10 @@ The BP and input assets are referenced only from config/soft pointers: add
 
 ## 4. Cannons
 
+Round 2 changed this section's numbers and rules (section 15): balls 7000 cm/s on a ballistic low arc (GravityScale
+0.6), a reload per cannon, manned cannons skipped by the broadside, LMB within 50 deg of the bow fires the turrets. The
+text below is the v1 description.
+
 Fire (LMB) on the pilot's machine: camera aim trace (Visibility, 600 m, ignores the ship and the pilot) -> side = the aim
 point's hull-space Y (300 cm hysteresis) -> `ServerFireCannons(Side, AimPoint)`. Server: per-side cooldown 1.5 s; for
 each cannon of that side yaw/elevation toward the aim point clamped to +-20 / -10..+8.5 (`CannonElevMaxDeg` on the pawn and the
@@ -220,7 +226,7 @@ machine (pilot: local camera, others: replicated aim point); the other side rest
 | `Aura.Airship.Board [Player]` | server | player (default 0) boards the nearest free ship, any distance |
 | `Aura.Airship.Exit [Player]` | server | player leaves the helm |
 | `Aura.Airship.Damage <n>` | server | every living ship takes n through its damage effect |
-| `Aura.Airship.Kill` | server | Health 0 + Die on every living ship |
+| `Aura.Airship.Kill` | server | Health 0 + Die on every living ship (`DebugKill` since round 2: no crew share, the crew is ejected alive) |
 | `Aura.Airship.Set <Name> <Value>` | any (forces: server) | sets a property on every ship by reflection: flight component by default, `Pawn.<Name>`, `Anim.<Name>`; any text-importable type; re-applies body settings |
 | `Aura.Airship.Get <Name>` | any | prints it |
 | `Aura.Airship.Input <thr> <steer> [lift] [strafe] [boost] [brake]` / `Aura.Airship.InputClear` | server (a client's own ship: its client, through the input RPC) | flies every ship (DebugSetInput) |
@@ -229,6 +235,7 @@ machine (pilot: local camera, others: replicated aim point); the other side rest
 | `Aura.Airship.Debug 0/1` (CVar) | server | draws pod (yellow, exhaust direction), fan (cyan), COM force (green), torque (magenta), velocity (white), hold altitude (blue), ground traces |
 | `Aura.Airship.RepMode 0/1` (CVar) | every machine | Default / PredictiveInterpolation (1 only with Physics Prediction on; otherwise Default + one warning) |
 | `Aura.Airship.Passengers` | any | re-checks the deck passengers of this world now and logs each (root collision enabled value (1 = QueryOnly), whether the root has a physics body, actor collision, attached or not) |
+| Round 2 | | `Mount`, `Dismount`, `TurretFire`, `TurretDamage`, `StationFire`, `Set/Get Settings.<Name>`, the telemetry's third line, `Aura.MechSentinel.TestBullet`: section 15.7 |
 
 BlueprintCallable for a Python PIE harness: `AAirshipPawn::DebugSetInput(Throttle, Steer, Lift, Strafe,
 bBoost, bBrake)` (`debug_set_input`; on the pilot's machine, host or client, it replaces the keys in `GatherLocalInput`
@@ -677,3 +684,160 @@ Bench (pass 1 -> polish; `pointfly_metrics_pass1.json` / `pointfly_checks_pass1.
 | M12 with the PIE-calibrated camera, precise: harness bot / a hand on the crosshair | -7.38 / -2.92 deg (PIE -7.39) | -4.71 / -0.19 deg |
 | Steps, sweeps, M1-M8, M10, the racing pass | - | unchanged (M4 t63 0.43 s, no overshoot) |
 | M11 course (0 / 100 ms): precise, sloppy | 59.13 / 60.2, 59.83 / 59.1 s, 0 missed | 59.13 / 60.1, 59.33 / 58.83 s, 0 missed |
+
+## 15. Round 2, PR A (2026-11-24): gunners, turrets, crew damage, drift
+
+The contract is `Docs/Airship/round2/SPEC_A.md` (decisions D1-D10). The core part's notes are in
+`round2/NOTES_core.md`: file:line for every hook, numbers, test steps, and the deviations from the spec with their
+reasons. This section is the overview. **Built clean; not yet run in the editor or PIE** (the PIE plan is SPEC_A.md
+section 4). None of the new properties is scheme-owned: `Aura.Airship.Scheme 0` + `check` still lists 0 differences.
+Settings are in Project Settings > Game > Airship (`UAirshipSettings`, categories Boarding, Stations, Crew, Cannons,
+Turrets, Unpiloted).
+
+### 15.1 Gunner stations (D5)
+
+* Six stations (`EAirshipStation`): cannons L1, L2, R1, R2 and the two front turrets L, R. The helm stays the pilot's.
+* **F** near a station's seat (350 cm horizontal, -2..+6 m vertical) mans it. The server compares the nearest free
+  station with the helm (its old range rule, plus boarding from under the hull) and takes the closer one
+  (`UAirshipPilotComponent::TryUseNearest`).
+* The gunner **stays possessed** in its own character:
+  * attached to HullCollision at the seat;
+  * movement and its tick off, active abilities cancelled; the server ignores its move errors and the owner ignores
+    corrections while mounted (moves sent before the mount still arrive), and the owner puts its copy back on the seat
+    if it drifts (15.8);
+  * actor collision on with a QueryOnly capsule, so traces, splash and sentinel sweeps still reach it.
+* It aims with its own camera: the control rotation's view ray through `AAirshipPawn::TraceAimPoint`, which ignores
+  the ship, everything attached to it, its riders (`IsRiderForDamage`, 15.8) and every cannonball.
+* Its input is `IMC_Airship` at priority 1, with its own bindings:
+  * Look;
+  * Fire: a cannon press, or the turret trigger held;
+  * Aim (narrower FOV) and Zoom;
+  * Exit (F leaves).
+* RPCs go through the pilot component on every PlayerController. `ServerSetGunnerAim` is unreliable, at most 25 Hz,
+  sent on change with a 0.5 s heartbeat. `ServerGunnerFire` and `ServerGunnerTrigger` are reliable.
+  `ClientMountChanged` switches the owner's input and HUD.
+* The ship replicates `StationGunners[6]` (OnRep), `StationAims[6]` and `Turrets[2]`.
+* Each cannon reloads on its own (`LastCannonFireTime[4]`). The pilot's broadside fires only the unmanned cannons.
+  `MulticastCannonsFired` carries a cannon mask, and a manned cannon tracks its gunner's aim on every machine.
+* Gunners leave the station (ejected where noted) when:
+  * they die, log out, are respawned or are detached;
+  * the turret is wrecked (ejected);
+  * the ship dies (ejected).
+
+  Ship EndPlay puts them down. A gunner can't board the helm.
+* HUD: a gunner mode (crosshair, the gun's mark, LOAD / HEAT, the turret's health, the hull, `F  LEAVE`). The pilot's
+  panel gets a PILOT row, a GUNS row and MANNED on a fully manned side.
+
+### 15.2 Front turrets (D6)
+
+* `AAirshipTurret` (`AirshipTurret.h/.cpp`) is an actor with its own ASC and `UMyAttributeSet` (400 health). The
+  server spawns two at BeginPlay, at `UAirshipSettings::TurretMounts` (hull (2100, -/+245, 655), the side edges of the
+  narrow forward deck). They are attached to HullCollision without welding and destroyed with the ship.
+* Limits: yaw -110..+30 (port) / -30..+110 (starboard), pitch -20..+40.
+* Fire: server hitscan.
+  * 10 rounds/s each (the second turret 0.05 s later), 1 deg spread, 250 m range.
+  * Heat: about 3 s of fire to overheat, cooling 0.4/s, locked until 0.35.
+  * Damage per bullet: `TurretGunDamageMultiplier` (4) x GE_GunShootDamage's IncomingDamage magnitude, read at runtime.
+  * It hits characters, ships, turrets, enemy cannonballs (a 40 cm sweep) and sentinels. Never its own ship, its
+    turrets or its crew.
+  * The turrets sit inside the hull's forward deck convex (UCX_01), so a hit on a ship's hull over its forward deck is
+    handed on to the turret behind it (`AAirshipPawn::FindTurretBehindHullHit`: turret rounds, sentinel bullets, the
+    character gun; 15.8).
+* Tracers: one unreliable multicast per turret per frame with shots. Each machine draws them through the gun's NDC
+  tracer path; the controlling machine predicts its own.
+* A wreck stops firing, burns, and ejects its gunner.
+* Unmanned turrets are the pilot's: holding LMB with the camera within `DriverTurretArcDeg` (50 deg) of the bow fires
+  both at the pilot's aim point (`Airship::Button_FireHeld`, re-checked by the server). A press there fires no
+  broadside; outside that arc LMB is the broadside as before.
+
+### 15.3 Crew damage (D4)
+
+* Every drop of the ship's Health gives `CrewDamageShare` (0.25) of the loss to the pilot and to every gunner. It goes
+  through the ship's damage effect on their own ASC, the next tick (hits of a frame add up).
+* A share that would kill puts the member on foot first (eject / dismount), so the normal on-foot death and respawn
+  run.
+* The killing blow's share is flushed before the crew is thrown clear. `Aura.Airship.Kill` gives no share.
+* The pilot's boarding snapshot of Health/Mana is gone: on exit the values from right before the re-possession are
+  written back after it, so damage taken while flying stays.
+
+### 15.4 Cannonballs and the ballistic aim (D2)
+
+* Balls (`AirshipCannonball.h/.cpp`):
+  * 1 m across (radius 50), 7000 cm/s, GravityScale 0.6, 10 s life, splash 600 cm;
+  * 30 gun units of health; they block Visibility, so the character gun and the turrets can shoot them down;
+  * a shot-down ball bursts in the air with its impact FX and deals no damage, replicated state so clients see it
+    stop;
+  * own balls never hurt the firing ship's crew or its deck riders.
+* Aim: `ComputeCannonAimRaw` solves the **low arc** onto the aim point with the ball's gravity. It feeds firing, barrel
+  tracking and both HUD arc tests.
+  * Lead (`bCannonAimLeadShipVelocity`): two steps on the flight time against the velocity the ball inherits at the
+    muzzle.
+  * Out of range (past 244 m level at the 8.5 deg cap): 45 deg raw, so out of arc, and the ball falls short.
+  * The gunner HUD's cannon mark is where the ball would be at the aim's distance.
+
+### 15.5 Unpiloted ship: drift and hold (D9)
+
+`UAirshipFlightComponent::UpdateUnpilotedMode`, server, every scheme:
+
+* **None**: piloted, a controller on the ship, debug input, or flight off.
+* **Drift**: after an exit faster than 100 cm/s forward, it keeps going ahead at up to 250 cm/s on the exit heading.
+  It eases down from cruise at most 2 m/s^2, the heading is held, and station keeping and Galleon's STOP reverse are
+  off.
+  * A look-ahead sweeps the hull's box (inset, bottom lifted 2 m) along the heading: the ship's real forward speed x 3 s
+    plus its stopping distance at `HoldAccelMax` (at least 6 m; about 720 m right after a 48 m/s exit), every 0.25 s
+    or sooner, so two sweeps always overlap.
+  * The drift ends on the first real blocker ahead, or on a bow contact.
+  * It then holds.
+* **Hold**: after an exit at rest, or for a ship nobody has flown, once below 3 m/s. A capped spring and damper on the
+  centre of mass and the heading loop hold it. A hold re-drops after a 20 m push or a 60 deg turn.
+* **Coast**: the old behaviour, while too fast to hold.
+
+Gunners don't count as a pilot. `FAirshipUnpilotedTarget` is the module's output: PR B's lane cruise can fill it with
+a moving hold point and velocity, and the force hooks stay. No new replicated state: the drift bit rides the neutral
+`RepInput`, so every machine's cosmetics agree.
+
+### 15.6 Sentinel bullets hit ships (D3)
+
+`MechSentinelSwarmSubsystem` keeps its Pawn sweep. If that finds no player, a Visibility line on the bullet's stretch
+(150 cm past the end on arrival) damages the first blocker when it carries
+`UMechSentinelSwarmSubsystem::BulletTargetTag`. The ship's constructor and the turret spawn add the tag. It does not
+depend on PA_Airship bodies. Who the sentinels target is unchanged. A hull hit over the forward deck goes to the turret
+inside it: the swarm asks its `BulletTargetRedirect` hook, which `UAirshipSubsystem` binds to
+`AAirshipPawn::RedirectBulletHitToTurret` (the swarm code knows nothing about airships).
+
+### 15.7 Console and test hooks (D10)
+
+| Command | Where | Does |
+|---|---|---|
+| `Aura.Airship.Mount <Player> <Station 0-5>` / `Aura.Airship.Dismount [Player]` | server | man a station of the nearest ship with it free, any distance / leave it |
+| `Aura.Airship.TurretFire <0/1> [X Y Z]` | server | every ship's unmanned turrets fire at the point (default 100 m ahead of the bow) / stop |
+| `Aura.Airship.TurretDamage <Turret 0/1> <Amount>` | server | damage through the turret's ASC on every ship |
+| `Aura.Airship.StationFire <Player> [X Y Z] [Seconds=1]` | server | that player's cannon fires once, or its turret holds the trigger for Seconds, at the point |
+| `Aura.Airship.Set / Get Settings.<Name> <Value>` | any | a `UAirshipSettings` value on this machine |
+| `Aura.Airship.Telemetry` | any | a third line: unpiloted mode, drift and hold, stations and gunners, turret heat / health / shots, pilot health, cannons ready |
+| `Aura.MechSentinel.TestBullet <From xyz> <To xyz> [Damage=3]` | server | one deterministic sentinel bullet |
+
+Telemetry adds the fields of SPEC_A.md appendix B. The unpiloted ones are server values.
+
+### 15.8 Review fixes (2026-11-25)
+
+The decision record with file:line is `round2/SPEC_A.md` section 6. In short:
+
+* **Gunner corrections.** Moves a client sent before its mount reached it still arrive; their world-space corrections
+  moved the client's attached copy off the seat for the whole mount. Now the server sets
+  `bIgnoreClientMovementErrorChecksAndCorrection` on a mounted gunner, the owner `bClientIgnoreMovementCorrections`,
+  both restored at the dismount, and the owner re-seats its copy when it drifts more than 5 cm.
+* **Spent balls** turn their collision off on clients too (they block Visibility and caught the crosshair).
+* **Turrets inside the hull's collision**: `FindTurretBehindHullHit` hands a hull hit to the turret behind it when the
+  hit is at or above the turret's deck plane (the line then stays in the air over the forward deck). Sentinel bullets
+  (the swarm's `BulletTargetRedirect` hook), turret rounds (`TraceShotLine`) and the character gun (`MyFunc`). Gunners
+  inside the convex are still out of reach of direct hits (the crew share reaches them).
+* **Friendly fire**: `AAirshipPawn::IsRiderForDamage` (attached, standing on the ship, or no base inside the hull's own
+  turned box up to `RiderZoneHeight` above it) replaces the wide passenger zone for damage: balls, turret traces, aim
+  traces, the gun. The gun no longer damages what is attached to the shooter's own ship (its turrets, its gunners).
+* **Drift look-ahead** from the real forward speed plus the stopping distance (above).
+* **A gunner killed at the gun**: its ragdoll ignores the hull's object type from the death on (every machine, bound to
+  the gunner's `OnDeathDelegate`), so it doesn't start inside the simulated hull and kick it; the body drops through the
+  deck. Needs PIE T5.15.
+* **Harnesses**: as_30 / as_43 / as_45 run with `CrewDamageShare` 0 (their v1 health checks predate D4); as_59 has
+  T3.2 without the hull-Visibility switch, T6.9 (turret rounds at an enemy turret) and T5.15.
