@@ -68,16 +68,17 @@ namespace MechSwarm::AimShotPrivate
 	}
 
 	/**
-	 * The character that Actor is, or is attached to (a character's weapon, for example). Characters only: other pawns
-	 * (the airship's hull) are solid bodies that stop a shot like walls.
+	 * The pawn that Actor is, or is attached to (a character's weapon, for example). Every pawn is looked past, the
+	 * airship's hull too: a moving ship sits elsewhere on the shooting client (its passengers aim and are aimed at on
+	 * that lagged copy), so its server position is no wall.
 	 */
-	const ACharacter* GetCharacterOf(const AActor* Actor)
+	const APawn* GetCharacterOf(const AActor* Actor)
 	{
 		for (; Actor; Actor = Actor->GetAttachParentActor())
 		{
-			if (const ACharacter* Character = Cast<ACharacter>(Actor))
+			if (const APawn* Pawn = Cast<APawn>(Actor))
 			{
-				return Character;
+				return Pawn;
 			}
 		}
 		return nullptr;
@@ -93,8 +94,8 @@ namespace MechSwarm::AimShotPrivate
 
 	/**
 	 * The first wall from From to To: the first blocking hit on the crosshair trace's channel that is not part of a
-	 * character, nor local debris. Characters (their components and attached actors, whatever their collision profiles)
-	 * are looked past, because their positions on the server differ from what the shooting client saw. A character
+	 * pawn, nor local debris. Pawns (their components and attached actors, whatever their collision profiles) are
+	 * looked past, because their positions on the server differ from what the shooting client saw. A character
 	 * stops the shot only when it is the client's own crosshair hit (see GetAimShotSegment). What is looked past is
 	 * added to Params.
 	 */
@@ -107,7 +108,7 @@ namespace MechSwarm::AimShotPrivate
 			{
 				return false;
 			}
-			const ACharacter* Character = GetCharacterOf(OutWall.GetActor());
+			const APawn* Character = GetCharacterOf(OutWall.GetActor());
 			if ((!Character && !IsLocalDebris(OutWall)) || Skipped >= MaxCharactersSkipped)
 			{
 				return true;
@@ -276,7 +277,7 @@ FVector UMechSentinelCombatLibrary::GetMoveVelocityAt(const AActor& Actor, const
 	FVector Velocity = Actor.GetVelocity();
 	if (const ACharacter* Character = Cast<ACharacter>(&Actor))
 	{
-		if (UPrimitiveComponent* Base = Character->GetMovementBase())
+		if (UPrimitiveComponent* Base = Cast<UPrimitiveComponent>(Character->GetMovementBaseObject()))
 		{
 			Velocity += Base->IsSimulatingPhysics() ? Base->GetPhysicsLinearVelocityAtPoint(Point) : Base->GetComponentVelocity();
 		}

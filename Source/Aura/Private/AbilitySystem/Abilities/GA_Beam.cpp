@@ -39,7 +39,8 @@ namespace
 	 * collision on the server, and still count, plus CharacterMoveSlackSeconds of the hit point's movement: the crosshair
 	 * sweep's radius and the gap between where the client and the server see a character. The hit point must also be
 	 * in the open from the beam's start, so no character is hit through a wall, and none more than this behind where
-	 * the server's beam stops.
+	 * the server's beam stops. Pawns (the airship's hull too) are no walls for these checks: the shooting client sees
+	 * them at their lagged positions.
 	 */
 	constexpr double CharacterHitSlack=100.0;
 	
@@ -60,11 +61,13 @@ namespace
 		for (const UPrimitiveComponent* Primitive : Primitives)
 		{
 			if (!Primitive || !Primitive->IsRegistered() || !Primitive->IsQueryCollisionEnabled()) continue;
-			// A skeletal mesh whose bones the server does not refresh (not rendered on this machine, the default for
-			// characters) keeps its bodies in an old pose, e.g. the Burrower's body straight while it curves on the
-			// client: here only its bounds sphere counts
+			// A character's skeletal mesh whose bones the server does not refresh (not rendered on this machine, the
+			// default for characters) keeps its bodies in an old pose, e.g. the Burrower's body straight while it curves
+			// on the client: here only its bounds sphere counts. Other meshes (the airship's) move rigidly with their
+			// actor, so their bodies stay right
 			const USkeletalMeshComponent* SkeletalMesh=Cast<USkeletalMeshComponent>(Primitive);
-			if (SkeletalMesh && SkeletalMesh->VisibilityBasedAnimTickOption!=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones
+			if (SkeletalMesh && Actor.IsA<ACharacter>()
+				&& SkeletalMesh->VisibilityBasedAnimTickOption!=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones
 				&& !SkeletalMesh->WasRecentlyRendered(0.2f))
 			{
 				if (FVector::Dist(Point,SkeletalMesh->Bounds.Origin)<=SkeletalMesh->Bounds.SphereRadius+Slack) return true;
