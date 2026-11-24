@@ -126,4 +126,27 @@ public:
 
 	/** Segment of a UE style capsule (axis = up vector of Rotation). */
 	static void GetCapsuleSegment(const FVector& Center, const FRotator& Rotation, float Radius, float HalfHeight, FVector& OutA, FVector& OutB);
+
+	/**
+	 * Server: the segment to sweep against the sentinels for a crosshair shot (AT_SendMouseCursorData's hit result), shared
+	 * by GA_GunShoot and GA_Beam. Sentinels are Mass entities without engine collision, so the crosshair trace passes
+	 * through them. The segment runs along the aim, from the point of the aim line nearest Avatar, and stops at the first
+	 * wall (traced here from Avatar's capsule on; pawns, the airship's hull included, and local physics debris are
+	 * looked past), at the crosshair trace's first hit when that lies
+	 * ahead, or after MaxRange. A client aim that starts far from Avatar or passes far from it is replaced by Avatar's own
+	 * view. False when there is nothing to shoot along: no aim, or a start that a wall hides from Avatar.
+	 */
+	static bool GetAimShotSegment(const FHitResult& AimHit, const AActor& Avatar, double MaxRange, FVector& OutStart, FVector& OutEnd);
+
+	/**
+	 * Server: no wall between From and To, by GetAimShotSegment's rules (the crosshair trace's channel, pawns and local
+	 * physics debris looked past). Avatar, IgnoreActors and what is attached to them are left out.
+	 */
+	static bool IsAimPathClear(const AActor& Avatar, const FVector& From, const FVector& To, TConstArrayView<const AActor*> IgnoreActors);
+
+	/**
+	 * How fast Point moves along with Actor: a physics-simulating root's velocity at Point (its rotation included, e.g. the
+	 * airship's hull), else the actor's velocity plus the base a character stands on (an airship's deck).
+	 */
+	static FVector GetMoveVelocityAt(const AActor& Actor, const FVector& Point);
 };
