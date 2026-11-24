@@ -126,4 +126,14 @@ public:
 
 	/** Segment of a UE style capsule (axis = up vector of Rotation). */
 	static void GetCapsuleSegment(const FVector& Center, const FRotator& Rotation, float Radius, float HalfHeight, FVector& OutA, FVector& OutB);
+
+	/**
+	 * Server: the segment to sweep against the sentinels for a crosshair shot (AT_SendMouseCursorData's hit result), shared
+	 * by GA_GunShoot and GA_Beam. Sentinels are Mass entities without engine collision, so the crosshair trace passes
+	 * through them. The segment runs along the aim, from the point of the aim line nearest Avatar, and stops at the first
+	 * wall (traced here from Avatar's capsule on, characters looked past), at the crosshair trace's first hit when that lies
+	 * ahead, or after MaxRange. A client aim that starts far from Avatar or passes far from it is replaced by Avatar's own
+	 * view. False when there is nothing to shoot along: no aim, or a start that a wall hides from Avatar.
+	 */
+	static bool GetAimShotSegment(const FHitResult& AimHit, const AActor& Avatar, double MaxRange, FVector& OutStart, FVector& OutEnd);
 };
