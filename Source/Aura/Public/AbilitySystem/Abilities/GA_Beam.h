@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MyGameplayAbility.h"
+#include "AbilitySystem/MySplashDamageLibrary.h"
 #include "GA_Beam.generated.h"
 
 class UCameraShakeBase;
@@ -79,6 +80,77 @@ public:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|CastImpact")
 	float CastCameraShakeScale=1.f;
 	
+	//----------------------------------------------------------------------//
+	// Damage (server): the hit enemy and every enemy around it
+	//----------------------------------------------------------------------//
+	
+	/**
+	 * Damages on the server when the beam is released: AT_SendMouseCursorData hands the release's aim to
+	 * OnServerMouseCursorData before GA_BeamBP's graph sees it, which calls ApplyBeamDamage. Off: the beam only does what
+	 * the graph does (knockback and effects); the graph can still call ApplyBeamDamage itself.
+	 */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage")
+	bool bApplyDamageOnRelease=true;
+	
+	/**
+	 * Server: finds what the beam hit along the aim in TargetData (AT_SendMouseCursorData's crosshair hit) and damages it
+	 * and every enemy within Splash.Radius of it. The hit enemy is the first one along the beam: a Mech Sentinel (swept
+	 * against their hit capsules, which the crosshair trace passes through) or the character the crosshair hit, whichever
+	 * is closer. The client reports that character hit, so the server only takes it when the hit point lies on its own
+	 * beam line (stopped by the first wall it finds), on that character's collision on the server, within a slack for
+	 * lag, and in the open from the beam's start. The damage lands later this frame, outside the Mass phases. Returns
+	 * false when the data holds no aim or was already used.
+	 */
+	UFUNCTION(BlueprintCallable,BlueprintAuthorityOnly,Category="Beam|Damage")
+	bool ApplyBeamDamage(const FGameplayAbilityTargetDataHandle& TargetData);
+	
+	/**
+	 * Damage to the enemy the beam hits, at the ability level. Characters: added to IncomingDamage through
+	 * CharacterDamageEffect. Sentinels: the base; the caster's AttackDamage and the sentinel's armor apply on top
+	 * (ExecCalc_SentinelDamage).
+	 */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage")
+	FScalableFloat HitDamage=FScalableFloat(150.f);
+	
+	/** The hit enemy takes HitDamage. Off: only the enemies around it are damaged. */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage")
+	bool bDamageHitEnemy=true;
+	
+	/** The beam also hits players (and ships players fly), like the knockback in GA_BeamBP. Off: only the splash can reach them (Splash.bDamagePlayers). */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage",meta=(EditCondition="bDamageHitEnemy"))
+	bool bHitDamagesPlayers=true;
+	
+	/** Damage to each enemy around the hit (not the hit enemy itself), at the ability level. Same rules as HitDamage. */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage")
+	FScalableFloat SplashDamage=FScalableFloat(75.f);
+	
+	/**
+	 * Who the splash reaches: radius around the hit, falloff, characters / players / sentinels, caps. Its damage effects are
+	 * also the ones the hit enemy gets (empty: the built-in SetByCaller damage for characters, the GameMode rules'
+	 * DefaultSentinelDamageEffect for sentinels).
+	 */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage")
+	FMySplashDamageSettings Splash;
+	
+	/** Splash only around an enemy the beam hit. Off: a beam that hits the ground or a wall splashes there too. */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage")
+	bool bSplashOnlyOnEnemyHit=true;
+	
+	/** Optional cue executed at the splash centre (Location, RawMagnitude = Splash.Radius), e.g. a burst effect. Empty: none. */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage",meta=(Categories="GameplayCue"))
+	FGameplayTag SplashGameplayCue;
+	
+	/** Thickness of the beam against the sentinels' hit capsules (cm). */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage",meta=(ClampMin="0",ForceUnits="cm"))
+	float BeamSentinelRadius=40.f;
+	
+	/** How far the beam reaches sentinels and characters when no wall stops it (cm). */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Beam|Damage",meta=(ClampMin="100",ForceUnits="cm"))
+	float BeamRange=20000.f;
+	
+	/** Server: the release's target data from AT_SendMouseCursorData; applies the beam damage (bApplyDamageOnRelease). */
+	virtual void OnServerMouseCursorData(const FGameplayAbilityTargetDataHandle& Data) override;
+	
 	// virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	//
 	// UPROPERTY(EditAnywhere)
@@ -92,4 +164,8 @@ public:
 	//
 	// UFUNCTION()
 	// void OnReleaseMontageCompleteCallback();
+	
+private:
+	/** The last target data damaged, kept alive so a replay of it is told apart from new data that reused its memory. */
+	TSharedPtr<FGameplayAbilityTargetData> LastDamagedTargetData;
 };
