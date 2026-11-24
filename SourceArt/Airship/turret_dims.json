@@ -1,0 +1,252 @@
+{
+ "about": "Round 2 turret + helm numbers for Unreal (UE component / hull space, cm). Written by export_turret.py.",
+ "pivot_height_cm": 150.0,
+ "muzzle_forward_cm": 180.0,
+ "muzzle_offset_cm": [
+  180.0,
+  0.0,
+  0.0
+ ],
+ "barrel_offsets_y_cm": [
+  -10.0,
+  10.0
+ ],
+ "base_radius_cm": 43.61,
+ "base_height_cm": 187.68,
+ "base_bbox_cm": [
+  [
+   -42.0,
+   -42.0,
+   -1.0
+  ],
+  [
+   43.6,
+   42.0,
+   187.68
+  ]
+ ],
+ "base_bounds_cm": {
+  "min": [
+   -42.0,
+   -42.0,
+   -1.0
+  ],
+  "max": [
+   43.6,
+   42.0,
+   187.68
+  ]
+ },
+ "gun_length_cm": 224.4,
+ "gun_bbox_cm": [
+  [
+   -44.4,
+   -21.5,
+   -24.0
+  ],
+  [
+   180.0,
+   21.5,
+   36.5
+  ]
+ ],
+ "gun_bounds_cm": {
+  "min": [
+   -44.4,
+   -21.5,
+   -24.0
+  ],
+  "max": [
+   180.0,
+   21.5,
+   36.5
+  ]
+ },
+ "gun_rear_extent_cm": 44.4,
+ "hitbox_suggestion": {
+  "extent_cm": [
+   43.61,
+   43.61,
+   93.84
+  ],
+  "centre_z_cm": 93.84,
+  "note": "box round the yaw part (base + shield); the gun swings above and ahead of it"
+ },
+ "pitch_range_deg": [
+  -20.0,
+  40.0
+ ],
+ "axes": "BaseMesh yaws about its origin (the mount on the deck, Z up); GunMesh at (0, 0, pivot_height_cm) on BaseMesh pitches about its Y (+ = muzzle up); the muzzle is at (muzzle_forward_cm, 0, 0) on GunMesh, between the two barrels; the ammo crate is on the turret's left (UE -Y)",
+ "mounts": {
+  "L": {
+   "turret_index": 0,
+   "station": 4,
+   "location_cm": [
+    2100.0,
+    -245.0,
+    655.0
+   ],
+   "yaw_limits_deg": [
+    -110.0,
+    30.0
+   ],
+   "gunner_seat_cm": [
+    2000.0,
+    -245.0,
+    655.0
+   ],
+   "base_to_rail_gap_cm": 4.89,
+   "sweep_contacts": []
+  },
+  "R": {
+   "turret_index": 1,
+   "station": 5,
+   "location_cm": [
+    2100.0,
+    245.0,
+    655.0
+   ],
+   "yaw_limits_deg": [
+    -30.0,
+    110.0
+   ],
+   "gunner_seat_cm": [
+    2000.0,
+    245.0,
+    655.0
+   ],
+   "base_to_rail_gap_cm": 4.89,
+   "sweep_contacts": []
+  }
+ },
+ "deck_top_cm_at_mounts": {
+  "L": 655.0,
+  "R": 655.0
+ },
+ "rail_top_cm": 768.0,
+ "rail_inner_y_cm": 293.5,
+ "pilot_seat_ue": [
+  -740.0,
+  0.0,
+  264.19
+ ],
+ "helm_ue": [
+  -650.0,
+  0.0,
+  260.48
+ ],
+ "helm_wheel_ue": [
+  -685.0,
+  0.0,
+  360.48
+ ],
+ "helm_wheel_size_cm": [
+  16.71,
+  140.0,
+  140.0
+ ],
+ "helm_wheel_offset_from_helm_cm": [
+  -35.0,
+  0.0,
+  100.0
+ ],
+ "pilot_behind_axle_cm": 55.0,
+ "removed_islands": [
+  0,
+  1,
+  2,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  234,
+  235,
+  236,
+  237
+ ],
+ "removed": {
+  "removed_verts": 392,
+  "removed_tris": 700,
+  "kept_verts": 36516,
+  "kept_tris": 68510
+ },
+ "removed_pieces": [
+  {
+   "arrow": 1,
+   "name": "aft grate box near the stern fans (hatch + 5 slats)",
+   "islands": [
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24
+   ]
+  },
+  {
+   "arrow": 2,
+   "name": "grate box mid-deck on the wide part (hatch + 5 slats)",
+   "islands": [
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ]
+  },
+  {
+   "arrow": 3,
+   "name": "tall narrow post at the waist (BowFin + 2 side plates)",
+   "islands": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "arrow": 4,
+   "name": "big flat hatch on the narrow forward deck (raised slab)",
+   "islands": [
+    237
+   ]
+  },
+  {
+   "arrow": 5,
+   "name": "small grate near the bow tip (three stepped boxes)",
+   "islands": [
+    234,
+    235,
+    236
+   ]
+  }
+ ],
+ "cannon_bore_radius_cm": 22.0,
+ "cannon_muzzle_face_radius_cm": 25.0,
+ "files": {
+  "SM_AirshipTurret_Base": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/export/SM_AirshipTurret_Base.fbx",
+   "bytes": 124060,
+   "verts": 2177,
+   "tris": 3766
+  },
+  "SM_AirshipTurret_Gun": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/export/SM_AirshipTurret_Gun.fbx",
+   "bytes": 106412,
+   "verts": 2076,
+   "tris": 4012
+  }
+ }
+}

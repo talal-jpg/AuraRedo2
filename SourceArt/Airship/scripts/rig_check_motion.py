@@ -28,7 +28,9 @@ spec = C.load_json(C.CHECKS + '/bones_spec.json')
 ship = bpy.data.objects[C.HULL_OBJ]
 co0, polys = C.mesh_arrays(ship.data)
 VP = C.load_json(C.RESEARCH + '/sm_airship_vertex_parts.json')
-visl = np.array(VP['vertex_island'])
+# the rig's SM_Airship lacks the deck pieces of deck_removals.json (round 2): its vertex i is source vertex KEEP[i]
+visl = np.array(VP['vertex_island'])[C.kept_vertex_index()]
+assert len(visl) == len(co0), (len(visl), len(co0))
 fisl = np.array([visl[p[0]] for p in polys])
 pv0 = np.array([p[0] for p in polys])
 

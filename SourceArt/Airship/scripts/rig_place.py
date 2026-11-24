@@ -12,6 +12,10 @@ Placement rules:
     target (C.CANNON_TARGET_X: -0.46 fwd, -11.3 aft), y so the muzzle face centre is 0.12 m inside the rail centre line, z = lowest deck
     point under the 4 wheels (no wheel floats). If the motion sweep finds a rail contact inside the target ranges the
     cannon is moved inboard in 1 cm steps (reported as a nudge).
+Round 2 (2026-11-24): the deck pieces in deck_removals.json are left out of every test (the rig build deletes them),
+and the two front turrets (rig_common.TURRET_MOUNTS, meshes from props/AirshipProps.blend) are measured: deck top and
+rail at the mount, and the turret swept through its yaw / pitch limits against the ship (-> placement.json 'turrets',
+read by export_turret.py for turret_dims.json).
 Clearance method: BVH triangle overlap of the moved cannon parts against SM_Airship (the wheels are tested against
 everything except the hull skin, whose deck they stand on; their sink/float is measured separately), against the helm
 and the other cannons at rest. A contact counts only if the static island was not already touched at rest.
@@ -47,11 +51,12 @@ def bvh_faces(mask):
     return BVHTree.FromPolygons(tolist, [polys[i] for i in idx]), idx
 
 
-ALL, ALL_IDX = bvh_faces(np.ones(len(polys), bool))
-SHELL, SHELL_IDX = bvh_faces(fisl == C.SHELL_ISLAND)
-NOSHELL, NOSHELL_IDX = bvh_faces(fisl != C.SHELL_ISLAND)
+KEEPF = ~np.isin(fisl, C.removed_islands())       # faces the rig keeps (deck_removals.json pieces are deleted)
+ALL, ALL_IDX = bvh_faces(KEEPF)
+SHELL, SHELL_IDX = bvh_faces((fisl == C.SHELL_ISLAND) & KEEPF)
+NOSHELL, NOSHELL_IDX = bvh_faces((fisl != C.SHELL_ISLAND) & KEEPF)
 src = np.array([IS[int(i)]['src'] for i in fisl])
-RAILS, RAILS_IDX = bvh_faces(src == 'DeckRails')
+RAILS, RAILS_IDX = bvh_faces((src == 'DeckRails') & KEEPF)
 
 
 def deck_at(x, y):
@@ -70,7 +75,7 @@ def shell_z(x, y):
 
 # ------------------------------------------------------------------ props (geometry only, appended from AirshipProps.blend)
 with bpy.data.libraries.load(C.PROPS_BLEND, link=False) as (src_d, dst_d):
-    dst_d.objects = [n for n in src_d.objects if n.startswith('Cannon_') or n.startswith('Helm_')]
+    dst_d.objects = [n for n in src_d.objects if n.startswith(('Cannon_', 'Helm_', 'Turret_'))]
 PO = {o.name: o for o in dst_d.objects if o is not None}
 PART = {}   # name -> (carriage/pedestal-space coords, polys, shells)
 for n, o in PO.items():
@@ -97,7 +102,8 @@ def contacts(bvh, static, idx):
     return {int(fisl[idx[j]]) for _, j in bvh.overlap(static)}
 
 
-R = {'method': __doc__.split('Clearance method:')[1].strip(), 'deck_props': [], 'cannons': {}, 'helm': {}}
+R = {'method': __doc__.split('Clearance method:')[1].strip(), 'deck_props': [], 'cannons': {}, 'helm': {}, 'turrets': {},
+     'removed_islands': C.removed_islands()}
 
 # ------------------------------------------------------------------ rails
 rails = [r for r in ISL['islands'] if r['src'] == 'DeckRails']
@@ -405,6 +411,56 @@ R['helm']['wheel_spin'] = dict(step_deg=5, new_contacts=bad, rest_pedestal_shell
                                min_wheel_to_deck_m=round(float(min_deck), 4))
 # helm clearance to the cannons' recoil paths is covered by the cannon prop-vs-prop checks
 print('[place] helm wheel spin', R['helm']['wheel_spin'])
+
+
+# ------------------------------------------------------------------ front turrets (round 2)
+def turret_mount(side, x, y):
+    """deck and rail at the mount; the turret's base and gun swept through the yaw / pitch limits against the ship.
+    Unreal yaw (+ = toward starboard) is a rotation about Blender -Z; pitch + raises the muzzle (about the gun's -Y)."""
+    s = 1 if y > 0 else -1                         # +1 port (Blender +Y)
+    d = deck_at(x, y)
+    z = d['z']
+    base_c, base_p, _ = PART['Turret_Base']
+    gun_c, gun_p, _ = PART['Turret_Gun']
+    pivot = V(PO['Turret_Gun'].location) - V(PO['Turret_Base'].location)
+    # rail: horizontal rays outboard from the yaw axis at 1 cm steps of height
+    hits = []
+    for k in range(1, 151):
+        h = ALL.ray_cast(V((x, y, z + 0.01 * k)), V((0, s, 0)), 3.0)
+        if h[0] is not None and int(fisl[ALL_IDX[h[2]]]) != d['island']:
+            hits.append((0.01 * k, abs(h[0].y)))
+    rail_in = min(hy for _, hy in hits) if hits else None
+    rail_top = max(hz for hz, hy in hits if hy < abs(y) + 1.0) if hits else None
+    r_base = np.hypot(base_c[:, 0], base_c[:, 1])
+    lo = base_c[:, 2] < (rail_top or 0.0) + 0.02
+    # sweep: (UE yaw, pitch) over the limits; contacts = ship islands touched that the turret did not touch at rest
+    M0 = Matrix.Translation(V((x, y, z)))
+    rest = contacts(BVHTree.FromPolygons(C.xform(base_c, M0).tolist(), base_p), ALL, ALL_IDX)
+    lim = (-110.0, 30.0) if s > 0 else (-30.0, 110.0)
+    grid = []
+    for yaw in np.arange(lim[0], lim[1] + 0.1, 10.0):
+        My = M0 @ Matrix.Rotation(math.radians(-yaw), 4, 'Z')
+        bc = contacts(BVHTree.FromPolygons(C.xform(base_c, My).tolist(), base_p), ALL, ALL_IDX) - rest
+        for pitch in (-20.0, -10.0, 0.0, 20.0, 40.0):
+            Mg = My @ Matrix.Translation(pivot) @ Matrix.Rotation(math.radians(-pitch), 4, 'Y')
+            gc = contacts(BVHTree.FromPolygons(C.xform(gun_c, Mg).tolist(), gun_p), ALL, ALL_IDX)
+            if bc or gc:
+                grid.append(dict(yaw=float(yaw), pitch=pitch, base=sorted(bc), gun=sorted(gc)))
+    seat = V((x - C.TURRET_SEAT_BEHIND, y, 0.0))
+    sd = deck_at(seat.x, seat.y)
+    return dict(mount=C.r3((x, y, z)), mount_ue_cm=C.ue_cm((x, y, z)), deck_island=d['island'], deck_src=d['src'],
+                deck_is_flat=bool(abs(d['nz'] - 1.0) < 1e-3), rail_inner_abs_y=round(rail_in, 4) if rail_in else None,
+                rail_top_above_deck=round(rail_top, 4) if rail_top else None,
+                base_max_radius_below_rail_top=round(float(r_base[lo].max()), 4),
+                base_to_rail_gap=round(rail_in - abs(y) - float(r_base[lo].max()), 4) if rail_in else None,
+                yaw_limits_ue=list(lim), sweep_contacts=grid, rest_contacts=sorted(rest),
+                seat=C.r3((seat.x, seat.y, sd['z'])), seat_ue_cm=C.ue_cm((seat.x, seat.y, sd['z'])), seat_on_deck_island=sd['island'])
+
+
+for side, (tx, ty) in C.TURRET_MOUNTS.items():
+    R['turrets'][side] = turret_mount(side, tx, ty)
+    print('[place] turret', side, {k: v for k, v in R['turrets'][side].items() if k != 'sweep_contacts'},
+          'sweep contacts', len(R['turrets'][side]['sweep_contacts']), R['turrets'][side]['sweep_contacts'][:4])
 R['seconds'] = round(time.time() - T0, 1)
 C.dump_json(R, OUT)
 print('[place] wrote', OUT, R['seconds'], 's')

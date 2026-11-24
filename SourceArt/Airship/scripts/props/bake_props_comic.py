@@ -1,16 +1,16 @@
-"""One shared comic-ink texture for the airship props (helm + cannon), in the ship's look.
+"""One shared comic-ink texture for the airship props (helm + cannon + front turret), in the ship's look.
 
-Headless, re-runnable (never touches Helm.blend, Cannon.blend or Talal's StylizedAirship.blend):
+Headless, re-runnable (never touches Helm.blend, Cannon.blend, Turret.blend or Talal's StylizedAirship.blend):
 
   blender -b --factory-startup --python rig/scripts/bake_props_comic.py -- [--stages assemble,atlas,bake,render]
           [--cpu] [--tag _t1] [--set key=value ...]
 
 Stages (default: all four, in order):
-  assemble  append the "Helm" and "Cannon" collections of rig/props/Helm.blend + Cannon.blend into
-            rig/props/AirshipProps.blend. Names, mesh data, origins, transforms and the Cannon_Muzzle ->
-            Cannon_Barrel parenting are kept. Every mesh gets one material slot M_AirshipProps and a face
+  assemble  append the "Helm", "Cannon" and "Turret" collections of rig/props/Helm.blend + Cannon.blend +
+            Turret.blend (round 2) into rig/props/AirshipProps.blend. Names, mesh data, origins, transforms and the
+            Cannon_Muzzle -> Cannon_Barrel and Turret_Muzzle -> Turret_Gun parenting are kept. Every mesh gets one material slot M_AirshipProps and a face
             attribute part_kind (0 wood, 1 iron, 2 brass, 3 rope, 4 bore; the cannon's comes from its old
-            M_Cannon_* slots). The helm's preview colour attribute PartColor is dropped.
+            M_Cannon_* / M_Turret_* slots). The helm's preview colour attribute PartColor is dropped.
   atlas     one atlas in the first (only) UV channel "UVMap" of every mesh. The modellers' islands keep their
             shape and seams; each island is scaled so texel density is equal across all meshes (WEIGHTS:
             barrel, carriage cheeks, helm wheel rim + spokes x1.25; hidden islands keep their reduced share),
@@ -50,7 +50,7 @@ from mathutils import Vector as V, Matrix
 
 RIG = "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/"
 PROPS = RIG + "props/"
-SRC = {"Helm": PROPS + "Helm.blend", "Cannon": PROPS + "Cannon.blend"}
+SRC = {"Helm": PROPS + "Helm.blend", "Cannon": PROPS + "Cannon.blend", "Turret": PROPS + "Turret.blend"}
 OUT_BLEND = PROPS + "AirshipProps.blend"
 TEXDIR = PROPS + "textures/"
 CHECKS = RIG + "checks/props_atlas/"
@@ -64,6 +64,10 @@ KIND = {"wood": 0, "iron": 1, "brass": 2, "rope": 3, "bore": 4}
 # its spokes and handles get an axle-view outline instead (AXIAL, see build_bake_material)
 SPIN = ("Helm_Wheel",)
 AXIAL = ("Helm_Wheel",)
+# ink lengths (bevel radius, AO crease / spot distances, hatch spacing, stroke growth) are tuned for 1-3 m props; the
+# round 2 helm is smaller (wheel x 0.45, pedestal x 0.6 of its old size), so its ink is drawn at the same scale to keep
+# the look it had (with the full lengths the 15 cm hub flange inks solid)
+INK_SCALE = {"Helm_Wheel": 0.45, "Helm_Pedestal": 0.6}
 
 # texel weight (linear) per island, decided by WEIGHT_RULES below
 W_HI = 1.25
@@ -94,7 +98,7 @@ P = dict(
     margin_px=8,           # bake margin (extend)
     edge_vd_lo=0.8, edge_vd_hi=0.985,     # Bevel-vs-shading normal range that maps to the edge term (ship)
     dilate_px=3,           # stroke weight: grow the raw ink by this many texels (inside its own island)
-                           # before the ship's blur + threshold
+                           # before the ship's blur + threshold (x the object's INK_SCALE, at least 1 texel)
 )
 PAPER_HEX, INK_HEX = "F3EEE4", "1C2230"
 TONE_HEX = {0: PAPER_HEX,      # wood: plain paper
@@ -111,6 +115,10 @@ def LIGHT_OF(name):
     frame is (0.35, -0.30, 0.89) on one side and (-0.35, 0.30, 0.89) on the other, so the shared bake uses
     their mean, light from straight above."""
     return tuple(LIGHT) if name.startswith("Helm") else (0.0, 0.0, 1.0)
+
+
+def INK_SCALE_OF(name):
+    return next((v for k, v in INK_SCALE.items() if name.startswith(k)), 1.0)
 
 
 def BIAS_OF(name):
@@ -252,6 +260,10 @@ def stage_assemble():
     mw = tuple(round(x, 4) for x in mu.matrix_world.translation)
     log("muzzle world", mw)
     assert max(abs(a - b) for a, b in zip(mw, (1.86, 0.0, 0.80))) < 1e-3, mw
+    tm = bpy.data.objects["Turret_Muzzle"]
+    assert tm.parent and tm.parent.name == "Turret_Gun", tm.parent
+    log("turret muzzle local", tuple(round(x, 4) for x in tm.location), "gun origin",
+        tuple(round(x, 4) for x in bpy.data.objects["Turret_Gun"].location))
     os.makedirs(CHECKS, exist_ok=True)
     save_props()
     for k, p in SRC.items():
@@ -334,9 +346,17 @@ def weight_rules(name, t):
         w[hi] = W_HI; group[hi] = "carriage_cheeks"
     elif name == "Helm_Wheel":
         r = np.hypot(t["cen"][:, 1], t["cen"][:, 2])  # local: axle = X through the origin
-        hi = r > 0.36
+        hi = r > HELM_RIM_SPOKES_R
         w[hi] = W_HI; group[hi] = "helm_rim_spokes"
+    elif name == "Turret_Gun":                        # the gunner looks at it from 1 m
+        hi = t["kind"] != KIND["bore"]
+        w[hi] = W_HI; group[hi] = "turret_gun"
     return w, group
+
+
+# Helm_Wheel islands farther than this from the axle get W_HI (rim, outer spokes, handles, bands): 0.36 for the v2
+# 3.1 m wheel, scaled with it (v3 tips at 0.70 m)
+HELM_RIM_SPOKES_R = 0.36 * 0.70 / 1.55
 
 
 def hull_area(pts):
@@ -622,7 +642,8 @@ def stage_atlas():
                raster_shared_texels=shared, raster_coverage=round(float((ids >= 0).mean()), 4),
                island_contacts_within_px=gaps, px_per_m_by_group=groups, objects=rep_obj,
                weights=dict(high=W_HI, rules="barrel (not bore), carriage cheek islands (wood, |y| 0.30..0.46), "
-                                              "Helm_Wheel islands > 0.36 m from the axle (rim, spokes, handles, bands)"))
+                                              "Helm_Wheel islands > %.3f m from the axle (rim, spokes, handles, bands), "
+                                              "Turret_Gun (not bore)" % HELM_RIM_SPOKES_R))
     json.dump(rep, open(CHECKS + "atlas.json", "w"), indent=1)
     log("ATLAS", json.dumps({k: rep[k] for k in ("islands", "triangles", "uv_bounds", "overlap_pairs_tested",
                                                    "overlapping_triangle_pairs", "raster_shared_texels",
@@ -731,6 +752,8 @@ def build_bake_material():
     light = vmath("NORMALIZE", la.outputs["Vector"])  # per-object key light (see LIGHT_OF)
     ba = node("ShaderNodeAttribute", attribute_type="OBJECT", attribute_name="comic_bias")
     ax_a = node("ShaderNodeAttribute", attribute_type="OBJECT", attribute_name="comic_axial")
+    sc_a = node("ShaderNodeAttribute", attribute_type="OBJECT", attribute_name="comic_scale")
+    ink_s = sc_a.outputs["Fac"]          # per-object ink length scale (INK_SCALE_OF)
 
     def cmp_kind(kv):
         n = node("ShaderNodeMath", operation="COMPARE")
@@ -745,26 +768,27 @@ def build_bake_material():
     shadow = mr(ndl, 0.15, -0.35, 0.0, 1.0)
 
     bev = node("ShaderNodeBevel", samples=P["bevel_samples"])
-    bev.inputs["Radius"].default_value = P["bevel"]
+    L(math_("MULTIPLY", ink_s, P["bevel"]), bev.inputs["Radius"])
     vd = vmath("DOT_PRODUCT", bev.outputs[0], nrm)
     e = math_("ADD", mr(vd, P["edge_vd_lo"], P["edge_vd_hi"], 1.0, 0.0), math_("MULTIPLY", wob, 0.6))
     thr = math_("SUBTRACT", P["edge_thr"], math_("MULTIPLY", shadow, P["edge_shadow"]))
     edge = mr(math_("SUBTRACT", e, thr), 0.0, 0.025, 0.0, 1.0)
 
     ao_s = node("ShaderNodeAmbientOcclusion", samples=16, only_local=True)
-    ao_s.inputs["Distance"].default_value = P["crease_dist"]
+    L(math_("MULTIPLY", ink_s, P["crease_dist"]), ao_s.inputs["Distance"])
     c_thr = math_("ADD", P["crease_thr"], math_("MULTIPLY", shadow, 0.06))
     crease = mr(math_("SUBTRACT", math_("ADD", ao_s.outputs["AO"], math_("MULTIPLY", wob, 0.3)), c_thr), -0.01, 0.0, 1.0, 0.0)
 
     ao_b = node("ShaderNodeAmbientOcclusion", samples=16, only_local=True)
     ao_b.name = "AO_Main"
-    ao_b.inputs["Distance"].default_value = P["spot_dist"]
+    L(math_("MULTIPLY", ink_s, P["spot_dist"]), ao_b.inputs["Distance"])
     aob = math_("ADD", ao_b.outputs["AO"], math_("MULTIPLY", wob, 0.2))
     spot = mr(aob, P["spot_lo"], P["spot_hi"], 1.0, 0.0)
 
     d = vmath("NORMALIZE", vmath("SUBTRACT", light, vmath("SCALE", nrm, scale=ndl_true)))
     s_dir = vmath("NORMALIZE", vmath("CROSS_PRODUCT", nrm, d))
-    phase = math_("ADD", math_("MULTIPLY", vmath("DOT_PRODUCT", pos, d), P["hatch_freq"]), math_("MULTIPLY", wob, 0.5))
+    phase = math_("ADD", math_("MULTIPLY", math_("DIVIDE", vmath("DOT_PRODUCT", pos, d), ink_s), P["hatch_freq"]),
+                  math_("MULTIPLY", wob, 0.5))
     f = math_("FRACT", phase)
     dist = math_("ABSOLUTE", math_("SUBTRACT", f, 0.5))
     stroke_id = math_("FLOOR", phase)
@@ -911,6 +935,7 @@ def stage_bake(cpu):
         ob["comic_light"] = LIGHT_OF(ob.name)
         ob["comic_bias"] = BIAS_OF(ob.name)
         ob["comic_axial"] = 1.0 if ob.name in AXIAL else 0.0
+        ob["comic_scale"] = INK_SCALE_OF(ob.name)
         ob.data.materials[0] = bm_
         ob.hide_render = False
         ob.hide_set(False)
@@ -941,7 +966,7 @@ def stage_bake(cpu):
     finally:
         for ob in obs:
             ob.data.materials[0] = final
-            for kk in ("comic_spin", "comic_light", "comic_bias", "comic_axial"):
+            for kk in ("comic_spin", "comic_light", "comic_bias", "comic_axial", "comic_scale"):
                 if kk in ob:
                     del ob[kk]
     # post-process, as comic_lines.py
@@ -950,7 +975,15 @@ def stage_bake(cpu):
     raw = px.reshape(RES, RES, 4)[:, :, 0].copy()
     T, oid, iid = all_uv_tris(obs)
     ids, _ = raster_islands(T, iid)
-    m = dilate(raw, P["dilate_px"], fill_ids(ids))
+    # stroke growth per object: dilate_px x the object's ink scale (the small round-2 helm gets 2 texels, the rest 3)
+    filled = fill_ids(ids)
+    obj_of_isl = np.zeros(iid.max() + 1, np.int64); obj_of_isl[iid] = oid
+    obj_tex = np.where(filled >= 0, obj_of_isl[np.maximum(filled, 0)], -1)
+    rad = np.array([max(1, int(round(P["dilate_px"] * INK_SCALE_OF(ob.name)))) for ob in obs])
+    m = dilate(raw, P["dilate_px"], filled)
+    for r in sorted(set(rad.tolist()) - {P["dilate_px"]}):
+        sel = np.isin(obj_tex, np.nonzero(rad == r)[0])
+        m[sel] = dilate(raw, r, filled)[sel]
     for _ in range(P["smooth"]):
         for ax in (0, 1):
             m = (np.roll(m, 1, ax) + 2 * m + np.roll(m, -1, ax)) * 0.25
@@ -1038,6 +1071,8 @@ def stage_render(tag, cpu):
             im.reload()
     helm = bpy.data.collections["Helm"]
     cannon = bpy.data.collections["Cannon"]
+    turret = bpy.data.collections["Turret"]
+    HW = bpy.data.objects["Helm_Wheel"].location.copy()      # wheel centre on the pedestal (v3: (-0.35, 0, 1.00))
     # world, camera, look as render_preview.py PREVIEW_FLAT (renders/comic5_*.png)
     w = sc.world or bpy.data.worlds.new("World")
     sc.world = w
@@ -1106,9 +1141,9 @@ def stage_render(tag, cpu):
         return e
 
     lc = bpy.context.view_layer.layer_collection
-    for c in (helm, cannon):
+    for c in (helm, cannon, turret):
         lc.children[c.name].exclude = True
-    studio = [instance(helm, (0, 1.25, 0)), instance(cannon, (0, -1.75, 0))]
+    studio = [instance(helm, (0, 1.25, 0)), instance(cannon, (0, -1.75, 0)), instance(turret, (-0.6, 3.4, 0))]
     floor_me = bpy.data.meshes.new("Floor")
     bmf = bmesh.new(); bmesh.ops.create_grid(bmf, x_segments=1, y_segments=1, size=6.0); bmf.to_mesh(floor_me); bmf.free()
     floor = bpy.data.objects.new("Floor", floor_me)
@@ -1124,12 +1159,17 @@ def stage_render(tag, cpu):
     render("close_cannon")
     look((-1.9, -3.4, 1.3), (-0.4, -1.75, 0.6), lens=50)
     render("close_cannon_breech")
-    look((-2.9, 2.6, 2.2), (-0.63, 1.25, 1.55), lens=50)
+    hw = HW + V((0, 1.25, 0))
+    look(hw + V((-2.4, 1.3, 0.5)), hw + V((0, 0, -0.08)), lens=50)
     render("close_helm")
-    look((-2.3, -0.2, 0.75), (-0.05, 1.25, 0.65), lens=40)
+    look((-1.6, 0.4, 0.55), (-0.05, 1.25, 0.45), lens=40)
     render("close_pedestal")
-    look((0.9, 1.25 - 5.2, 1.6), (-0.3, 1.25, 1.45), lens=45)
+    look(hw + V((1.0, -3.0, 0.1)), hw + V((0.25, 0, -0.15)), lens=45)
     render("helm_side")
+    look((2.6, 5.2, 2.2), (-0.3, 3.4, 1.1), lens=42)
+    render("close_turret")
+    look((-3.4, 1.9, 2.2), (-0.6, 3.4, 1.2), lens=42)
+    render("close_turret_back")
     look((4.6, -1.0, 1.4), (0.8, -1.75, 0.7), lens=50)
     render("cannon_front")
     # lit view (how the Principled material shows it in a lit engine)
@@ -1169,12 +1209,20 @@ def stage_render(tag, cpu):
     log("ship images", [(im.name, im.filepath, im.has_data) for im in bpy.data.images if im.name.startswith("T_Airship")])
     HELM_AT = V((-6.5, 0.0, 2.605))
     instance(helm, HELM_AT, rot_y=0.034)
-    # cannons per RIG_CONTRACT 4 (approximate: muzzle face 0.12 m inside the rail, carriage on the deck)
-    spots = {"L1": (-5.3, 5.96, 2.56, 1), "L2": (-11.3, 4.15, 2.83, 1), "R1": (-5.3, -5.96, 2.56, -1), "R2": (-11.3, -4.15, 2.83, -1)}
+    # cannons at the rig's stations (checks/rig/placement.json when it exists, else RIG_CONTRACT 4 approximations)
+    spots = {"L1": (-0.46, 5.96, 2.56, 1), "L2": (-11.3, 4.15, 2.83, 1), "R1": (-0.46, -5.96, 2.56, -1), "R2": (-11.3, -4.15, 2.83, -1)}
+    pj = RIG + "checks/rig/placement.json"
+    if os.path.exists(pj):
+        pc = json.load(open(pj))["cannons"]
+        spots = {k: tuple(pc[k]["origin"]) + (1 if k[0] == "L" else -1,) for k in spots}
     for k, (x, y, z, s) in spots.items():
         instance(cannon, (x, y, z), rot_z=s * math.pi / 2, name="I_Cannon_" + k)
-    AX = HELM_AT + V((-0.63, 0, 1.65))
-    L1 = V((-5.3, 5.96, 2.56)) + V((0, 0.5, 0.6))
+    # front turrets on the narrow forward deck (z 6.55), rig_common.TURRET_MOUNTS
+    for k, y in (("L", 2.45), ("R", -2.45)):
+        instance(turret, (21.0, y, 6.55), name="I_Turret_" + k)
+    AX = HELM_AT + HW
+    L1 = V(spots["L1"][:3]) + V((0, 0.5, 0.6))
+    TL = V((21.0, 2.45, 6.55 + 1.2))
 
     # game camera (65 m spring arm, 12 deg down, FOV 85, 1920x1080): view direction, 30 m from the wheel
     p = math.radians(12)
@@ -1186,6 +1234,9 @@ def stage_render(tag, cpu):
     tgt = V((-7.5, 3.0, 3.4))
     look(tgt + V((6.0, 28.5, 8.5)).normalized() * 30, tgt, fov_h=85)
     render("far30_port", (1920, 1080), crop=(L1, 110))
+    # 30 m off the port bow, slightly from above: the two turrets on the forward deck
+    look(TL + V((12.0, 25.0, 9.0)).normalized() * 30, TL + V((0, -2.45, -0.5)), fov_h=85)
+    render("far30_turrets", (1920, 1080), crop=(TL, 110))
     # 10 m on deck behind the helm: hull ink and prop ink side by side
     look(AX + V((-8.0, -5.0, 2.5)), AX + V((1.5, 1.0, -1.0)), fov_h=70)
     render("deck10", (1920, 1080))

@@ -1,4 +1,4 @@
-"""Pirate naval cannon for the airship deck (stylized, chunky, game ready).  v2 (2026-11-22 review fixes)
+"""Pirate naval cannon for the airship deck (stylized, chunky, game ready).  v2 (2026-11-22 review fixes), v3 wide bore
 
 Run headless (re-runnable, rebuilds everything from scratch and overwrites the output):
     blender -b --factory-startup --python model_cannon.py
@@ -46,7 +46,9 @@ QUOIN_HW, QUOIN_SLOPE, QUOIN_NOSE_H = 0.15, 0.60, 0.035   # half width, top slop
 # Traversed so the outer surface runs toward +u, then back into the bore (keeps normals outward).
 BARREL_LEN = 2.60               # base-ring rear face -> muzzle face
 TRUN_U = 0.40 * BARREL_LEN      # trunnions at 40 % of the length from the breech
-BORE_R, BORE_DEPTH = 0.13, 0.40
+# round 2 (2026-11-24): the bore was widened from 0.13 to 0.22 for the 1 m cannonball (Radius 50 cm in Unreal); the lip
+# keeps its 0.28 outer radius (6 cm wall at the face, 2-5 mm behind the muzzle swell: never visible, the bore is ink)
+BORE_R, BORE_DEPTH = 0.22, 0.40
 BARREL_PROFILE = [
     (-0.310, 0.000),  # cascabel knob tip (pole): ball R 0.10, 22.5 deg profile steps
     (-0.302, 0.038),
@@ -87,7 +89,7 @@ BARREL_PROFILE = [
     (2.500, 0.268),
     (2.500, 0.280),   # muzzle lip
     (2.600, 0.280),
-    (2.600, 0.160),   # muzzle face
+    (2.600, BORE_R + 0.03),   # muzzle face (0.16 before round 2)
     (2.585, BORE_R),  # countersink
     (BARREL_LEN - BORE_DEPTH, BORE_R),  # dark bore tube
     (BARREL_LEN - BORE_DEPTH, 0.000),   # bore bottom (pole)

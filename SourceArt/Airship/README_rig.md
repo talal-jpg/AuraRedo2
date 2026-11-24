@@ -1,6 +1,7 @@
 # SK_Airship rig: 118 bones, rigid skin, FBX for Unreal
 
-Rig of the stylized airship (Talal's `SM_Airship`, geometry and UVs unchanged) plus the new helm and four cannons, made to
+Rig of the stylized airship (Talal's `SM_Airship`, geometry and UVs unchanged except five deck pieces removed in round 2)
+plus the helm and four cannons, made to
 `/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/RIG_CONTRACT.md`. Every part is a rigid piece: each vertex
 belongs 100 % to one bone. Built headless in Blender 4.5.3 from the scripts in `scripts/` (nothing done by hand).
 
@@ -12,6 +13,7 @@ Blender side: `/mnt/new_partition/BlenderProjects/StylizedAirship/rig/` (called 
 | File | What it is |
 |---|---|
 | `SK_Airship.fbx` (rig/export, SourceArt/Airship) | Skeleton (118 bones) + 31 skinned meshes in rest pose, no animation. Import this as the skeletal mesh. |
+| `SM_AirshipTurret_Base.fbx`, `SM_AirshipTurret_Gun.fbx` (rig/export, SourceArt/Airship) | Round 2: the front machine-gun turret, two static meshes on the prop atlas (see Round 2). `turret_dims.json` (rig/checks/rig, SourceArt/Airship): its pivots, mounts, rail clearance, helm and pilot seat numbers for Unreal. |
 | `SK_Airship_testanim.fbx` | Same skeleton and meshes + a 32 s test sweep (frames 1-961 at 30 fps, take `SK_Airship_TestSweep`): every control swept through its range, one group every 2 s (`checks/rig/testanim_segments.json`). Import as an animation on SKEL_Airship. |
 | `rig/AirshipRig.blend` | Blender source: armature `Armature`, the meshes in collection `SK_Airship` (vertex groups + Armature modifier), action `SK_Airship_TestSweep` (not assigned). Made from `rig/AirshipRig_src.blend`, a byte copy of Talal's StylizedAirship.blend (md5 4cb832deaa0fa005bf6a9359e34692bb, never written). |
 | `SourceArt/Airship/textures/` (= `rig/props/textures/`) | The prop atlas `T_AirshipProps_ComicLines.png` (sRGB) and `T_AirshipProps_ComicMask.png` (linear), 2048. The hull keeps the existing `T_Airship_ComicLines` / `T_Airship_ComicMask` (4096) already in `/Game/Assets/MyShip`. |
@@ -22,12 +24,15 @@ Scripts (`rig/scripts/`, copied to `SourceArt/Airship/scripts/`; run all with `b
 `rig_common.py` (paths, bone map, pose maths), `rig_place.py` (step 1: placement + clearance), `rig_build.py` (steps 2-4:
 armature, skin, props, materials, test action), `rig_export.py` (step 5, `-- --anim` for the test file),
 `rig_fbx_inspect.py`, `rig_roundtrip.py`, `rig_check_motion.py`, `rig_render.py` (step 6), `rig_readme.py` (this file),
-`rig_inspect.py` (lists what a .blend holds).
+`rig_inspect.py` (lists what a .blend holds). Round 2: `deck_removals.json` (the deck pieces `rig_build.py` deletes),
+`export_turret.py` (turret static meshes + `turret_dims.json`), `round2_render.py` (review renders),
+`props_all.sh` (rebuilds `props/model_*.py` + `bake_props_comic.py`; run it before `rig_all.sh` when a prop changes).
 
 ## Mesh and materials
 
-* 55,948 vertices, 104,730 triangles, 31 mesh nodes; Unreal merges them into one skeletal mesh.
-* Material slot 0 `M_Airship` (SM_Airship, 36,908 vertices, UVs untouched). Slot 1 `M_AirshipProps` (helm + 4 cannons,
+* 55,556 vertices, 104,030 triangles, 31 mesh nodes; Unreal merges them into one skeletal mesh.
+* Material slot 0 `M_Airship` (SM_Airship, 36,516 vertices: Talal's 36,908 minus the 392 of the five
+  deck pieces removed in round 2; everything else, UVs included, untouched). Slot 1 `M_AirshipProps` (helm + 4 cannons,
   the shared 2048 atlas; the four cannon copies use the same atlas region, everything else is overlap-free). The prop
   meshes are named `SM_AirshipProp_*` so that `SM_Airship` comes first in the FBX (Blender writes objects by name), which
   puts M_Airship first in the file's material list.
@@ -43,7 +48,7 @@ of `Hull`. `v` = vertices skinned to the bone; sockets have no vertices and are 
 
 ```
 root                                           (0.0, 0.0, 0.0)                   -  actor origin
-└─ Hull                                        (0.0, 0.0, 0.0)             26594 v  hull, deck, rails, gantry, pipes, fan pylons, hang strips, aft chain
+└─ Hull                                        (0.0, 0.0, 0.0)             26202 v  hull, deck, rails, gantry, pipes, fan pylons, hang strips, aft chain
    ├─ Thruster_FL                              (383.3, -465.6, -93.4)       1276 v  pod (drum, plates, pipes)
    │  └─ Thruster_FL_Nozzle                    (349.9, -465.6, -371.0)       408 v  nozzle shell, band, throat, lip (petals are children)
    │     ├─ Thruster_FL_Petal00..11            ring, see the CSV          8 v each  12 petals, hinge at the top edge
@@ -82,8 +87,8 @@ root                                           (0.0, 0.0, 0.0)                  
    ├─ Winch_Fwd                                (3040.0, 0.0, 500.0)           84 v  drum + 2 flanges
    ├─ Winch_Aft                                (2830.0, 0.0, 500.0)           84 v  drum + 2 flanges
    ├─ Helm                                     (-650.0, 0.0, 260.5)         1268 v  pedestal base on the deck
-   │  └─ Helm_Wheel                            (-713.0, 0.0, 425.5)         2016 v  wheel axle centre
-   ├─ PilotSeat                                (-843.0, 0.0, 268.9)              -  pilot stands here (marker)
+   │  └─ Helm_Wheel                            (-685.0, 0.0, 360.5)         2016 v  wheel axle centre
+   ├─ PilotSeat                                (-740.0, 0.0, 264.2)              -  pilot stands here (marker)
    ├─ Cannon_L1                                (-46.3, -598.5, 243.7)       1522 v  carriage
    │  ├─ Cannon_L1_Barrel                      (-44.8, -628.5, 323.7)       1556 v  barrel (trunnion axis)
    │  │  └─ Cannon_L1_Muzzle                   (-44.8, -784.5, 323.7)            -  socket: muzzle face
@@ -142,8 +147,8 @@ Every bone with its exact position is in `checks/rig/bones_ue.csv`.
 | Prop | Bone position (UE cm) | How it was placed |
 |---|---|---|
 | Helm | (-650.0, 0.0, 260.5) | centreline x -6.5 m, z = deck at that point; the base plate reaches 5 cm below its origin, so nothing floats (its aft edge sits 3.8 cm proud of the sloping deck) |
-| Helm_Wheel | (-713.0, 0.0, 425.5) | Helm.blend wheel origin offset (-63, 0, 165) cm; axle along X, the helmsman's side faces aft |
-| PilotSeat | (-843.0, 0.0, 268.9) | 1.3 m aft of the axle on the deck (the aft hatch starts 47 cm further aft) |
+| Helm_Wheel | (-685.0, 0.0, 360.5) | Helm.blend wheel origin offset (-35, 0, 100) cm; axle along X, the helmsman's side faces aft |
+| PilotSeat | (-740.0, 0.0, 264.2) | 0.55 m aft of the axle on the deck (the 141.6 cm mech's capsule: radius 34 cm + 21 cm for the arms) |
 | Cannon_L1 / R1 | (-46.3, -598.5, 243.7) / Y mirrored | rail-post gap middle nearest x -0.46 = Talal's fore mark (see the change log) (gap 0.88 m, rail at 8.4 deg to the ship's axis), muzzle face 0.12 m inside the rail centre line, barrel axis 80 cm above the rail foot (mid bar 55, top bar 110) |
 | Cannon_L2 / R2 | (-1147.2, -392.7, 283.6) / Y mirrored | gap middle nearest x -11.3 = Talal's aft mark (gap 0.83 m), moved 0.18 m inboard: muzzle face 0.30 m inside the rail (see deviations) |
 
@@ -165,7 +170,7 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 | CannonElevDeg (-10..+9) | -14.40 .. +8.75 | limited by the cannon itself (the barrel meets its carriage at +8.75; the chase meets the transom at -14.4), not by the ship (free +-20 against the rail and deck); +9 overshoots by 0.25 deg (a few mm), clamp at +8.75. The quoin must slide back with elevation: slide = clamp(2.4 cm/deg x elev, 0, 15 cm) along -aim |
 | CannonRecoilCm (0..60) | 0 .. 120+ | nothing behind any gun within 1.2 m (hatches, helm, fan struts, the other guns); wheels stay on open deck. Wheel spin for rolling: recoil / 22 cm rad, backward |
 | Cannon wheels vs deck | +-1.9 cm | at yaw +-20 the deck slope under the turned carriage lifts/sinks a wheel by up to this much (0 at yaw 0) |
-| WheelAngleDeg (unbounded) | free | 5 deg steps all round: no new contact with the pedestal; handle tips clear the deck by 7.5 cm |
+| WheelAngleDeg (unbounded) | free | 5 deg steps all round: no new contact with the pedestal; handle tips clear the deck by 28.7 cm |
 | NozzlePitchDeg / NozzleRollDeg (+-5) | FL +12.0 / -12.0, +12.0 / -12.0; FR +12.0 / -12.0, +12.0 / -12.0; RL +8.5 / -12.0, +6.0 / -12.0; RR +12.0 / -12.0, +12.0 / -8.5 | pitch + / -, roll + / -; free to the 12 deg test limit except where shown. The joint is flat: the nozzle top drops 14 cm below the drum on one side at 5 deg (research_blender.md 3.2) |
 | NozzleFlareDeg (-10..+35) | -16 .. +45 | all four; closing past -16 hits the throat recess |
 | Pods (physics jiggle +-3) | FL pitch +0.5 / -3.0, roll +0.5 / -4.0; FR pitch +0.5 / -4.5, roll +4.0 / -0.5; RL pitch +1.0 / -2.5, roll +0.5 / -4.0; RR pitch +1.5 / -4.5, roll +4.0 / -0.5 | pitch +/-, roll +/- (same axes as the nozzle). The pods sit in tight pockets: +-0.5 is clean everywhere, +-1 pushes a rib up to 4 cm into the pocket wall on the tight side, +-3 the ribs and drum up to 15 cm (inside the pocket, so it only shows at close range) |
@@ -199,7 +204,7 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 * Clamp the controls to the safe ranges above: elevation +8.75, aft yaw of L2/R2 21 deg, chain outward only, pods +-0.5..1
   if close-ups matter. `SK_Airship_testanim.fbx` stays inside those ranges (elevation +8.75 max, chain 0..+25) except the
   pods (+-3, the contract's value) and the extra helper sweeps (rods +-8, posts +-4).
-* Triangle count 104,730 (hull 69,210); bounds about 51.9 x 23.9 x 17 m like SM_Airship plus the props.
+* Triangle count 104,030 (hull 68,510); bounds about 51.9 x 23.9 x 17 m like SM_Airship plus the props.
 
 ## Deviations from the contract
 
@@ -222,6 +227,57 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 7. Exact socket spots where the contract says "about": `Thruster_*_Flame` on the nozzle axis at the petal tips (h = 4.35 m
    along A); `Turbine_*_Exhaust` at the duct shell's rear rim, x = -18.758 m.
 
+## Round 2 (2026-11-24)
+
+Talal's asks for the ship model: "ship wheel smaller to the size of the character", "pointed items to be removed" (5
+arrows on a top view), "bigger canon balls", "machine gun turrets (2) in front". Specification:
+`Docs/Airship/round2/SPEC_A.md` D7; notes: `Docs/Airship/round2/NOTES_blender.md`.
+
+* **Deck pieces removed** from the rig's SM_Airship (`scripts/deck_removals.json`, deleted in `rig_build.py` after the
+  source checks; Talal's StylizedAirship.blend and the Unreal `/Game/Assets/MyShip/SM_Airship` physics body with its UCX
+  are not changed): 21 islands, 392 vertices, 700 triangles; all were on the `Hull` bone, so the
+  skeleton is the same (118 bones, same names).
+
+  | Arrow | Piece | Islands | Box (UE cm, X / Y / Z) | Vertices |
+  |---:|---|---|---|---:|
+  | 1 | aft grate box near the stern fans (hatch + 5 slats) | 18, 19, 20, 21, 22, 23, 24 | (-1210..-890, -150..150, 279..347) | 152 |
+  | 2 | grate box mid-deck on the wide part (hatch + 5 slats) | 11, 12, 13, 14, 15, 16, 17 | (-50..350, -150..150, 241..309) | 152 |
+  | 3 | tall narrow post at the waist (BowFin + 2 side plates) | 0, 1, 2 | (700..1019, -23..23, 236..786) | 56 |
+  | 4 | big flat hatch on the narrow forward deck (raised slab) | 237 | (1275..1725, -130..130, 655..745) | 8 |
+  | 5 | small grate near the bow tip (three stepped boxes) | 234, 235, 236 | (2249..2347, -80..80, 654..734) | 24 |
+
+* **Wheel at character size** (`scripts/props/model_helm.py` v3): 140.0 cm across the handle tips (was 310), axle
+  100 cm above the deck (was 165), wheel centre 35 cm aft of the pedestal origin (was 63), pedestal scaled
+  by 1.00 / 1.65. `Helm_Wheel` is now at (-685.0, 0.0, 360.5), `PilotSeat` at (-740.0, 0.0, 264.2) (was (-713, 0, 425) and
+  (-843, 0, 269)). Unreal: `AirshipPawn.h` `PilotSeatFallback` = the new PilotSeat; the PA_Airship helm boxes (not rebuilt in
+  PR A) are larger than the new wheel.
+* **Cannon bore** (`scripts/props/model_cannon.py` v3): bore radius 22 cm (was 13), muzzle face from radius 25 to the 28 cm
+  lip, for the 1 m cannonball. Sockets and the barrel length are unchanged.
+* **Front machine-gun turrets** (new, not part of SK_Airship: the pawn spawns two `AAirshipTurret` actors):
+  `scripts/props/model_turret.py` -> `rig/props/Turret.blend`, on the shared prop atlas, exported by
+  `scripts/export_turret.py` as two static meshes (cm, X forward, Z up, one UV channel, slot `M_AirshipProps`, no UCX):
+
+  | File | Pivot (object origin) | Size (cm) | Triangles |
+  |---|---|---|---:|
+  | `SM_AirshipTurret_Base.fbx` | yaw axis on the deck (z 0 = deck top) | radius 43.6, height 187.7 | 3,766 |
+  | `SM_AirshipTurret_Gun.fbx` | trunnion (pitch) axis, fires +X | 224.4 long (44.4 behind the pivot) | 4,012 |
+
+  `PivotHeight` 150 cm (GunMesh on BaseMesh), `MuzzleForward` 180 cm (between the two
+  barrels, which end at Y -10 / +10), pitch -20..+40 checked clear of the base. Mounts (hull cm): port
+  (2100.0, -245.0, 655.0), starboard (2100.0, 245.0, 655.0): deck top 655.0, the gantry
+  rail's inner face at |Y| 293.5 and its top at Z 768.0; the yaw part is
+  4.89 cm clear of the rail; swept through yaw [-110.0, 30.0] (port) /
+  [-30.0, 110.0] (starboard) x pitch -20..+40 against the ship: 0
+  contacts. Gunner seat (1.0 m behind the axis): (2000.0, -245.0, 655.0) / (2000.0, 245.0, 655.0). All numbers:
+  `turret_dims.json`.
+* **Prop atlas** (`scripts/props/bake_props_comic.py`): the turret joins the helm and cannon on the 2048 atlas (all islands
+  repacked: the helm, cannon and turret UVs all moved, so `T_AirshipProps_ComicLines` / `ComicMask` must be re-imported
+  together with the meshes); the helm's ink lengths are scaled with it (wheel 0.45, pedestal 0.6: `INK_SCALE`).
+* Rebuild: `bash rig/scripts/props_all.sh` (models + atlas + bake), `bash rig/scripts/rig_all.sh`, then
+  `bash rig/scripts/verify_all.sh`; copy `export/SK_Airship*.fbx`, `export/SM_AirshipTurret_*.fbx`,
+  `checks/rig/turret_dims.json`, `props/textures/T_AirshipProps_Comic*.png` and this README to `SourceArt/Airship`.
+  Review renders: `rig/renders/round2/` (before / after, helm and turret close-ups with the mech capsule).
+
 ## Change log
 
 * **2026-11-22, fore cannon pair moved forward to Talal's mark.** `Cannon_L1` / `Cannon_R1` (and all their sub-bones
@@ -230,7 +286,7 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
   which put the guns between his two marks. With the sketch camera solved from 6 landmarks (within 1.4 px,
   `checks/verify/sketch_camera.json`) the rigged cannon was projected at every port rail gap
   (`scripts/verify_station_fit.py` -> `checks/verify/station_fit.json`): at -0.4627 its silhouette centre is +4 px from the
-  mark's centre and 72 % of it lies inside the mark (gap -1.387: +20 px, 45 %; old gap -5.344: +79 px, 0 %). Other readings of
+  mark's centre and 72 % of it lies inside the mark (gap -1.387: +21 px, 45 %; old gap -5.344: +79 px, 0 %). Other readings of
   the same mark: ray hits on the ship median x -0.65; the mark cast onto the rail's vertical surface spans x
   -1.6 .. 2.83 (median 1.07). The aft pair stays at gap -11.472 (ray-hit median -11.33; that mark is seen too
   edge-on to pin it closer than a few metres). `RIG_CONTRACT.md` section 4 was updated. The new muzzle sockets are at UE
@@ -241,15 +297,16 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 ## How it was checked
 
 * Blender side (`rig_build.py`): every bone world-aligned (rest matrix = 90 deg about X, head at the pivot), deform flag
-  exactly on the bones that have vertices, every vertex one group at 1.0, SM_Airship positions + UVs + face corners hashed
-  before and after (unchanged), prop pivots on the placed objects' origins.
+  exactly on the bones that have vertices, every vertex one group at 1.0, SM_Airship positions + UVs + face corners of
+  the kept part hashed before the deck pieces are deleted and again after skinning (unchanged), prop pivots on the
+  placed objects' origins.
 * FBX (`rig_fbx_inspect.py`, Blender's raw FBX parser, no importer logic): FBX 7.4, Y-up, UnitScaleFactor 1; 1 Null
   `Armature` (identity) -> 118 LimbNodes, 31 meshes each with one Skin, 105 clusters, every vertex weighted once with sum 1,
   bind poses cover all 118 bones and agree with every cluster's TransformLink, node transforms agree with the bind pose
   (max 0.0002 cm); materials in file order ['M_Airship', 'M_AirshipProps']; Unreal view of every bone
   (Y-up -> Z-up, handedness flip): max rest rotation 1e-05 deg.
 * Round trip (`rig_roundtrip.py`): both FBX files re-imported into an empty scene: same 118 bones and parents
-  (position error 0.0020 mm, rotation error 0.0 deg), same 55,948 vertices
+  (position error 0.0020 mm, rotation error 0.0 deg), same 55,556 vertices
   (0.0017 mm) and weights (0 differences); the test animation deforms the re-imported meshes like the
   original rig at 16 frames across all segments (max 0.007 mm, while the parts move up to 5.5 m).
 * Clearance: `rig_place.py` (cannons and helm, numbers above), `rig_check_motion.py` (every other control).
@@ -264,7 +321,7 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 | Bone | Parent | X | Y | Z | Vertices |
 |---|---|---:|---:|---:|---:|
 | root | - | 0.0 | 0.0 | 0.0 | 0 |
-| Hull | root | 0.0 | 0.0 | 0.0 | 26594 |
+| Hull | root | 0.0 | 0.0 | 0.0 | 26202 |
 | Cannon_L1 | Hull | -46.27 | -598.47 | 243.73 | 1522 |
 | Cannon_L1_Barrel | Cannon_L1 | -44.845 | -628.47 | 323.717 | 1556 |
 | Cannon_L1_Muzzle | Cannon_L1_Barrel | -44.845 | -784.47 | 323.717 | 0 |
@@ -300,8 +357,8 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 | ChainFwd | Hull | 2654.474 | 294.578 | 431.995 | 48 |
 | ChainFwd_End | ChainFwd | 2146.412 | 335.334 | 296.082 | 0 |
 | Helm | Hull | -650.0 | 0.0 | 260.48 | 1268 |
-| Helm_Wheel | Helm | -713.0 | 0.0 | 425.48 | 2016 |
-| PilotSeat | Hull | -843.0 | 0.0 | 268.95 | 0 |
+| Helm_Wheel | Helm | -685.0 | 0.0 | 360.48 | 2016 |
+| PilotSeat | Hull | -740.0 | 0.0 | 264.19 | 0 |
 | Rudder | Hull | -1636.4 | 0.0 | 70.0 | 54 |
 | SearchLight_AftL | Hull | 1120.0 | -280.0 | 655.0 | 12 |
 | SearchLight_AftL_Head | SearchLight_AftL | 1120.0 | -280.0 | 970.0 | 40 |
