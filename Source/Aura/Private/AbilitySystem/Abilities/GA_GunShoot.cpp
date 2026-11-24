@@ -10,8 +10,12 @@
 #include "Abilities/GameplayAbilityTargetTypes.h"
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Airship/AirshipCannonball.h"
+#include "Airship/AirshipPawn.h"
+#include "Airship/AirshipTurret.h"
 #include "Character/MyCharBase.h"
 #include "Engine/World.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "MechSwarm/Combat/MechSentinelCombatLibrary.h"
@@ -88,11 +92,38 @@ namespace MechSwarm::GunShootPrivate
 			Params.AddIgnoredActor(OutWall.GetActor());
 		}
 	}
+
+	/** The airship Actor rides attached to (a turret, a gunner, something a gunner carries), or null. */
+	const AAirshipPawn* GetShipCarrying(const AActor* Actor)
+	{
+		for (const AActor* Parent = Actor ? Actor->GetAttachParentActor() : nullptr; Parent; Parent = Parent->GetAttachParentActor())
+		{
+			if (const AAirshipPawn* Ship = Cast<AAirshipPawn>(Parent))
+			{
+				return Ship;
+			}
+		}
+		return nullptr;
+	}
+
+	/** How far MyFunc's impact point may be from the last crosshair hit for that line to count as this shot's (cm). */
+	constexpr double SameShotTolerance = 100.0;
 }
 
 void UGA_GunShoot::OnServerMouseCursorData(const FGameplayAbilityTargetDataHandle& Data)
 {
 	Super::OnServerMouseCursorData(Data);
+
+	// The shot's line for MyFunc (it gets only the impact point and the actor), whatever the sentinel setting
+	if (const FGameplayAbilityTargetData* First = Data.Get(0))
+	{
+		if (const FHitResult* Hit = First->GetHitResult())
+		{
+			LastAimTraceStart = Hit->TraceStart;
+			LastAimImpact = Hit->ImpactPoint;
+			bHasLastAim = !LastAimTraceStart.ContainsNaN() && !LastAimImpact.ContainsNaN();
+		}
+	}
 
 	if (!bDamageSentinels)
 	{
@@ -294,8 +325,72 @@ bool UGA_GunShoot::GetSentinelShotSegment(const FHitResult& AimHit, const AActor
 	return true;
 }
 
+FVector UGA_GunShoot::GetShotDirection(const FVector& ImpactPoint) const
+{
+	using namespace MechSwarm::GunShootPrivate;
+
+	// This shot's crosshair line (the camera's), when the last target data is this hit's; else from the pawn's view
+	FVector Origin = FVector::ZeroVector;
+	if (bHasLastAim && FVector::DistSquared(LastAimImpact, ImpactPoint) <= FMath::Square(SameShotTolerance))
+	{
+		Origin = LastAimTraceStart;
+	}
+	else if (const APawn* Pawn = Cast<APawn>(GetAvatarActorFromActorInfo()))
+	{
+		Origin = Pawn->GetPawnViewLocation();
+	}
+	else
+	{
+		return FVector::ZeroVector;
+	}
+	return (ImpactPoint - Origin).GetSafeNormal();
+}
+
 void UGA_GunShoot::MyFunc(FVector InImpactPoint,AActor* InTargetActor)
 {
+		using namespace MechSwarm::GunShootPrivate;
+		AActor* Avatar = GetAvatarActorFromActorInfo();
+		const ACharacter* Shooter = Cast<ACharacter>(Avatar);
+
+		// Airship cannonballs block Visibility and have health in gun units (no ASC): the server counts the hit
+		if (AAirshipCannonball* Ball = Cast<AAirshipCannonball>(InTargetActor))
+		{
+			if (Avatar && Avatar->HasAuthority())
+			{
+				// No friendly fire on the balls of the ship the shooter rides (deck, helm or gun station), like the
+				// ship's own turrets; the ball still took the shot
+				const AAirshipPawn* BallShip = Ball->GetSourceShip();
+				const bool bOwnShip = BallShip && Shooter && BallShip->IsRiderForDamage(Shooter);
+				if (!bOwnShip)
+				{
+					Ball->ApplyShotDamage(CannonballShotUnits, Avatar);
+				}
+			}
+			return;
+		}
+
+		// A ship's turrets sit inside its hull's forward-deck collision, so the crosshair stops on the hull in front of
+		// them: a hull hit over that deck goes on to the turret behind it (AAirshipPawn::FindTurretBehindHullHit)
+		if (const AAirshipPawn* HitShip = Cast<AAirshipPawn>(InTargetActor))
+		{
+			FHitResult TurretHit;
+			if (AAirshipTurret* Turret = HitShip->FindTurretBehindHullHit(InImpactPoint, GetShotDirection(InImpactPoint), TurretHit))
+			{
+				InTargetActor = Turret;
+				InImpactPoint = TurretHit.ImpactPoint;
+			}
+		}
+
+		// No friendly fire on what rides attached to the shooter's own ship (its turrets, its gunners): a deck rider or
+		// a gunner shooting over the forward deck would otherwise wreck its own turrets. The same rule as the balls above.
+		if (const AAirshipPawn* CarrierShip = GetShipCarrying(InTargetActor))
+		{
+			if (Shooter && CarrierShip->IsRiderForDamage(Shooter))
+			{
+				return;
+			}
+		}
+
 		// Characters and any other GAS actor whose ASC has UMyAttributeSet (AAirshipPawn)
 		if (AActor* TargetActor=InTargetActor)
 		{

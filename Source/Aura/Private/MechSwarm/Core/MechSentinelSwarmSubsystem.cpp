@@ -13,6 +13,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerState.h"
 #include "GameplayEffect.h"
+#include "HAL/IConsoleManager.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "Interfaces/MyCombatInterface.h"
 #include "Interfaces/MyPlayerInterface.h"
@@ -41,8 +42,18 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogMechSentinel, Log, All);
 
+// Actors with this tag take sentinel bullet hits found by a Visibility trace (airship hulls and turrets)
+const FName UMechSentinelSwarmSubsystem::BulletTargetTag(TEXT("MechSentinelBulletTarget"));
+
 namespace MechSwarm::SubsystemPrivate
 {
+	/**
+	 * How far past its end a bullet still finds a tagged target (cm). The end was traced when the bullet was fired, and
+	 * the target may have moved during the flight: 150 catches a hull that moved up to 4.5 m/s sideways in the 0.33 s
+	 * of a 25 m shot (a ship moving along its own length still crosses the line).
+	 */
+	constexpr float BulletTargetSlack = 150.f;
+
 	/**
 	 * True while a Mass phase may be running next to the game thread: from TG_PrePhysics to TG_PostPhysics, and in
 	 * TG_LastDemotable (FrameEnd). IsProcessing() alone is not enough: it reads false between two processors of a phase.
@@ -654,16 +665,51 @@ void UMechSentinelSwarmSubsystem::TickBullets()
 			TArray<FHitResult> Hits;
 			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(MechSentinelBulletHit), /*bTraceComplex*/ false);
 			World->SweepMultiByObjectType(Hits, From, To, FQuat::Identity, PawnObjects, FCollisionShape::MakeSphere(Bullet.Radius), QueryParams);
+			bool bHit = false;
 			for (const FHitResult& Hit : Hits)
 			{
 				const APawn* Pawn = Cast<APawn>(Hit.GetActor());
 				if (Pawn && Pawn->IsPlayerControlled())
 				{
 					ApplySentinelAttack(Hit.GetActor(), Bullet.Start, Hit.ImpactPoint, Bullet.Damage);
-					bDone = true;
+					bHit = true;
 					break;
 				}
 			}
+			if (!bHit)
+			{
+				// Tagged non-pawn targets (airship hulls and turrets, whose collision is PhysicsBody / WorldDynamic): the
+				// first thing on this stretch that blocks Visibility, a little past the end because the target may have
+				// moved since the bullet was fired (BulletTargetSlack). Untagged blockers do nothing, as before.
+				FHitResult Block;
+				const FVector TraceTo = bArrived ? To + Bullet.Direction * MechSwarm::SubsystemPrivate::BulletTargetSlack : To;
+				FCollisionQueryParams BlockParams(SCENE_QUERY_STAT(MechSentinelBulletTarget), /*bTraceComplex*/ false);
+				if (World->LineTraceSingleByChannel(Block, From, TraceTo, ECC_Visibility, BlockParams))
+				{
+					AActor* Target = Block.GetActor();
+					const bool bDead = Target && Target->Implements<UMyCombatInterface>() && IMyCombatInterface::Execute_IsDead(Target);
+					if (Target && !bDead && Target->ActorHasTag(BulletTargetTag))
+					{
+						// The tagged actor's module may hand the hit on (an airship's hull to the turret inside it)
+						FVector Impact = Block.ImpactPoint;
+						if (BulletTargetRedirect.IsBound())
+						{
+							if (AActor* Redirected = BulletTargetRedirect.Execute(Block, Bullet.Direction, Impact))
+							{
+								Target = Redirected;
+							}
+							else
+							{
+								Impact = Block.ImpactPoint;
+							}
+						}
+						UE_LOG(LogMechSentinel, Verbose, TEXT("Sentinel bullet hit tagged target %s (%.1f)."), *Target->GetName(), Bullet.Damage);
+						ApplySentinelAttack(Target, Bullet.Start, Impact, Bullet.Damage);
+						bHit = true;
+					}
+				}
+			}
+			bDone = bDone || bHit;
 			Bullet.Travelled = Reached;
 		}
 		if (bDone)
@@ -1217,3 +1263,63 @@ int32 UMechSentinelSwarmSubsystem::QueryCapsule(const FVector& SegmentStart, con
 	OutHits.Sort([](const FMechSentinelHit& A, const FMechSentinelHit& B) { return A.Distance < B.Distance; });
 	return OutHits.Num();
 }
+
+//----------------------------------------------------------------------//
+// Console (test hooks)
+//----------------------------------------------------------------------//
+
+#if !UE_BUILD_SHIPPING
+// Named, not anonymous: the unity build compiles this file together with others
+namespace MechSentinelSwarmConsole
+{
+	FAutoConsoleCommandWithWorldAndArgs GTestBulletCommand(
+		TEXT("Aura.MechSentinel.TestBullet"),
+		TEXT("Aura.MechSentinel.TestBullet <FromX> <FromY> <FromZ> <ToX> <ToY> <ToZ> [Damage=3] - server: fires one sentinel bullet from From toward To, like a ranged sentinel (default speed and radius, no spread, range a little past To). Deterministic hits for tests."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			UMechSentinelSwarmSubsystem* Swarm = World ? UMechSentinelSwarmSubsystem::Get(World) : nullptr;
+
+			if (!Swarm || !Swarm->HasAuthority())
+			{
+				UE_LOG(LogMechSentinel, Warning, TEXT("Aura.MechSentinel.TestBullet: run it on the server (listen server window or standalone)"));
+				return;
+			}
+
+			double Values[6] = {};
+			bool bValid = Args.Num() >= 6;
+
+			for (int32 Index = 0; bValid && Index < 6; ++Index)
+			{
+				bValid = LexTryParseString(Values[Index], *Args[Index]) && FMath::IsFinite(Values[Index]);
+			}
+
+			float Damage = 3.f;
+
+			if (bValid && Args.Num() > 6)
+			{
+				bValid = LexTryParseString(Damage, *Args[6]) && FMath::IsFinite(Damage);
+			}
+
+			if (!bValid)
+			{
+				UE_LOG(LogMechSentinel, Warning, TEXT("Usage: Aura.MechSentinel.TestBullet <FromX> <FromY> <FromZ> <ToX> <ToY> <ToZ> [Damage=3]"));
+				return;
+			}
+
+			const FVector From(Values[0], Values[1], Values[2]);
+			const FVector To(Values[3], Values[4], Values[5]);
+
+			// The bullet's end is still the first Visibility blocker on its line; the range only has to reach past To
+			FMechSentinelBulletSettings Settings;
+			Settings.SpreadDegrees = 0.f;
+			Settings.Range = FMath::Max(5000.f, static_cast<float>(FVector::Dist(From, To)) + 200.f);
+
+			const int32 Before = Swarm->GetNumFlyingBullets();
+			Swarm->FireSentinelBullet(From, To, Damage, Settings);
+
+			UE_LOG(LogMechSentinel, Log, TEXT("Aura.MechSentinel.TestBullet: %s -> %s, damage %.1f, speed %.0f, radius %.0f, range %.0f, fired %d"),
+				*From.ToCompactString(), *To.ToCompactString(), Damage, Settings.Speed, Settings.Radius, Settings.Range, Swarm->GetNumFlyingBullets() - Before);
+		})
+	);
+}
+#endif

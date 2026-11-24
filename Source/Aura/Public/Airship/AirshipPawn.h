@@ -12,6 +12,7 @@
 
 class AAirshipCannonball;
 class AAirshipPawn;
+class AAirshipTurret;
 class ACharacter;
 class APlayerController;
 class UAirshipFlightComponent;
@@ -27,13 +28,18 @@ class UMyAttributeSet;
 class UNiagaraComponent;
 class UNiagaraSystem;
 class UPhysicalMaterial;
+struct FOnAttributeChangeData;
 class USkeletalMeshComponent;
 class USpringArmComponent;
 class UStaticMeshComponent;
 class UUserWidget;
+struct FGameplayEffectSpecHandle;
 struct FInputActionValue;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAirshipPilotChangedSignature, AAirshipPawn*, Airship, ACharacter*, NewPilot);
+
+/** Every machine: a gunner station changed hands (Gunner null = left). Station: EAirshipStation order. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnAirshipStationsChangedSignature, AAirshipPawn*, Airship, int32, Station, ACharacter*, Gunner);
 
 /**
  * The drivable airship (Docs/Airship/CPP_NOTES.md). A player walks up to it and presses F (UAirshipPilotComponent):
@@ -64,6 +70,11 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAirshipPilotChangedSignature, AA
  *
  * Control schemes (CPP_NOTES.md section 14): ControlScheme (replicated) picks Classic (v1), Galleon, Sky Racer or
  * Point & Fly; applying it writes a compiled-in preset of every scheme-owned tunable on every machine.
+ *
+ * Gunner stations (Docs/Airship/round2/SPEC_A.md D5, NOTES_core.md): the four cannons and the two front turrets
+ * (AAirshipTurret, spawned on the server at BeginPlay). Any other player presses F near a station's seat: the server
+ * attaches their character there (it stays possessed, aims with its own camera) and lists it in StationGunners. The
+ * pilot's broadside fires only the unmanned cannons; with the camera in the bow arc, Fire drives the unmanned turrets.
  */
 UCLASS()
 class AURA_API AAirshipPawn : public APawn, public IAbilitySystemInterface, public IMyCombatInterface
@@ -102,11 +113,17 @@ public:
 	// Boarding (server)
 	// -------------------------------------------------------------------------
 
-	/** Server: true if Candidate (a living player character with a PlayerState) may take the helm now. Distance not checked. */
+	/**
+	 * Server: true if Candidate (a living player character with a PlayerState, not manning a gun station) may take the
+	 * helm now. Distance not checked.
+	 */
 	bool CanBoard(const APawn* Candidate) const;
 
-	/** Distance (cm) from Location to the ship for boarding: the smaller of pilot seat and hull distances, each against its own limit. */
-	bool IsWithinBoardRange(const FVector& Location, float SeatDistance, float HullDistance) const;
+	/**
+	 * Distance (cm) from Location to the ship for boarding: within SeatDistance of the pilot seat, within HullDistance of
+	 * the hull's collision, or under the hull (a trace straight up from Location hits it within BelowDistance; 0 = off).
+	 */
+	bool IsWithinBoardRange(const FVector& Location, float SeatDistance, float HullDistance, float BelowDistance = 0.f) const;
 
 	/** Server: puts Pilot at the helm and gives PC the ship. False if not allowed (CanBoard). */
 	bool BoardPilot(ACharacter* Pilot, APlayerController* PC);
@@ -143,16 +160,154 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	TArray<ACharacter*> GetPassengers() const;
 
+	/**
+	 * True if this ship's own fire must spare Character (its cannonballs, turrets and aim traces; the character gun of a
+	 * rider at the ship's turrets): attached to it (the pilot, the gunners), standing on it (movement base owned by the
+	 * ship or by an actor attached to it), or without a base inside the hull's own box (its local bounds, turned with the
+	 * ship) up to RiderZoneHeight above it, which a rider jumping on deck stays in. Narrower than IsPassengerCandidate,
+	 * whose zone is the world bounding box grown by PassengerZoneMargin: next to a turned ship that box reaches tens of
+	 * metres out, so an enemy jumping or hovering beside the ship would be immune. Every machine.
+	 */
+	bool IsRiderForDamage(const ACharacter* Character) const;
+
+	/** Every character IsRiderForDamage spares on this machine (not the actors attached to them). */
+	TArray<ACharacter*> GetDamageRiders() const;
+
+
+	// -------------------------------------------------------------------------
+	// Gunner stations (EAirshipStation: cannons L1, L2, R1, R2, turrets L, R)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Server: true if Candidate (a living player character with a PlayerState, not at a helm, not manning any station)
+	 * may man Station now: the station is free, the ship alive, a turret station's turret there and not wrecked.
+	 */
+	bool CanMount(const ACharacter* Candidate, int32 Station) const;
+
+	/** Within StationMountDistance (horizontal, hull frame) of the station's seat, StationMountHeightBelow..Above vertically. */
+	bool IsWithinStationRange(int32 Station, const FVector& PawnLocation) const;
+
+	/** Server: attaches Gunner at Station's seat (it stays possessed by PC) and lists it. False if not allowed (CanMount). */
+	bool MountGunner(ACharacter* Gunner, APlayerController* PC, int32 Station);
+
+	/** Server: frees Station and puts its gunner on the hull top next to the seat (bEject: thrown clear, ship death). */
+	void DismountGunner(int32 Station, bool bEject);
+
+	/** Server: a manned station's aim point (world, cm). Ignored if not finite or farther than GunnerMaxAimDistance from the seat. */
+	void SetStationAim(int32 Station, const FVector& AimPoint);
+
+	/** Server: a manned turret station's trigger. */
+	void SetStationTrigger(int32 Station, bool bHeld);
+
+	/** Server: a manned cannon station fires one ball at AimPoint if that cannon is loaded (its own reload). */
+	void FireStation(int32 Station, const FVector& AimPoint);
+
+	/** The station Character mans on this ship, -1 if none (every machine, from the replicated StationGunners). */
+	int32 FindStationOf(const ACharacter* Character) const;
+
+	UFUNCTION(BlueprintPure, Category = "Airship|Stations")
+	ACharacter* GetStationGunner(int32 Station) const;
+
+	UFUNCTION(BlueprintPure, Category = "Airship|Stations")
+	bool IsStationManned(int32 Station) const;
+
+	bool IsCannonManned(int32 Cannon) const { return IsStationManned(Cannon); }
+
+	/** Both cannons of Side are manned (the pilot's broadside has nothing to fire there). */
+	bool IsSideFullyManned(EAirshipSide Side) const;
+
+	/** World location of a station's seat (where the gunner's feet go). */
+	UFUNCTION(BlueprintPure, Category = "Airship|Stations")
+	FVector GetStationSeatLocation(int32 Station) const;
+
+	/** Hull-relative transform of a gunner's root at the seat (feet + half height + PilotSeatClearance), facing along the gun. */
+	FTransform GetStationSeatRelativeTransform(int32 Station, const ACharacter* Gunner) const;
+
+	/** Every machine: a manned station's aim point (the console's, this machine's own gunner's, else the replicated one). */
+	FVector GetStationAimPoint(int32 Station) const;
+
+	/** Every machine: Station's gun at rest points here (world, 100 m out along its rest direction). */
+	FVector GetStationRestAimPoint(int32 Station) const;
+
+	/** A gunner's own machine, every frame (UAirshipPilotComponent): the barrel tracks it there at once. */
+	void SetLocalStationAim(int32 Station, const FVector& AimPoint);
+
+	/**
+	 * A gunner's own client: shows its cannon's shot at once (recoil, flash) if this machine's reload of that cannon is
+	 * done, and marks it so the server's multicast skips it here. False (nothing shown) while it reloads.
+	 */
+	bool PredictStationFire(int32 Station);
+
+	/**
+	 * Visibility trace for aiming from this ship (the pilot's camera, a gunner's view): ignores the ship, every actor
+	 * attached to it (turrets, the pilot, gunners), its deck passengers and every cannonball (traced again past them, at
+	 * most 4 times), so a ball crossing the view never yanks the guns onto it. OutPoint = the hit, or Start + Dir * Distance.
+	 */
+	bool TraceAimPoint(const FVector& Start, const FVector& Dir, float Distance, FVector& OutPoint) const;
+
+	/** Camera aim trace length (cm): gunners trace as far as the pilot. */
+	float GetCannonAimTraceDistance() const { return CannonAimTraceDistance; }
+
+	/** Server: ends the character's active abilities (beam, boost, ...) while it is still their avatar (board, mount). */
+	static void CancelPilotAbilities(ACharacter* Pilot);
+
+	/** Every machine: a gunner station changed hands. */
+	UPROPERTY(BlueprintAssignable, Category = "Airship|Stations")
+	FOnAirshipStationsChangedSignature OnStationsChanged;
+
+
+	// -------------------------------------------------------------------------
+	// Turrets (two machine guns on the forward deck)
+	// -------------------------------------------------------------------------
+
+	/** Turret 0 (port) or 1 (starboard), null if not spawned (yet, on a client). */
+	UFUNCTION(BlueprintPure, Category = "Airship|Turrets")
+	AAirshipTurret* GetTurret(int32 TurretIndex) const;
+
+	/**
+	 * A shot along Direction that hit this ship's hull collision at HullImpact: the living turret of this ship it would
+	 * reach first past that point (within TurretHullReach), or null. Both turret mounts sit inside SM_Airship's forward
+	 * deck convex (UCX_01), so every trace from outside stops on the hull first. The shot only carries on when it
+	 * entered the hull at or above the turret's deck plane (less TurretHullPassMargin): from there to the turret the line
+	 * runs through the open air over the forward deck, never through the main hull below it. OutTurretHit: the hit on
+	 * the turret's HitBox. Collision queries only (every machine).
+	 */
+	AAirshipTurret* FindTurretBehindHullHit(const FVector& HullImpact, const FVector& Direction, FHitResult& OutTurretHit) const;
+
+	/**
+	 * Bound to UMechSentinelSwarmSubsystem::BulletTargetRedirect by UAirshipSubsystem: a sentinel bullet on a ship's
+	 * hull over the forward deck hits the turret behind it (FindTurretBehindHullHit). Null for anything else.
+	 */
+	static AActor* RedirectBulletHitToTurret(const FHitResult& Block, const FVector& Direction, FVector& OutImpact);
+
+	/**
+	 * The pilot's machine: Fire drives the unmanned turrets now (the camera within DriverTurretArcDeg of the bow and at
+	 * least one turret alive and unmanned); a press then fires no broadside. Every scheme.
+	 */
+	bool IsDriverTurretArc() const;
+
+	/**
+	 * Server, test hook (Aura.Airship.TurretFire): the unmanned turrets fire at Point (bHasPoint) or 100 m ahead of the
+	 * bow at muzzle height, until called with bFire false.
+	 */
+	void SetDebugTurretFire(bool bFire, bool bHasPoint, const FVector& Point);
+
+	/** Server, test hook (Aura.Airship.StationFire): Station aims at AimPoint for Seconds whatever its gunner aims at. */
+	void SetStationConsoleAim(int32 Station, const FVector& AimPoint, float Seconds);
+
 
 	// -------------------------------------------------------------------------
 	// Cannons
 	// -------------------------------------------------------------------------
 
-	/** The pilot's machine: fires the broadside on the camera's side at the camera's aim point. */
+	/**
+	 * The pilot's machine: fires the broadside on the camera's side at the camera's aim point (its unmanned, loaded
+	 * cannons). Nothing while the camera is in the bow arc and Fire drives the turrets (IsDriverTurretArc).
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Airship|Cannons")
 	void RequestFire();
 
-	/** Server: fires the two cannons of Side at AimPoint (world) if that side is loaded. */
+	/** Server: fires the unmanned, loaded cannons of Side at AimPoint (world). Each cannon has its own reload. */
 	void FireCannons(EAirshipSide Side, const FVector& AimPoint);
 
 	/** Hull-local muzzle position and rest firing direction (outboard) of a cannon. */
@@ -162,11 +317,34 @@ public:
 	/** Yaw / elevation (deg, clamped to the cannon's limits) that point Cannon at the world point Target. */
 	void ComputeCannonAim(int32 Cannon, const FVector& Target, float& OutYawDeg, float& OutElevDeg) const;
 
-	/** The same without the limits (the arc test). */
+	/**
+	 * The same without the limits (the arc test). Ballistic: the elevation is the low arc that drops a ball (CannonballSpeed,
+	 * the ball class's GravityScale) on Target, corrected for the muzzle velocity the ball inherits when
+	 * UAirshipSettings::bCannonAimLeadShipVelocity is on. Out of range: 45 deg (then out of arc).
+	 */
 	void ComputeCannonAimRaw(int32 Cannon, const FVector& Target, float& OutYawDeg, float& OutElevDeg) const;
 
-	/** True if either cannon of Side can reach AimPoint inside its yaw and elevation limits (the HUD's arc marks). */
+	/** World launch direction (before spread) of the ballistic low arc from Muzzle onto Target (see ComputeCannonAimRaw). */
+	FVector ComputeCannonLaunchDir(const FVector& Muzzle, const FVector& Target) const;
+
+	/**
+	 * Where a ball fired now along Cannon's barrel (as it points on this machine) is once it has covered the horizontal
+	 * distance to AimPoint (world): on AimPoint when the gun is on target, low when the elevation cap leaves it short.
+	 * The gunner HUD's gun mark.
+	 */
+	FVector GetCannonBallPathPoint(int32 Cannon, const FVector& AimPoint) const;
+
+	/** The cannonball's gravity (cm/s^2, positive): world gravity x the ball class's GravityScale. */
+	double GetCannonballGravity() const;
+
+	/** The velocity a ball inherits at the world point Muzzle (the ship's velocity and its turn), as SpawnCannonball adds it. */
+	FVector GetInheritedMuzzleVelocity(const FVector& Muzzle) const;
+
+	/** True if either unmanned cannon of Side can reach AimPoint inside its yaw and elevation limits (the HUD's arc marks). */
 	bool IsAimInCannonArc(EAirshipSide Side, const FVector& AimPoint) const;
+
+	/** True if Cannon can reach AimPoint inside its yaw and elevation limits (the gunner HUD). */
+	bool IsCannonAimInArc(int32 Cannon, const FVector& AimPoint) const;
 
 	/** The pilot's machine: this frame's camera aim point (world, cm). */
 	const FVector& GetLocalAimPoint() const { return LocalAimPoint; }
@@ -185,11 +363,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Airship|Cannons")
 	EAirshipSide GetAimSide() const { return AimSide; }
 
-	/** 0 = just fired .. 1 = loaded, for one side on this machine (the pilot's client: its own reload clock). */
+	/**
+	 * 0 = just fired .. 1 = loaded, for the unmanned cannons of one side on this machine (the least loaded of them; a
+	 * client: its own reload clock). 1 when both are manned.
+	 */
 	UFUNCTION(BlueprintPure, Category = "Airship|Cannons")
 	float GetCannonReloadAlpha(EAirshipSide Side) const;
 
-	/** Reload time of one side (s). */
+	/** The same for one cannon (the server's clock on the server, this machine's predicted clock on a client). */
+	float GetCannonReloadAlpha(int32 Cannon) const;
+
+	/** Reload time of one cannon (s). */
 	float GetCannonCooldown() const { return CannonCooldown; }
 
 
@@ -197,9 +381,15 @@ public:
 	// Damage
 	// -------------------------------------------------------------------------
 
-	/** Server: Damage through the project's damage path (DamageEffectClass, SetByCaller SetDamageByCaller on the ship's ASC). */
+	/**
+	 * Server: Damage through the project's damage path (DamageEffectClass, SetByCaller SetDamageByCaller on the ship's ASC).
+	 * UAirshipSettings::CrewDamageShare of every Health loss also reaches the pilot and the gunners (FlushCrewDamage).
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Airship|Damage")
 	void ApplyShipDamage(float Damage);
+
+	/** Server, console (Aura.Airship.Kill): health 0 and the normal death, without the crew's share (the crew is ejected alive). */
+	void DebugKill();
 
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	bool IsAirshipDead() const { return bIsDead; }
@@ -534,9 +724,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
 	FName PilotSeatSocket = TEXT("PilotSeat");
 
-	/** Hull-space pilot seat (cm) when the mesh has no PilotSeat bone. */
+	/** Hull-space pilot seat (cm) when the mesh has no PilotSeat bone (round 2 helm, SourceArt/Airship/turret_dims.json pilot_seat_ue). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
-	FVector PilotSeatFallback = FVector(-843.0, 0.0, 262.0);
+	FVector PilotSeatFallback = FVector(-740.0, 0.0, 264.2);
 
 	/** Extra height (cm) above the seat for the pilot's capsule bottom, so it never touches the hull. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
@@ -556,6 +746,13 @@ protected:
 	/** Characters without a movement base (jumping, falling) inside the hull's bounds grown by this (cm) count as passengers. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
 	float PassengerZoneMargin = 300.f;
+
+	/**
+	 * Friendly fire (IsRiderForDamage): a character without a movement base inside the hull's own box, or up to this far
+	 * (cm) above its top, is still one of this ship's riders (a jump on deck, a fall back onto it).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
+	float RiderZoneHeight = 400.f;
 
 	/** Ship death: the pilot is thrown up and out to the side (cm/s), on top of the ship's velocity. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
@@ -581,19 +778,30 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", EditFixedSize)
 	TArray<FVector> CannonMuzzleFallback = { FVector(-44.8, -784.5, 323.7), FVector(-1143.7, -578.7, 363.5), FVector(-44.8, 784.5, 323.7), FVector(-1143.7, 578.7, 363.5) };
 
+	/** Carriage bones, L1, L2, R1, R2: a cannon gunner's seat is UAirshipSettings::CannonSeatOffset from it. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", EditFixedSize)
+	TArray<FName> CannonCarriageBones = { TEXT("Cannon_L1"), TEXT("Cannon_L2"), TEXT("Cannon_R1"), TEXT("Cannon_R2") };
+
+	/** Hull-space carriages (cm, README_rig.md) when the mesh has no carriage bones. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", EditFixedSize)
+	TArray<FVector> CannonCarriageFallback = { FVector(-46.3, -598.5, 243.7), FVector(-1147.2, -392.7, 283.6), FVector(-46.3, 598.5, 243.7), FVector(-1147.2, 392.7, 283.6) };
+
 	/** Null: AAirshipCannonball. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons")
 	TSubclassOf<AAirshipCannonball> CannonballClass;
 
-	/** Muzzle speed (cm/s), the ship's own velocity is added. */
+	/**
+	 * Muzzle speed (cm/s), the ship's own velocity is added. Slow enough to see the arc: with the ball's GravityScale 0.6 the
+	 * level range at the 8.5 deg elevation cap is v^2 sin 17 / g' = 244 m.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", meta = (ClampMin = "0.0"))
-	float CannonballSpeed = 12000.f;
+	float CannonballSpeed = 7000.f;
 
 	/** Damage per ball (SetByCaller). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", meta = (ClampMin = "0.0"))
 	float CannonballDamage = 60.f;
 
-	/** Reload time of one side (s). */
+	/** Reload time of one cannon (s). Each cannon reloads on its own (a gunner's cannon, the pilot's broadside). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", meta = (ClampMin = "0.0"))
 	float CannonCooldown = 1.5f;
 
@@ -615,9 +823,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", meta = (ClampMin = "0.0"))
 	float CannonSpreadDeg = 0.6f;
 
-	/** Balls start this far (cm) in front of the muzzle. */
+	/** Balls start this far (cm) in front of the muzzle, and at least the ball's radius + 30 (a 1 m ball never starts in the barrel). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", meta = (ClampMin = "0.0"))
-	float CannonSpawnForwardOffset = 60.f;
+	float CannonSpawnForwardOffset = 80.f;
 
 	/** Hull kick per cannon (speed change, cm/s), at the muzzle, every machine. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Cannons", meta = (ClampMin = "0.0"))
@@ -1057,8 +1265,32 @@ protected:
 	UPROPERTY(Replicated)
 	double DeathServerTime = 0.0;
 
+	/** Who mans each gunner station (EAirshipStation order; Airship::NumStations entries, set in the constructor). */
+	UPROPERTY(ReplicatedUsing = OnRep_StationGunners, VisibleInstanceOnly, BlueprintReadOnly, Category = "Airship|Stations")
+	TArray<TObjectPtr<ACharacter>> StationGunners;
+
+	/** Each manned station's aim point (world, cm) from its gunner (ServerSetGunnerAim): the other machines aim the guns with it. */
+	UPROPERTY(Replicated)
+	TArray<FVector_NetQuantize> StationAims;
+
+	/** The two turrets (the server spawns them at BeginPlay; Airship::NumTurrets entries). */
+	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Airship|Turrets")
+	TArray<TObjectPtr<AAirshipTurret>> Turrets;
+
 	UFUNCTION()
 	void OnRep_PilotCharacter();
+
+	/** Clients: a gunner keeps its actor collision on this machine (other machines' traces must hit it), the change event. */
+	UFUNCTION()
+	void OnRep_StationGunners();
+
+	/**
+	 * Every machine (bound by NotifyStationsChanged to each gunner's OnDeathDelegate, which AMyCharBase's death
+	 * multicast broadcasts right after it starts the ragdoll): a gunner who dies at the station keeps its body off the
+	 * hull (KeepCorpseOffHull), before the ragdoll's first physics step.
+	 */
+	UFUNCTION()
+	void OnStationGunnerDied(AActor* DeadActor);
 
 	UFUNCTION()
 	void OnRep_IsDead();
@@ -1070,9 +1302,12 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastHandleDeath();
 
-	/** Recoil, muzzle FX, hull kick on every machine (the pilot's client already played its own shot and skips the one it predicted). */
+	/**
+	 * Recoil, muzzle FX, hull kick on every machine for the cannons in CannonMask (bit c = cannon c). The machine that
+	 * predicted a cannon's shot (the pilot's client, a gunner's client) already played it and skips that cannon.
+	 */
 	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastCannonsFired(EAirshipSide Side);
+	void MulticastCannonsFired(uint8 CannonMask);
 
 	UFUNCTION(Server, Reliable)
 	void ServerFireCannons(EAirshipSide Side, FVector_NetQuantize AimPoint);
@@ -1182,14 +1417,76 @@ private:
 	/** The side whose cannons face AimPoint (with hysteresis around the keel). */
 	EAirshipSide ComputeAimSide(const FVector& AimPoint) const;
 
-	/** Recoil counters, muzzle FX, hull kick. Every machine. */
-	void HandleCannonsFired(EAirshipSide Side);
+	/**
+	 * Recoil counters, muzzle FX (cut after UAirshipSettings::MuzzleFXMaxSeconds), hull kick of the cannons in CannonMask.
+	 * Every machine. bLocalShot: this machine's own shot (the host's, or a prediction): the pilot's broadside feedback.
+	 */
+	void HandleCannonsFired(uint8 CannonMask, bool bLocalShot);
+
+	/** Server: the ship's damage spec for its cannonballs (CannonballDamage), credited to DamageInstigator (the ship, a gunner). */
+	FGameplayEffectSpecHandle MakeCannonballSpec(AActor* DamageInstigator) const;
+
+	/** Server: one ball from Cannon toward AimPoint (its limits, spread, the muzzle's velocity). Null if it couldn't spawn. */
+	AAirshipCannonball* SpawnCannonball(int32 Cannon, const FVector& AimPoint, const FGameplayEffectSpecHandle& Spec);
+
+	/** Server: Cannon's reload is done (CannonCooldown, minus 0.1 s for the client's clock). */
+	bool IsCannonLoadedServer(int32 Cannon, double Now) const;
 
 	/** Every machine, once: from the multicast, OnRep_IsDead or BeginPlay. bLateJoin (a client that got the ship dead): no explosion, DeathTime from the server's death time. */
 	void HandleDeath(bool bLateJoin);
 
-	/** Server, the tick after Die: the pilot gets their character back before anything else happens to it. */
-	void EjectPilotAfterDeath();
+	/**
+	 * Server, the tick after Die: the last loss reaches the crew (FlushCrewDamage), then the pilot and every gunner get
+	 * their character back (thrown clear) before anything else happens to it.
+	 */
+	void EjectCrewAfterDeath();
+
+	// Crew damage (UAirshipSettings::CrewDamageShare)
+	/** Server: the ship's Health went down: the crew's share is queued for the next tick (this runs inside the damage effect). */
+	void OnShipHealthChanged(const FOnAttributeChangeData& Data);
+
+	/**
+	 * Server: the queued share to the pilot and every gunner, through the ship's damage effect on their own ASC. A share
+	 * that would kill puts them on foot first (eject / dismount), so the normal on-foot death runs.
+	 */
+	void FlushCrewDamage();
+
+	float PendingCrewDamage = 0.f;
+	float PendingCrewLoss = 0.f;
+	bool bCrewDamageFlushQueued = false;
+	/** DebugKill: the console's kill gives the crew nothing. */
+	bool bSuppressCrewDamage = false;
+
+	// Gunner stations and turrets
+	/** Server, at the end of BeginPlay: the turrets at UAirshipSettings::TurretMounts, attached to the hull without welding. */
+	void SpawnTurrets();
+
+	/** Server, every tick: frees the stations whose gunner died, left, was unpossessed or detached, or whose turret was wrecked. */
+	void UpdateStations();
+
+	/** Server, every tick (after UpdateStations): each turret's command (its gunner, the console, the pilot, or rest). */
+	void UpdateTurretCommands();
+
+	/** The pilot's client, every frame: the unmanned turrets' local command (their aim and predicted rounds there). */
+	void UpdateLocalTurretCommands(bool bFireHeld);
+
+	/** Every machine: the change events of the stations that changed since the last call; binds OnStationGunnerDied. */
+	void NotifyStationsChanged();
+
+	/**
+	 * Every machine: a character that died at a gun station. The seats are at plank height, inside the hull's convex
+	 * hulls (under the walkable lid, or in the forward deck's convex), so its ragdoll would start deep inside the
+	 * simulated hull and be pushed out, throwing the body and kicking the ship. Its simulating bodies ignore the hull's
+	 * object type from then on: the body drops through the deck (the GameMode's respawn removes it).
+	 */
+	void KeepCorpseOffHull(ACharacter* Corpse) const;
+
+	/** Clamped station index (0 for an invalid one: callers check IsValidStation first). */
+	static int32 StationSlot(int32 Station) { return FMath::Clamp(Station, 0, Airship::NumStations - 1); }
+	static bool IsValidStation(int32 Station) { return Station >= 0 && Station < Airship::NumStations; }
+
+	/** Hull-local rest direction of a station's gun (cannon: barrel; turret: the bow). */
+	FVector GetStationRestDirLocal(int32 Station) const;
 
 	UFUNCTION()
 	void OnHullHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
@@ -1199,16 +1496,9 @@ private:
 
 	FVector GetPilotSeatLocal() const;
 
-	/** Server: ends the pilot's active abilities (beam, boost, ...) while they are still its avatar. */
-	static void CancelPilotAbilities(ACharacter* Pilot);
-
 	/** Weak: the pilot's controller, to give the character back to. */
 	TWeakObjectPtr<APlayerController> PilotController;
 
-	/** The pilot's Health / Mana when boarding (re-possessing refills them). */
-	float SavedPilotHealth = 0.f;
-	float SavedPilotMana = 0.f;
-	bool bHasSavedPilotVitals = false;
 	bool bPilotWasAlwaysRelevant = false;
 	bool bPilotHadCollision = true;
 	bool bUnboarding = false;
@@ -1294,10 +1584,40 @@ private:
 	float CannonAimYawDeg[Airship::NumCannons] = {};
 	float CannonAimElevDeg[Airship::NumCannons] = {};
 	int32 CannonFireCount[Airship::NumCannons] = {};
-	double LastSideFireTime[2] = { -1000.0, -1000.0 };
-	double LastPredictedFireTime[2] = { -1000.0, -1000.0 };
-	bool bPredictedShotPending[2] = { false, false };
+	/** Server: each cannon's last shot (its own reload). */
+	double LastCannonFireTime[Airship::NumCannons] = { -1000.0, -1000.0, -1000.0, -1000.0 };
+	/**
+	 * Clients: each cannon's last shot on this machine's clock (its predicted shots and the multicast shots it played),
+	 * and whether a predicted shot waits for the multicast to skip (only on the machine that predicted it).
+	 */
+	double LastPredictedCannonFireTime[Airship::NumCannons] = { -1000.0, -1000.0, -1000.0, -1000.0 };
+	bool bPredictedShotPending[Airship::NumCannons] = { false, false, false, false };
 	EAirshipSide AimSide = EAirshipSide::Port;
+
+	// Gunner stations
+	/** Hull-space seats (cm): cannons from the carriage bones (RefreshCannonGeometry), turrets from the settings' mounts. */
+	FVector StationSeatLocal[Airship::NumStations];
+	/**
+	 * Server: each station's controller, trigger (turrets), and the gunner's bAlwaysRelevant and movement
+	 * bIgnoreClientMovementErrorChecksAndCorrection before it mounted.
+	 */
+	TWeakObjectPtr<APlayerController> StationControllers[Airship::NumStations];
+	bool StationTrigger[Airship::NumStations] = {};
+	bool bStationGunnerWasAlwaysRelevant[Airship::NumStations] = {};
+	bool bStationGunnerIgnoredCorrections[Airship::NumStations] = {};
+	/** This machine's own gunner's aim (SetLocalStationAim) and the frame it was set (used for this and the next frame). */
+	FVector LocalStationAim[Airship::NumStations];
+	uint64 LocalStationAimFrame[Airship::NumStations] = {};
+	/** Test hook (SetStationConsoleAim): an aim that wins over the gunner's until this world time. */
+	FVector StationConsoleAim[Airship::NumStations];
+	double StationConsoleAimUntil[Airship::NumStations] = { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 };
+	/** The gunners last seen by NotifyStationsChanged (every machine), for the change events. */
+	TWeakObjectPtr<ACharacter> KnownStationGunners[Airship::NumStations];
+	/** Server: Aura.Airship.TurretFire (unmanned turrets fire at the point, or ahead of the bow). */
+	bool bDebugTurretFire = false;
+	bool bDebugTurretFireHasPoint = false;
+	FVector DebugTurretFirePoint = FVector::ZeroVector;
+	bool bWarnedTurretClass = false;
 
 	// Death / impacts
 	bool bDeathHandled = false;

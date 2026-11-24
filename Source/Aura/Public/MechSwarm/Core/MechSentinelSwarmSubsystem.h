@@ -17,10 +17,17 @@ class UAbilitySystemComponent;
 class UMassEntityConfigAsset;
 class UMechSentinelSwarmRules;
 struct FGameplayEffectSpec;
+struct FHitResult;
 struct FMassEntityManager;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FOnMechSentinelDamaged, FMechSentinelHandle, Sentinel, float, Damage, FVector, Location, AActor*, Instigator);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMechSentinelKilled, FMechSentinelHandle, Sentinel, FVector, Location, AActor*, Instigator);
+
+/**
+ * UMechSentinelSwarmSubsystem::BulletTargetRedirect: given the Visibility hit on a BulletTargetTag actor (Block) and the
+ * bullet's direction, the actor that takes the hit instead (OutImpact: where), or null to keep the tagged actor.
+ */
+DECLARE_DELEGATE_RetVal_ThreeParams(AActor*, FMechSentinelBulletTargetRedirect, const FHitResult& /*Block*/, const FVector& /*Direction*/, FVector& /*OutImpact*/);
 
 /** One damaging hit on a sentinel (server), with more detail than OnSentinelDamaged. C++ only; used for damage numbers. */
 struct FMechSentinelDamageEvent
@@ -138,6 +145,19 @@ class AURA_API UMechSentinelSwarmSubsystem : public UWorldSubsystem
 public:
 	static UMechSentinelSwarmSubsystem* Get(const UObject* WorldContextObject);
 
+	/**
+	 * Actors with this tag take sentinel bullet hits found by a Visibility trace along the bullet (airship hulls and
+	 * turrets, whose collision is PhysicsBody / WorldDynamic, so the Pawn sweep never finds them). Server-side tag.
+	 */
+	static const FName BulletTargetTag;
+
+	/**
+	 * Optional, bound by the module that owns the tagged targets: hands a tagged hit to another actor. Airships bind it
+	 * (UAirshipSubsystem, AAirshipPawn::RedirectBulletHitToTurret): their turrets sit inside the hull's collision, so the
+	 * trace always finds the hull first, and a hull hit over the forward deck goes to the turret behind it. Server.
+	 */
+	FMechSentinelBulletTargetRedirect BulletTargetRedirect;
+
 	//~ USubsystem
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
@@ -224,7 +244,8 @@ public:
 	 * Fires a sentinel bullet from Muzzle toward AimPoint (with the settings' spread). It flies at Settings.Speed to the
 	 * first thing that blocks Visibility on its line (or Settings.Range); every bullet tick sweeps the stretch it covered
 	 * since the last one, and the first player pawn within Settings.Radius takes Damage through ApplySentinelAttack and
-	 * stops it. Every machine sees it through AMechSentinelBulletRelay. Server, game thread.
+	 * stops it. When no player pawn is on the stretch, the first Visibility blocker on it takes the hit if it carries
+	 * BulletTargetTag (an airship or its turret). Every machine sees it through AMechSentinelBulletRelay. Server, game thread.
 	 */
 	void FireSentinelBullet(const FVector& Muzzle, const FVector& AimPoint, float Damage, const FMechSentinelBulletSettings& Settings);
 

@@ -9,6 +9,25 @@
 
 class AAirshipPawn;
 class UPrimitiveComponent;
+struct FHitResult;
+
+/**
+ * Server: what an unpiloted ship does this frame (UAirshipFlightComponent::UpdateUnpilotedMode). A later lane cruise
+ * fills the same target (a moving hold point with its own velocity), so the force and heading hooks in ApplyForces
+ * don't change.
+ */
+struct FAirshipUnpilotedTarget
+{
+	EAirshipUnpilotedMode Mode = EAirshipUnpilotedMode::None;
+	/** Drift: target speed along HeadingYaw (cm/s). */
+	float ForwardSpeed = 0.f;
+	/** Drift / Hold: world yaw to hold (deg). */
+	float HeadingYaw = 0.f;
+	/** Hold: centre of mass target (world XY, cm). */
+	FVector2D HoldPoint = FVector2D::ZeroVector;
+	/** Hold: target velocity (cm/s), 0 when parked. */
+	FVector2D HoldVelocity = FVector2D::ZeroVector;
+};
 
 /**
  * The airship's flight model (Docs/Airship/research_flight.md section 3). Lives on AAirshipPawn, which calls
@@ -78,6 +97,25 @@ public:
 
 	/** The controls used this frame (raw, before shaping). */
 	const FAirshipPilotInput& GetCurrentControls() const { return CurrentControls; }
+
+
+	// -------------------------------------------------------------------------
+	// Unpiloted ship (server, every scheme; knobs in UAirshipSettings "Unpiloted"). After a moving exit the ship drifts
+	// slowly ahead on its heading until something is in the way, then holds; left at rest (or never piloted) it holds
+	// its spot and heading. Gunners don't count as a pilot.
+	// -------------------------------------------------------------------------
+
+	/** Server: None while piloted (or debug input, flight off); Coast, Drift or Hold otherwise. Clients: None. */
+	UFUNCTION(BlueprintPure, Category = "Airship|Flight")
+	EAirshipUnpilotedMode GetUnpilotedMode() const { return UnpilotedTarget.Mode; }
+
+	const FAirshipUnpilotedTarget& GetUnpilotedTarget() const { return UnpilotedTarget; }
+
+	/** Server, the pilot's exit (AAirshipPawn::UnboardPilot, after the possession): the next evaluation drifts or parks. */
+	void NotifyPilotLeft(const FVector& ExitVelocity);
+
+	/** Server, every hull contact (AAirshipPawn::OnHullHit): a drift ends on a contact at the bow. */
+	void NotifyHullContact(const AActor* Other, const FHitResult& Hit);
 
 	UFUNCTION(BlueprintPure, Category = "Airship|Flight")
 	float GetBoostFuel() const { return BoostFuel; }
@@ -1073,6 +1111,25 @@ private:
 	/** Server: the force model (section 3 of research_flight.md). */
 	void ApplyForces(UPrimitiveComponent* Body, float Dt);
 
+	/** Server, every frame before SelectControls: the unpiloted mode and its target (see GetUnpilotedMode). */
+	void UpdateUnpilotedMode(UPrimitiveComponent* Body, const FVector& Velocity);
+
+	/**
+	 * Server, while drifting: the hull's box swept ahead finds something it would bump into. The sweep covers the ship's
+	 * real forward speed (not the drift target: after a fast exit it is still slowing from cruise) times
+	 * DriftLookAheadTime, plus what it needs to stop at HoldAccelMax, so the hold starts in time. OutDistance: its length.
+	 */
+	bool SweepDriftAhead(UPrimitiveComponent* Body, float ForwardSpeed, float& OutDistance) const;
+
+	/** The drift's look-ahead length (cm) at ForwardSpeed (cm/s along the drift heading): see SweepDriftAhead. */
+	float GetDriftLookAheadDistance(float ForwardSpeed) const;
+
+	/** UnpilotedTarget = Hold at the centre of mass and the hull's heading now. */
+	void BeginHold(UPrimitiveComponent* Body);
+
+	/** True for what a drift ignores: characters, other pawns that aren't ships, cannonballs, its own ship and what is attached to it. */
+	bool IsDriftIgnored(const AActor* Other) const;
+
 	/** Server: ground distance under each pod. */
 	void TraceGround(UPrimitiveComponent* Body);
 
@@ -1154,6 +1211,19 @@ private:
 	float BoostRegenTimer = 0.f;
 	float DriftTime = 0.f;
 	bool bHoldValid = false;
+
+	// Unpiloted (server; UpdateUnpilotedMode)
+	FAirshipUnpilotedTarget UnpilotedTarget;
+	/** NotifyPilotLeft: the next evaluation decides drift or park from these. */
+	bool bDriftRequest = false;
+	float DriftExitForwardSpeed = 0.f;
+	float DriftRequestYaw = 0.f;
+	FVector DriftStart = FVector::ZeroVector;
+	/** The exit speed the drift may not go above (a slow exit never speeds up). */
+	float DriftSpeedLimit = 0.f;
+	/** A bow contact or the look-ahead sweep: the drift ends next evaluation. */
+	bool bDriftBlocked = false;
+	double NextDriftSweepTime = 0.0;
 	bool bBrakeWasHeld = false;
 	float HoldZ = 0.f;
 	bool bPodForceInitialized = false;

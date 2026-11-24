@@ -12,12 +12,15 @@
 #include "Airship/AirshipDamageEffect.h"
 #include "Airship/AirshipFlightComponent.h"
 #include "Airship/AirshipHUDWidget.h"
+#include "Airship/AirshipPilotComponent.h"
 #include "Airship/AirshipSettings.h"
 #include "Airship/AirshipSubsystem.h"
+#include "Airship/AirshipTurret.h"
 #include "AnimationRuntime.h"
 #include "Blueprint/GameViewportSubsystem.h"
 #include "Blueprint/UserWidget.h"
 #include "Camera/CameraComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -26,6 +29,7 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/Character.h"
@@ -39,6 +43,7 @@
 #include "InputActionValue.h"
 #include "InputMappingContext.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 #include "Misc/ScopeExit.h"
 #include "Net/UnrealNetwork.h"
 #include "NiagaraComponent.h"
@@ -63,14 +68,32 @@ namespace AirshipPawnPrivate
 
 	const FAirshipCosmeticState NeutralCosmetic{};
 
-	int32 SideIndex(EAirshipSide Side)
-	{
-		return Side == EAirshipSide::Port ? 0 : 1;
-	}
-
 	EAirshipSide CannonSide(int32 Cannon)
 	{
 		return Airship::IsPortCannon(Cannon) ? EAirshipSide::Port : EAirshipSide::Starboard;
+	}
+
+	/** Bit c of a cannon mask = cannon c. */
+	uint8 CannonBit(int32 Cannon)
+	{
+		return static_cast<uint8>(1u << Cannon);
+	}
+
+	/** Stations of the log lines: CannonL1 .. TurretR. */
+	FString StationName(int32 Station)
+	{
+		const UEnum* Enum = StaticEnum<EAirshipStation>();
+		return Enum ? Enum->GetNameStringByValue(Station) : FString::FromInt(Station);
+	}
+
+	/** Port (-1) or starboard (+1) of a station: hull -Y is port. */
+	double StationOutboardSign(int32 Station)
+	{
+		if (Airship::IsCannonStation(Station))
+		{
+			return Airship::IsPortCannon(Station) ? -1.0 : 1.0;
+		}
+		return Airship::StationToTurret(Station) == 0 ? -1.0 : 1.0;
 	}
 
 	/**
@@ -150,6 +173,18 @@ namespace AirshipPawnPrivate
 		CornerSlot.ZOrder = 1;
 		return CornerSlot;
 	}
+
+	/**
+	 * FindTurretBehindHullHit: how far past the hull hit a shot still finds a turret (cm). The forward deck's convex
+	 * (UCX_01) runs 21 m from x 10.2 to 31.2 m, so a shot from dead ahead enters it about 10 m in front of the turrets.
+	 */
+	constexpr double TurretHullReach = 2500.0;
+
+	/**
+	 * ...and how far below the turret's deck plane (the mount's z, the forward deck top) the hull hit may be (cm). The main
+	 * hull's convex (UCX_00) ends 55 cm below that deck, so a straight line between two points above this never crosses it.
+	 */
+	constexpr double TurretHullPassMargin = 25.0;
 }
 
 /**
@@ -344,6 +379,22 @@ AAirshipPawn::AAirshipPawn()
 	}
 
 	PilotSeatLocal = PilotSeatFallback;
+
+	// Gunner stations (replicated, fixed size) and the turrets the server spawns at BeginPlay
+	StationGunners.SetNum(Airship::NumStations);
+	StationAims.SetNum(Airship::NumStations);
+	Turrets.SetNum(Airship::NumTurrets);
+
+	for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+	{
+		StationSeatLocal[Station] = FVector::ZeroVector;
+		LocalStationAim[Station] = FVector::ZeroVector;
+		StationConsoleAim[Station] = FVector::ZeroVector;
+	}
+
+	// Mech Sentinel bullets damage what carries this tag when a Visibility trace finds it (the hull is a PhysicsBody,
+	// which their Pawn sweep never sees). Actor tags don't replicate: the hits are server-only anyway.
+	Tags.AddUnique(UMechSentinelSwarmSubsystem::BulletTargetTag);
 }
 
 void AAirshipPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -356,6 +407,11 @@ void AAirshipPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 
 	// Every connection: the observers' cosmetics run the same scheme
 	DOREPLIFETIME(AAirshipPawn, ControlScheme);
+
+	// Gunner stations and turrets: every machine aims the manned guns, the HUDs show who mans what
+	DOREPLIFETIME(AAirshipPawn, StationGunners);
+	DOREPLIFETIME(AAirshipPawn, StationAims);
+	DOREPLIFETIME(AAirshipPawn, Turrets);
 }
 
 void AAirshipPawn::BeginPlay()
@@ -391,6 +447,9 @@ void AAirshipPawn::BeginPlay()
 		AbilitySystemComponent->SetNumericAttributeBase(UMyAttributeSet::GetMaxHealthAttribute(), MaxHealth);
 		AbilitySystemComponent->SetNumericAttributeBase(UMyAttributeSet::GetHealthAttribute(), MaxHealth);
 		AbilitySystemComponent->SetNumericAttributeBase(UMyAttributeSet::GetArmorAttribute(), Armor);
+
+		// After the init (a rise): every later loss gives the crew its share (FlushCrewDamage)
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMyAttributeSet::GetHealthAttribute()).AddUObject(this, &ThisClass::OnShipHealthChanged);
 	}
 
 	if (UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(this))
@@ -404,7 +463,19 @@ void AAirshipPawn::BeginPlay()
 		HandleDeath(!HasAuthority());
 	}
 
+	// Server: the two front turrets (clients get them through Turrets and the attachment)
+	if (HasAuthority() && !bIsDead)
+	{
+		SpawnTurrets();
+	}
+
 	OnRep_PilotCharacter();
+
+	// A client that got the ship with gunners aboard (the first bunch's OnRep ran before BeginPlay)
+	if (!HasAuthority())
+	{
+		OnRep_StationGunners();
+	}
 }
 
 void AAirshipPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -413,6 +484,18 @@ void AAirshipPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 	// The pilot's machine: ship HUD off, on-foot overlay back
 	HideShipHUD();
+
+	// The ship goes away under its gunners: back on foot where they are (not thrown)
+	if (HasAuthority() && EndPlayReason == EEndPlayReason::Destroyed)
+	{
+		for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+		{
+			if (StationGunners.IsValidIndex(Station) && StationGunners[Station])
+			{
+				DismountGunner(Station, false);
+			}
+		}
+	}
 
 	if (HasAuthority() && PilotCharacter && EndPlayReason == EEndPlayReason::Destroyed)
 	{
@@ -429,6 +512,20 @@ void AAirshipPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		{
 			// The ship goes away under its pilot (console, kill Z): give the character back
 			UnboardPilot(false);
+		}
+	}
+
+	// Attached actors don't go with their parent: the turrets go with the ship (a turret whose ship is gone also
+	// removes itself, AAirshipTurret::Tick)
+	if (HasAuthority() && EndPlayReason == EEndPlayReason::Destroyed)
+	{
+		for (TObjectPtr<AAirshipTurret>& Turret : Turrets)
+		{
+			if (IsValid(Turret))
+			{
+				Turret->Destroy();
+			}
+			Turret = nullptr;
 		}
 	}
 
@@ -472,6 +569,13 @@ void AAirshipPawn::Tick(float DeltaSeconds)
 	}
 
 	UpdateCannonAim();
+
+	// Server: gunners that died / left / were wrecked off their station, then the turrets' commands for this frame
+	if (HasAuthority())
+	{
+		UpdateStations();
+	}
+
 	UpdateFX();
 
 	if (IsLocallyControlled())
@@ -879,15 +983,25 @@ void AAirshipPawn::GatherLocalInput(float DeltaSeconds)
 		Controls.SetButton(Airship::Button_HasAimPoint, true);
 	}
 
+	// Every scheme (round 2): Fire held with the camera in the bow arc drives the unmanned turrets at the aim point (the
+	// server checks the bit against the aim's bearing); a press there fires no broadside (RequestFire)
+	const bool bTurretFireHeld = IsDriverTurretArc() && Button(FireAction);
+	Controls.SetButton(Airship::Button_FireHeld, bTurretFireHeld);
+
+	// The pilot's client: its own copy of those turrets aims and predicts its rounds at once
+	if (!HasAuthority())
+	{
+		UpdateLocalTurretCommands(bTurretFireHeld);
+	}
+
 	Flight->SetLocalInput(Controls);
 }
 
 bool AAirshipPawn::ComputeLocalAimPoint(FVector& OutAimPoint) const
 {
 	const AController* LocalController = GetController();
-	const UWorld* World = GetWorld();
 
-	if (!LocalController || !World)
+	if (!LocalController || !GetWorld())
 	{
 		return false;
 	}
@@ -896,14 +1010,55 @@ bool AAirshipPawn::ComputeLocalAimPoint(FVector& OutAimPoint) const
 	FRotator ViewRotation;
 	LocalController->GetPlayerViewPoint(ViewLocation, ViewRotation);
 
-	const FVector End = ViewLocation + ViewRotation.Vector() * CannonAimTraceDistance;
+	// Past the ship, its turrets, crew, riders and every cannonball (they block Visibility now and fly through the view)
+	return TraceAimPoint(ViewLocation, ViewRotation.Vector(), CannonAimTraceDistance, OutAimPoint);
+}
+
+bool AAirshipPawn::TraceAimPoint(const FVector& Start, const FVector& Dir, float Distance, FVector& OutPoint) const
+{
+	const UWorld* World = GetWorld();
+	const FVector Direction = Dir.GetSafeNormal();
+	const FVector End = Start + Direction * FMath::Max(Distance, 0.f);
+	OutPoint = End;
+
+	if (!World || Direction.IsNearlyZero() || Distance <= 0.f)
+	{
+		return false;
+	}
+
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipAim), false, this);
 	TArray<AActor*> Attached;
-	GetAttachedActors(Attached);
+	GetAttachedActors(Attached, true, true);
 	Params.AddIgnoredActors(Attached);
 
+	// The riders (IsRiderForDamage), not every passenger: an enemy jumping or hovering next to the ship can be aimed at
+	for (ACharacter* Rider : GetDamageRiders())
+	{
+		Params.AddIgnoredActor(Rider);
+	}
+
+	constexpr int32 MaxBallsPassed = 4;
 	FHitResult Hit;
-	OutAimPoint = World->LineTraceSingleByChannel(Hit, ViewLocation, End, ECC_Visibility, Params) ? FVector(Hit.ImpactPoint) : End;
+
+	for (int32 Attempt = 0; Attempt <= MaxBallsPassed; ++Attempt)
+	{
+		if (!World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+		{
+			return true;
+		}
+
+		AActor* HitActor = Hit.GetActor();
+
+		if (Attempt < MaxBallsPassed && HitActor && HitActor->IsA<AAirshipCannonball>())
+		{
+			Params.AddIgnoredActor(HitActor);
+			continue;
+		}
+
+		OutPoint = Hit.ImpactPoint;
+		return true;
+	}
+
 	return true;
 }
 
@@ -1050,10 +1205,20 @@ bool AAirshipPawn::CanBoard(const APawn* Candidate) const
 		return false;
 	}
 
+	// A gunner leaves its station first (F there dismounts)
+	AAirshipPawn* GunnerShip = nullptr;
+	int32 GunnerStation = INDEX_NONE;
+	const UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(this);
+
+	if (Subsystem && Subsystem->FindGunnerStation(Character, GunnerShip, GunnerStation))
+	{
+		return false;
+	}
+
 	return true;
 }
 
-bool AAirshipPawn::IsWithinBoardRange(const FVector& Location, float SeatDistance, float HullDistance) const
+bool AAirshipPawn::IsWithinBoardRange(const FVector& Location, float SeatDistance, float HullDistance, float BelowDistance) const
 {
 	if (SeatDistance > 0.f && FVector::DistSquared(Location, GetPilotSeatLocation()) <= FMath::Square(SeatDistance))
 	{
@@ -1072,12 +1237,26 @@ bool AAirshipPawn::IsWithinBoardRange(const FVector& Location, float SeatDistanc
 		}
 	}
 
+	// Under the hull: straight up from Location hits it within BelowDistance (simple collision). A ship hovering over
+	// the ground keeps its belly 6-8 m above a player's head, out of the seat and hull ranges.
+	if (BelowDistance > 0.f && HullCollision)
+	{
+		FHitResult Hit;
+		const FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipBoardBelow), false);
+
+		if (HullCollision->LineTraceComponent(Hit, Location, Location + FVector(0.0, 0.0, BelowDistance), Params))
+		{
+			return true;
+		}
+	}
+
 	return false;
 }
 
 void AAirshipPawn::CancelPilotAbilities(ACharacter* Pilot)
 {
-	// Like AMyGameMode's respawn: the ASC is on the PlayerState and stays with the player
+	// Like AMyGameMode's respawn: the ASC is on the PlayerState and stays with the player (the pilot at the helm, a
+	// gunner at a station)
 	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Pilot);
 
 	if (!ASC || ASC->GetAvatarActor() != Pilot)
@@ -1111,19 +1290,6 @@ bool AAirshipPawn::BoardPilot(ACharacter* Pilot, APlayerController* PC)
 
 	// Beam, boost, hover... end while the character is still the ASC's avatar (they need its controller)
 	CancelPilotAbilities(Pilot);
-
-	// Re-possessing the character later refills Health / Mana (AMyCharPlayer::PossessedBy): keep them
-	bHasSavedPilotVitals = false;
-
-	if (const UAbilitySystemComponent* PilotASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Pilot))
-	{
-		if (PilotASC->HasAttributeSetForAttribute(UMyAttributeSet::GetHealthAttribute()))
-		{
-			SavedPilotHealth = PilotASC->GetNumericAttribute(UMyAttributeSet::GetHealthAttribute());
-			SavedPilotMana = PilotASC->GetNumericAttribute(UMyAttributeSet::GetManaAttribute());
-			bHasSavedPilotVitals = true;
-		}
-	}
 
 	if (UCharacterMovementComponent* Move = Pilot->GetCharacterMovement())
 	{
@@ -1210,21 +1376,29 @@ void AAirshipPawn::UnboardPilot(bool bEject)
 	// (switched now, with its collision on: a valid QueryOnly body)
 	RefreshPassengers();
 
+	// Re-possessing the character refills Health / Mana (AMyCharPlayer::PossessedBy -> InitAbilitySystemAfterRespawn): the
+	// values it has now (the crew's share of the ship's damage taken while flying stays) go back after it
+	UAbilitySystemComponent* PilotASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Pilot);
+	const bool bKeepVitals = PilotASC && PilotASC->HasAttributeSetForAttribute(UMyAttributeSet::GetHealthAttribute());
+	const float PilotHealth = bKeepVitals ? PilotASC->GetNumericAttribute(UMyAttributeSet::GetHealthAttribute()) : 0.f;
+	const float PilotMana = bKeepVitals ? PilotASC->GetNumericAttribute(UMyAttributeSet::GetManaAttribute()) : 0.f;
+	bool bPossessed = false;
+
 	// Back to the character (unless the player already went elsewhere)
 	if (PC && !PC->IsActorBeingDestroyed() && (PC->GetPawn() == this || PC->GetPawn() == nullptr) && !Pilot->IsActorBeingDestroyed())
 	{
 		PC->Possess(Pilot);
+		bPossessed = PC->GetPawn() == Pilot;
 	}
 
 	// After the possession, which refilled them
-	if (bHasSavedPilotVitals)
+	if (bKeepVitals && bPossessed)
 	{
-		if (UAbilitySystemComponent* PilotASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Pilot))
+		if (UAbilitySystemComponent* PossessedASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Pilot))
 		{
-			PilotASC->SetNumericAttributeBase(UMyAttributeSet::GetHealthAttribute(), SavedPilotHealth);
-			PilotASC->SetNumericAttributeBase(UMyAttributeSet::GetManaAttribute(), SavedPilotMana);
+			PossessedASC->SetNumericAttributeBase(UMyAttributeSet::GetHealthAttribute(), PilotHealth);
+			PossessedASC->SetNumericAttributeBase(UMyAttributeSet::GetManaAttribute(), PilotMana);
 		}
-		bHasSavedPilotVitals = false;
 	}
 
 	FVector Launch = ShipVelocity;
@@ -1238,6 +1412,13 @@ void AAirshipPawn::UnboardPilot(bool bEject)
 	Pilot->LaunchCharacter(Launch, true, true);
 
 	OnRep_PilotCharacter();
+
+	// Last (after the possession, whose UnPossessed -> ResetInput runs first): a moving exit leaves the ship drifting
+	// slowly ahead, an exit at rest parks it (UAirshipFlightComponent::UpdateUnpilotedMode)
+	if (Flight)
+	{
+		Flight->NotifyPilotLeft(ShipVelocity);
+	}
 }
 
 void AAirshipPawn::OnRep_PilotCharacter()
@@ -1271,14 +1452,15 @@ void AAirshipPawn::OnRep_PilotCharacter()
 
 void AAirshipPawn::UpdatePassengerCollision()
 {
-	// Attachment and PilotCharacter replicate separately: catch an attached character either way
+	// Attachment and PilotCharacter replicate separately: catch an attached character either way. Gunners keep their
+	// actor collision (a QueryOnly capsule through the passenger path): the other machines' traces must hit them.
 	if (HullCollision)
 	{
 		for (const TObjectPtr<USceneComponent>& Child : HullCollision->GetAttachChildren())
 		{
 			ACharacter* Passenger = Child ? Cast<ACharacter>(Child->GetOwner()) : nullptr;
 
-			if (Passenger && Passenger->GetActorEnableCollision())
+			if (Passenger && Passenger->GetActorEnableCollision() && FindStationOf(Passenger) == INDEX_NONE)
 			{
 				Passenger->SetActorEnableCollision(false);
 				PassengersWithCollisionOff.AddUnique(Passenger);
@@ -1298,7 +1480,8 @@ void AAirshipPawn::UpdatePassengerCollision()
 			continue;
 		}
 
-		if (Passenger != PilotCharacter && !Passenger->IsAttachedTo(this))
+		// Detached, or attached as a gunner (its StationGunners entry came after the attachment)
+		if ((Passenger != PilotCharacter && !Passenger->IsAttachedTo(this)) || FindStationOf(Passenger) != INDEX_NONE)
 		{
 			Passenger->SetActorEnableCollision(true);
 			UAirshipSubsystem::RepairPhysicsState(Passenger);
@@ -1353,6 +1536,902 @@ TArray<ACharacter*> AAirshipPawn::GetPassengers() const
 	return Subsystem ? Subsystem->GetPassengers(this) : TArray<ACharacter*>();
 }
 
+bool AAirshipPawn::IsRiderForDamage(const ACharacter* Character) const
+{
+	if (!Character || !HullCollision || Character->IsActorBeingDestroyed())
+	{
+		return false;
+	}
+
+	// The pilot and the gunners
+	if (Character->IsAttachedTo(this))
+	{
+		return true;
+	}
+
+	// Standing on the ship, or on something attached to it; standing anywhere else is not riding it
+	if (Character->GetMovementBaseObject())
+	{
+		const AActor* BaseActor = APawn::GetMovementBaseActor(Character);
+		return BaseActor && (BaseActor == this || BaseActor->IsAttachedTo(this));
+	}
+
+	// No base (a jump on deck, a fall back onto it): inside the hull's own box, turned with the ship, or a little above
+	// it. Bounds of the hidden SM_Airship body with an identity transform: hull space, like the point.
+	const FBox Local = HullCollision->CalcBounds(FTransform::Identity).GetBox();
+
+	if (!Local.IsValid)
+	{
+		return false;
+	}
+
+	const FVector P = HullCollision->GetComponentTransform().InverseTransformPosition(Character->GetActorLocation());
+	return P.X >= Local.Min.X && P.X <= Local.Max.X && P.Y >= Local.Min.Y && P.Y <= Local.Max.Y
+		&& P.Z >= Local.Min.Z && P.Z <= Local.Max.Z + RiderZoneHeight;
+}
+
+TArray<ACharacter*> AAirshipPawn::GetDamageRiders() const
+{
+	// Every character of the world, not the passenger list: that one is empty while bPassengersQueryOnly is off, and the
+	// riders still must not be shot. A handful of characters per world (sentinels are Mass entities, not actors).
+	TArray<ACharacter*> Riders;
+
+	if (const UWorld* World = GetWorld())
+	{
+		for (TActorIterator<ACharacter> It(World); It; ++It)
+		{
+			if (IsRiderForDamage(*It))
+			{
+				Riders.Add(*It);
+			}
+		}
+	}
+
+	return Riders;
+}
+
+
+// =============================================================================
+// Gunner stations (SPEC_A.md D5)
+// =============================================================================
+
+int32 AAirshipPawn::FindStationOf(const ACharacter* Character) const
+{
+	if (!Character)
+	{
+		return INDEX_NONE;
+	}
+
+	for (int32 Station = 0; Station < StationGunners.Num(); ++Station)
+	{
+		if (StationGunners[Station] == Character)
+		{
+			return Station;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+ACharacter* AAirshipPawn::GetStationGunner(int32 Station) const
+{
+	ACharacter* Gunner = StationGunners.IsValidIndex(Station) ? StationGunners[Station].Get() : nullptr;
+	return IsValid(Gunner) ? Gunner : nullptr;
+}
+
+bool AAirshipPawn::IsStationManned(int32 Station) const
+{
+	return GetStationGunner(Station) != nullptr;
+}
+
+bool AAirshipPawn::IsSideFullyManned(EAirshipSide Side) const
+{
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		if (AirshipPawnPrivate::CannonSide(Cannon) == Side && !IsCannonManned(Cannon))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+FVector AAirshipPawn::GetStationSeatLocation(int32 Station) const
+{
+	const FVector& Seat = StationSeatLocal[StationSlot(Station)];
+	return HullCollision ? HullCollision->GetComponentTransform().TransformPosition(Seat) : GetActorLocation();
+}
+
+FTransform AAirshipPawn::GetStationSeatRelativeTransform(int32 Station, const ACharacter* Gunner) const
+{
+	// The seat is where the feet go; the actor location is the capsule centre. Cannon gunners face outboard along
+	// their gun, turret gunners the bow.
+	const int32 Slot = StationSlot(Station);
+	const float HalfHeight = (Gunner && Gunner->GetCapsuleComponent()) ? Gunner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 90.f;
+	const double FacingYaw = Airship::IsCannonStation(Slot) ? (Airship::IsPortCannon(Slot) ? -90.0 : 90.0) : 0.0;
+	return FTransform(FRotator(0.0, FacingYaw, 0.0), StationSeatLocal[Slot] + FVector(0.0, 0.0, HalfHeight + PilotSeatClearance));
+}
+
+FVector AAirshipPawn::GetStationRestDirLocal(int32 Station) const
+{
+	return Airship::IsCannonStation(Station) ? GetCannonRestDirLocal(Station) : FVector(1.0, 0.0, 0.0);
+}
+
+FVector AAirshipPawn::GetStationRestAimPoint(int32 Station) const
+{
+	const int32 Slot = StationSlot(Station);
+
+	if (!HullCollision)
+	{
+		return GetActorLocation();
+	}
+
+	// Cannons from the muzzle, turrets from about the gun's height above the deck
+	const FTransform HullTM = HullCollision->GetComponentTransform();
+	const FVector From = Airship::IsCannonStation(Slot) ? GetCannonMuzzleLocal(Slot) : StationSeatLocal[Slot] + FVector(0.0, 0.0, 150.0);
+	return HullTM.TransformPosition(From) + HullTM.TransformVectorNoScale(GetStationRestDirLocal(Slot)) * 10000.0;
+}
+
+FVector AAirshipPawn::GetStationAimPoint(int32 Station) const
+{
+	if (!IsValidStation(Station))
+	{
+		return FVector::ZeroVector;
+	}
+
+	// The console's (server, a test), this machine's own gunner's (set this or last frame), else the replicated aim
+	const UWorld* World = GetWorld();
+
+	if (World && World->GetTimeSeconds() < StationConsoleAimUntil[Station])
+	{
+		return StationConsoleAim[Station];
+	}
+
+	if (LocalStationAimFrame[Station] != 0 && GFrameCounter - LocalStationAimFrame[Station] <= 1)
+	{
+		return LocalStationAim[Station];
+	}
+
+	return StationAims.IsValidIndex(Station) ? FVector(StationAims[Station]) : GetStationRestAimPoint(Station);
+}
+
+void AAirshipPawn::SetLocalStationAim(int32 Station, const FVector& AimPoint)
+{
+	if (IsValidStation(Station) && !AimPoint.ContainsNaN())
+	{
+		LocalStationAim[Station] = AimPoint;
+		LocalStationAimFrame[Station] = GFrameCounter;
+	}
+}
+
+bool AAirshipPawn::CanMount(const ACharacter* Candidate, int32 Station) const
+{
+	if (!HasAuthority() || bIsDead || !HullCollision || !IsValidStation(Station) || !IsValid(Candidate) || !Candidate->GetPlayerState()
+		|| Candidate->IsActorBeingDestroyed() || IsStationManned(Station))
+	{
+		return false;
+	}
+
+	if (Candidate->Implements<UMyCombatInterface>() && IMyCombatInterface::Execute_IsDead(const_cast<ACharacter*>(Candidate)))
+	{
+		return false;
+	}
+
+	// A wrecked (or missing) turret has no gun to man
+	if (Airship::IsTurretStation(Station))
+	{
+		const AAirshipTurret* Turret = GetTurret(Airship::StationToTurret(Station));
+
+		if (!Turret || Turret->IsTurretDestroyed())
+		{
+			return false;
+		}
+	}
+
+	// Not at a helm, not at another station (of any ship)
+	if (const UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(this))
+	{
+		AAirshipPawn* OtherShip = nullptr;
+		int32 OtherStation = INDEX_NONE;
+
+		if (Subsystem->FindGunnerStation(Candidate, OtherShip, OtherStation))
+		{
+			return false;
+		}
+
+		for (const AAirshipPawn* Ship : Subsystem->GetAirships())
+		{
+			if (Ship->GetPilot() == Candidate)
+			{
+				return false;
+			}
+		}
+	}
+	else if (PilotCharacter == Candidate)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool AAirshipPawn::IsWithinStationRange(int32 Station, const FVector& PawnLocation) const
+{
+	if (!IsValidStation(Station) || !HullCollision)
+	{
+		return false;
+	}
+
+	// In the hull's frame (a heeled ship), from the seat (the feet) to the pawn's capsule centre: standing on the
+	// walkable lid or the forward deck's convex puts it StationMountHeightAbove at most above the planks
+	const UAirshipSettings* Settings = UAirshipSettings::Get();
+	const FVector Delta = HullCollision->GetComponentTransform().InverseTransformPositionNoScale(PawnLocation) - StationSeatLocal[Station];
+	return Delta.Size2D() <= Settings->StationMountDistance && Delta.Z >= -Settings->StationMountHeightBelow && Delta.Z <= Settings->StationMountHeightAbove;
+}
+
+bool AAirshipPawn::MountGunner(ACharacter* Gunner, APlayerController* PC, int32 Station)
+{
+	if (!CanMount(Gunner, Station) || !PC || PC->GetPawn() != Gunner)
+	{
+		return false;
+	}
+
+	// Beam, boost, hover... end while the character is still the ASC's avatar (they need its controller)
+	CancelPilotAbilities(Gunner);
+
+	// Off on the server and (ClientMountChanged) on the owner: no new moves while it rides the hull. The moves the client
+	// sent before ClientMountChanged reached it still arrive (ServerMove only checks IsActive, not the tick), and each
+	// would get a world-space correction (MOVE_None, no base) that the client applies to its capsule, now attached to the
+	// hull: the client's own copy would sit off the seat by the hull's lag for the whole mount. The server acks them
+	// instead; the owner ignores corrections too (BeginLocalGunner). Restored at the dismount.
+	if (UCharacterMovementComponent* Move = Gunner->GetCharacterMovement())
+	{
+		bStationGunnerIgnoredCorrections[Station] = Move->bIgnoreClientMovementErrorChecksAndCorrection;
+		Move->bIgnoreClientMovementErrorChecksAndCorrection = true;
+		Move->StopMovementImmediately();
+		Move->DisableMovement();
+		Move->SetComponentTickEnabled(false);
+	}
+
+	// Actor collision stays on (unlike the pilot): traces, splash and sentinel sweeps reach the gunner; the passenger
+	// path makes its capsule QueryOnly, so it never pushes the hull. On the root: attachment replication resolves it.
+	Gunner->AttachToComponent(HullCollision, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	Gunner->SetActorRelativeTransform(GetStationSeatRelativeTransform(Station, Gunner));
+
+	// Attached actors don't share the ship's relevancy
+	bStationGunnerWasAlwaysRelevant[Station] = Gunner->bAlwaysRelevant;
+	Gunner->bAlwaysRelevant = true;
+
+	StationGunners[Station] = Gunner;
+	StationControllers[Station] = PC;
+	StationTrigger[Station] = false;
+	StationAims[Station] = GetStationRestAimPoint(Station);
+	StationConsoleAimUntil[Station] = -1.0;
+	LocalStationAimFrame[Station] = 0;
+
+	// Attached with its collision on: a passenger now, its capsule QueryOnly (a valid QueryOnly body)
+	RefreshPassengers();
+	NotifyStationsChanged();
+	ForceNetUpdate();
+
+	// The owner's input, camera, HUD (a local controller runs it at once)
+	if (UAirshipPilotComponent* PilotComponent = PC->FindComponentByClass<UAirshipPilotComponent>())
+	{
+		PilotComponent->ClientMountChanged(this, static_cast<int8>(Station), FVector::ZeroVector, FVector::ZeroVector);
+	}
+
+	UE_LOG(LogAirshipPawn, Log, TEXT("%s: %s mounted %s"), *GetName(), *Gunner->GetName(), *AirshipPawnPrivate::StationName(Station));
+	return true;
+}
+
+void AAirshipPawn::DismountGunner(int32 Station, bool bEject)
+{
+	if (!HasAuthority() || !IsValidStation(Station) || !StationGunners.IsValidIndex(Station))
+	{
+		return;
+	}
+
+	// Cleared first: anything this runs (detach, passenger checks) sees the station free
+	ACharacter* Gunner = StationGunners[Station].Get();
+	APlayerController* PC = StationControllers[Station].Get();
+	const bool bWasAlwaysRelevant = bStationGunnerWasAlwaysRelevant[Station];
+	const bool bWasIgnoringCorrections = bStationGunnerIgnoredCorrections[Station];
+	StationGunners[Station] = nullptr;
+	StationControllers[Station].Reset();
+	StationTrigger[Station] = false;
+	StationConsoleAimUntil[Station] = -1.0;
+	LocalStationAimFrame[Station] = 0;
+	ForceNetUpdate();
+	NotifyStationsChanged();
+
+	const bool bPCValid = PC && !PC->IsActorBeingDestroyed();
+	UAirshipPilotComponent* PilotComponent = bPCValid ? PC->FindComponentByClass<UAirshipPilotComponent>() : nullptr;
+
+	if (!IsValid(Gunner) || Gunner->IsActorBeingDestroyed() || !HullCollision)
+	{
+		// Nothing to put down (logout, destroyed): the player's machine still gets its input back
+		if (PilotComponent)
+		{
+			PilotComponent->ClientMountChanged(nullptr, static_cast<int8>(INDEX_NONE), FVector::ZeroVector, FVector::ZeroVector);
+		}
+		return;
+	}
+
+	const UAirshipSettings* Settings = UAirshipSettings::Get();
+	const FTransform HullTM = HullCollision->GetComponentTransform();
+	const FVector Up = HullTM.GetUnitAxis(EAxis::Z);
+	const FVector ShipVelocity = HullCollision->IsSimulatingPhysics() ? HullCollision->GetPhysicsLinearVelocity() : GetVelocity();
+	const float HalfHeight = Gunner->GetCapsuleComponent() ? Gunner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 90.f;
+
+	// Next to the seat (cannons: inboard, mirrored like the seat; turrets: behind), then onto the top of the hull's
+	// collision there: the walkable lid, or the forward deck's convex (a trace that starts inside a convex is skipped,
+	// the next one starts higher)
+	FVector ExitLocal = StationSeatLocal[Station];
+
+	if (Airship::IsCannonStation(Station))
+	{
+		const double Inboard = Airship::IsPortCannon(Station) ? 1.0 : -1.0;
+		const FVector& Offset = Settings->CannonExitOffset;
+		ExitLocal += FVector(Offset.X, Inboard * Offset.Y, Offset.Z);
+	}
+	else
+	{
+		ExitLocal += Settings->TurretExitOffset;
+	}
+
+	FVector Exit = HullTM.TransformPosition(ExitLocal);
+	const FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipGunnerExit), false);
+
+	for (const double StartHeight : { 300.0, 600.0, 900.0 })
+	{
+		FHitResult DeckHit;
+
+		if (HullCollision->LineTraceComponent(DeckHit, Exit + Up * StartHeight, Exit - Up * 600.0, Params) && !DeckHit.bStartPenetrating && DeckHit.Distance > 1.f)
+		{
+			Exit = DeckHit.ImpactPoint;
+			break;
+		}
+	}
+	Exit += FVector(0.0, 0.0, HalfHeight + PilotSeatClearance);
+
+	if (Gunner->IsAttachedTo(this))
+	{
+		Gunner->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	}
+
+	// Off the hull: its death is no longer this ship's business (NotifyStationsChanged above ran before the detach)
+	if (IMyCombatInterface* Combat = Cast<IMyCombatInterface>(Gunner))
+	{
+		Combat->GetOnDeathDelegate().RemoveDynamic(this, &ThisClass::OnStationGunnerDied);
+	}
+
+	Gunner->SetActorLocationAndRotation(Exit, FRotator(0.0, GetActorRotation().Yaw, 0.0), false, nullptr, ETeleportType::TeleportPhysics);
+	Gunner->bAlwaysRelevant = bWasAlwaysRelevant;
+
+	// Safety net: a body something destroyed meanwhile (the movement sweeps need it)
+	UAirshipSubsystem::RepairPhysicsState(Gunner);
+
+	// Alive: falls onto the deck with the ship's velocity (thrown up and outboard when ejected). Dead: its death code
+	// owns the movement; only the tick comes back.
+	const bool bDead = Gunner->Implements<UMyCombatInterface>() && IMyCombatInterface::Execute_IsDead(Gunner);
+	FVector Launch = FVector::ZeroVector;
+
+	if (UCharacterMovementComponent* Move = Gunner->GetCharacterMovement())
+	{
+		// Before the launch: the client's moves from here on are checked again
+		Move->bIgnoreClientMovementErrorChecksAndCorrection = bWasIgnoringCorrections;
+		Move->SetComponentTickEnabled(true);
+
+		if (!bDead)
+		{
+			Move->SetMovementMode(MOVE_Falling);
+		}
+	}
+
+	if (!bDead)
+	{
+		Launch = ShipVelocity;
+
+		if (bEject)
+		{
+			const FVector Outboard = HullTM.TransformVectorNoScale(FVector(0.0, AirshipPawnPrivate::StationOutboardSign(Station), 0.0));
+			Launch += FVector(0.0, 0.0, EjectUpSpeed) + Outboard * EjectSideSpeed;
+		}
+
+		Gunner->LaunchCharacter(Launch, true, true);
+	}
+
+	// On the deck (or thrown clear next to it) it is a passenger again: QueryOnly before the next physics step
+	RefreshPassengers();
+
+	// The owner puts its own copy at the same hull-relative point (less snap than a world point on a moving ship)
+	if (PilotComponent)
+	{
+		PilotComponent->ClientMountChanged(nullptr, static_cast<int8>(INDEX_NONE), HullTM.InverseTransformPosition(Exit), Launch);
+	}
+
+	UE_LOG(LogAirshipPawn, Log, TEXT("%s: %s left %s%s"), *GetName(), *Gunner->GetName(), *AirshipPawnPrivate::StationName(Station),
+		bEject ? TEXT(" (ejected)") : (bDead ? TEXT(" (dead)") : TEXT("")));
+}
+
+void AAirshipPawn::SetStationAim(int32 Station, const FVector& AimPoint)
+{
+	if (!HasAuthority() || !IsStationManned(Station) || AimPoint.ContainsNaN())
+	{
+		return;
+	}
+
+	// A console aim wins for its time (tests)
+	const UWorld* World = GetWorld();
+
+	if (World && World->GetTimeSeconds() < StationConsoleAimUntil[Station])
+	{
+		return;
+	}
+
+	const float MaxDistance = UAirshipSettings::Get()->GunnerMaxAimDistance;
+
+	if (MaxDistance > 0.f && FVector::DistSquared(AimPoint, GetStationSeatLocation(Station)) > FMath::Square(MaxDistance))
+	{
+		return;
+	}
+
+	StationAims[Station] = AimPoint;
+}
+
+void AAirshipPawn::SetStationTrigger(int32 Station, bool bHeld)
+{
+	if (HasAuthority() && Airship::IsTurretStation(Station) && IsStationManned(Station))
+	{
+		StationTrigger[Station] = bHeld;
+	}
+}
+
+void AAirshipPawn::SetStationConsoleAim(int32 Station, const FVector& AimPoint, float Seconds)
+{
+	const UWorld* World = GetWorld();
+
+	if (!HasAuthority() || !World || !IsValidStation(Station) || AimPoint.ContainsNaN())
+	{
+		return;
+	}
+
+	StationConsoleAim[Station] = AimPoint;
+	StationConsoleAimUntil[Station] = World->GetTimeSeconds() + FMath::Max(Seconds, 0.f);
+
+	// The other machines aim that gun there too
+	StationAims[Station] = AimPoint;
+}
+
+void AAirshipPawn::UpdateStations()
+{
+	for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+	{
+		if (!StationGunners.IsValidIndex(Station))
+		{
+			continue;
+		}
+
+		ACharacter* Gunner = StationGunners[Station].Get();
+		const APlayerController* PC = StationControllers[Station].Get();
+
+		if (!Gunner)
+		{
+			// The reference went with a destroyed character: free the station, the player's machine its input
+			if (StationControllers[Station].IsValid())
+			{
+				DismountGunner(Station, false);
+			}
+			continue;
+		}
+
+		bool bLeave = false;
+		bool bEject = false;
+
+		if (!IsValid(Gunner) || Gunner->IsActorBeingDestroyed())
+		{
+			bLeave = true;
+		}
+		else if (Gunner->Implements<UMyCombatInterface>() && IMyCombatInterface::Execute_IsDead(Gunner))
+		{
+			// Any cause: the body comes off (no launch); the GameMode's respawn later destroys it
+			bLeave = true;
+		}
+		else if (!PC || PC->IsActorBeingDestroyed() || PC->GetPawn() != Gunner)
+		{
+			// Logout, respawn, possessed something else
+			bLeave = true;
+		}
+		else if (!Gunner->IsAttachedTo(this))
+		{
+			bLeave = true;
+		}
+		else if (bIsDead)
+		{
+			bLeave = true;
+			bEject = true;
+		}
+		else if (Airship::IsTurretStation(Station))
+		{
+			const AAirshipTurret* Turret = GetTurret(Airship::StationToTurret(Station));
+
+			if (!Turret || Turret->IsTurretDestroyed())
+			{
+				bLeave = true;
+				bEject = true;
+			}
+		}
+
+		if (bLeave)
+		{
+			DismountGunner(Station, bEject);
+		}
+	}
+
+	UpdateTurretCommands();
+}
+
+void AAirshipPawn::OnRep_StationGunners()
+{
+	// Attachment and StationGunners replicate separately: UpdatePassengerCollision may have turned a gunner's collision
+	// off before it knew. Gunners keep it on (their capsule goes QueryOnly through the passenger path).
+	bool bRestored = false;
+
+	for (int32 Station = 0; Station < StationGunners.Num(); ++Station)
+	{
+		ACharacter* Gunner = GetStationGunner(Station);
+
+		if (!Gunner)
+		{
+			continue;
+		}
+
+		const int32 Index = PassengersWithCollisionOff.IndexOfByPredicate([Gunner](const TWeakObjectPtr<ACharacter>& Weak)
+		{
+			return Weak.Get() == Gunner;
+		});
+
+		if (Index != INDEX_NONE)
+		{
+			PassengersWithCollisionOff.RemoveAt(Index);
+			Gunner->SetActorEnableCollision(true);
+			UAirshipSubsystem::RepairPhysicsState(Gunner);
+			bRestored = true;
+		}
+	}
+
+	if (bRestored)
+	{
+		RefreshPassengers();
+	}
+
+	// The first bunch arrives before BeginPlay, which calls this again (listeners bound there hear it)
+	if (HasActorBegunPlay())
+	{
+		NotifyStationsChanged();
+	}
+}
+
+void AAirshipPawn::NotifyStationsChanged()
+{
+	for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+	{
+		ACharacter* Gunner = GetStationGunner(Station);
+		ACharacter* Old = KnownStationGunners[Station].Get();
+
+		if (Old != Gunner)
+		{
+			KnownStationGunners[Station] = Gunner;
+
+			// This machine hears a gunner's death while it sits at the gun (KeepCorpseOffHull)
+			if (IMyCombatInterface* Combat = Cast<IMyCombatInterface>(Gunner))
+			{
+				Combat->GetOnDeathDelegate().AddUniqueDynamic(this, &ThisClass::OnStationGunnerDied);
+			}
+
+			// The one who left, once it is off this hull here: a client may see the station free before the detach (and a
+			// death just before it) replicate, and then stays bound; the handler checks the attachment. The server
+			// unbinds in DismountGunner, after its detach.
+			IMyCombatInterface* OldCombat = Cast<IMyCombatInterface>(Old);
+
+			if (OldCombat && FindStationOf(Old) == INDEX_NONE && !Old->IsAttachedTo(this))
+			{
+				OldCombat->GetOnDeathDelegate().RemoveDynamic(this, &ThisClass::OnStationGunnerDied);
+			}
+
+			OnStationsChanged.Broadcast(this, Station, Gunner);
+		}
+	}
+}
+
+void AAirshipPawn::OnStationGunnerDied(AActor* DeadActor)
+{
+	ACharacter* Corpse = Cast<ACharacter>(DeadActor);
+
+	// Still at the gun on this machine: the ragdoll has just started where the seat is
+	if (Corpse && Corpse->IsAttachedTo(this))
+	{
+		KeepCorpseOffHull(Corpse);
+	}
+}
+
+void AAirshipPawn::KeepCorpseOffHull(ACharacter* Corpse) const
+{
+	if (!Corpse || !HullCollision)
+	{
+		return;
+	}
+
+	// Only what simulates now (AMyCharBase's ragdoll mesh); the capsule's collision is off at death anyway
+	const ECollisionChannel HullChannel = HullCollision->GetCollisionObjectType();
+	TInlineComponentArray<UPrimitiveComponent*> Primitives(Corpse);
+	int32 Changed = 0;
+
+	for (UPrimitiveComponent* Primitive : Primitives)
+	{
+		if (Primitive && (Primitive->IsSimulatingPhysics() || Primitive->BodyInstance.bSimulatePhysics)
+			&& Primitive->GetCollisionResponseToChannel(HullChannel) != ECR_Ignore)
+		{
+			Primitive->SetCollisionResponseToChannel(HullChannel, ECR_Ignore);
+			++Changed;
+		}
+	}
+
+	UE_LOG(LogAirshipPawn, Log, TEXT("%s: %s died at a gun station: %d simulated part(s) ignore the hull"), *GetName(), *Corpse->GetName(), Changed);
+}
+
+
+// =============================================================================
+// Turrets (SPEC_A.md D6)
+// =============================================================================
+
+AAirshipTurret* AAirshipPawn::GetTurret(int32 TurretIndex) const
+{
+	AAirshipTurret* Turret = Turrets.IsValidIndex(TurretIndex) ? Turrets[TurretIndex].Get() : nullptr;
+	return IsValid(Turret) ? Turret : nullptr;
+}
+
+AAirshipTurret* AAirshipPawn::FindTurretBehindHullHit(const FVector& HullImpact, const FVector& Direction, FHitResult& OutTurretHit) const
+{
+	using namespace AirshipPawnPrivate;
+
+	const FVector Dir = Direction.GetSafeNormal();
+
+	if (!HullCollision || Dir.IsNearlyZero() || HullImpact.ContainsNaN())
+	{
+		return nullptr;
+	}
+
+	// From a little before the hull's surface (a hit right on a HitBox face still counts) on along the shot
+	const double ImpactZ = HullCollision->GetComponentTransform().InverseTransformPosition(HullImpact).Z;
+	const FVector Start = HullImpact - Dir * 5.0;
+	const FVector End = HullImpact + Dir * TurretHullReach;
+	const FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipTurretBehindHull), false);
+
+	AAirshipTurret* Best = nullptr;
+	float BestDistance = TNumericLimits<float>::Max();
+
+	for (int32 Index = 0; Index < Turrets.Num(); ++Index)
+	{
+		AAirshipTurret* Turret = GetTurret(Index);
+		UBoxComponent* Box = Turret ? Turret->GetHitBox() : nullptr;
+
+		// A wreck takes no damage: the hull keeps the hit. A hit below the deck plane came through the hull's body.
+		if (!Box || Turret->IsTurretDestroyed() || ImpactZ < Turret->GetMount().Location.Z - TurretHullPassMargin)
+		{
+			continue;
+		}
+
+		FHitResult Hit;
+
+		if (Box->LineTraceComponent(Hit, Start, End, Params) && Hit.Distance < BestDistance)
+		{
+			Best = Turret;
+			BestDistance = Hit.Distance;
+			OutTurretHit = Hit;
+		}
+	}
+
+	return Best;
+}
+
+AActor* AAirshipPawn::RedirectBulletHitToTurret(const FHitResult& Block, const FVector& Direction, FVector& OutImpact)
+{
+	const AAirshipPawn* Ship = Cast<AAirshipPawn>(Block.GetActor());
+	FHitResult TurretHit;
+	AAirshipTurret* Turret = Ship ? Ship->FindTurretBehindHullHit(Block.ImpactPoint, Direction, TurretHit) : nullptr;
+
+	if (Turret)
+	{
+		OutImpact = TurretHit.ImpactPoint;
+	}
+
+	return Turret;
+}
+
+void AAirshipPawn::SpawnTurrets()
+{
+	UWorld* World = GetWorld();
+	const UAirshipSettings* Settings = UAirshipSettings::Get();
+
+	if (!HasAuthority() || !World || !HullCollision || !Settings->bSpawnTurrets)
+	{
+		return;
+	}
+
+	UClass* TurretClass = Settings->TurretClass.IsNull() ? nullptr : Settings->TurretClass.LoadSynchronous();
+
+	if (!TurretClass)
+	{
+		if (!bWarnedTurretClass)
+		{
+			bWarnedTurretClass = true;
+			UE_LOG(LogAirshipPawn, Warning, TEXT("%s: TurretClass (Project Settings > Game > Airship) not found: plain AAirshipTurret (no meshes)"), *GetName());
+		}
+		TurretClass = AAirshipTurret::StaticClass();
+	}
+
+	const FTransform HullTM = HullCollision->GetComponentTransform();
+	const int32 NumMounts = FMath::Min(Airship::NumTurrets, Settings->TurretMounts.Num());
+	Turrets.SetNum(Airship::NumTurrets);
+
+	for (int32 TurretIndex = 0; TurretIndex < NumMounts; ++TurretIndex)
+	{
+		if (IsValid(Turrets[TurretIndex]))
+		{
+			continue;
+		}
+
+		// The turret's frame is the mount's, with the hull's rotation (its aim math assumes no rotation of its own)
+		const FAirshipTurretMount& Mount = Settings->TurretMounts[TurretIndex];
+		const FTransform SpawnTM = FTransform(Mount.Location) * HullTM;
+		AAirshipTurret* Turret = World->SpawnActorDeferred<AAirshipTurret>(TurretClass, SpawnTM, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+
+		if (!Turret)
+		{
+			continue;
+		}
+
+		Turret->InitTurret(this, TurretIndex, Mount);
+		Turret->FinishSpawning(SpawnTM);
+
+		// Not welded (KeepWorldTransform's default): the QueryOnly HitBox must never become part of the hull's simulated body
+		Turret->AttachToComponent(HullCollision, FAttachmentTransformRules::KeepWorldTransform);
+		Turret->SetActorRelativeTransform(FTransform(Mount.Location));
+
+		// Sentinel bullets damage it (the turret adds the tag itself too, for one spawned any other way)
+		Turret->Tags.AddUnique(UMechSentinelSwarmSubsystem::BulletTargetTag);
+		Turrets[TurretIndex] = Turret;
+	}
+
+	ForceNetUpdate();
+}
+
+bool AAirshipPawn::IsDriverTurretArc() const
+{
+	using namespace AirshipPawnPrivate;
+
+	const float ArcDeg = UAirshipSettings::Get()->DriverTurretArcDeg;
+	const AController* LocalController = GetController();
+
+	if (ArcDeg <= 0.f || bIsDead || !LocalController)
+	{
+		return false;
+	}
+
+	bool bAnyUnmanned = false;
+
+	for (int32 TurretIndex = 0; TurretIndex < Airship::NumTurrets; ++TurretIndex)
+	{
+		const AAirshipTurret* Turret = GetTurret(TurretIndex);
+
+		if (Turret && !Turret->IsTurretDestroyed() && !IsStationManned(Airship::TurretToStation(TurretIndex)))
+		{
+			bAnyUnmanned = true;
+			break;
+		}
+	}
+
+	if (!bAnyUnmanned)
+	{
+		return false;
+	}
+
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	LocalController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	return FMath::Abs(WrapDeg(static_cast<float>(ViewRotation.Yaw - GetActorRotation().Yaw))) <= ArcDeg;
+}
+
+void AAirshipPawn::SetDebugTurretFire(bool bFire, bool bHasPoint, const FVector& Point)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bDebugTurretFire = bFire;
+	bDebugTurretFireHasPoint = bFire && bHasPoint && !Point.ContainsNaN();
+	DebugTurretFirePoint = bDebugTurretFireHasPoint ? Point : FVector::ZeroVector;
+}
+
+void AAirshipPawn::UpdateTurretCommands()
+{
+	const UAirshipSettings* Settings = UAirshipSettings::Get();
+	const bool bPiloted = PilotCharacter && GetController() && Flight && !bIsDead;
+	const FTransform HullTM = HullCollision ? HullCollision->GetComponentTransform() : GetActorTransform();
+
+	for (int32 TurretIndex = 0; TurretIndex < Airship::NumTurrets; ++TurretIndex)
+	{
+		AAirshipTurret* Turret = GetTurret(TurretIndex);
+
+		if (!Turret || Turret->IsTurretDestroyed())
+		{
+			continue;
+		}
+
+		// Every tick, rest included: a command not refreshed for a while stops the turret (its safety net)
+		const int32 Station = Airship::TurretToStation(TurretIndex);
+		ACharacter* Gunner = GetStationGunner(Station);
+		FAirshipTurretCommand Command;
+
+		if (Gunner)
+		{
+			// Its gunner (damage numbers and XP go to them)
+			Command.AimPoint = GetStationAimPoint(Station);
+			Command.bHasAim = true;
+			Command.bTrigger = StationTrigger[Station];
+			Command.Instigator = Gunner;
+		}
+		else if (bDebugTurretFire)
+		{
+			// Aura.Airship.TurretFire: the point, or 100 m ahead of the bow at muzzle height
+			Command.AimPoint = bDebugTurretFireHasPoint ? DebugTurretFirePoint : Turret->GetMuzzleLocation() + HullTM.GetUnitAxis(EAxis::X) * 10000.0;
+			Command.bHasAim = true;
+			Command.bTrigger = true;
+			Command.Instigator = this;
+		}
+		else if (bPiloted && Flight->GetCurrentControls().HasAimPoint())
+		{
+			// The pilot: the turrets follow the camera's aim point while it is in their arc; Fire held fires them if the
+			// aim's bearing from the hull is in the bow arc (the server's check of the client's FireHeld bit)
+			const FAirshipPilotInput& Controls = Flight->GetCurrentControls();
+			const FVector AimLocal = HullTM.InverseTransformPositionNoScale(Controls.AimPoint);
+			const float BearingDeg = static_cast<float>(FMath::RadiansToDegrees(FMath::Atan2(AimLocal.Y, AimLocal.X)));
+			const bool bInBowArc = Settings->DriverTurretArcDeg > 0.f && FMath::Abs(BearingDeg) <= Settings->DriverTurretArcDeg + 10.f;
+
+			Command.AimPoint = Controls.AimPoint;
+			Command.bHasAim = Turret->IsAimInArc(Controls.AimPoint, 10.f);
+			Command.bTrigger = Controls.IsFireHeld() && bInBowArc;
+			Command.Instigator = this;
+		}
+
+		Turret->SetServerCommand(Command);
+	}
+}
+
+void AAirshipPawn::UpdateLocalTurretCommands(bool bFireHeld)
+{
+	// The same aim rule as the server's (in arc + 10 deg), so this copy rests when the server's does
+	for (int32 TurretIndex = 0; TurretIndex < Airship::NumTurrets; ++TurretIndex)
+	{
+		AAirshipTurret* Turret = GetTurret(TurretIndex);
+
+		if (!Turret || Turret->IsTurretDestroyed() || IsStationManned(Airship::TurretToStation(TurretIndex)))
+		{
+			continue;
+		}
+
+		FAirshipTurretCommand Command;
+		Command.AimPoint = LocalAimPoint;
+		Command.bHasAim = bLocalAimValid && Turret->IsAimInArc(LocalAimPoint, 10.f);
+		Command.bTrigger = bFireHeld && !bIsDead;
+		Command.Instigator = this;
+		Turret->SetLocalCommand(Command);
+	}
+}
+
 
 // =============================================================================
 // Cannons
@@ -1392,6 +2471,32 @@ void AAirshipPawn::RefreshCannonGeometry()
 	{
 		PilotSeatLocal = PilotSeatFallback;
 	}
+
+	// Gunner seats. Cannons: beside the breech, CannonSeatOffset from the carriage (Y inboard: mirrored per side), clear
+	// of the 60 cm recoil. Turrets: behind the gun, TurretSeatOffset from the mount.
+	const UAirshipSettings* Settings = UAirshipSettings::Get();
+
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		FVector Carriage;
+
+		if (!GetMeshRestLocation(CannonCarriageBones.IsValidIndex(Cannon) ? CannonCarriageBones[Cannon] : NAME_None, Carriage))
+		{
+			Carriage = CannonCarriageFallback.IsValidIndex(Cannon) ? CannonCarriageFallback[Cannon] : CannonMuzzleLocal[Cannon];
+		}
+
+		// Port is -Y: inboard is +Y there
+		const double Inboard = Airship::IsPortCannon(Cannon) ? 1.0 : -1.0;
+		const FVector& Offset = Settings->CannonSeatOffset;
+		StationSeatLocal[Cannon] = Carriage + FVector(Offset.X, Inboard * Offset.Y, Offset.Z);
+	}
+
+	for (int32 Turret = 0; Turret < Airship::NumTurrets; ++Turret)
+	{
+		const int32 Station = Airship::TurretToStation(Turret);
+		const FVector Mount = Settings->TurretMounts.IsValidIndex(Turret) ? Settings->TurretMounts[Turret].Location : FVector::ZeroVector;
+		StationSeatLocal[Station] = Mount + Settings->TurretSeatOffset;
+	}
 }
 
 FVector AAirshipPawn::GetCannonMuzzleLocal(int32 Cannon) const
@@ -1406,17 +2511,38 @@ FVector AAirshipPawn::GetCannonRestDirLocal(int32 Cannon) const
 
 float AAirshipPawn::GetCannonReloadAlpha(EAirshipSide Side) const
 {
+	// The least loaded unmanned cannon of the side (a manned one is its gunner's)
+	float Alpha = 1.f;
+
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		if (AirshipPawnPrivate::CannonSide(Cannon) == Side && !IsCannonManned(Cannon))
+		{
+			Alpha = FMath::Min(Alpha, GetCannonReloadAlpha(Cannon));
+		}
+	}
+
+	return Alpha;
+}
+
+float AAirshipPawn::GetCannonReloadAlpha(int32 Cannon) const
+{
 	const UWorld* World = GetWorld();
 
-	if (!World || CannonCooldown <= 0.f)
+	if (!World || CannonCooldown <= 0.f || Cannon < 0 || Cannon >= Airship::NumCannons)
 	{
 		return 1.f;
 	}
 
-	// The server's own clock, or the pilot client's prediction clock (it only asks once that one is done)
-	const int32 SideIndex = AirshipPawnPrivate::SideIndex(Side);
-	const double LastFire = HasAuthority() ? LastSideFireTime[SideIndex] : LastPredictedFireTime[SideIndex];
+	// The server's own clock, or this client's (its predicted shots and the shots it saw): it only asks once that one is done
+	const double LastFire = HasAuthority() ? LastCannonFireTime[Cannon] : LastPredictedCannonFireTime[Cannon];
 	return FMath::Clamp(static_cast<float>((World->GetTimeSeconds() - LastFire) / CannonCooldown), 0.f, 1.f);
+}
+
+bool AAirshipPawn::IsCannonLoadedServer(int32 Cannon, double Now) const
+{
+	// Small tolerance: the client's own reload runs on its clock
+	return Cannon >= 0 && Cannon < Airship::NumCannons && Now - LastCannonFireTime[Cannon] >= FMath::Max(CannonCooldown - 0.1f, 0.f);
 }
 
 void AAirshipPawn::ComputeCannonAim(int32 Cannon, const FVector& Target, float& OutYawDeg, float& OutElevDeg) const
@@ -1436,8 +2562,10 @@ void AAirshipPawn::ComputeCannonAimRaw(int32 Cannon, const FVector& Target, floa
 		return;
 	}
 
+	// The launch direction of the ballistic low arc (world), then yaw / elevation in the hull frame as before
 	const FTransform HullTM = HullCollision->GetComponentTransform();
-	FVector ToTarget = HullTM.InverseTransformVectorNoScale(Target - HullTM.TransformPosition(GetCannonMuzzleLocal(Cannon)));
+	const FVector Muzzle = HullTM.TransformPosition(GetCannonMuzzleLocal(Cannon));
+	FVector ToTarget = HullTM.InverseTransformVectorNoScale(ComputeCannonLaunchDir(Muzzle, Target));
 
 	if (!ToTarget.Normalize())
 	{
@@ -1456,26 +2584,136 @@ void AAirshipPawn::ComputeCannonAimRaw(int32 Cannon, const FVector& Target, floa
 	OutElevDeg = static_cast<float>(FMath::RadiansToDegrees(ElevRad));
 }
 
-bool AAirshipPawn::IsAimInCannonArc(EAirshipSide Side, const FVector& AimPoint) const
+double AAirshipPawn::GetCannonballGravity() const
 {
-	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	// The ball's own gravity (UProjectileMovementComponent: world gravity x ProjectileGravityScale), from the class default
+	const UWorld* World = GetWorld();
+	UClass* BallClass = CannonballClass ? CannonballClass.Get() : AAirshipCannonball::StaticClass();
+	const AAirshipCannonball* BallDefaults = GetDefault<AAirshipCannonball>(BallClass);
+	return World ? FMath::Abs(static_cast<double>(World->GetGravityZ())) * (BallDefaults ? BallDefaults->GetGravityScale() : 1.f) : 0.0;
+}
+
+FVector AAirshipPawn::GetInheritedMuzzleVelocity(const FVector& Muzzle) const
+{
+	// What SpawnCannonball adds to the ball: the ship's velocity and its turn at the muzzle
+	if (HullCollision && HullCollision->IsSimulatingPhysics())
 	{
-		if (AirshipPawnPrivate::CannonSide(Cannon) != Side)
+		return HullCollision->GetPhysicsLinearVelocity()
+			+ FVector::CrossProduct(HullCollision->GetPhysicsAngularVelocityInRadians(), Muzzle - HullCollision->GetCenterOfMass());
+	}
+
+	return GetVelocity();
+}
+
+FVector AAirshipPawn::GetCannonBallPathPoint(int32 Cannon, const FVector& AimPoint) const
+{
+	if (!HullCollision || Cannon < 0 || Cannon >= Airship::NumCannons)
+	{
+		return AimPoint;
+	}
+
+	// A ball fired now along the barrel as it points (its limits applied), with the muzzle's velocity and the ball's
+	// gravity: where it is once it has covered the horizontal distance to AimPoint
+	const FTransform HullTM = HullCollision->GetComponentTransform();
+	const FVector Muzzle = HullTM.TransformPosition(GetCannonMuzzleLocal(Cannon));
+	const FVector Dir = HullTM.TransformVectorNoScale(GetCannonDirLocal(Cannon, CannonAimYawDeg[Cannon], CannonAimElevDeg[Cannon]));
+	const FVector Velocity = Dir * CannonballSpeed + GetInheritedMuzzleVelocity(Muzzle);
+	const FVector ToAim(AimPoint.X - Muzzle.X, AimPoint.Y - Muzzle.Y, 0.0);
+	const double Distance = ToAim.Size();
+	const double Closing = Distance > 1.0 ? FVector::DotProduct(FVector(Velocity.X, Velocity.Y, 0.0), ToAim / Distance) : 0.0;
+
+	if (Closing < 1.0)
+	{
+		return Muzzle + Dir * 10000.0;
+	}
+
+	const double Time = Distance / Closing;
+	return Muzzle + Velocity * Time - FVector(0.0, 0.0, 0.5 * GetCannonballGravity() * Time * Time);
+}
+
+FVector AAirshipPawn::ComputeCannonLaunchDir(const FVector& Muzzle, const FVector& Target) const
+{
+	const UWorld* World = GetWorld();
+	const FVector Straight = (Target - Muzzle).GetSafeNormal();
+
+	if (!World || !HullCollision || CannonballSpeed <= 1.f || Straight.IsNearlyZero())
+	{
+		return Straight;
+	}
+
+	const double G = GetCannonballGravity();
+	const double Speed = CannonballSpeed;
+	const double Speed2 = Speed * Speed;
+
+	// The velocity the ball inherits at the muzzle: in the frame that moves with it the ball leaves at Speed, so aim at
+	// where the target is in that frame when the ball arrives (at cruise the inherited 48 m/s would carry a 100 m shot
+	// about 70 m off the crosshair)
+	const FVector Inherited = UAirshipSettings::Get()->bCannonAimLeadShipVelocity ? GetInheritedMuzzleVelocity(Muzzle) : FVector::ZeroVector;
+
+	// Low-arc direction onto Aim and its flight time (s); straight at it without gravity or right above / below the muzzle
+	auto Solve = [&Muzzle, G, Speed, Speed2](const FVector& Aim, FVector& OutDir, double& OutTime)
+	{
+		const FVector Delta = Aim - Muzzle;
+		const FVector Flat(Delta.X, Delta.Y, 0.0);
+		const double D = Flat.Size();
+		const double H = Delta.Z;
+
+		if (G <= KINDA_SMALL_NUMBER || D < 1.0)
 		{
-			continue;
+			OutDir = Delta.GetSafeNormal();
+			OutTime = Delta.Size() / Speed;
+			return;
 		}
 
-		float YawDeg = 0.f;
-		float ElevDeg = 0.f;
-		ComputeCannonAimRaw(Cannon, AimPoint, YawDeg, ElevDeg);
+		const double Disc = Speed2 * Speed2 - G * (G * D * D + 2.0 * H * Speed2);
+		// Out of range: the max-range angle (the elevation limit then caps it and the shot falls short)
+		const double Theta = Disc < 0.0 ? UE_DOUBLE_PI / 4.0 : FMath::Atan((Speed2 - FMath::Sqrt(Disc)) / (G * D));
+		const FVector Horizontal = Flat / D;
+		OutDir = (Horizontal * FMath::Cos(Theta) + FVector::UpVector * FMath::Sin(Theta)).GetSafeNormal();
+		OutTime = D / FMath::Max(Speed * FMath::Cos(Theta), 1.0);
+	};
 
-		if (FMath::Abs(YawDeg) <= CannonYawLimitDeg && ElevDeg >= CannonElevMinDeg && ElevDeg <= CannonElevMaxDeg)
+	FVector Dir = Straight;
+	double Time = 0.0;
+	Solve(Target, Dir, Time);
+
+	if (!Inherited.IsNearlyZero())
+	{
+		// Two fixed-point steps on the flight time are enough at these speeds (the time changes by a few per cent)
+		for (int32 Step = 0; Step < 2; ++Step)
+		{
+			Solve(Target - Inherited * Time, Dir, Time);
+		}
+	}
+
+	return Dir.IsNearlyZero() ? Straight : Dir;
+}
+
+bool AAirshipPawn::IsAimInCannonArc(EAirshipSide Side, const FVector& AimPoint) const
+{
+	// The pilot's broadside: only the cannons nobody mans
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		if (AirshipPawnPrivate::CannonSide(Cannon) == Side && !IsCannonManned(Cannon) && IsCannonAimInArc(Cannon, AimPoint))
 		{
 			return true;
 		}
 	}
 
 	return false;
+}
+
+bool AAirshipPawn::IsCannonAimInArc(int32 Cannon, const FVector& AimPoint) const
+{
+	if (Cannon < 0 || Cannon >= Airship::NumCannons)
+	{
+		return false;
+	}
+
+	float YawDeg = 0.f;
+	float ElevDeg = 0.f;
+	ComputeCannonAimRaw(Cannon, AimPoint, YawDeg, ElevDeg);
+	return FMath::Abs(YawDeg) <= CannonYawLimitDeg && ElevDeg >= CannonElevMinDeg && ElevDeg <= CannonElevMaxDeg;
 }
 
 FVector AAirshipPawn::GetCannonDirLocal(int32 Cannon, float YawDeg, float ElevDeg) const
@@ -1534,7 +2772,12 @@ void AAirshipPawn::UpdateCannonAim()
 
 	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
 	{
-		if (bHasAim && !bIsDead && AirshipPawnPrivate::CannonSide(Cannon) == AimSide)
+		if (!bIsDead && IsCannonManned(Cannon))
+		{
+			// A manned cannon always tracks its gunner's aim (this machine's own gunner's at once, else the replicated one)
+			ComputeCannonAim(Cannon, GetStationAimPoint(Cannon), CannonAimYawDeg[Cannon], CannonAimElevDeg[Cannon]);
+		}
+		else if (bHasAim && !bIsDead && AirshipPawnPrivate::CannonSide(Cannon) == AimSide)
 		{
 			ComputeCannonAim(Cannon, Aim, CannonAimYawDeg[Cannon], CannonAimElevDeg[Cannon]);
 		}
@@ -1554,6 +2797,12 @@ void AAirshipPawn::RequestFire()
 		return;
 	}
 
+	// The camera in the bow arc: Fire held drives the unmanned turrets (GatherLocalInput's FireHeld bit), no broadside
+	if (IsDriverTurretArc())
+	{
+		return;
+	}
+
 	FVector Aim;
 
 	if (!ComputeLocalAimPoint(Aim))
@@ -1569,19 +2818,35 @@ void AAirshipPawn::RequestFire()
 		return;
 	}
 
-	// The pilot's client shows its shot at once and asks only when its own reload is done (the server allows 0.1 s of
-	// clock difference), so every real shot has a prediction and the multicast skips exactly that one
-	const int32 SideIndex = AirshipPawnPrivate::SideIndex(Side);
+	// The pilot's client shows its shot at once and asks only when its own reload of a cannon is done (the server allows
+	// 0.1 s of clock difference), so every real shot has a prediction and the multicast skips exactly that one. Manned
+	// cannons are their gunners'.
 	const double Now = GetWorld()->GetTimeSeconds();
+	uint8 Mask = 0;
 
-	if (Now - LastPredictedFireTime[SideIndex] < CannonCooldown)
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		if (AirshipPawnPrivate::CannonSide(Cannon) == Side && !IsCannonManned(Cannon) && Now - LastPredictedCannonFireTime[Cannon] >= CannonCooldown)
+		{
+			Mask |= AirshipPawnPrivate::CannonBit(Cannon);
+		}
+	}
+
+	if (Mask == 0)
 	{
 		return;
 	}
 
-	LastPredictedFireTime[SideIndex] = Now;
-	bPredictedShotPending[SideIndex] = true;
-	HandleCannonsFired(Side);
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		if (Mask & AirshipPawnPrivate::CannonBit(Cannon))
+		{
+			LastPredictedCannonFireTime[Cannon] = Now;
+			bPredictedShotPending[Cannon] = true;
+		}
+	}
+
+	HandleCannonsFired(Mask, true);
 	ServerFireCannons(Side, Aim);
 }
 
@@ -1594,6 +2859,73 @@ void AAirshipPawn::ServerFireCannons_Implementation(EAirshipSide Side, FVector_N
 	}
 }
 
+FGameplayEffectSpecHandle AAirshipPawn::MakeCannonballSpec(AActor* DamageInstigator) const
+{
+	// The project's damage: a spec from the ship's ASC, SetByCaller SetDamageByCaller (sources capture the ship). A
+	// gunner as the instigator: its ASC becomes the context's instigator ASC (damage numbers, XP go to the gunner).
+	FGameplayEffectSpecHandle Spec;
+
+	if (!AbilitySystemComponent)
+	{
+		return Spec;
+	}
+
+	FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
+	Context.AddInstigator(DamageInstigator ? DamageInstigator : const_cast<AAirshipPawn*>(this), const_cast<AAirshipPawn*>(this));
+	Context.AddSourceObject(const_cast<AAirshipPawn*>(this));
+	const TSubclassOf<UGameplayEffect> EffectClass = DamageEffectClass ? DamageEffectClass : TSubclassOf<UGameplayEffect>(UAirshipDamageEffect::StaticClass());
+	Spec = AbilitySystemComponent->MakeOutgoingSpec(EffectClass, static_cast<float>(ShipLevel), Context);
+
+	if (Spec.IsValid())
+	{
+		Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, CannonballDamage);
+	}
+
+	return Spec;
+}
+
+AAirshipCannonball* AAirshipPawn::SpawnCannonball(int32 Cannon, const FVector& AimPoint, const FGameplayEffectSpecHandle& Spec)
+{
+	UWorld* World = GetWorld();
+
+	if (!World || !HullCollision || Cannon < 0 || Cannon >= Airship::NumCannons)
+	{
+		return nullptr;
+	}
+
+	const FTransform HullTM = HullCollision->GetComponentTransform();
+	UClass* BallClass = CannonballClass ? CannonballClass.Get() : AAirshipCannonball::StaticClass();
+	const AAirshipCannonball* BallDefaults = GetDefault<AAirshipCannonball>(BallClass);
+
+	float YawDeg = 0.f;
+	float ElevDeg = 0.f;
+	ComputeCannonAim(Cannon, AimPoint, YawDeg, ElevDeg);
+
+	FVector Dir = HullTM.TransformVectorNoScale(GetCannonDirLocal(Cannon, YawDeg, ElevDeg));
+
+	if (CannonSpreadDeg > 0.f)
+	{
+		Dir = FMath::VRandCone(Dir, FMath::DegreesToRadians(CannonSpreadDeg));
+	}
+
+	// The ball keeps the muzzle's own velocity (the ship moving and turning); a big ball never starts inside the barrel
+	const FVector Muzzle = HullTM.TransformPosition(GetCannonMuzzleLocal(Cannon));
+	const FVector Velocity = Dir * CannonballSpeed + GetInheritedMuzzleVelocity(Muzzle);
+	const float SpawnOffset = FMath::Max(CannonSpawnForwardOffset, (BallDefaults ? BallDefaults->GetRadius() : 0.f) + 30.f);
+	const FTransform SpawnTM(Velocity.Rotation(), Muzzle + Dir * SpawnOffset);
+
+	AAirshipCannonball* Ball = World->SpawnActorDeferred<AAirshipCannonball>(BallClass, SpawnTM, this, this, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+
+	if (!Ball)
+	{
+		return nullptr;
+	}
+
+	Ball->InitCannonball(this, Velocity, Spec, CannonballDamage);
+	Ball->FinishSpawning(SpawnTM);
+	return Ball;
+}
+
 void AAirshipPawn::FireCannons(EAirshipSide Side, const FVector& AimPoint)
 {
 	UWorld* World = GetWorld();
@@ -1603,122 +2935,162 @@ void AAirshipPawn::FireCannons(EAirshipSide Side, const FVector& AimPoint)
 		return;
 	}
 
-	// Small tolerance: the client's own cooldown runs on its clock
-	const int32 SideIndex = AirshipPawnPrivate::SideIndex(Side);
+	// The unmanned, loaded cannons of the side (each reloads on its own; a gunner fires its own)
 	const double Now = World->GetTimeSeconds();
+	uint8 Mask = 0;
 
-	if (Now - LastSideFireTime[SideIndex] < FMath::Max(CannonCooldown - 0.1f, 0.f))
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		if (AirshipPawnPrivate::CannonSide(Cannon) == Side && !IsCannonManned(Cannon) && IsCannonLoadedServer(Cannon, Now))
+		{
+			Mask |= AirshipPawnPrivate::CannonBit(Cannon);
+		}
+	}
+
+	if (Mask == 0)
 	{
 		return;
 	}
 
-	LastSideFireTime[SideIndex] = Now;
-
-	// The project's damage: a spec from the ship's ASC, SetByCaller SetDamageByCaller (sources capture the ship)
-	FGameplayEffectSpecHandle Spec;
-
-	if (AbilitySystemComponent)
-	{
-		FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
-		Context.AddInstigator(this, this);
-		Context.AddSourceObject(this);
-		const TSubclassOf<UGameplayEffect> EffectClass = DamageEffectClass ? DamageEffectClass : TSubclassOf<UGameplayEffect>(UAirshipDamageEffect::StaticClass());
-		Spec = AbilitySystemComponent->MakeOutgoingSpec(EffectClass, static_cast<float>(ShipLevel), Context);
-
-		if (Spec.IsValid())
-		{
-			Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, CannonballDamage);
-		}
-	}
-
-	const FTransform HullTM = HullCollision->GetComponentTransform();
-	const bool bSimulating = HullCollision->IsSimulatingPhysics();
-	const FVector ShipVelocity = bSimulating ? HullCollision->GetPhysicsLinearVelocity() : GetVelocity();
-	const FVector AngularVelocity = bSimulating ? HullCollision->GetPhysicsAngularVelocityInRadians() : FVector::ZeroVector;
-	const FVector COM = bSimulating ? HullCollision->GetCenterOfMass() : GetActorLocation();
-	UClass* BallClass = CannonballClass ? CannonballClass.Get() : AAirshipCannonball::StaticClass();
-
-	AAirshipCannonball* Fired[2] = { nullptr, nullptr };
-	int32 NumFired = 0;
+	// The broadside's damage is the ship's (its ASC, its instigator)
+	const FGameplayEffectSpecHandle Spec = MakeCannonballSpec(this);
+	TArray<AAirshipCannonball*, TInlineAllocator<Airship::NumCannons>> Fired;
 
 	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
 	{
-		if (AirshipPawnPrivate::CannonSide(Cannon) != Side)
+		if (!(Mask & AirshipPawnPrivate::CannonBit(Cannon)))
 		{
 			continue;
 		}
 
-		float YawDeg = 0.f;
-		float ElevDeg = 0.f;
-		ComputeCannonAim(Cannon, AimPoint, YawDeg, ElevDeg);
+		LastCannonFireTime[Cannon] = Now;
 
-		FVector Dir = HullTM.TransformVectorNoScale(GetCannonDirLocal(Cannon, YawDeg, ElevDeg));
-
-		if (CannonSpreadDeg > 0.f)
+		if (AAirshipCannonball* Ball = SpawnCannonball(Cannon, AimPoint, Spec))
 		{
-			Dir = FMath::VRandCone(Dir, FMath::DegreesToRadians(CannonSpreadDeg));
+			Fired.Add(Ball);
 		}
+	}
 
-		// The ball keeps the muzzle's own velocity (the ship moving and turning)
-		const FVector Muzzle = HullTM.TransformPosition(GetCannonMuzzleLocal(Cannon));
-		const FVector MuzzleVelocity = ShipVelocity + FVector::CrossProduct(AngularVelocity, Muzzle - COM);
-		const FVector Velocity = Dir * CannonballSpeed + MuzzleVelocity;
-		const FTransform SpawnTM(Velocity.Rotation(), Muzzle + Dir * CannonSpawnForwardOffset);
+	// Balls of one broadside start side by side: they never hit each other
+	for (int32 A = 0; A < Fired.Num(); ++A)
+	{
+		for (int32 B = A + 1; B < Fired.Num(); ++B)
+		{
+			Fired[A]->IgnoreActor(Fired[B]);
+			Fired[B]->IgnoreActor(Fired[A]);
+		}
+	}
 
-		AAirshipCannonball* Ball = World->SpawnActorDeferred<AAirshipCannonball>(BallClass, SpawnTM, this, this, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	MulticastCannonsFired(Mask);
+}
 
-		if (!Ball)
+void AAirshipPawn::FireStation(int32 Station, const FVector& AimPoint)
+{
+	UWorld* World = GetWorld();
+
+	if (!HasAuthority() || bIsDead || !World || !Airship::IsCannonStation(Station) || AimPoint.ContainsNaN())
+	{
+		return;
+	}
+
+	ACharacter* Gunner = StationGunners.IsValidIndex(Station) ? StationGunners[Station].Get() : nullptr;
+
+	if (!IsValid(Gunner) || (Gunner->Implements<UMyCombatInterface>() && IMyCombatInterface::Execute_IsDead(Gunner)))
+	{
+		return;
+	}
+
+	const int32 Cannon = Station;
+	const double Now = World->GetTimeSeconds();
+
+	if (!IsCannonLoadedServer(Cannon, Now))
+	{
+		return;
+	}
+
+	LastCannonFireTime[Cannon] = Now;
+
+	// Damage numbers and XP go to the gunner (its ASC is the context's instigator ASC); the ship stays the effect causer
+	const FGameplayEffectSpecHandle Spec = MakeCannonballSpec(Gunner);
+	SpawnCannonball(Cannon, AimPoint, Spec);
+	MulticastCannonsFired(AirshipPawnPrivate::CannonBit(Cannon));
+
+	UE_LOG(LogAirshipPawn, Verbose, TEXT("%s: %s fired %s"), *GetName(), *Gunner->GetName(), *AirshipPawnPrivate::StationName(Station));
+}
+
+bool AAirshipPawn::PredictStationFire(int32 Station)
+{
+	const UWorld* World = GetWorld();
+
+	if (HasAuthority() || bIsDead || !World || !Airship::IsCannonStation(Station))
+	{
+		return false;
+	}
+
+	const int32 Cannon = Station;
+	const double Now = World->GetTimeSeconds();
+
+	if (Now - LastPredictedCannonFireTime[Cannon] < CannonCooldown)
+	{
+		return false;
+	}
+
+	LastPredictedCannonFireTime[Cannon] = Now;
+	bPredictedShotPending[Cannon] = true;
+	HandleCannonsFired(AirshipPawnPrivate::CannonBit(Cannon), true);
+	return true;
+}
+
+void AAirshipPawn::MulticastCannonsFired_Implementation(uint8 CannonMask)
+{
+	// The machine that predicted a cannon's shot (the pilot's client, a gunner's client) played it at the press (a
+	// prediction the server dropped expires). Never set on the server.
+	const UWorld* World = GetWorld();
+	const double Now = World ? World->GetTimeSeconds() : 0.0;
+	uint8 Remaining = 0;
+
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		if (!(CannonMask & AirshipPawnPrivate::CannonBit(Cannon)))
 		{
 			continue;
 		}
 
-		Ball->InitCannonball(this, Velocity, Spec, CannonballDamage);
-		Ball->FinishSpawning(SpawnTM);
+		const bool bPending = bPredictedShotPending[Cannon];
+		bPredictedShotPending[Cannon] = false;
 
-		if (NumFired < 2)
+		if (bPending && Now - LastPredictedCannonFireTime[Cannon] < CannonCooldown + 0.5)
 		{
-			Fired[NumFired++] = Ball;
+			continue;
 		}
+
+		// A client's reload clock follows the shots it sees (a cannon a gunner fired, then the pilot's broadside)
+		if (!HasAuthority())
+		{
+			LastPredictedCannonFireTime[Cannon] = Now;
+		}
+
+		Remaining |= AirshipPawnPrivate::CannonBit(Cannon);
 	}
 
-	if (Fired[0] && Fired[1])
+	if (Remaining != 0)
 	{
-		Fired[0]->IgnoreActor(Fired[1]);
-		Fired[1]->IgnoreActor(Fired[0]);
+		HandleCannonsFired(Remaining, false);
 	}
-
-	MulticastCannonsFired(Side);
 }
 
-void AAirshipPawn::MulticastCannonsFired_Implementation(EAirshipSide Side)
+void AAirshipPawn::HandleCannonsFired(uint8 CannonMask, bool bLocalShot)
 {
-	// The pilot's client played this shot when it pressed fire (a prediction the server dropped expires)
-	if (IsLocallyControlled() && !HasAuthority() && GetWorld())
-	{
-		const int32 SideIndex = AirshipPawnPrivate::SideIndex(Side);
-		const double SincePredicted = GetWorld()->GetTimeSeconds() - LastPredictedFireTime[SideIndex];
-		const bool bPending = bPredictedShotPending[SideIndex];
-		bPredictedShotPending[SideIndex] = false;
-
-		if (bPending && SincePredicted < CannonCooldown + 0.5)
-		{
-			return;
-		}
-	}
-
-	HandleCannonsFired(Side);
-}
-
-void AAirshipPawn::HandleCannonsFired(EAirshipSide Side)
-{
-	if (!HullCollision)
+	if (!HullCollision || CannonMask == 0)
 	{
 		return;
 	}
 
 	// The pilot's machine (the host's real shot, a client's predicted one): the broadside punch, and Galleon's beam watch
-	// may give broadside stations for a while
-	if (IsLocallyControlled())
+	// may give broadside stations for a while. Not for a gunner's shot.
+	const bool bHostShot = HasAuthority() && IsLocallyControlled();
+
+	if (IsLocallyControlled() && (bLocalShot || bHostShot) && !IsCannonManned(FMath::CountTrailingZeros(static_cast<uint32>(CannonMask))))
 	{
 		LastOwnBroadsideTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
 		AddFeedback(FeedbackOwnBroadside);
@@ -1727,12 +3099,19 @@ void AAirshipPawn::HandleCannonsFired(EAirshipSide Side)
 	const FTransform HullTM = HullCollision->GetComponentTransform();
 	const bool bSimulating = HullCollision->IsSimulatingPhysics();
 	const float Mass = bSimulating ? HullCollision->GetMass() : 0.f;
+	const float FXMaxSeconds = UAirshipSettings::Get()->MuzzleFXMaxSeconds;
+	int32 LowestCannon = INDEX_NONE;
 
 	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
 	{
-		if (AirshipPawnPrivate::CannonSide(Cannon) != Side)
+		if (!(CannonMask & AirshipPawnPrivate::CannonBit(Cannon)))
 		{
 			continue;
+		}
+
+		if (LowestCannon == INDEX_NONE)
+		{
+			LowestCannon = Cannon;
 		}
 
 		// The anim instance starts the recoil when the count goes up
@@ -1744,14 +3123,31 @@ void AAirshipPawn::HandleCannonsFired(EAirshipSide Side)
 		if (MuzzleFX && GetNetMode() != NM_DedicatedServer)
 		{
 			const FName Socket = CannonMuzzleSockets.IsValidIndex(Cannon) ? CannonMuzzleSockets[Cannon] : NAME_None;
+			UNiagaraComponent* FX = nullptr;
 
 			if (Mesh && !Socket.IsNone() && Mesh->DoesSocketExist(Socket))
 			{
-				UNiagaraFunctionLibrary::SpawnSystemAttached(MuzzleFX, Mesh, Socket, FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::SnapToTarget, true);
+				FX = UNiagaraFunctionLibrary::SpawnSystemAttached(MuzzleFX, Mesh, Socket, FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::SnapToTarget, true);
 			}
 			else
 			{
-				UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, MuzzleFX, Muzzle, Dir.Rotation());
+				FX = UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, MuzzleFX, Muzzle, Dir.Rotation());
+			}
+
+			// Safety net (round 2 D1): a muzzle system that loops (NS_AirshipMuzzle's smoke did, every 2 s) is cut after
+			// MuzzleFXMaxSeconds. bAutoDestroy: completing removes the component. A weak lambda on the ship: EndPlay's
+			// ClearAllTimersForObject drops it.
+			if (FX && FXMaxSeconds > 0.f)
+			{
+				TWeakObjectPtr<UNiagaraComponent> WeakFX(FX);
+				FTimerHandle CutHandle;
+				GetWorldTimerManager().SetTimer(CutHandle, FTimerDelegate::CreateWeakLambda(this, [WeakFX]()
+				{
+					if (UNiagaraComponent* Component = WeakFX.Get())
+					{
+						Component->DeactivateImmediate();
+					}
+				}), FXMaxSeconds, false);
 			}
 		}
 
@@ -1762,7 +3158,7 @@ void AAirshipPawn::HandleCannonsFired(EAirshipSide Side)
 		}
 	}
 
-	BP_OnCannonsFired(Side);
+	BP_OnCannonsFired(AirshipPawnPrivate::CannonSide(LowestCannon == INDEX_NONE ? 0 : LowestCannon));
 }
 
 
@@ -1997,6 +3393,144 @@ void AAirshipPawn::ApplyShipDamage(float Damage)
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
 }
 
+void AAirshipPawn::DebugKill()
+{
+	if (!HasAuthority() || bIsDead)
+	{
+		return;
+	}
+
+	{
+		// The health drop below is an admin kill, not a hit: no crew share (the crew is ejected alive)
+		TGuardValue<bool> NoCrewDamage(bSuppressCrewDamage, true);
+
+		if (AbilitySystemComponent)
+		{
+			AbilitySystemComponent->SetNumericAttributeBase(UMyAttributeSet::GetHealthAttribute(), 0.f);
+		}
+	}
+
+	Die();
+}
+
+void AAirshipPawn::OnShipHealthChanged(const FOnAttributeChangeData& Data)
+{
+	const float Loss = Data.OldValue - Data.NewValue;
+	const float Share = UAirshipSettings::Get()->CrewDamageShare;
+
+	if (!HasAuthority() || bSuppressCrewDamage || Share <= 0.f || !(Loss > 0.f))
+	{
+		return;
+	}
+
+	// Hits of one frame add up; the flush runs next tick: this runs inside the damage effect's execution (as Die does),
+	// and ejecting a crew member possesses and detaches characters
+	PendingCrewDamage += Loss * Share;
+	PendingCrewLoss += Loss;
+
+	if (!bCrewDamageFlushQueued)
+	{
+		bCrewDamageFlushQueued = true;
+		GetWorldTimerManager().SetTimerForNextTick(this, &ThisClass::FlushCrewDamage);
+	}
+}
+
+void AAirshipPawn::FlushCrewDamage()
+{
+	bCrewDamageFlushQueued = false;
+	const float Damage = PendingCrewDamage;
+	const float Loss = PendingCrewLoss;
+	PendingCrewDamage = 0.f;
+	PendingCrewLoss = 0.f;
+
+	if (!HasAuthority() || !AbilitySystemComponent || !(Damage > 0.f))
+	{
+		return;
+	}
+
+	// The crew before anyone leaves (ejecting clears PilotCharacter / the station): station -1 = the pilot
+	TArray<TPair<TWeakObjectPtr<ACharacter>, int32>, TInlineAllocator<1 + Airship::NumStations>> Crew;
+
+	if (PilotCharacter)
+	{
+		Crew.Emplace(PilotCharacter.Get(), -1);
+	}
+
+	for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+	{
+		if (ACharacter* Gunner = GetStationGunner(Station))
+		{
+			Crew.Emplace(Gunner, Station);
+		}
+	}
+
+	const TSubclassOf<UGameplayEffect> EffectClass = DamageEffectClass ? DamageEffectClass : TSubclassOf<UGameplayEffect>(UAirshipDamageEffect::StaticClass());
+	const float Share = UAirshipSettings::Get()->CrewDamageShare;
+
+	for (const TPair<TWeakObjectPtr<ACharacter>, int32>& Member : Crew)
+	{
+		ACharacter* Character = Member.Key.Get();
+
+		if (!IsValid(Character) || (Character->Implements<UMyCombatInterface>() && IMyCombatInterface::Execute_IsDead(Character)))
+		{
+			continue;
+		}
+
+		// Player characters only (their ASC lives on the PlayerState and carries UMyAttributeSet)
+		UAbilitySystemComponent* CrewASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Character);
+
+		if (!CrewASC || !CrewASC->HasAttributeSetForAttribute(UMyAttributeSet::GetHealthAttribute()))
+		{
+			continue;
+		}
+
+		// A share that kills: on foot first (the pilot gets the character back, a gunner leaves the gun), so the normal
+		// on-foot death runs (ragdoll, GameMode respawn) instead of a death at the helm or the gun
+		if (Damage >= CrewASC->GetNumericAttribute(UMyAttributeSet::GetHealthAttribute()))
+		{
+			if (Member.Value < 0)
+			{
+				if (PilotCharacter == Character)
+				{
+					UnboardPilot(true);
+				}
+			}
+			else if (GetStationGunner(Member.Value) == Character)
+			{
+				DismountGunner(Member.Value, true);
+			}
+
+			if (!IsValid(Character))
+			{
+				continue;
+			}
+
+			// The possession may have given the character another ASC binding
+			CrewASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Character);
+
+			if (!CrewASC)
+			{
+				continue;
+			}
+		}
+
+		// The ship's damage effect from the ship's ASC (the same path as its cannonballs), on the crew member's own ASC
+		FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
+		Context.AddInstigator(this, this);
+		const FGameplayEffectSpecHandle Spec = AbilitySystemComponent->MakeOutgoingSpec(EffectClass, static_cast<float>(ShipLevel), Context);
+
+		if (!Spec.IsValid())
+		{
+			return;
+		}
+
+		Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, Damage);
+		AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), CrewASC);
+
+		UE_LOG(LogAirshipPawn, Log, TEXT("%s: crew damage %s %.1f (%.2f of %.1f)"), *GetName(), *Character->GetName(), Damage, Share, Loss);
+	}
+}
+
 void AAirshipPawn::RecordPreStepState()
 {
 	// The flight update after this (same tick) notes this step's boost / drift kicks
@@ -2151,6 +3685,12 @@ void AAirshipPawn::OnHullHit(UPrimitiveComponent* HitComponent, AActor* OtherAct
 		}
 	}
 
+	// Server: a drifting unpiloted ship stops on a bow contact (any speed, before the damage threshold)
+	if (HasAuthority() && Flight && !bIsDead)
+	{
+		Flight->NotifyHullContact(OtherActor, Hit);
+	}
+
 	if (!HasAuthority() || bIsDead || ImpactDamagePerMS <= 0.f)
 	{
 		return;
@@ -2263,8 +3803,8 @@ void AAirshipPawn::Die()
 	MulticastHandleDeath();
 	SetLifeSpan(WreckLifeSpan);
 
-	// Called from inside the damage effect's execution: the pilot gets their character back next tick
-	GetWorldTimerManager().SetTimerForNextTick(this, &ThisClass::EjectPilotAfterDeath);
+	// Called from inside the damage effect's execution: the pilot and the gunners get their characters back next tick
+	GetWorldTimerManager().SetTimerForNextTick(this, &ThisClass::EjectCrewAfterDeath);
 }
 
 void AAirshipPawn::MulticastHandleDeath_Implementation()
@@ -2384,11 +3924,23 @@ void AAirshipPawn::HandleDeath(bool bLateJoin)
 	OnDeathDelegate.Broadcast(this);
 }
 
-void AAirshipPawn::EjectPilotAfterDeath()
+void AAirshipPawn::EjectCrewAfterDeath()
 {
+	// The killing blow's share first (its flush may also be queued: it then finds nothing left)
+	FlushCrewDamage();
+
 	if (PilotCharacter)
 	{
 		UnboardPilot(true);
+	}
+
+	// Thrown clear like the pilot (UpdateStations would also eject them, a tick later)
+	for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+	{
+		if (StationGunners.IsValidIndex(Station) && StationGunners[Station])
+		{
+			DismountGunner(Station, true);
+		}
 	}
 }
 
@@ -2703,6 +4255,54 @@ FAirshipFlightTelemetry AAirshipPawn::GetFlightTelemetry() const
 
 	Telemetry.bHasPilot = PilotCharacter != nullptr;
 	Telemetry.bIsDead = bIsDead;
+
+	// Gunner stations, turrets, the pilot's own health, the cannons loaded on this machine's clock (round 2)
+	for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+	{
+		if (IsStationManned(Station))
+		{
+			Telemetry.StationMask |= 1 << Station;
+			++Telemetry.NumGunners;
+		}
+	}
+
+	Telemetry.TurretHeat.Init(0.f, Airship::NumTurrets);
+	Telemetry.TurretHealth.Init(0.f, Airship::NumTurrets);
+	Telemetry.TurretShots.Init(0, Airship::NumTurrets);
+
+	for (int32 TurretIndex = 0; TurretIndex < Airship::NumTurrets; ++TurretIndex)
+	{
+		if (const AAirshipTurret* Turret = GetTurret(TurretIndex))
+		{
+			Telemetry.TurretHeat[TurretIndex] = Turret->GetHeat01();
+			Telemetry.TurretHealth[TurretIndex] = Turret->GetHealth();
+			Telemetry.TurretShots[TurretIndex] = Turret->GetShotCount();
+
+			if (Turret->IsTurretDestroyed())
+			{
+				Telemetry.TurretDestroyedMask |= 1 << TurretIndex;
+			}
+		}
+	}
+
+	if (PilotCharacter)
+	{
+		const UAbilitySystemComponent* PilotASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PilotCharacter);
+
+		if (PilotASC && PilotASC->HasAttributeSetForAttribute(UMyAttributeSet::GetHealthAttribute()))
+		{
+			Telemetry.PilotHealth = PilotASC->GetNumericAttribute(UMyAttributeSet::GetHealthAttribute());
+		}
+	}
+
+	for (int32 Cannon = 0; Cannon < Airship::NumCannons; ++Cannon)
+	{
+		if (GetCannonReloadAlpha(Cannon) >= 1.f)
+		{
+			Telemetry.CannonReadyMask |= 1 << Cannon;
+		}
+	}
+
 	return Telemetry;
 }
 
@@ -3533,8 +5133,11 @@ float AAirshipPawn::PointFlyGunLock(float H, float CamYaw, float Dt)
 	PFPrevOffBeam = OffBeamAbs;
 	PFOffBeamRate = ApproachExp(PFOffBeamRate, RateRaw, Dt, PFArcApproachTau);
 
-	// Looking ahead or astern: plain free look (review R1: the sector starts at 55 deg)
-	if (AbsBearing < PFArcMinBearingDeg || AbsBearing > PFArcMaxBearingDeg)
+	// Looking ahead or astern: plain free look (review R1: the sector starts at 55 deg). Round 2: so is a side whose
+	// cannons are both manned (the pilot's broadside has nothing to fire there; the gunners aim their own)
+	const EAirshipSide BearingSide = Bearing > 0.f ? EAirshipSide::Starboard : EAirshipSide::Port;
+
+	if (AbsBearing < PFArcMinBearingDeg || AbsBearing > PFArcMaxBearingDeg || IsSideFullyManned(BearingSide))
 	{
 		bPFLock = false;
 		PFLockDwell = 0.f;

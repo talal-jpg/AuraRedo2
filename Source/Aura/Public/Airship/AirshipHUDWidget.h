@@ -20,6 +20,12 @@ class AAirshipPawn;
  * Control schemes (read every frame): Galleon adds the engine telegraph, a speed rule and a helm row (+GalleonExtraHeight),
  * Sky Racer a DRIFT / TURBO row (+SkyRowHeight); the ship re-applies the viewport slot when the scheme changes. Overlay
  * mode (a second instance over the whole viewport): Point & Fly's crosshair, nose marker, heading strip and gun state.
+ *
+ * Round 2 (every scheme): the pilot's panel has a PILOT row (the pilot character's own health, under the hull bar) and a
+ * GUNS row (the two turrets' heat with their health underneath, an X when wrecked, and a dot per gunner station, filled
+ * when manned); PORT / STBD read MANNED when both cannons of that side have gunners. Gunner mode (the gunner's own
+ * machine, over the whole viewport, UAirshipPilotComponent): a crosshair, the mark where the gun points, and a panel
+ * bottom-left with the station, its reload (cannons, OUT OF ARC) or heat and health (turrets), the hull and F LEAVE.
  */
 UCLASS(Blueprintable)
 class AURA_API UAirshipHUDWidget : public UUserWidget
@@ -43,6 +49,10 @@ public:
 	void SetOverlayMode(bool bInOverlayMode) { bOverlayMode = bInOverlayMode; }
 	bool IsOverlayMode() const { return bOverlayMode; }
 
+	/** Gunner mode (a gunner's own machine; the widget covers the whole viewport): the ship and station. Null / -1 = off. */
+	void SetGunnerStation(AAirshipPawn* InAirship, int32 InStation);
+	bool IsGunnerMode() const { return GunnerStation >= 0; }
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD")
 	FVector2D PanelSize = FVector2D(292.0, 136.0);
 
@@ -52,6 +62,17 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD", meta = (ClampMin = "0.0"))
 	float SkyRowHeight = 26.f;
+
+	/** Extra panel height (slate units) of the PILOT row (under the hull bar) and the GUNS row (at the bottom), every scheme. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD", meta = (ClampMin = "0.0"))
+	float PilotRowHeight = 24.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD", meta = (ClampMin = "0.0"))
+	float GunsRowHeight = 24.f;
+
+	/** Gunner mode: the panel's size (bottom-left, slate units). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD")
+	FVector2D GunnerPanelSize = FVector2D(272.0, 124.0);
 
 	/** Paper (panel), ink (outlines, text, drop shadow), hull bar, boost bar, reloading mark. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD")
@@ -68,6 +89,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD")
 	FLinearColor ReloadColor;
+
+	/** The pilot's own health bar and the turrets' health underlines. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD")
+	FLinearColor PilotColor;
 
 	/** Ground distance trace: interval (s) and length (cm). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD", meta = (ClampMin = "0.0"))
@@ -100,6 +125,15 @@ private:
 
 	/** The tier colour (Sky Racer): ink grey, BoostColor, ReloadColor, HullColor. */
 	FLinearColor GetTierColor(int32 Tier) const;
+
+	/** The pilot's panel: the turrets, the stations, the pilot's own health (NativeTick). */
+	void RefreshCrewValues(const AAirshipPawn* Ship);
+
+	/** Gunner mode's values: the gun's mark, reload or heat, health (NativeTick, cached for the paint). */
+	void RefreshGunnerValues();
+
+	/** Gunner mode's paint: crosshair, gun mark, panel. */
+	int32 PaintGunner(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) const;
 
 	TWeakObjectPtr<AAirshipPawn> Airship;
 
@@ -166,6 +200,26 @@ private:
 
 	/** Parked free look (the gap line hides: no turn is coming until a drive / turn key). */
 	bool bPFParked = false;
+
+	// The pilot's panel, round 2: turrets (L, R), manned stations, the sides fully manned, the pilot's own health
+	bool bTurretShown[2] = { false, false };
+	bool bTurretWrecked[2] = { false, false };
+	bool bTurretOverheated[2] = { false, false };
+	float TurretHeat[2] = { 0.f, 0.f };
+	float TurretHealthAlpha[2] = { 1.f, 1.f };
+	int32 MannedMask = 0;
+	bool bSideManned[2] = { false, false };
+	float PilotHealth = -1.f;
+	float PilotHealthAlpha = 0.f;
+
+	// Gunner mode
+	int32 GunnerStation = -1;
+	bool bGunMarkOnScreen = false;
+	FVector2D GunMarkPosition = FVector2D::ZeroVector;
+	float GunReloadAlpha = 1.f;
+	float GunReloadSeconds = 0.f;
+	bool bGunInArc = true;
+	bool bGunReady = true;
 
 	/** Seconds since the boarding hint started (-1: not yet decided; it shows once per local player and session). */
 	float HintAge = -1.f;

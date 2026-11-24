@@ -30,7 +30,8 @@ class UPrimitiveComponent;
  * the world ends. Never while the character's actor collision is off (the attached pilot): a physics on/off switch then
  * destroys the body and makes none, so the change waits until the collision is back (RepairPhysicsState).
  * Console (non-shipping): Aura.Airship.Spawn / Board / Exit / Damage / Kill / Set / Get / Input / InputClear /
- * Telemetry / Scheme, and the CVars Aura.Airship.Debug and Aura.Airship.RepMode.
+ * Telemetry / Scheme / Mount / Dismount / TurretFire / TurretDamage / StationFire, and the CVars Aura.Airship.Debug and
+ * Aura.Airship.RepMode.
  */
 UCLASS()
 class AURA_API UAirshipSubsystem : public UWorldSubsystem
@@ -56,6 +57,9 @@ public:
 
 	/** Nearest ship to Location (by pilot seat); bOnlyBoardable: alive and without a pilot. */
 	AAirshipPawn* FindNearestAirship(const FVector& Location, bool bOnlyBoardable) const;
+
+	/** Every machine: the ship and gunner station (EAirshipStation) Character mans, from the replicated StationGunners. False if none. */
+	bool FindGunnerStation(const ACharacter* Character, AAirshipPawn*& OutShip, int32& OutStation) const;
 
 	/** Server: adds the pilot component to PC if it has none (and the settings allow it). */
 	void EnsurePilotComponent(APlayerController* PC) const;

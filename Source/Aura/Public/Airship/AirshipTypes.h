@@ -6,6 +6,8 @@
 #include "Engine/NetSerialization.h"
 #include "AirshipTypes.generated.h"
 
+class AActor;
+
 /**
  * Fixed part counts and orders shared by the pawn, the flight model and the anim instance (Docs/Airship/RIG_CONTRACT.md).
  * Pods: FL, FR, RL, RR. Fans (turbines): L, R. Cannons: L1 (forward port), L2 (aft port), R1, R2.
@@ -24,6 +26,18 @@ namespace Airship
 	/** Cannons L1, L2 are on the port side. */
 	inline bool IsPortCannon(int32 Cannon) { return Cannon < 2; }
 
+	/**
+	 * Gunner stations (EAirshipStation order): the four cannons (station = cannon index), then the two front turrets
+	 * (TurretL, TurretR; turret index = station - FirstTurretStation). The helm is not a station: it stays the pilot's.
+	 */
+	constexpr int32 NumStations = 6;
+	constexpr int32 NumTurrets = 2;
+	constexpr int32 FirstTurretStation = 4;
+	inline bool IsCannonStation(int32 Station) { return Station >= 0 && Station < NumCannons; }
+	inline bool IsTurretStation(int32 Station) { return Station >= FirstTurretStation && Station < NumStations; }
+	inline int32 StationToTurret(int32 Station) { return Station - FirstTurretStation; }
+	inline int32 TurretToStation(int32 Turret) { return Turret + FirstTurretStation; }
+
 	/** FAirshipPilotInput::Buttons bits. */
 	constexpr uint8 Button_Boost = 1 << 0;
 	constexpr uint8 Button_Brake = 1 << 1;
@@ -32,6 +46,15 @@ namespace Airship
 
 	/** Galleon: broadside stations (level gun deck, fine helm). Only read while the ship's scheme is Galleon. */
 	constexpr uint8 Button_Stations = 1 << 4;
+
+	/** The pilot holds Fire with the camera in the bow arc: the unmanned turrets fire at AimPoint (every scheme). */
+	constexpr uint8 Button_FireHeld = 1 << 5;
+
+	/**
+	 * Server -> every machine (in the neutral input of an unpiloted ship): the ship is drifting, so Galleon's STOP order
+	 * doesn't reverse the engines on any machine's cosmetics.
+	 */
+	constexpr uint8 Button_Drift = 1 << 6;
 }
 
 /** Broadside: the two cannons on one side. */
@@ -42,6 +65,84 @@ enum class EAirshipSide : uint8
 	Port,
 	/** Right (R1, R2), Unreal +Y. */
 	Starboard
+};
+
+/** A gunner station on the ship (Airship::NumStations of them; the index is the station number). */
+UENUM(BlueprintType)
+enum class EAirshipStation : uint8
+{
+	CannonL1 = 0,
+	CannonL2 = 1,
+	CannonR1 = 2,
+	CannonR2 = 3,
+	TurretL = 4,
+	TurretR = 5,
+	None = 255 UMETA(Hidden)
+};
+
+/**
+ * What a ship does while nobody flies it (server, UAirshipFlightComponent). A later lane mode slots in after Hold, so
+ * keep the values.
+ */
+UENUM(BlueprintType)
+enum class EAirshipUnpilotedMode : uint8
+{
+	/** Piloted, debug input active, flight off or dead. */
+	None = 0,
+	/** Unpiloted and too fast to hold, no drift asked for: the old coast (station keeping as before). */
+	Coast = 1,
+	/** Keeps going slowly ahead along its heading after a moving exit. */
+	Drift = 2,
+	/** Holds a point and a heading (parked). */
+	Hold = 3
+};
+
+/** A turret mount in hull space (cm), its yaw limits (deg about hull +Z, 0 = bow, + = toward starboard) and pitch limits. */
+USTRUCT(BlueprintType)
+struct AURA_API FAirshipTurretMount
+{
+	GENERATED_BODY()
+
+	/** Yaw axis on the deck top (hull space, cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship")
+	FVector Location = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship", meta = (ClampMin = "-180.0", ClampMax = "180.0"))
+	float YawMinDeg = -30.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship", meta = (ClampMin = "-180.0", ClampMax = "180.0"))
+	float YawMaxDeg = 30.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship", meta = (ClampMin = "-89.0", ClampMax = "89.0"))
+	float PitchMinDeg = -20.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship", meta = (ClampMin = "-89.0", ClampMax = "89.0"))
+	float PitchMaxDeg = 40.f;
+};
+
+/** One turret bullet as the tracers see it: it flies from the drawing machine's own muzzle to End. */
+USTRUCT()
+struct AURA_API FAirshipTurretShot
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FVector_NetQuantize End = FVector::ZeroVector;
+
+	/** The bullet hit something (else End is the end of its range). */
+	UPROPERTY()
+	bool bImpact = false;
+};
+
+/** What a turret aims at and whether it fires (not replicated: the server's comes from the ship, a client's is cosmetic). */
+struct FAirshipTurretCommand
+{
+	/** World, cm. */
+	FVector AimPoint = FVector::ZeroVector;
+	bool bHasAim = false;
+	bool bTrigger = false;
+	/** Who the damage is credited to: the gunner, or the ship for the driver and the console. */
+	TWeakObjectPtr<AActor> Instigator;
 };
 
 /**
@@ -124,6 +225,7 @@ struct AURA_API FAirshipPilotInput
 	bool IsBrake() const { return HasButton(Airship::Button_Brake); }
 	bool IsAiming() const { return HasButton(Airship::Button_Aim); }
 	bool HasAimPoint() const { return HasButton(Airship::Button_HasAimPoint); }
+	bool IsFireHeld() const { return HasButton(Airship::Button_FireHeld); }
 
 	/** Same controls (ignores Seq, the aim point and the heading target). */
 	bool SameControls(const FAirshipPilotInput& Other) const
@@ -367,6 +469,59 @@ struct AURA_API FAirshipFlightTelemetry
 	/** Point & Fly gun lock engaged (pilot's machine only); false otherwise. */
 	UPROPERTY(BlueprintReadOnly, Category = "Airship")
 	bool bGunLock = false;
+
+	// ---- Unpiloted ship (UAirshipFlightComponent, server values; 0 / false on clients).
+
+	/** EAirshipUnpilotedMode. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	uint8 UnpilotedMode = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	bool bUnpilotedDrift = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	bool bUnpilotedHold = false;
+
+	/** Drift target speed along the held heading (m/s). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float DriftTargetSpeedMS = 0.f;
+
+	/** Horizontal distance from the centre of mass to the hold point (m). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float HoldOffsetM = 0.f;
+
+	// ---- Gunner stations and turrets (AAirshipPawn, every machine).
+
+	/** Bit s = station s (EAirshipStation) manned. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	int32 StationMask = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	int32 NumGunners = 0;
+
+	/** 0..1 per turret (L, R). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	TArray<float> TurretHeat;
+
+	/** Health per turret (L, R). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	TArray<float> TurretHealth;
+
+	/** Bit t = turret t destroyed. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	int32 TurretDestroyedMask = 0;
+
+	/** AAirshipTurret::GetShotCount per turret on this machine (server: fired; clients: drawn). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	TArray<int32> TurretShots;
+
+	/** The pilot character's Health, -1 without a pilot. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float PilotHealth = -1.f;
+
+	/** Bit c = cannon c loaded on this machine's clock. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	int32 CannonReadyMask = 0;
 };
 
 /**

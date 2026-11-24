@@ -74,6 +74,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mech Sentinels", meta = (EditCondition = "bDamageSentinels", ClampMin = "0"))
 	int32 SentinelMaxTargets = 1;
 
+	/**
+	 * Airship cannonballs block Visibility, so the crosshair sweep can hit one. They have no ASC: MyFunc gives a hit ball
+	 * this many gun units of damage on the server (AAirshipCannonball::ApplyShotDamage; its BallMaxHealth is in the same
+	 * units, 1 = one hit of this gun). A ball fired by the ship the shooter rides is not damaged.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Airship")
+	float CannonballShotUnits = 1.f;
+
 	/** Server: a shot's target data from AT_SendMouseCursorData; damages the sentinels along it (later this frame). */
 	virtual void OnServerMouseCursorData(const FGameplayAbilityTargetDataHandle& Data) override;
 
@@ -86,4 +94,15 @@ private:
 
 	/** The last shot damaged, kept alive so it is told apart from a replay of the same data (and not from a new shot that reused its memory). */
 	TSharedPtr<FGameplayAbilityTargetData> LastSentinelShot;
+
+	/**
+	 * The direction of the shot that hit ImpactPoint: from the camera of the last crosshair hit (OnServerMouseCursorData)
+	 * when that hit is this one, else from the pawn's view. Zero without either.
+	 */
+	FVector GetShotDirection(const FVector& ImpactPoint) const;
+
+	/** Server: the last crosshair hit's trace start and impact (MyFunc only gets the impact point and the actor). */
+	FVector LastAimTraceStart = FVector::ZeroVector;
+	FVector LastAimImpact = FVector::ZeroVector;
+	bool bHasLastAim = false;
 };
