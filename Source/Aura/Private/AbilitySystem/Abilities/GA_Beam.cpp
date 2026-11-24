@@ -12,6 +12,7 @@
 #include "Camera/CameraShakeBase.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/PrimitiveComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "MechSwarm/Combat/MechSentinelCombatLibrary.h"
@@ -35,13 +36,17 @@ namespace
 	
 	/**
 	 * How far (cm) the crosshair's hit on a character may lie from the server's beam line, and from that character's
-	 * collision on the server, and still count: the crosshair sweep's radius and the gap between where the client and
-	 * the server see a character. The beam line stops at the first wall the server finds, so a character farther behind
-	 * that wall than this is not hit.
+	 * collision on the server, and still count, plus CharacterMoveSlackSeconds of the hit point's movement: the crosshair
+	 * sweep's radius and the gap between where the client and the server see a character. The hit point must also be
+	 * in the open from the beam's start, so no character is hit through a wall, and none more than this behind where
+	 * the server's beam stops.
 	 */
 	constexpr double CharacterHitSlack=100.0;
 	
-	/** Seconds of the hit character's own movement added to CharacterHitSlack for the distance to its collision (the server's copy trails or leads the client's). */
+	/**
+	 * Seconds of the hit point's movement (the character's own, the base it stands on, a turning hull's) added to
+	 * CharacterHitSlack: the server's copy of a moving character trails or leads the shooting client's.
+	 */
 	constexpr double CharacterMoveSlackSeconds=0.25;
 	
 	/**
@@ -55,6 +60,17 @@ namespace
 		for (const UPrimitiveComponent* Primitive : Primitives)
 		{
 			if (!Primitive || !Primitive->IsRegistered() || !Primitive->IsQueryCollisionEnabled()) continue;
+			// A skeletal mesh whose bones the server does not refresh (not rendered on this machine, the default for
+			// characters) keeps its bodies in an old pose, e.g. the Burrower's body straight while it curves on the
+			// client: here only its bounds sphere counts
+			const USkeletalMeshComponent* SkeletalMesh=Cast<USkeletalMeshComponent>(Primitive);
+			if (SkeletalMesh && SkeletalMesh->VisibilityBasedAnimTickOption!=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones
+				&& !SkeletalMesh->WasRecentlyRendered(0.2f))
+			{
+				if (FVector::Dist(Point,SkeletalMesh->Bounds.Origin)<=SkeletalMesh->Bounds.SphereRadius+Slack) return true;
+				bMeasured=true;
+				continue;
+			}
 			FVector OnCollision;
 			const float Distance=Primitive->GetDistanceToCollision(Point,OnCollision);
 			if (Distance<0.f) continue;
@@ -136,7 +152,8 @@ bool UGA_Beam::ApplyBeamDamage(const FGameplayAbilityTargetDataHandle& TargetDat
 	
 	// The character the crosshair hit, when it is an enemy the server's beam reaches. The client names both the actor and
 	// the point, so the server checks them: the point must lie on the server's beam line (which stops at the first wall
-	// the server finds, and after BeamRange), and on that actor's collision where the server has it
+	// the server finds, and after BeamRange), on that actor's collision where the server has it, and in the open from
+	// the beam's start (no wall in between, the hit actor itself aside)
 	AActor* const AimActor=AimHit.GetActor();
 	const FVector HitPoint=AimHit.ImpactPoint;
 	AActor* HitCharacter=bHasLine?UMySplashDamageLibrary::FindDamageableActor(AimActor):nullptr;
@@ -144,14 +161,14 @@ bool UGA_Beam::ApplyBeamDamage(const FGameplayAbilityTargetDataHandle& TargetDat
 	{
 		HitCharacter=nullptr;
 	}
-	if (HitCharacter && FMath::PointDistToSegment(HitPoint,Start,End)>CharacterHitSlack)
-	{
-		HitCharacter=nullptr;
-	}
 	if (HitCharacter)
 	{
-		const double Slack=CharacterHitSlack+HitCharacter->GetVelocity().Size()*CharacterMoveSlackSeconds;
-		if (!IsNearActorCollision(*AimActor,HitPoint,Slack) && (HitCharacter==AimActor || !IsNearActorCollision(*HitCharacter,HitPoint,Slack)))
+		const double Slack=CharacterHitSlack+UMechSentinelCombatLibrary::GetMoveVelocityAt(*HitCharacter,HitPoint).Size()*CharacterMoveSlackSeconds;
+		const bool bOnBeam=FMath::PointDistToSegment(HitPoint,Start,End)<=Slack;
+		const bool bOnCharacter=IsNearActorCollision(*AimActor,HitPoint,Slack)
+			|| (HitCharacter!=AimActor && IsNearActorCollision(*HitCharacter,HitPoint,Slack));
+		const TArray<const AActor*> HitActors={AimActor,HitCharacter};
+		if (!bOnBeam || !bOnCharacter || !UMechSentinelCombatLibrary::IsAimPathClear(*Avatar,Start,HitPoint,HitActors))
 		{
 			HitCharacter=nullptr;
 		}

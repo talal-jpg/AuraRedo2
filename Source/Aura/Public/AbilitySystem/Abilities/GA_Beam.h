@@ -97,9 +97,9 @@ public:
 	 * and every enemy within Splash.Radius of it. The hit enemy is the first one along the beam: a Mech Sentinel (swept
 	 * against their hit capsules, which the crosshair trace passes through) or the character the crosshair hit, whichever
 	 * is closer. The client reports that character hit, so the server only takes it when the hit point lies on its own
-	 * beam line (stopped by the first wall it finds) and on that character's collision on the server, within a slack for
-	 * lag. The damage lands later this frame, outside the Mass phases. Returns false when the data holds no aim or was
-	 * already used.
+	 * beam line (stopped by the first wall it finds), on that character's collision on the server, within a slack for
+	 * lag, and in the open from the beam's start. The damage lands later this frame, outside the Mass phases. Returns
+	 * false when the data holds no aim or was already used.
 	 */
 	UFUNCTION(BlueprintCallable,BlueprintAuthorityOnly,Category="Beam|Damage")
 	bool ApplyBeamDamage(const FGameplayAbilityTargetDataHandle& TargetData);

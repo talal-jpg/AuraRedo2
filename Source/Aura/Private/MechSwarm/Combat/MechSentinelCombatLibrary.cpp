@@ -6,7 +6,9 @@
 #include "AbilitySystemGlobals.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
 #include "CollisionQueryParams.h"
+#include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "GameplayEffect.h"
 #include "MassEntityManager.h"
@@ -56,7 +58,7 @@ namespace MechSwarm::AimShotPrivate
 	constexpr double MaxShotLineOffset = 300.0;
 	constexpr double MoveSlackSeconds = 0.25;
 
-	/** Characters in a row the wall trace looks past; the next one counts as a wall. */
+	/** Characters (and debris pieces) in a row the wall trace looks past; the next one counts as a wall. */
 	constexpr int32 MaxCharactersSkipped = 8;
 
 	/** The point of the line closest to Location, but never behind Origin. */
@@ -65,25 +67,36 @@ namespace MechSwarm::AimShotPrivate
 		return Origin + Direction * FMath::Max(0.0, FVector::DotProduct(Location - Origin, Direction));
 	}
 
-	/** The pawn that Actor is, or is attached to (a character's weapon, for example). */
-	const APawn* GetCharacterOf(const AActor* Actor)
+	/**
+	 * The character that Actor is, or is attached to (a character's weapon, for example). Characters only: other pawns
+	 * (the airship's hull) are solid bodies that stop a shot like walls.
+	 */
+	const ACharacter* GetCharacterOf(const AActor* Actor)
 	{
 		for (; Actor; Actor = Actor->GetAttachParentActor())
 		{
-			if (const APawn* Pawn = Cast<APawn>(Actor))
+			if (const ACharacter* Character = Cast<ACharacter>(Actor))
 			{
-				return Pawn;
+				return Character;
 			}
 		}
 		return nullptr;
 	}
 
+	/** Physics debris each machine simulates on its own (not replicated, e.g. a collapsing hex bridge's pieces): it lies elsewhere on every machine. */
+	bool IsLocalDebris(const FHitResult& Hit)
+	{
+		const UPrimitiveComponent* Component = Hit.GetComponent();
+		const AActor* Actor = Hit.GetActor();
+		return Component && Actor && Component->IsSimulatingPhysics() && !Actor->GetIsReplicated();
+	}
+
 	/**
 	 * The first wall from From to To: the first blocking hit on the crosshair trace's channel that is not part of a
-	 * character. Characters (pawns, their components and attached actors, whatever their collision profiles) are looked
-	 * past, because their positions on the server differ from what the shooting client saw. A character stops the shot
-	 * only when it is the client's own crosshair hit (see GetAimShotSegment). The characters looked past are added
-	 * to Params.
+	 * character, nor local debris. Characters (their components and attached actors, whatever their collision profiles)
+	 * are looked past, because their positions on the server differ from what the shooting client saw. A character
+	 * stops the shot only when it is the client's own crosshair hit (see GetAimShotSegment). What is looked past is
+	 * added to Params.
 	 */
 	bool TraceWall(const UWorld& World, const FVector& From, const FVector& To, FCollisionQueryParams& Params,
 		const FCollisionResponseParams& Responses, FHitResult& OutWall)
@@ -94,17 +107,34 @@ namespace MechSwarm::AimShotPrivate
 			{
 				return false;
 			}
-			const APawn* Character = GetCharacterOf(OutWall.GetActor());
-			if (!Character || Skipped >= MaxCharactersSkipped)
+			const ACharacter* Character = GetCharacterOf(OutWall.GetActor());
+			if ((!Character && !IsLocalDebris(OutWall)) || Skipped >= MaxCharactersSkipped)
 			{
 				return true;
 			}
-			TArray<AActor*> Attached;
-			Character->GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
-			Params.AddIgnoredActor(Character);
-			Params.AddIgnoredActors(Attached);
+			if (Character)
+			{
+				TArray<AActor*> Attached;
+				Character->GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
+				Params.AddIgnoredActor(Character);
+				Params.AddIgnoredActors(Attached);
+			}
 			Params.AddIgnoredActor(OutWall.GetActor());
 		}
+	}
+
+	/**
+	 * The query of the server's wall traces: the crosshair trace's channel with complex collision, without Avatar and
+	 * its attachments. The Pawn object type is skipped here, and TraceWall looks past the rest of every character.
+	 */
+	void MakeWallQuery(const AActor& Avatar, FCollisionQueryParams& OutParams, FCollisionResponseParams& OutResponses)
+	{
+		OutParams = FCollisionQueryParams(SCENE_QUERY_STAT(AimShotWalls), /*bTraceComplex*/ true, &Avatar);
+		TArray<AActor*> Attached;
+		Avatar.GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
+		OutParams.AddIgnoredActors(Attached);
+		OutResponses = FCollisionResponseParams();
+		OutResponses.CollisionResponse.SetResponse(ECC_Pawn, ECR_Ignore);
 	}
 }
 
@@ -129,15 +159,10 @@ bool UMechSentinelCombatLibrary::GetAimShotSegment(const FHitResult& AimHit, con
 	}
 	const FVector AvatarLocation = Avatar.GetActorLocation();
 
-	// The server traces the walls itself, whatever the client reports: the crosshair trace's channel with complex
-	// collision, without the shooter and its attachments. The Pawn object type is skipped here, and TraceWall looks past
-	// the rest of every character.
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(AimShotWalls), /*bTraceComplex*/ true, &Avatar);
-	TArray<AActor*> Attached;
-	Avatar.GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
-	Params.AddIgnoredActors(Attached);
+	// The server traces the walls itself, whatever the client reports (see MakeWallQuery).
+	FCollisionQueryParams Params;
 	FCollisionResponseParams Responses;
-	Responses.CollisionResponse.SetResponse(ECC_Pawn, ECR_Ignore);
+	MakeWallQuery(Avatar, Params, Responses);
 	FHitResult Wall;
 
 	// The shot starts at the point of its line nearest the shooter, so nothing between the camera and the character is
@@ -165,7 +190,7 @@ bool UMechSentinelCombatLibrary::GetAimShotSegment(const FHitResult& AimHit, con
 	if (bUseAimTrace)
 	{
 		OutStart = StartOnLine(Origin, Direction, AvatarLocation);
-		const double MaxOffset = MaxShotLineOffset + Avatar.GetVelocity().Size() * MoveSlackSeconds;
+		const double MaxOffset = MaxShotLineOffset + GetMoveVelocityAt(Avatar, AvatarLocation).Size() * MoveSlackSeconds;
 		bUseAimTrace = FVector::DistSquared(OutStart, AvatarLocation) <= FMath::Square(MaxOffset) && IsStartInTheOpen();
 	}
 	if (!bUseAimTrace)
@@ -208,6 +233,55 @@ bool UMechSentinelCombatLibrary::GetAimShotSegment(const FHitResult& AimHit, con
 	}
 	OutEnd = OutStart + Direction * Range;
 	return true;
+}
+
+bool UMechSentinelCombatLibrary::IsAimPathClear(const AActor& Avatar, const FVector& From, const FVector& To, TConstArrayView<const AActor*> IgnoreActors)
+{
+	using namespace MechSwarm::AimShotPrivate;
+	const UWorld* World = Avatar.GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+	if (FVector::DistSquared(From, To) <= 1.0)
+	{
+		return true;
+	}
+	FCollisionQueryParams Params;
+	FCollisionResponseParams Responses;
+	MakeWallQuery(Avatar, Params, Responses);
+	TArray<AActor*> Attached;
+	for (const AActor* Ignored : IgnoreActors)
+	{
+		if (Ignored)
+		{
+			Ignored->GetAttachedActors(Attached, /*bResetArray*/ true, /*bRecursivelyIncludeAttachedActors*/ true);
+			Params.AddIgnoredActor(Ignored);
+			Params.AddIgnoredActors(Attached);
+		}
+	}
+	FHitResult Wall;
+	return !TraceWall(*World, From, To, Params, Responses, Wall);
+}
+
+FVector UMechSentinelCombatLibrary::GetMoveVelocityAt(const AActor& Actor, const FVector& Point)
+{
+	// A simulating body (the airship's hull): its velocity at the point, its rotation included.
+	UPrimitiveComponent* Root = Cast<UPrimitiveComponent>(Actor.GetRootComponent());
+	if (Root && Root->IsSimulatingPhysics())
+	{
+		return Root->GetPhysicsLinearVelocityAtPoint(Point);
+	}
+	// A character's movement velocity leaves out the base it stands on (an airship's deck, a moving platform).
+	FVector Velocity = Actor.GetVelocity();
+	if (const ACharacter* Character = Cast<ACharacter>(&Actor))
+	{
+		if (UPrimitiveComponent* Base = Character->GetMovementBase())
+		{
+			Velocity += Base->IsSimulatingPhysics() ? Base->GetPhysicsLinearVelocityAtPoint(Point) : Base->GetComponentVelocity();
+		}
+	}
+	return Velocity;
 }
 
 FGameplayEffectSpecHandle UMechSentinelCombatLibrary::MakeSentinelDamageSpec(const UObject* WorldContextObject, AActor* Instigator, const float Damage, TSubclassOf<UGameplayEffect> Effect, const float Level)
