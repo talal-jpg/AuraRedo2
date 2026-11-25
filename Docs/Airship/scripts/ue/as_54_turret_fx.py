@@ -86,15 +86,36 @@ def _as54_walk_chain(node, path, out):
         _as54_walk_chain(cv, path + [cv.get('name')], out)
 
 
-def as54_tracer_probe(S):
-    """Every input holding the tracer speed (7500, or 30000 after a first run) and every input named like a speed."""
+# Memory (2026-11-25): every Niagara toolset call on this system costs the editor ~25 MB that is never given back (a system
+# compile per call; collect_garbage frees nothing). The first version read every input of every module of every script
+# twice (~530 calls): the editor grew past 16 GB and the OOM killer took it down twice. The 19 places that hold 7500 are
+# all HLSL expressions in Set Variables modules of the particle scripts (probe 2026-11-25 00:10), so only those modules are
+# read (AS54_PROBE_ALL = True restores the full scan), and the check after the fix re-reads only the modules that had a hit.
+AS54_PROBE_ALL = globals().get('AS54_PROBE_ALL', False)
+AS54_PARTICLE_SCRIPTS = ('ParticleSpawnScript', 'ParticleUpdateScript')
+
+
+def as54_tracer_probe(S, only=None):
+    """Every input holding the tracer speed (7500, or 30000 after a first run) and every input named like a speed.
+    only: {(emitter, script, module)} to re-read just those modules."""
     hits, speeds = [], []
-    for em in ['None'] + as51_emitters(S):
-        for scr in (AS54_SYS_SCRIPTS if em == 'None' else AS54_SCRIPTS):
-            try:
-                mods = fx_modules(S, em, scr)
-            except Exception:  # noqa: BLE001
-                continue
+    if only is not None:
+        plan = {}
+        for em, scr, mod in sorted(only):
+            plan.setdefault((em, scr), []).append(mod)
+        walk = [(em, scr, mods) for (em, scr), mods in sorted(plan.items())]
+    else:
+        walk = []
+        for em in (['None'] if AS54_PROBE_ALL else []) + as51_emitters(S):
+            for scr in (AS54_SYS_SCRIPTS if em == 'None' else (AS54_SCRIPTS if AS54_PROBE_ALL else AS54_PARTICLE_SCRIPTS)):
+                try:
+                    mods = fx_modules(S, em, scr)
+                except Exception:  # noqa: BLE001
+                    continue
+                if not AS54_PROBE_ALL:
+                    mods = [m for m in mods if str(m).startswith('SetVariables')]
+                walk.append((em, scr, mods))
+    for em, scr, mods in walk:
             for mod in mods:
                 try:
                     ins = as51_inputs(S, em, scr, mod)
@@ -161,7 +182,7 @@ def as54_tracer_fix(S):
             n_set += 1
         elif abs(u['value'] - AS54_SPEED_NEW) < 0.5:
             n_done += 1
-    hits2, _, users2 = as54_tracer_probe(S)
+    hits2, _, users2 = as54_tracer_probe(S, only=set((h['emitter'], h['script'], h['module']) for h in hits))
     AS54_R['tracer_probe_after'] = {'hits': hits2, 'user': users2}
     left = [h for h in hits2 if (h['kind'] == 'float' and abs(h['value'] - AS54_SPEED_OLD) < 0.5) or
             (h['kind'] == 'expr' and _AS54_NUM.search(h['value']))] + [u for u in users2 if abs(u['value'] - AS54_SPEED_OLD) < 0.5]

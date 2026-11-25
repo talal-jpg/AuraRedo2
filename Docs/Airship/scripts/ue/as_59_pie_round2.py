@@ -25,9 +25,11 @@
 #               (camera), port broadside                     captures +0.3 / +1.2 s; T2.1 ball radius / mesh scale /
 #                                                            gravity / launch speed; T2.2 impact within 3 m, apex >= 2 m
 #  t1_cap0 3.5  Settings.MuzzleFXMaxSeconds 0, stbd broadside T1.2 0 components at +1.2 s (the asset fix alone)
-#  t2_ray 3     a test ball parked on the camera ray          T2.9 the cannons' aim targets don't move (< 0.3 deg)
+#  t2_ray 5     a test ball parked on the camera ray (2 s     T2.9 the cannons' aim targets don't move (< 0.3 deg)
+#               settling first, baseline spread < 0.1 deg)
 #  t2_far 7.5   ship 300 m from the port wall's back face     T2.4 elevation at the 8.5 deg cap, the ball lands short
-#  t2_lead 6    30 m/s along +X, aim 15 m ahead of the beam   T2.3 impact within 6 m (velocity lead)
+#  t2_lead 7.5  30 m/s along +X, aim 15 m ahead of the beam   T2.3 impact within 6 m (velocity lead); 2.5 s of flight
+#               before the shot, the aim compensates the camera's rotation lag (aim_at lag_comp)
 #  t4_crew 2.5  Aura.Airship.Damage 100 with the pilot aboard T4.1 (S) pilot -25
 #  t9_rest 32   F exit at rest                                T4.4 (S) health kept at exit; T9.3 Hold, < 0.5 m in 30 s
 #  t5_cannon 5.5 Mount 0 2 (R1), StationFire twice, Board, Dismount  T5.9 / T5.14 / T5.4 / T5.10 / T5.8 (S)
@@ -40,23 +42,29 @@
 #  t3_bullets 7 Aura.MechSentinel.TestBullet x3               T3.1 hull -3 (Mesh collision off), T3.2 turret -3, ship
 #                                                            unchanged (a real line from outboard: it meets the hull
 #                                                            first, the redirect hands it to the turret), T3.3 on-foot -3
-#  t2_gun 11    a test ball (ship 2's) 1 m off ship 1's hull, the player shoots it with GA_GunShoot
+#  t2_gun <=16  a test ball (ship 2's) 1 m off ship 1's port side, the player on ship 1's deck shoots it with GA_GunShoot
+#               (ends 1 s after the shoot-down)
 #                                                            T2.6 -1 per hit, shot down after 30, no splash
 #  t2_splash 4  a test ball (ship 2's) into TEMP_AS59_SplashPost, the player 5.5 m from the impact
 #                                                            T2.5 (character dummy) 60 x lerp(1, 0.3, d / 600) +-15 %
+#  t8_below 6   the player on the ground under the hull, F    T8.1 (S) boards 7 m under the belly, refused 12 m under
 #  t9_drift_<s> 41 per scheme: 48 m/s, F exit                 T9.1 / T9.2 Drift, 2.5 +-0.3 m/s by 30 s, heading within
-#                                                            2 deg, no reverse; T9.5 board while drifting: None, throttle
+#                                                            2 deg, no reverse (from 3 s after the exit); T9.5 board
+#                                                            while drifting: None, throttle
 #  t9_wall 25   drifting at the port wall                     T9.4 stops >= 0.5 m short or on contact, no damage, Hold
-#  t9_input 26  Aura.Airship.Input 1 0, then InputClear       T9.6 None while active, Coast, Hold below 3 m/s
+#  t9_input <=75 Aura.Airship.Input 1 0 (ship 2 cleared at   T9.6 None while active, Coast, Hold below 3 m/s (~39 s of
+#               once), then InputClear; ends 2 s after Hold   coast from 48 m/s)
 #  t7_caps 4    pilot at the helm                             T7.2 wheel 136-144 cm (part_bounds.json) + captures; T7.3
 #  t5_kill 3    gunner on R2, ship 1 killed (crew share 0     T5.11 (S) gunner ejected alive
 #               for the phase: D4 would give him 25 % of the whole health and kill him)
 #  t4_kill 5    pilot of ship 2 at 10 health, Damage 100      T4.2 (S) pilot ejected, then dead; ship alive
-#  t5_dead 12   the respawned player mans R1 of ship 2, killed T5.15 (S) the ragdoll ignores the hull (no kick: hull spin
-#               there (the ragdoll starts inside the hull)     and speed unchanged), body not thrown up, station free
+#  t5_dead 12   the respawned player mans R1 of ship 2, killed T5.15 (S) simulating parts ignore the hull (the mech has
+#               there                                          none), no kick (hull spin and speed unchanged), body not
+#                                                            thrown up after the dismount placed it, station free
 #  end          log scan                                      T10.1 every new console command ran and logged
 # Not here (listen server or not in L_AirshipTest): T2.7, T2.8, T3.4, T3.5, T4.3, T4.5, T5.1-T5.5, T5.12, T5.13, T6.2,
-# T6.3, T6.7, T7.1 (Blender), T8.1, T9.7; they are listed as SKIP in the report with the reason.
+# T6.3, T6.7, T7.1 (Blender), T9.7; they are listed as SKIP in the report with the reason.
+# PIE run 2026-11-25 (run_r2_pie.sh): 44 PASS, 0 FAIL after harness fixes, Docs/Airship/round2/NOTES_assets.md.
 import json, math, os, time, traceback  # unreal = inbox namespace
 
 AS59_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_30_pie_smoke.py'
@@ -72,6 +80,7 @@ IA_LMB_PATH = '/Game/Level/PlayerInput/IA_LMB'
 SETTINGS_CLS = '/Script/Aura.AirshipSettings'
 BALL_BP = '/Game/Assets/MyShip/Drivable/BP_AirshipCannonball.BP_AirshipCannonball_C'
 GE_GUN = '/Game/Level/GAS/GameplayEffects/GE_GunShootDamage.GE_GunShootDamage_C'
+GC_GUN_BURST = '/Game/Level/GAS/GameplayCues/GC_BurstActor_GunShoot.GC_BurstActor_GunShoot_C'
 PART_BOUNDS = os.path.join(OUT, 'part_bounds.json')
 MAX_CAPS = 24
 # L_AirshipTest (as_22_test_map.py): ship spawn, cannon walls (60 x 4 x 30 m, x -3000..3000, z 100..3100), platform
@@ -87,12 +96,14 @@ DRIFT_EXIT_CMS = 4800.0
 SCHEME_NAMES = {0: 'CLASSIC', 1: 'GALLEON', 2: 'SKY_RACER', 3: 'POINT_FLY'}
 CMDS_T10 = ['Aura.Airship.Mount', 'Aura.Airship.Dismount', 'Aura.Airship.TurretFire', 'Aura.Airship.TurretDamage',
             'Aura.Airship.StationFire', 'Aura.Airship.Set', 'Aura.Airship.Telemetry', 'Aura.MechSentinel.TestBullet']
-SKIPPED = {'T2.7': 'listen server (client copy of a shot-down ball)', 'T2.8': 'needs a rider, a gunner and a pilot (3 players)',
+SKIPPED = {'T2.7': 'listen server (client copy of a shot-down ball)',
+           'T2.8': 'needs a deck rider, a gunner and a pilot on ship 1 at once (3 characters): standalone has 1 player, as_60 has 2',
            'T3.4': 'L_AirshipTest has no untagged GAS enemy', 'T3.5': 'L_AirshipTest has no swarm spawner',
-           'T4.3': 'listen server (a second player as gunner at 10 health)', 'T4.5': 'needs ship 2 piloted (2 players)',
+           'T4.3': 'listen server (a second player as gunner at 10 health)',
+           'T4.5': 'needs ship 2 piloted (a real broadside) while ship 1\'s L1 is manned: 2 players at once; as_60 does not drive it either',
            'T5.1-T5.5': 'listen server (client F / aim / LMB / broadside)', 'T5.12': 'listen server', 'T5.13': 'listen server',
            'T6.2': 'listen server (client pilot LMB in the bow arc)', 'T6.3': 'listen server', 'T6.7': 'no swarm in L_AirshipTest',
-           'T7.1': 'Blender (rig_all.sh / verify_all.sh)', 'T8.1': 'listen server', 'T9.7': 'listen server'}
+           'T7.1': 'Blender (rig_all.sh / verify_all.sh), not PIE', 'T9.7': 'listen server'}
 
 
 def en(x):
@@ -157,8 +168,13 @@ def call(obj, *names, **kw):
     raise AttributeError('none of %s on %s' % (names, obj))
 
 
+HIT_INFO_ERR = []      # the first failure of each way hit_info reads a HitResult (in the report: a silent miss hid it before)
+
+
 def hit_info(res):
-    """(blocking, impact point list, actor, component) of a line trace result (HitResult, tuple or None)."""
+    """(blocking, impact point list, actor, component) of a line trace result (HitResult, tuple or None). Reads the
+    HitResult with GameplayStatics.break_hit_result, else HitResult.to_tuple(), else its properties; each failure is
+    recorded once in HIT_INFO_ERR (a failure used to read as 'no hit')."""
     if res is None:
         return False, None, None, None
     hit = res
@@ -166,16 +182,34 @@ def hit_info(res):
         hit = next((x for x in res if isinstance(x, unreal.HitResult)), None)
         if hit is None:
             return False, None, None, None
+    t = None
+    for how in ('break', 'to_tuple'):
+        try:
+            t = tuple(unreal.GameplayStatics.break_hit_result(hit)) if how == 'break' else tuple(hit.to_tuple())
+            break
+        except Exception:  # noqa: BLE001
+            if len(HIT_INFO_ERR) < 4:
+                HIT_INFO_ERR.append('%s: %s' % (how, traceback.format_exc().strip().splitlines()[-1]))
+    if t is not None:
+        bools = [x for x in t if isinstance(x, bool)]
+        vecs = [x for x in t if isinstance(x, unreal.Vector)]
+        act = next((x for x in t if isinstance(x, unreal.Actor)), None)
+        comp = next((x for x in t if isinstance(x, unreal.PrimitiveComponent)), None)
+        if comp is not None and act is None:
+            try:
+                act = comp.get_owner()
+            except Exception:  # noqa: BLE001
+                pass
+        imp = v3(vecs[1]) if len(vecs) > 1 else (v3(vecs[0]) if vecs else None)
+        return (bools[0] if bools else False), imp, act, comp
     try:
-        t = unreal.GameplayStatics.break_hit_result(hit)
+        comp = hit.get_editor_property('component')
+        act = comp.get_owner() if comp else None
+        return bool(hit.get_editor_property('blocking_hit')), v3(hit.get_editor_property('impact_point')), act, comp
     except Exception:  # noqa: BLE001
+        if len(HIT_INFO_ERR) < 4:
+            HIT_INFO_ERR.append('props: %s' % traceback.format_exc().strip().splitlines()[-1])
         return False, None, None, None
-    bools = [x for x in t if isinstance(x, bool)]
-    vecs = [x for x in t if isinstance(x, unreal.Vector)]
-    act = next((x for x in t if isinstance(x, unreal.Actor)), None)
-    comp = next((x for x in t if isinstance(x, unreal.PrimitiveComponent)), None)
-    imp = v3(vecs[1]) if len(vecs) > 1 else (v3(vecs[0]) if vecs else None)
-    return (bools[0] if bools else False), imp, act, comp
 
 
 def mean(xs):
@@ -210,6 +244,7 @@ class R2Run(object):
         self.act = {}
         self.local = {}
         self.cmds_run = []
+        self.prev_v = {}
         self.attrs = {}
         for n in ('Health', 'MaxHealth'):
             a = unreal.GameplayAttribute()
@@ -271,13 +306,13 @@ class R2Run(object):
         return unreal.get_default_object(unreal.load_class(None, SETTINGS_CLS))
 
     def build_phases(self):
-        ph = [('settle', 3.0), ('spawn2', 3.0), ('board', 2.5), ('t1_port', 5.0), ('t1_cap0', 3.5), ('t2_ray', 3.0),
-              ('t2_far', 7.5), ('t2_lead', 6.0), ('t4_crew', 2.5), ('t9_rest', 32.0), ('t5_cannon', 5.5), ('t6_hit', 4.0),
-              ('t6_turret', 3.0), ('t6_own', 3.5), ('t5_turret', 10.0), ('t6_destroy', 3.5), ('t3_bullets', 7.0), ('t2_gun', 11.0),
-              ('t2_splash', 4.0)]
+        ph = [('settle', 3.0), ('spawn2', 3.0), ('board', 2.5), ('t1_port', 5.0), ('t1_cap0', 3.5), ('t2_ray', 5.0),
+              ('t2_far', 7.5), ('t2_lead', 7.5), ('t4_crew', 2.5), ('t9_rest', 32.0), ('t5_cannon', 5.5), ('t6_hit', 4.0),
+              ('t6_turret', 3.0), ('t6_own', 3.5), ('t5_turret', 10.0), ('t6_destroy', 3.5), ('t3_bullets', 7.0), ('t2_gun', 16.0),
+              ('t2_splash', 4.0), ('t8_below', 6.0)]
         for s in self.cfg['drift_schemes']:
             ph.append(('t9_drift_%d' % s, 41.0))
-        ph += [('t9_wall', 25.0), ('t9_input', 26.0), ('t7_caps', 4.0), ('t5_kill', 3.0), ('t4_kill', 5.0), ('t5_dead', 12.0)]
+        ph += [('t9_wall', 25.0), ('t9_input', 75.0), ('t7_caps', 4.0), ('t5_kill', 3.0), ('t4_kill', 5.0), ('t5_dead', 12.0)]
         only = self.cfg.get('only')
         if only:
             keep = set(['settle', 'spawn2', 'board'] + list(only))
@@ -342,7 +377,7 @@ class R2Run(object):
             self.R['setup']['settings'] = dict((k, str(v)) for k, v in self.orig['settings'].items())
         except Exception:  # noqa: BLE001
             self.err('settings_snapshot')
-        for n in ('IA_AirshipFire', 'IA_AirshipBoard', 'IA_AirshipExit'):
+        for n in ('IA_AirshipFire', 'IA_AirshipBoard', 'IA_AirshipExit', 'IA_AirshipLook'):
             self.act[n] = unreal.load_asset(IA + n)
         self.act['IA_LMB'] = unreal.load_asset(IA_LMB_PATH)
         try:
@@ -431,6 +466,7 @@ class R2Run(object):
             pass
         self.scan_log()
         self.write_skips()
+        self.R['hit_info_err'] = list(HIT_INFO_ERR)
         les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
         if les.is_in_play_in_editor() and not self.user_play:
             les.editor_request_end_play()
@@ -486,10 +522,15 @@ class R2Run(object):
                     res[c] = 'not run'
                     continue
                 nr = [l for l in lines if 'Command not recognized' in l and c in l]
-                lg = [l for l in lines if c in l and 'Command not recognized' not in l]
+                if c == 'Aura.Airship.Telemetry':
+                    # Telemetry logs per ship without its own name: '<ship>: speed .. m/s (fwd ..' is its first line
+                    lg = [l for l in lines if 'LogAirship:' in l and ': speed ' in l and 'm/s (fwd' in l]
+                else:
+                    lg = [l for l in lines if c in l and 'Command not recognized' not in l]
                 res[c] = 'ok (%d log lines)' % len(lg) if lg and not nr else ('NOT RECOGNISED' if nr else 'no log line')
-            tl = [l for l in lines if 'LogAirship' in l and any(k in l.lower() for k in ('unpiloted', 'station', 'turret'))]
-            res['Telemetry line 3'] = 'ok: %s' % tl[0][:160] if tl else 'no telemetry line with unpiloted / station / turret'
+            # Telemetry's round-2 line (the third per ship): '<ship>: unpiloted N (drift .. hold ..), stations 0x.. gunners .. turrets [..]'
+            tl = [l for l in lines if 'LogAirship:' in l and ': unpiloted ' in l and 'stations 0x' in l and 'turrets [' in l]
+            res['Telemetry line 3'] = 'ok: %s' % tl[0][:220] if tl else 'no telemetry line with unpiloted / stations / turrets'
             bad = [k for k, v in res.items() if not str(v).startswith('ok')]
             self.check('T10.1_console', 'PASS' if not bad else ('FAIL' if any('NOT RECOGNISED' in str(res[k]) for k in bad) else 'WARN'),
                        'new console commands: %s' % res, res)
@@ -704,12 +745,32 @@ class R2Run(object):
         cm = unreal.GameplayStatics.get_player_camera_manager(self.w, 0)
         return cm.get_camera_location(), cm.get_camera_rotation()
 
-    def aim_at(self, point):
+    def aim_at(self, point, lag_comp=False):
+        """Points the view (the camera manager's rotation: what the pilot's aim trace and the gun's crosshair use) at point:
+        the control rotation is the look-at from the camera. lag_comp (a moving view: t2_lead's ship at 30 m/s, the on-foot
+        gun camera in t2_gun) adds the camera's current lag behind the control rotation (spring-arm rotation lag; at 30 m/s
+        120 m from the target the look-at turns ~14 deg/s and a plain set left the crosshair 9 m ahead of the aim point):
+        an integral step (gain 1) on the view's error, the lag term capped at 15 deg. On a still view it makes the camera
+        hunt by ~0.3 deg, so the still aim phases use the plain set. Returns the view's error (yaw, pitch deg) before this
+        frame's set."""
         try:
-            loc, _ = self.cam()
-            self.pc.set_control_rotation(unreal.MathLibrary.find_look_at_rotation(loc, unreal.Vector(*point)))
+            loc, rot = self.cam()
+            want = unreal.MathLibrary.find_look_at_rotation(loc, unreal.Vector(*point))
+            lag_y = lag_p = 0.0
+            if lag_comp:
+                ctrl = self.pc.get_control_rotation()
+                lag_y = max(-15.0, min(15.0, wrap180(ctrl.yaw - rot.yaw)))
+                lag_p = max(-15.0, min(15.0, wrap180(ctrl.pitch - rot.pitch)))
+            self.pc.set_control_rotation(unreal.Rotator(0.0, wrap180(want.pitch + lag_p), wrap180(want.yaw + lag_y)))
+            # A pilot who aims moves the mouse: a tiny look input each frame (0.01) keeps the ship's camera recenter
+            # (Classic: after RecenterDelay 1.5 s without look input above 8 m/s, the camera eases back behind the ship at
+            # RecenterSpeed 2/s) from pulling the crosshair off a harness-set aim (t2_lead flies 30 m/s)
+            if valid(self.ship) and same(self.pawn(), self.ship):
+                self.inject('IA_AirshipLook', 0.01)
+            return r(wrap180(want.yaw - rot.yaw), 3), r(wrap180(want.pitch - rot.pitch), 3)
         except Exception:  # noqa: BLE001
             self.err('aim_at')
+            return None
 
     def cam_ray(self, dist_cm=60000.0, ignore=None):
         """first Visibility hit on the camera's centre ray (what the aim traces see), Python side."""
@@ -743,6 +804,23 @@ class R2Run(object):
         self.D['nb0'] = len(self.balls)
         self.inject('IA_AirshipFire')
         self.event('inject', what='IA_AirshipFire (%s)' % side)
+
+    def track_muzzle(self):
+        """after a broadside: game time the first NS_AirshipMuzzle component shows and the time none is left (the smoke's
+        measured life; components that existed before the shot are left out)."""
+        if 'fire_t' not in self.D or self.D.get('mz_gone') is not None:
+            return
+        n = len([c for c in self.muzzle_comps(self.ship) if c not in self.D.get('mz_old', set())])
+        if n and self.D.get('mz_first') is None:
+            self.D['mz_first'] = self.now
+        if not n and self.D.get('mz_first') is not None:
+            self.D['mz_gone'] = self.now
+        self.D['mz_max'] = max(self.D.get('mz_max', 0), n)
+
+    def smoke_life(self):
+        a, b = self.D.get('mz_first'), self.D.get('mz_gone')
+        return {'components_max': self.D.get('mz_max'), 'first_after_input_s': r(a - self.D['fire_t'], 3) if a is not None and 'fire_t' in self.D else None,
+                'life_s': r(b - a, 3) if a is not None and b is not None else None}
 
     def fire_fallback(self):
         ft = self.D.get('fire_t')
@@ -794,7 +872,11 @@ class R2Run(object):
                         rec['gravity'] = round(float(b.get_editor_property('Movement').get_editor_property('projectile_gravity_scale')), 3)
                         src = b.get_editor_property('SourceShip')
                         rec['source'] = src.get_name() if src else None
-                        rec['ship_v'] = r(v3(src.get_velocity()), 1) if src else None
+                        # The velocity the ball inherited is the ship's at the shot, before the broadside's recoil kick
+                        # (CannonRecoilImpulseDV per cannon, applied in the same frame): the last frame's sample. The
+                        # velocity now (after the kick) is kept for the record.
+                        rec['ship_v_after'] = r(v3(src.get_velocity()), 1) if src else None
+                        rec['ship_v'] = (self.prev_v.get(src.get_name()) or rec['ship_v_after']) if src else None
                     except Exception:  # noqa: BLE001
                         self.err('ball_first')
                     self.balls[k] = rec
@@ -826,6 +908,16 @@ class R2Run(object):
 
     def impact_of(self, b):
         return b.get('hidden_at') or b.get('impact')
+
+    def cross_y(self, b, y):
+        """where the ball's sampled path crosses the plane y (linear between samples), or None."""
+        pts = b.get('path') or []
+        for i in range(len(pts) - 1):
+            a, c = pts[i][1:], pts[i + 1][1:]
+            if (a[1] - y) * (c[1] - y) <= 0.0 and a[1] != c[1]:
+                f = (y - a[1]) / (c[1] - a[1])
+                return r([a[k] + f * (c[k] - a[k]) for k in range(3)], 1)
+        return None
 
     def apex_above_line(self, b):
         """highest point of the path above the straight line from the first sample to the impact (cm)."""
@@ -959,6 +1051,12 @@ class R2Run(object):
             self.finish('the user pressed Play (Repeating last play command): stopping the test, PIE left running')
             return
         self.track_balls()
+        for _s in (self.ship, self.ship2):
+            try:
+                if valid(_s):
+                    self.prev_v[_s.get_name()] = r(v3(_s.get_velocity()), 1)
+            except Exception:  # noqa: BLE001
+                pass
         self.sample()
         el = self.now - self.p_t0
         ph = self.phase
@@ -967,7 +1065,8 @@ class R2Run(object):
             getattr(self, 'ph_' + base, lambda e: None)(el)
         except Exception:  # noqa: BLE001
             self.err('ph_' + ph)
-        if el >= self.phases[self.pi][1]:
+        # a phase ends at its length, or earlier once its measurement is complete (D['phase_done'], adaptive phases)
+        if el >= self.phases[self.pi][1] or self.D.get('phase_done'):
             try:
                 getattr(self, 'end_' + base, lambda: None)()
             except Exception:  # noqa: BLE001
@@ -1128,6 +1227,7 @@ class R2Run(object):
                 self.fire_side('port')
             return
         self.fire_fallback()
+        self.track_muzzle()
         dt = self.now - self.D['fire_t']
         if dt >= 0.3 and 'mz03' not in self.D:
             self.D['mz03'] = [c for c in self.muzzle_comps(self.ship) if c not in self.D['mz_old']]
@@ -1141,9 +1241,9 @@ class R2Run(object):
     def end_t1_port(self):
         mz03, mz15 = self.D.get('mz03') or [], self.D.get('mz15')
         self.check('T1.1_muzzle_lifetime', 'PASS' if len(mz03) >= 2 and mz15 == [] else 'FAIL',
-                   'port broadside: NS_AirshipMuzzle components under the Mesh %d at +0.3 s (want >= 2), %s at +1.5 s (want 0)%s' % (
-                       len(mz03), None if mz15 is None else len(mz15), ' FALLBACK RequestFire' if self.D.get('fb') else ''),
-                   {'at_0.3': mz03, 'at_1.5': mz15})
+                   'port broadside: NS_AirshipMuzzle components under the Mesh %d at +0.3 s (want >= 2), %s at +1.5 s (want 0)%s; measured smoke '
+                   'life %s' % (len(mz03), None if mz15 is None else len(mz15), ' FALLBACK RequestFire' if self.D.get('fb') else '', self.smoke_life()),
+                   {'at_0.3': mz03, 'at_1.5': mz15, 'smoke': self.smoke_life()})
         caps = [s['file'] for s in self.R['shots'] if s['label'].startswith('t1_muzzle')]
         self.check('T1.3_muzzle_captures', 'INFO' if len(caps) == 2 else 'WARN', 'captures for the eye (puffs at 0.3 s, none at 1.2 s): %s' % caps)
         bs = [b for _, b in self.balls_since(self.D.get('fire_t', 1e9), 't1_port')]
@@ -1151,7 +1251,8 @@ class R2Run(object):
         for b in bs:
             rel = [b['v0'][i] - (b.get('ship_v') or [0, 0, 0])[i] for i in range(3)]
             spd = math.sqrt(sum(x * x for x in rel))
-            props.append({'radius': b.get('radius'), 'mesh_scale': b.get('mesh_scale'), 'gravity': b.get('gravity'), 'launch_cms': r(spd, 1)})
+            props.append({'radius': b.get('radius'), 'mesh_scale': b.get('mesh_scale'), 'gravity': b.get('gravity'), 'launch_cms': r(spd, 1),
+                          'ship_v_at_shot': b.get('ship_v'), 'ship_v_after_recoil': b.get('ship_v_after')})
             okp = okp and b.get('radius') is not None and abs(b['radius'] - 50.0) < 0.5 and b.get('mesh_scale') and \
                 all(abs(x - 1.0) < 0.01 for x in b['mesh_scale']) and b.get('gravity') is not None and abs(b['gravity'] - 0.6) < 0.01 and \
                 abs(spd - 7000.0) <= 70.0
@@ -1182,6 +1283,7 @@ class R2Run(object):
                 self.fire_side('stbd')
             return
         self.fire_fallback()
+        self.track_muzzle()
         if self.now - self.D['fire_t'] >= 1.2 and 'mz12' not in self.D:
             self.D['mz12'] = self.muzzle_comps(self.ship)
 
@@ -1190,7 +1292,8 @@ class R2Run(object):
         self.cmd('Aura.Airship.Set Settings.MuzzleFXMaxSeconds %s' % orig)
         mz = self.D.get('mz12')
         self.check('T1.2_muzzle_asset_alone', 'PASS' if mz == [] else 'FAIL', 'MuzzleFXMaxSeconds 0 (no C++ cap), stbd broadside: %s NS_AirshipMuzzle '
-                   'components at +1.2 s (want 0)' % (None if mz is None else len(mz)), mz)
+                   'components at +1.2 s (want 0); measured smoke life without the cap %s' % (None if mz is None else len(mz), self.smoke_life()),
+                   {'at_1.2': mz, 'smoke': self.smoke_life()})
 
     # ---- T2.9: a ball on the camera ray doesn't pull the aim
     def start_t2_ray(self):
@@ -1200,21 +1303,31 @@ class R2Run(object):
         return self.anim(self.ship, ['CannonYawDeg_L1', 'CannonElevDeg_L1', 'CannonYawDeg_L2', 'CannonElevDeg_L2'])
 
     def ph_t2_ray(self, el):
+        # The camera swings from t1_cap0's starboard aim to the port wall: its rotation lag and the cannons' slew (45 deg/s,
+        # elevation settling) need time, so the baseline is read once they are still (2.0-2.5 s); the ball goes on the ray
+        # at 2.5 s; 'after' is 3.0-3.5 s (a pulled aim point would swing the cannons by several degrees in that time)
         A = self.D_A()
         self.aim_at(A)
-        if 0.8 <= el < 1.3:
+        if el < 2.5 and int(el * 10) != self.D.get('_k'):
+            self.D['_k'] = int(el * 10)
+            self.D.setdefault('settle', []).append((r(el, 2), self.aim_vals()))
+        if 2.0 <= el < 2.5:
             self.D['before'].append(self.aim_vals())
-        if el >= 1.3 and 'ball' not in self.D:
+            if 'ray0' not in self.D:
+                ok, imp, act, _ = self.cam_ray(ignore=[self.ship])
+                self.D['ray0'] = {'hit': ok, 'actor': act.get_name() if act else None, 'at': r(imp, 0) if imp else None,
+                                  'off_A_cm': r(dist(imp, A), 0) if imp else None}
+        if el >= 2.5 and 'ball' not in self.D:
             loc, rot = self.cam()
             p = v3(loc + unreal.MathLibrary.get_forward_vector(rot) * 4000.0)
             self.D['ball'] = self.spawn_ball(p, (0.0, 0.0, 0.0), None, 0.0, 0.0)
             self.D['ball_at'] = r(p, 0)
-        if 1.5 <= el < 1.6 and 'ray' not in self.D:
+        if 2.6 <= el < 2.8 and 'ray' not in self.D:
             ok, imp, act, _ = self.cam_ray(ignore=[self.ship])
             self.D['ray'] = {'hit': ok, 'actor': act.get_name() if act else None, 'at': r(imp, 0) if imp else None}
-        if 1.8 <= el < 2.3:
+        if 3.0 <= el < 3.5:
             self.D['after'].append(self.aim_vals())
-        if el >= 2.5 and self.D.get('ball') is not None and not self.D.get('gone'):
+        if el >= 4.0 and self.D.get('ball') is not None and not self.D.get('gone'):
             self.D['gone'] = True
             try:
                 if valid(self.D['ball']):
@@ -1230,16 +1343,22 @@ class R2Run(object):
         return self.D['A']
 
     def end_t2_ray(self):
-        ch = {}
+        ch, spread = {}, {}
         for k in ('CannonYawDeg_L1', 'CannonElevDeg_L1', 'CannonYawDeg_L2', 'CannonElevDeg_L2'):
-            a = mean([x[k] for x in self.D['before'] if x.get(k) is not None])
+            xs = [x[k] for x in self.D['before'] if x.get(k) is not None]
+            a = mean(xs)
             b = mean([x[k] for x in self.D['after'] if x.get(k) is not None])
             ch[k] = r(b - a, 3) if a is not None and b is not None else None
+            spread[k] = r(max(xs) - min(xs), 3) if xs else None
         on_ray = (self.D.get('ray') or {}).get('actor') and 'annonball' in str((self.D.get('ray') or {}).get('actor'))
+        settled = all(v is not None and v < 0.1 for v in spread.values())
         ok = all(v is not None and abs(v) < 0.3 for v in ch.values())
-        self.check('T2.9_aim_ignores_balls', ('PASS' if ok else 'FAIL') if on_ray else 'WARN', 'test ball parked on the camera ray at %s (Python '
-                   'camera trace hits %s): cannon aim change %s deg (want < 0.3)' % (self.D.get('ball_at'), self.D.get('ray'), ch),
-                   {'change': ch, 'ray': self.D.get('ray')})
+        st = ('PASS' if ok else 'FAIL') if (on_ray and settled) else 'WARN'
+        self.check('T2.9_aim_ignores_balls', st, 'test ball parked on the camera ray at %s (Python camera trace hits %s; before the ball it hit %s): '
+                   'cannon aim change %s deg (want < 0.3); baseline spread over 0.5 s %s deg (want < 0.1: settled)%s' % (
+                       self.D.get('ball_at'), self.D.get('ray'), self.D.get('ray0'), ch, spread,
+                       '' if settled else ' NOT SETTLED: the test proves nothing'),
+                   {'change': ch, 'spread': spread, 'ray': self.D.get('ray'), 'ray0': self.D.get('ray0'), 'settle': self.D.get('settle')})
 
     # ---- T2.4: 300 m is out of range at the cap
     def start_t2_far(self):
@@ -1283,16 +1402,25 @@ class R2Run(object):
         y = PORT_FACE_Y + 12000.0 - 0.5 * (l1[1] + l2[1])
         A = [1500.0, PORT_FACE_Y, SPAWN[2] + 0.5 * (l1[2] + l2[2])]
         x_fire = A[0] - 1500.0 - mx                  # mid port muzzle 15 m behind the aim point at the shot
-        self.D['FT'] = 1.0
+        # 2.5 s of steady flight before the shot: the camera swings ~180 deg from t2_far's starboard aim and the ship has
+        # just been teleported 430 m (boom position / rotation lag), so the crosshair needs time to settle on A
+        self.D['FT'] = 2.5
         self.D['x0'] = x_fire - 3000.0 * self.D['FT']
         self.D['A'] = A
         self.D['y'] = y
+        self.D['cam'] = []
         self.teleport(self.ship, (self.D['x0'], y, SPAWN[2]), 0.0, (3000.0, 0.0, 0.0))
 
     def ph_t2_lead(self, el):
         if 'fire_t' not in self.D:
             self.hull(self.ship).set_physics_linear_velocity(unreal.Vector(3000.0, 0.0, 0.0), False, 'None')
-            self.aim_at(self.D['A'])
+            self.D['verr'] = self.aim_at(self.D['A'], lag_comp=True)
+            if el >= self.D['FT'] - 0.5 and int(el * 10) != self.D.get('_k'):
+                # where the crosshair is (the pilot's aim trace sees the same camera ray), 0.5 s before the shot and at it
+                self.D['_k'] = int(el * 10)
+                ok, imp, act, _ = self.cam_ray(ignore=[self.ship])
+                self.D['cam'].append({'el': r(el, 2), 'hit': ok, 'actor': act.get_name() if act else None, 'at': r(imp, 0) if imp else None,
+                                      'off_A_cm': r(dist(imp, self.D['A']), 0) if imp else None, 'aim': self.aim_vals(), 'view_err': self.D.get('verr')})
             if el >= self.D['FT']:
                 self.D['v_fire'] = r(v3(self.ship.get_velocity()), 1)
                 self.D['x_fire'] = r(self.ship.get_actor_location().x, 0)
@@ -1307,11 +1435,14 @@ class R2Run(object):
         for b in bs:
             imp = self.impact_of(b)
             d = dist(imp, A) if imp else None
-            res.append({'impact': imp, 'off_cm': r(d, 1) if d is not None else None})
+            xw = self.cross_y(b, A[1] + 50.0)
+            res.append({'impact': imp, 'off_cm': r(d, 1) if d is not None else None, 'at_wall_plane': xw,
+                        'wall_plane_off_cm': r(dist(xw, A), 0) if xw else None})
             ok = ok and d is not None and d <= 600.0
         self.check('T2.3_lead_30ms', 'PASS' if ok else 'FAIL', 'ship at %s cm/s (x %s at the shot), aim %s, 120 m off the beam, 15 m ahead (an aim '
-                   'abeam would need 24 deg of lead, past the 20 deg yaw limit): balls %s (want within 6 m)' % (
-                       self.D.get('v_fire'), self.D.get('x_fire'), r(A, 0), res), res)
+                   'abeam would need 24 deg of lead, past the 20 deg yaw limit): balls %s (want within 6 m); crosshair at the shot %s' % (
+                       self.D.get('v_fire'), self.D.get('x_fire'), r(A, 0), res, (self.D.get('cam') or [None])[-1]),
+                   {'res': res, 'crosshair': self.D.get('cam'), 'balls': [dict((k, b.get(k)) for k in ('first', 'v0', 'ship_v', 'ship_v_after')) for b in bs]})
         self.teleport(self.ship, SPAWN, 0.0)
 
     # ---- T4.1 (S): the pilot takes the crew share
@@ -1703,16 +1834,31 @@ class R2Run(object):
 
     # ---- T2.6: the player shoots a ball down (GA_GunShoot), no splash
     def start_t2_gun(self):
+        # The player rides ship 1's deck and shoots ship 2's ball hovering 1 m outside ship 1's port side (ship 1's hull is
+        # the dummy 1 m away). From the start platform under the ship (run 1) the aim was ~50 deg up: the on-foot camera
+        # boom then sits in the platform (the camera ray starts inside it) and 4 s of rounds missed the ball.
         self.teleport(self.ship, SPAWN, 0.0)
         o, e = self.ship.get_actor_bounds(False)
         ymin = o.y - e.y
-        self.D['B0'] = [-900.0, ymin - 100.0 - 50.0, SPAWN[2] + 300.0]
-        self.tp_char([-1500.0, self.D['B0'][1] - 1500.0, 150.0], 90.0)
+        sl = v3(self.ship.get_actor_location())
+        loc, traced = self.deck_point(self.ship, -400.0, 350.0)
+        self.tp_char(loc, -90.0)
+        edge, _ = self.deck_point(self.ship, -600.0, ymin - sl[1] + 100.0)
+        self.D['B0'] = [sl[0] - 600.0, ymin - 100.0 - 50.0, max(loc[2], edge[2]) + 150.0]
         self.D['ball'] = self.spawn_ball(self.D['B0'], (200.0, 0.0, 0.0), self.ship2, 60.0, 0.0)
         self.D['hp'] = []
         self.D['n'] = 0
+        self.line('INFO', 'player on ship 1\'s deck at %s (hull trace %s), ball at %s (%.0f cm away)' % (r(loc, 0), traced, r(self.D['B0'], 0),
+                                                                                                    dist(loc, self.D['B0'])))
 
     def ph_t2_gun(self, el):
+        # 1 s after the shoot-down: the health of ship 1, the player and ship 2 again (no splash); the shot-down ball is
+        # removed 1 s after it went down, so this doesn't wait for it to exist
+        if 'down_t' in self.D:
+            if el >= self.D['down_t'] + 1.0 and 'h_after' not in self.D:
+                self.D['h_after'] = (self.tele(self.ship).get('Health'), self.health(self.char), self.tele(self.ship2).get('Health'))
+                self.D['phase_done'] = True
+            return
         b = self.D.get('ball')
         if not valid(b):
             return
@@ -1720,16 +1866,25 @@ class R2Run(object):
         if not self.D['hp'] or self.D['hp'][-1][1] != st.get('health') or self.D['hp'][-1][2] != st.get('shot_down'):
             self.D['hp'].append((r(el, 3), st.get('health'), st.get('shot_down')))
         if st.get('shot_down'):
-            if 'down_t' not in self.D:
-                self.D['down_t'] = el
-                self.D['h_at_down'] = (self.tele(self.ship).get('Health'), self.health(self.char), self.tele(self.ship2).get('Health'))
-            if el >= self.D['down_t'] + 1.0 and 'h_after' not in self.D:
-                self.D['h_after'] = (self.tele(self.ship).get('Health'), self.health(self.char), self.tele(self.ship2).get('Health'))
+            self.D['down_t'] = el
+            self.D['h_at_down'] = (self.tele(self.ship).get('Health'), self.health(self.char), self.tele(self.ship2).get('Health'))
             return
-        self.aim_at(v3(b.get_actor_location()))
-        if 0.6 <= el < 10.5:
+        verr = self.aim_at(v3(b.get_actor_location()), lag_comp=True)
+        # Fire held until the ball is down (30 hits at ~4.5 rounds/s) or 15 s
+        if 0.6 <= el < 15.0:
             self.inject('IA_LMB')
             self.D['n'] += 1
+        if int(el * 4) != self.D.get('_k'):
+            # what the crosshair meets (first Visibility hit, nothing ignored / the shooter ignored) and the gun's burst
+            # cues alive (one per round): tells a miss from no round at all
+            self.D['_k'] = int(el * 4)
+            _, _, a0, _ = self.cam_ray()
+            _, _, a1, _ = self.cam_ray(ignore=[self.char])
+            try:
+                cues = len(unreal.GameplayStatics.get_all_actors_of_class(self.w, unreal.load_class(None, GC_GUN_BURST)))
+            except Exception:  # noqa: BLE001
+                cues = None
+            self.D.setdefault('diag', []).append((r(el, 2), a0.get_name() if a0 else None, a1.get_name() if a1 else None, cues, st.get('health'), verr))
         if el >= 2.0 and 'cap' not in self.D:
             self.D['cap'] = True
             self.capture('t2_gun_view', 'player')
@@ -1744,7 +1899,7 @@ class R2Run(object):
         self.check('T2.6_gun_shoots_ball', 'PASS' if ok else 'FAIL', 'ball (ship 2\'s, 60 damage) 1 m off ship 1\'s hull, the player fires GA_GunShoot '
                    '(IA_LMB %d frames): %d hits %s, shot down %s at %s s; ship 1 / player / ship 2 health at the shoot-down %s, 1 s later %s (want 30 '
                    'hits of 1, shot down, no change: no splash)' % (self.D['n'], len(drops), sorted(set(drops)), down, self.D.get('down_t'), a, b),
-                   {'health_track': hp})
+                   {'health_track': hp, 'diag (el, crosshair first hit, shooter ignored, burst cues, ball health, view error yaw/pitch)': self.D.get('diag')})
 
     # ---- T2.5 (character dummy): splash falloff
     def start_t2_splash(self):
@@ -1777,6 +1932,77 @@ class R2Run(object):
                    'splash measures to the actor\'s centre), so the on-foot player stands in' % (TEMP59, r(d, 0) if d else None, imp, r(drop, 2) if drop else drop,
                                                                                             r(exp, 2) if exp else None))
 
+    # ---- T8.1 (S): board from under the hull (D8, BoardBelowDistance 10 m straight up to the hull's simple collision)
+    def gap_up(self, ship, loc, reach=3000.0):
+        """cm from loc straight up to the hull's collision (the pilot component's own test), or None."""
+        try:
+            res = self.hull(ship).line_trace_component(unreal.Vector(*loc), unreal.Vector(loc[0], loc[1], loc[2] + reach), False, False, False)
+            if isinstance(res, tuple) and not (isinstance(res[0], bool) and not res[0]):
+                p = next((v3(x) for x in res if isinstance(x, unreal.Vector)), None)
+                return r(p[2] - loc[2], 1) if p else None
+        except Exception:  # noqa: BLE001
+            self.err('gap_up')
+        return None
+
+    def start_t8_below(self):
+        self.teleport(self.ship, SPAWN, 0.0)
+        self.D['cases'] = []
+
+    def t8_case(self, el, t0, want_gap, key):
+        """t0: put the player on the ground under the hull's centre; t0 + 0.4: move the ship so the gap is want_gap; t0 + 0.6:
+        F (IA_AirshipBoard); t0 + 1.2: boarded or not; then back on foot (Exit) if it boarded."""
+        if el >= t0 and key + 'g' not in self.D:
+            self.D[key + 'g'] = True
+            com = v3(self.hull(self.ship).get_center_of_mass())
+            tr = self.trace(com, [com[0], com[1], com[2] - 5000.0], [self.ship] + self.turrets(self.ship))
+            if not tr or not tr.get('at'):
+                self.D[key] = {'error': 'no ground under the hull centre: %s' % tr}
+                return
+            caps = gp(self.char, 'capsule_component', 'CapsuleComponent')
+            hh = caps.get_scaled_capsule_half_height() if caps else 90.0
+            self.D[key + 'foot'] = [tr['at'][0], tr['at'][1], tr['at'][2] + hh + 2.0]
+            self.tp_char(self.D[key + 'foot'], 0.0)
+        if el >= t0 + 0.4 and key + 'm' not in self.D and key + 'foot' in self.D:
+            self.D[key + 'm'] = True
+            loc = v3(self.char.get_actor_location())
+            g0 = self.gap_up(self.ship, loc)
+            if g0 is not None:
+                sl = v3(self.ship.get_actor_location())
+                self.teleport(self.ship, (sl[0], sl[1], sl[2] + (want_gap - g0)), self.ship.get_actor_rotation().yaw)
+        if el >= t0 + 0.6 and key + 'f' not in self.D and key + 'm' in self.D:
+            self.D[key + 'f'] = True
+            loc = v3(self.char.get_actor_location())
+            self.D[key + 'gap'] = self.gap_up(self.ship, loc)
+            self.D[key + 'seat'] = None
+            try:
+                self.D[key + 'seat'] = r(dist(loc, v3(self.ship.get_pilot_seat_location())), 0)
+            except Exception:  # noqa: BLE001
+                pass
+            self.inject('IA_AirshipBoard')
+            self.event('inject', what='IA_AirshipBoard (%s)' % key)
+        if el >= t0 + 1.2 and key not in self.D and key + 'f' in self.D:
+            self.D[key] = {'gap_cm': self.D.get(key + 'gap'), 'seat_cm': self.D.get(key + 'seat'), 'boarded': same(self.pawn(), self.ship),
+                           'pilot': self.ship.get_pilot().get_name() if self.ship.get_pilot() else None}
+            if self.D[key]['boarded']:
+                self.cmd('Aura.Airship.Exit 0')
+
+    def ph_t8_below(self, el):
+        self.t8_case(el, 0.3, 700.0, 'b7')
+        self.t8_case(el, 2.8, 1200.0, 'b12')
+
+    def end_t8_below(self):
+        b7, b12 = self.D.get('b7') or {}, self.D.get('b12') or {}
+        if same(self.pawn(), self.ship):
+            self.cmd('Aura.Airship.Exit 0')
+        ok = b7.get('boarded') is True and b12.get('boarded') is False and b7.get('gap_cm') is not None and abs(b7['gap_cm'] - 700.0) < 50.0 \
+            and b12.get('gap_cm') is not None and abs(b12['gap_cm'] - 1200.0) < 50.0
+        self.check('T8.1_board_below_S', 'PASS' if ok else 'FAIL', 'the player on the ground under the hull\'s centre, F (IA_AirshipBoard): %s cm below '
+                   'the belly (straight up to the hull collision; %s cm from the helm seat) -> boarded %s (want True); %s cm below (%s cm from the '
+                   'seat) -> boarded %s (want False: BoardBelowDistance 1000)' % (b7.get('gap_cm'), b7.get('seat_cm'), b7.get('boarded'),
+                                                                                  b12.get('gap_cm'), b12.get('seat_cm'), b12.get('boarded')),
+                   {'b7': b7, 'b12': b12})
+        self.teleport(self.ship, SPAWN, 0.0)
+
     # ---- T9.1 / T9.2 / T9.5: drift after a moving exit, per scheme
     def start_t9_drift(self):
         self.cmd('Aura.Airship.Board 0')
@@ -1793,7 +2019,9 @@ class R2Run(object):
             self.D['yaw0'] = self.ship.get_actor_rotation().yaw
         if el >= 0.7 and 'exit' not in self.D:
             self.D['exit'] = True
-            self.D['v_exit'] = self.tele(self.ship).get('ForwardSpeedMS')
+            t = self.tele(self.ship)
+            self.D['v_exit'] = t.get('ForwardSpeedMS')
+            self.D['thr_exit'] = t.get('Throttle')
             self.cmd('Aura.Airship.Exit 0')
         if el >= 1.0 and 'board2' not in self.D:
             t = self.tele(self.ship)
@@ -1819,13 +2047,25 @@ class R2Run(object):
         late = [x[3] for x in trk if x[0] >= 30.0]
         v_late = mean(late)
         dyaw = max(abs(wrap180(x[4] - self.D.get('yaw0', 0.0))) for x in trk) if trk else None
-        rev = min((x[5] for x in trk if x[5] is not None), default=None)
-        ok = modes == [2] and v_late is not None and abs(v_late - 2.5) <= 0.3 and dyaw is not None and dyaw < 2.0 and (rev is None or rev >= -0.01)
+        # No reverse from the drift: the shaped throttle once the pilot's last command has decayed. The harness teleports the
+        # piloted ship to 48 m/s with no pilot input, so Galleon's boarding STOP order and Classic's v1 brake command reverse
+        # (-0.5 .. -0.7) before the exit; the shaping lag (time constant ~0.25 s) carries that into the first second after
+        # the exit (decay time constant measured 0.25 s Galleon, 0.45 s Classic). The drift's own command is what the
+        # throttle settles to: from 3 s after the exit (>= 6.6 time constants: < 0.2 % of the pre-exit value left). The
+        # whole-track minimum and the values at the exit and the first sample are reported too, and the throttle must only
+        # recover (never go more negative) between the exit and then.
+        rev_all = min((x[5] for x in trk if x[5] is not None), default=None)
+        rev = min((x[5] for x in trk if x[5] is not None and x[0] >= 3.7), default=None)
+        neg = [x[5] for x in trk if x[5] is not None and x[0] < 3.7]
+        recovers = all(neg[i + 1] >= neg[i] - 0.005 for i in range(len(neg) - 1))
+        ok = modes == [2] and v_late is not None and abs(v_late - 2.5) <= 0.3 and dyaw is not None and dyaw < 2.0 and (rev is None or rev >= -0.01) and recovers
         key = 'T9.1_drift_P&F' if s == 3 else 'T9.2_drift_%s' % name
         self.check(key, 'PASS' if ok else 'FAIL', '%s: exit at %s m/s; modes %s (want [2] Drift), speed %s m/s from 30 s (want 2.5 +-0.3), heading '
-                   'change %s deg (want < 2), lowest shaped throttle %s (want >= 0: no reverse, the fans idle)' % (
-                       name, self.D.get('v_exit'), modes, r(v_late, 2) if v_late is not None else None, r(dyaw, 2) if dyaw is not None else None, rev),
-                   {'track': trk[::10]})
+                   'change %s deg (want < 2), lowest shaped throttle from 3 s after the exit %s (want >= 0: no reverse, the fans idle; '
+                   'at the exit (piloted) %s, first sample %s, whole-track minimum %s = the pilot\'s pre-exit command decaying, recovering only: %s)' % (
+                       name, self.D.get('v_exit'), modes, r(v_late, 2) if v_late is not None else None, r(dyaw, 2) if dyaw is not None else None, rev,
+                       self.D.get('thr_exit'), neg[0] if neg else None, rev_all, recovers),
+                   {'track': trk[::10], 'first_s': trk[:30]})
         vf0, vf1 = self.D.get('vf0'), self.D.get('vf1')
         ok2 = self.D.get('mode_board') == 0 and vf0 is not None and vf1 is not None and vf1 > vf0 + 0.3
         self.check('T9.5_board_while_drifting_%s' % name, 'PASS' if ok2 else 'FAIL', 'Board while drifting: mode %s (want 0 None), throttle 1 for '
@@ -1862,6 +2102,9 @@ class R2Run(object):
 
     # ---- T9.6: debug input on an unpiloted ship, then cleared at speed
     def start_t9_input(self):
+        # The player stays on the start platform: riding ship 1's deck it would be carried 0.8 km away, and t7_caps's
+        # teleport of the ship leaves a rider behind (Board then picks the nearest ship: ship 2)
+        self.tp_char(CHAR_FOOT, 0.0)
         self.teleport(self.ship, SPAWN, 0.0)
         self.D['trk'] = []
 
@@ -1869,11 +2112,24 @@ class R2Run(object):
         if el >= 0.5 and 'in' not in self.D:
             self.D['in'] = True
             self.cmd('Aura.Airship.Input 1 0')
+            # The command flies EVERY ship of the world: ship 2 (parked, the later phases' dummy) is cleared again in the
+            # same frame, so it never moves
+            try:
+                if valid(self.ship2):
+                    self.ship2.debug_clear_input()
+            except Exception:  # noqa: BLE001
+                self.err('ship2_clear')
         if el >= 6.5 and 'clr' not in self.D:
             self.D['clr'] = True
             self.cmd('Aura.Airship.InputClear')
         t = self.tele(self.ship)
         self.D['trk'].append((r(el, 2), t.get('UnpilotedMode'), t.get('SpeedMS')))
+        # Coast from ~48 m/s is the v1 drag alone (about 1/17 s^-1, ~45 s to 3 m/s): the phase runs until the Hold is seen
+        # (+2 s), at most 75 s
+        if 'clr' in self.D and t.get('UnpilotedMode') is not None and int(t.get('UnpilotedMode')) == 3 and el >= 6.6:
+            self.D.setdefault('hold_el', el)
+            if el >= self.D['hold_el'] + 2.0:
+                self.D['phase_done'] = True
 
     def end_t9_input(self):
         trk = self.D['trk']
@@ -1884,9 +2140,12 @@ class R2Run(object):
         hold = next((x for x in after if int(x[1]) == 3), None)
         ok = during == [0] and (first == 1 or (v_clear is not None and v_clear < 3.0 and first == 3)) and hold is not None and (hold[2] or 0) < 3.0 \
             and int(after[-1][1]) == 3
+        p2 = v3(self.ship2.get_actor_location()) if valid(self.ship2) else None
         self.check('T9.6_debug_input_then_coast', 'PASS' if ok else 'FAIL', 'Aura.Airship.Input 1 0: modes %s (want [0] None); cleared at %s m/s: first '
-                   'mode %s (want 1 Coast), Hold at %s (want once below 3 m/s), final %s' % (
-                       during, v_clear, first, hold[:3] if hold else None, after[-1][1] if after else None))
+                   'mode %s (want 1 Coast), Hold at %s (want once below 3 m/s), final %s; coast took %s s; ship 2 (cleared at once) %s cm from its '
+                   'parking spot' % (during, v_clear, first, hold[:3] if hold else None, after[-1][1] if after else None,
+                                     r(hold[0] - 6.5, 1) if hold else None, r(dist(p2, PARK2), 0) if p2 else None),
+                   {'track': trk[::15]})
 
     # ---- T7.2 / T7.3: helm and deck captures, the wheel's measured size
     def start_t7_caps(self):
@@ -2015,11 +2274,22 @@ class R2Run(object):
             v, w = self.hull_motion(ship)
             mesh = self.D.get('mesh')
             com = v3(mesh.get_center_of_mass()) if valid(mesh) else None
-            self.D['trk'].append((r(el - self.D['k_t'], 3), r(v, 1), r(w, 2), r(com, 0) if com else None))
+            att = bool(valid(c) and c.get_attach_parent_actor() is not None)
+            rel = v3(unreal.MathLibrary.inverse_transform_location(ship.get_actor_transform(), unreal.Vector(*com))) if com else None
+            self.D['trk'].append((r(el - self.D['k_t'], 3), r(v, 1), r(w, 2), r(com, 0) if com else None, att, r(rel, 0) if rel else None))
             if 'resp' not in self.D and valid(mesh) and el >= self.D['k_t'] + 0.2:
                 try:
                     self.D['resp'] = en(mesh.get_collision_response_to_channel(unreal.CollisionChannel.ECC_PHYSICS_BODY))
                     self.D['sim'] = bool(mesh.is_simulating_physics('None'))
+                    # every part of the body that simulates now (KeepCorpseOffHull's rule covers all of them)
+                    sims = []
+                    for comp in c.get_components_by_class(unreal.PrimitiveComponent):
+                        try:
+                            if comp.is_simulating_physics('None'):
+                                sims.append((comp.get_name(), en(comp.get_collision_response_to_channel(unreal.CollisionChannel.ECC_PHYSICS_BODY))))
+                        except Exception:  # noqa: BLE001
+                            pass
+                    self.D['sims'] = sims
                 except Exception:  # noqa: BLE001
                     self.err('t5_dead_resp')
         if 'k_t' in self.D and el >= self.D['k_t'] + 2.6 and 'post' not in self.D and ship is not None:
@@ -2038,14 +2308,34 @@ class R2Run(object):
         w0 = math.sqrt(sum(a * a for a in pre['w']))
         dw = max((abs(math.sqrt(sum(a * a for a in x[2])) - w0) for x in trk), default=None)
         com0 = self.D.get('com0')
-        rise = max(((x[3][2] - com0[2]) for x in trk if x[3] and com0), default=None)
-        ok = (self.D.get('resp') == 'ECR_IGNORE' and dv is not None and dv < 50.0 and dw is not None and dw < 2.0 and rise is not None and rise < 100.0
+        rise_seat = max(((x[3][2] - com0[2]) for x in trk if x[3] and com0), default=None)
+        # "Thrown up" is physics after the dismount: the death's dismount first PLACES the body at the station's exit point
+        # (CannonExitOffset 120 cm inboard, then dropped onto the hull top: the UCX lid, 1.2-2.9 m over the planks), a set
+        # move, not a throw. The rise is measured from the first sample after the detach.
+        det = [x for x in trk if x[3] and not x[4]]
+        rise = max((x[3][2] - det[0][3][2] for x in det), default=None) if det else None
+        sims = self.D.get('sims')
+        # The ignore rule matters only for parts that simulate. BP_MyCharMech dies with its Control Rig ragdoll and the
+        # disintegration (no physics-simulating mesh): then nothing can touch the hull and the rule has nothing to change.
+        if sims:
+            resp_ok = all(rr == 'ECR_IGNORE' for _, rr in sims)
+            resp_txt = 'simulating parts %s (want ECR_IGNORE to PhysicsBody)' % sims
+        else:
+            resp_ok = True
+            resp_txt = ('no part simulates physics (mesh simulating %s, mesh response %s): the mech dies with its Control Rig ragdoll and the '
+                        'disintegration, nothing can push the hull, the ignore rule has nothing to change (log: 0 simulated parts)' % (self.D.get('sim'), self.D.get('resp')))
+        hang = None
+        if det and det[-1][5] and det[0][5]:
+            hang = r(dist(det[-1][5], det[0][5]), 0)
+        ok = (resp_ok and dv is not None and dv < 50.0 and dw is not None and dw < 2.0 and rise is not None and rise < 100.0
               and post.get('gunner') is None and post.get('att') is None and (post.get('health') or 0.0) <= 0.0)
-        self.check('T5.15_dead_gunner_ragdoll_S', 'PASS' if ok else 'FAIL', 'respawned player on R1 of %s, killed there: mesh response to PhysicsBody %s '
-                   '(want ECR_IGNORE), simulating %s; hull speed change max %s cm/s (want < 50), spin change max %s deg/s (want < 2); body centre '
-                   'of mass rose at most %s cm (want < 100: not thrown out of the deck); after 2.6 s %s (want station free, detached, dead)' % (
-                       self.D['ship'].get_name(), self.D.get('resp'), self.D.get('sim'), r(dv, 1) if dv is not None else None,
-                       r(dw, 2) if dw is not None else None, r(rise, 0) if rise is not None else None, post), {'track': trk[::3], 'pre': pre})
+        self.check('T5.15_dead_gunner_ragdoll_S', 'PASS' if ok else 'FAIL', 'respawned player on R1 of %s, killed there: %s; hull speed change max %s cm/s '
+                   '(want < 50), spin change max %s deg/s (want < 2); body centre of mass rose at most %s cm after the dismount placed it (want < 100: '
+                   'not thrown; %s cm above the seat incl. the placement on the lid); after 2.6 s %s (want station free, detached, dead); the body '
+                   'moved %s cm relative to the hull after the detach (it stays where it died while the ship moves on)' % (
+                       self.D['ship'].get_name(), resp_txt, r(dv, 1) if dv is not None else None,
+                       r(dw, 2) if dw is not None else None, r(rise, 0) if rise is not None else None, r(rise_seat, 0) if rise_seat is not None else None,
+                       post, hang), {'track': trk[::3], 'pre': pre, 'sims': sims})
 
 
 def write_r2_report(R):
@@ -2060,6 +2350,7 @@ def write_r2_report(R):
             L.append('%-5s %-34s %s' % (c['status'], k, c['summary']))
         L.append('')
         L.append('script errors: %s' % dict((k, v['n']) for k, v in R['errors'].items()))
+        L.append('hit_info read failures: %s' % R.get('hit_info_err'))
         for k, v in R['errors'].items():
             L.append('--- %s\n%s' % (k, v['last'][-900:]))
         ls = R.get('log_scan') or {}

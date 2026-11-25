@@ -1249,26 +1249,31 @@ re-runnable, saves only its own assets by explicit path, prints `PASS/FAIL/WARN/
 | 1 | `as_51_muzzle_once.py` | D1 asset fix on NS_AirshipMuzzle (probe, every emitter Loop Once 0.2 s, Blast_Puffs lifetime 0.5-0.85 + alpha fade), compile check, save. Also defines the shared function the edited `as_06_muzzle.py` calls. |
 | 2 | `as_52_cannonball_bp.py` | BP_AirshipCannonball CDO: BallMesh scale (1, 1, 1), ImpactFXScale 3.0, Radius 50, GravityScale 0.6, SplashRadius 600, SentinelHitRadius 100, MaxLifeSeconds 10, BallMaxHealth 30; compile, read back, save. Header: run after any as_03 run. |
 | 3 | (existing) `as_02_textures_material.py` | re-import `T_AirshipProps_ComicLines/Mask` from SourceArt (the atlas repacked in D7) |
-| 4 | `as_56_reimport_airship.py` | wrapper: `AS10_EXISTING = 'reimport'` then exec `as_10_import.py` (SK_Airship over the existing asset, skeleton kept, bones checked against the new `bones_ue.csv`). Then checks: 118 bones, `Helm_Wheel`/`PilotSeat` rest positions = `turret_dims.json`, SK still points at PA_Airship, prints PilotSeat for `PilotSeatFallback`. Does NOT rebuild PA_Airship. |
+| 4 | `as_56_reimport_airship.py` | wrapper: `AS10_EXISTING = 'reimport'` then exec `as_10_import.py` (SK_Airship over the existing asset, skeleton kept, bones checked against the new `bones_ue.csv`). Then checks: 118 bones, `Helm_Wheel`/`PilotSeat` rest positions = `turret_dims.json`, SK still points at PA_Airship, prints PilotSeat for `PilotSeatFallback`. Does NOT rebuild PA_Airship (step 6b does). |
+| 4b | `as_61_hull_ink.py` (added 2026-11-25, risk 7 of NOTES_assets.md) | hull ink without the five removed deck pieces: import `SourceArt/Airship/textures/T_AirshipDrivable_ComicLines.png` (re-baked on the rig copy by `SourceArt/Airship/scripts/hull_ink_drivable.py`, headless Blender, before this step) as `/Game/Assets/MyShip/Drivable/Textures/T_AirshipDrivable_ComicLines` with `T_Airship_ComicLines`' settings read at run time (compression, sRGB, mips, LOD group, address, ...); duplicate `M_Airship` (a Material) to `/Game/Assets/MyShip/Drivable/Materials/M_AirshipDrivable` and swap only the ComicLines sample (an MI copy with the texture parameter if M_Airship were an instance); `bUsedWithSkeletalMesh` checked; SK_Airship slot 0 -> the copy; saves those three; Talal's M_Airship / T_Airship_Comic* / SM_Airship untouched (bytes checked). `as_10_import.py` now assigns slot 0 = M_AirshipDrivable when it exists, so as_56 keeps it. |
 | 5 | (existing, headless Blender) `as_09_part_bounds_blender.py` | new `part_bounds.json` (helm bounds changed) |
 | 6 | (existing) `as_12_reuse.py`, then `as_13_cr_eval.py` | CR_Airship rebuilt in place (Helm wreck body from the new bounds, wheel position); eval must pass as before (144 checks) |
+| 6b | `as_11a_hull_survey_blender.py` (headless Blender), `as_11b_hull_boxes.py` (python3), `as_11_physics_asset.py`, then `as_13_cr_eval.py` again | PA_Airship REBUILT (Talal 11-24 "make a proper PA for ship"): one Kinematic body per moving part from the new `part_bounds.json` (+2 cm, the Helm_Wheel box fits the 140 cm wheel), hull boxes fitted to a 25 cm column survey of the round-2 rig (none above the deck, none in the open truss, nothing where the five removed pieces were); saves PA_Airship + SK_Airship |
 | 7 | `as_53_turret_import.py` | import `SourceArt/Airship/SM_AirshipTurret_Base.fbx` / `_Gun.fbx` -> `/Game/Assets/MyShip/Drivable/Turret/SM_AirshipTurret_Base`, `SM_AirshipTurret_Gun` (static mesh, no collision generated, Nanite off, combine meshes, material slot -> `/Game/Assets/MyShip/Drivable/Materials/M_AirshipProps`, normals imported, pivot kept); check bounds against `turret_dims.json` (+-2 cm) |
 | 8 | `as_54_turret_fx.py` | three copies in `/Game/Assets/MyShip/Drivable/FX`: `NS_AirshipTurretTracer` (dup of `/Game/Assets/Effects/AppreiticeFx/GunShootHit/PS_06_Flipbook_Sprites_my`; probe every module input for the fixed 7500 cm/s tracer speed and set it to 30000; print what was found; if none is found, WARN and leave it); `NS_AirshipTurretMuzzle` (dup of `/Game/NiagaraExamples/FX_Weapons/MuzzleFlashes/NS_MuzzleFlash`, remove `Bullet_Shell_Eject`, `User.Use Bullet Shell` 0, `User.Global Scale` 1.5, every emitter Loop Once 0.2 s, smoke lifetimes <= 0.5 s); `NS_AirshipTurretFire` (dup of `/Game/Assets/Effects/Fire/NS_Fire`, unchanged). Compile state checked, saved. |
 | 9 | `as_55_turret_bp.py` | `/Game/Assets/MyShip/Drivable/Turret/BP_AirshipTurret` (parent `/Script/Aura.AirshipTurret`, create or reuse, never delete): BaseMesh/GunMesh meshes, `PivotHeight` / `MuzzleForward` from `turret_dims.json`, MuzzleFXComponent system NS_AirshipTurretMuzzle, DestroyedFXComponent NS_AirshipTurretFire (relative scale 0.3), TracerSystem NS_AirshipTurretTracer, TracerDataChannel `/Game/Assets/Effects/AppreiticeFx/GunShootHit/NDC_GunShootHit`, DestroyedExplosionFX NS_FireExplosion; HitBox extent from the dims; compile, save. |
 | 10 | `as_57_pawn_defaults.py` | BP_AirshipPawn: verify the CDO doesn't override CannonballSpeed / CannonSpawnForwardOffset / PilotSeatFallback (reset to the class default if it does, and report); report the project setting TurretClass resolves to BP_AirshipTurret_C. Saves only if something changed. |
-| 11 | `as_58_verify_round2.py` | read-only: every asset above loads, key properties as specified, NS compile states OK, IMC_Airship unchanged (no new input assets), PA_Airship untouched (file size/hash vs the clone's committed one). |
+| 11 | `as_58_verify_round2.py` | read-only: every asset above loads, key properties as specified, NS compile states OK, IMC_Airship unchanged (no new input assets), PA_Airship checked by its bodies (read back = as_11's report, every part covered, hull boxes vs the hull survey and the removed pieces), not by its bytes. |
 | 12 | `as_59_pie_round2.py` (+ `as_59s_status.py`, `as_59x_stop.py`) | PIE harness, section 4 |
 
 Input: no new input actions or contexts (gunners reuse IMC_Airship / IA_Airship*; D5.3).
 
-Must not be regenerated / overwritten: **PA_Airship** (not rebuilt in PR A: D3 no longer needs it, and the user's own
-tree has an uncommitted, empty PA_Airship; a committed PA change would collide with his local file when he pulls). The
-stale helm boxes in the committed PA are larger than the new wheel: only aim traces notice (they hit the ship), noted in
-section 5. ABP_Airship: unchanged. SM_Airship (static, UCX): unchanged.
+**PA_Airship is rebuilt** (step 6b; changed 2026-11-24 on Talal's answer "no make a proper PA for ship"). D3 does not
+depend on it, but the round-1 boxes stood up to 5.2 m above the hull and kept the old helm size. His local PA_Airship is
+an uncommitted, empty asset: the committed rebuild replaces it when he pulls (that file conflicts; take the branch's).
+ABP_Airship: unchanged. SM_Airship (static, UCX): unchanged. Hull texture: Talal's `T_Airship_ComicLines` / `M_Airship`
+stay as they are (SM_Airship keeps them); the drivable SK_Airship gets the copies of step 4b, whose texture differs from
+his only within 1.5 m of the five removed pieces (59,869 of 16.8 M texels; before / after:
+`media/deck_ink_before_after.jpg`).
 
-Order matters: 3-6 need the Blender outputs (D7); 7 and 9 need the turret FBX and dims; 9 needs the built C++ (the
-`AirshipTurret` class); 4 must not run while CR_Airship is open in an editor tab (the delete-while-in-use crash in the
-memory notes; `as_12_reuse` rebuilds in place).
+Order matters: 3-6 need the Blender outputs (D7); 4b needs step 4 and the hull ink PNG; 7 and 9 need the turret FBX and
+dims; 9 needs the built C++ (the `AirshipTurret` class); 4 must not run while CR_Airship is open in an editor tab (the
+delete-while-in-use crash in the memory notes; `as_12_reuse` rebuilds in place).
 
 ---
 
@@ -1346,6 +1351,12 @@ checked where noted).
 | T9.7 | L | D9 | Client sees the drift | client copy's RepInput has the drift bit; Galleon cosmetics no reverse |
 | T10.1 | S/L | D10 | Every new console command runs and logs; Telemetry line 3 present | PASS |
 
+Standalone result 2026-11-25 (`as_59`, runner `_AirshipWork_logs/run_r2_pie.sh`): 44 PASS, 0 FAIL, 14 SKIP, no C++
+change; T8.1 runs there as an S variant (phase `t8_below`). The fixes were measurement fixes (Python trace reader, recoil
+in T2.1, camera recenter / lag in the aim phases, T2.6 from the deck, the drift's no-reverse window, T9.6 isolating ship
+2, T5.15 for a character that doesn't simulate physics): NOTES_assets.md, "as_59 PIE run 2026-11-25". T2.8 and T4.5 are
+not covered by any harness (3 characters / a second pilot at once).
+
 Regression (lead, same editor session):
 
 * Crew share: `as_30`, `as_43` and `as_45` set `UAirshipSettings.CrewDamageShare` to 0 for the whole run (knobs
@@ -1388,8 +1399,8 @@ mounted gunner (simulated by destroying the client's character: the station clea
    matters, a follow-up adds those keys to IMC_Airship (an asset change, out of PR A's no-new-input rule).
 4. **User's local GE_GunShootDamage = 1000** (his uncommitted test value): turret bullets do 4000 in his tree and
    one-shot a 2000 HP ship; balls are unaffected (gun units). Tell him.
-5. **User's empty local PA_Airship**: D3 doesn't need it; PR A doesn't touch PA. The committed PA keeps the old helm
-   boxes (bigger than the new wheel).
+5. **User's empty local PA_Airship**: D3 doesn't need it. PR A rebuilds PA_Airship (step 6b, his "make a proper PA"),
+   so his empty local copy conflicts with the committed one when he pulls: take the branch's.
 6. **Balls now block Visibility**: every Visibility trace in the project can hit a ball for the second it flies (beam,
    electrocute, sentinel bullets, the gun's wall trace). Acceptable; the ship's aim traces ignore them.
 7. **Drift and hold change every scheme after an exit** (on purpose). Old harness checks that assumed a coasting or
@@ -1412,7 +1423,7 @@ mounted gunner (simulated by destroying the client's character: the station clea
 * Wheel size: 140 cm across the tips (character height) as asked; the research target was 100-120 cm.
 * Turret placement x 2100 from image 2 (the lead's first range was x 2400-2900).
 * BallMaxHealth 30 and CrewDamageShare 0.25 tuning; 4x vs 10x (TurretGunDamageMultiplier is a project setting).
-* His local PA_Airship (empty) and GE_GunShootDamage (1000): keep or revert.
+* His local GE_GunShootDamage (1000): keep or revert. His empty local PA_Airship is replaced by the rebuilt one.
 
 ### 5.3 PR B hooks left open
 

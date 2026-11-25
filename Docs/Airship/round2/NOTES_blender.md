@@ -180,3 +180,35 @@ renders: `blender -b --factory-startup --python rig/scripts/round2_render.py -- 
 * The spade grips stay within the 0.45 m the spec allows behind the trunnion (the first version reached 0.59 m and left
   the gunner only 2-4 cm).
 * The renders of the props on Talal's ship in `bake_props_comic.py`'s render stage still use his full mesh (preview only).
+
+## 9. Hull ink without the removed pieces (2026-11-25; `hull_ink_drivable.py`, `hull_ink_render.py`, `hull_ink_media.py`)
+
+Talal's hull texture `T_Airship_ComicLines` (his `scripts/comic_lines.py`, 2026-10-31) was baked with the five pieces of
+section 1 in place: the deck under each of them is solid ink (AO ~0 under a box = comic_lines' "spotted black"), and the
+drivable ship showed black rectangles / a bar there. The fix is a drivable-ship copy of the texture; his PNGs, his
+.blend, his `/Game/Assets/MyShip` assets and SM_Airship are unchanged.
+
+* `SourceArt/Airship/scripts/hull_ink_drivable.py` (headless, `blender -b --factory-startup --python ...`, ~80 s on the
+  GPU) opens `rig/AirshipRig.blend` (never saved), appends Talal's SM_Airship from `rig/AirshipRig_src.blend`, checks
+  the drivable mesh = his minus the 21 islands (positions, UVs), and bakes the ink twice with comic_lines.py's own
+  shader (`M_ComicLines`, kept in the file with a fake user) and settings (4096, 8-bit, 64 samples, seed 0, margin 12
+  EXTEND, blur + smoothstep 0.38..0.52, paper / ink colours): A = drivable mesh, B = his mesh with the pieces. B
+  reproduces his texture byte for byte on 99.99 % of the texels within 3 m of the pieces (max 13 / 255 within 1.2 m).
+  A position bake gives every texel's distance to the removed geometry.
+* Output `SourceArt/Airship/textures/T_AirshipDrivable_ComicLines.png` (4096, 8-bit RGB like his) = his texture, except
+  the texels where A != B within 1.5 m of a removed piece (the shader reaches 1.2 m: AO). Texels of the removed islands'
+  own UVs are kept. 59,869 texels changed (0.36 %): 58,955 ink -> paper (the footprints of pieces 2 / 4 / 1 / 5 / 3:
+  18,730 / 18,724 / 14,873 / 3,159 / 2,209 texels, then the occlusion ink on the bow tier's front wall behind the steps
+  and small bits of nearby parts), 914 paper -> ink (the bow tier's top edge now has its outline where the steps met
+  it). Deck under the pieces: luminance 0.15-0.16 -> 0.91-0.93. Two runs gave the same file (md5 38fb1bf8...).
+* A != B also far from the pieces (26k texels, ~0.2 %): Cycles picks bevel / local hits in BVH order, so a different
+  mesh gives different but equally valid strokes. The 1.5 m limit keeps all of that out; inside it ~400 texels of the
+  change are small groups that may be that noise (equally valid ink either way).
+* Report `rig/checks/hull_ink/hull_ink_report.json` (per piece, per connected group with PNG box + 3D centre, the removal
+  effect and the B-vs-original agreement by distance), `zone_preview.png`, and the same fix on the mask
+  (`T_AirshipDrivable_ComicMask.png`, not used by the material).
+* `hull_ink_render.py` renders the drivable rig with his texture and the new one (Workbench, texture colour; top as
+  round2_render, persp_fwd = `media/removed_pieces_persp.jpg`'s view, persp_aft): changed pixels 25,746 / 29,109 /
+  28,982, all inside the pieces' screen boxes grown by 1.5 m (0 outside). `hull_ink_media.py` (python3 + Pillow) makes
+  `media/deck_ink_before_after.jpg`.
+* Unreal: `Docs/Airship/scripts/ue/as_61_hull_ink.py` (NOTES_assets.md step 4b).
