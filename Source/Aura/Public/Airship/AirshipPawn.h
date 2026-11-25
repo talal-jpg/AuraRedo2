@@ -42,9 +42,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAirshipPilotChangedSignature, AA
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnAirshipStationsChangedSignature, AAirshipPawn*, Airship, int32, Station, ACharacter*, Gunner);
 
 /**
- * The drivable airship (Docs/Airship/CPP_NOTES.md). A player walks up to it and presses F (UAirshipPilotComponent):
- * the server attaches their character at the helm (PilotSeat), possesses the ship, and F again gives the character
- * back next to the helm.
+ * The drivable airship (Docs/Airship/CPP_NOTES.md). A player on deck walks up to the wheel and presses F
+ * (UAirshipPilotComponent, IsWithinHelmReach): the server attaches their character at the helm (PilotSeat), possesses the
+ * ship, and F again gives the character back where it stood, behind the wheel.
+ *
+ * Deck (Talal 11-25, round2/SPEC_A.md 6.8): characters walk on the Mesh's physics asset (PA_Airship, box tops at the
+ * planks) and Visibility traces hit it; HullCollision ignores Pawn and Visibility (GetDeckComponent, bDeckOnPhysicsAsset).
  *
  * Root = HullCollision, SM_Airship's 8 convex hulls, simulating physics on every machine and hidden in game. The
  * server applies the flight forces (UAirshipFlightComponent) and the hull replicates through the engine's physics
@@ -121,14 +124,29 @@ public:
 
 	/**
 	 * Distance (cm) from Location to the ship for boarding: within SeatDistance of the pilot seat, within HullDistance of
-	 * the hull's collision, or under the hull (a trace straight up from Location hits it within BelowDistance; 0 = off).
+	 * the hull's collision, or under the hull (a trace straight up from Location hits it within BelowDistance). 0 = that
+	 * range off. The old (v1 / round 2) rule: since Talal 11-25 the settings' values are 0, see IsWithinHelmReach.
 	 */
 	bool IsWithinBoardRange(const FVector& Location, float SeatDistance, float HullDistance, float BelowDistance = 0.f) const;
+
+	/**
+	 * Any machine: true if Character may take the helm from where it stands (F, Talal 11-25: "only be able to drive once
+	 * close enough to grab the steering wheel"). Its feet within UAirshipSettings::HelmReach (horizontal, hull frame) of the
+	 * helm's standing spot (the pilot seat), within HelmReachHeight above or below it, and not ahead of the wheel (the
+	 * Helm_Wheel bone's plane; behind or beside it). The old ranges (IsWithinBoardRange with the settings' BoardDistance /
+	 * BoardHullDistance / BoardBelowDistance, all 0 = off by default) still count when a harness sets them.
+	 */
+	bool IsWithinHelmReach(const ACharacter* Character) const;
 
 	/** Server: puts Pilot at the helm and gives PC the ship. False if not allowed (CanBoard). */
 	bool BoardPilot(ACharacter* Pilot, APlayerController* PC);
 
-	/** Server: gives the pilot back their character next to the helm. bEject: thrown clear (death). */
+	/**
+	 * Server: gives the pilot back their character. Leaving (F): where it stood while driving (the seat, feet on the
+	 * planks behind the wheel, facing the bow), walking with the ship as its movement base, no launch (the base carries
+	 * it); moved the least that clears it of the ship's bodies. bEject (death, a lethal crew share): 2.5 m to port and
+	 * thrown clear with the ship's velocity.
+	 */
 	void UnboardPilot(bool bEject);
 
 	UFUNCTION(BlueprintPure, Category = "Airship")
@@ -140,6 +158,17 @@ public:
 	/** World location of the pilot seat (where the pilot stands). */
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	FVector GetPilotSeatLocation() const;
+
+	/**
+	 * What characters walk on and what Visibility traces hit (Talal 11-25, SPEC_A.md 6.8): the Mesh's physics asset
+	 * (PA_Airship: hull boxes with their tops at the planks, part boxes) when it has bodies and bDeckOnPhysicsAsset, else
+	 * the hull's collision (the v1 deck: SM_Airship's UCX lid, 1.2-2.9 m above the planks).
+	 */
+	UPrimitiveComponent* GetDeckComponent() const;
+
+	/** True if the deck is the Mesh's physics asset (GetDeckComponent): HullCollision then ignores Pawn and Visibility. */
+	UFUNCTION(BlueprintPure, Category = "Airship")
+	bool IsDeckOnPhysicsAsset() const { return bDeckIsMesh; }
 
 
 	// -------------------------------------------------------------------------
@@ -190,7 +219,7 @@ public:
 	/** Server: attaches Gunner at Station's seat (it stays possessed by PC) and lists it. False if not allowed (CanMount). */
 	bool MountGunner(ACharacter* Gunner, APlayerController* PC, int32 Station);
 
-	/** Server: frees Station and puts its gunner on the hull top next to the seat (bEject: thrown clear, ship death). */
+	/** Server: frees Station and puts its gunner on the deck next to the seat (GetDeckComponent; bEject: thrown clear, ship death). */
 	void DismountGunner(int32 Station, bool bEject);
 
 	/** Server: a manned station's aim point (world, cm). Ignored if not finite or farther than GunnerMaxAimDistance from the seat. */
@@ -732,9 +761,28 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
 	float PilotSeatClearance = 5.f;
 
-	/** Hull-space offset (cm) from the seat where the pilot steps off (then dropped onto the deck by a trace). */
+	/**
+	 * Hull-space offset (cm) from the seat where an ejected pilot (death, lethal crew share) is put before it is thrown
+	 * clear (then dropped onto the top of the hull's collision by a trace). Leaving with F keeps the seat (UnboardPilot).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
 	FVector ExitOffset = FVector(0.0, -250.0, 0.0);
+
+	/** Bone of the steering wheel (rest pose): F at the helm must not come from ahead of its plane (IsWithinHelmReach). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
+	FName HelmWheelBone = TEXT("Helm_Wheel");
+
+	/** Hull-space wheel hub (cm) when the mesh has no HelmWheelBone (round 2 helm, SourceArt/Airship/turret_dims.json helm_wheel_ue). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
+	FVector HelmWheelFallback = FVector(-685.0, 0.0, 360.5);
+
+	/**
+	 * Characters walk on the Mesh's physics asset (PA_Airship) and Visibility traces hit it, while HullCollision (the
+	 * flight body) ignores Pawn and Visibility (Talal 11-25, SPEC_A.md 6.8). Off, or a Mesh without physics bodies (a
+	 * plain AAirshipPawn): the hull's collision is the deck and the target (v1). Applied at BeginPlay.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
+	bool bDeckOnPhysicsAsset = true;
 
 	/**
 	 * Off: characters on the deck keep their physics collision (their kinematic capsules push the simulated hull: the
@@ -1506,6 +1554,28 @@ private:
 
 	/** Hull-space seat (cm), from the PilotSeat bone or PilotSeatFallback. */
 	FVector PilotSeatLocal = FVector::ZeroVector;
+
+	/** Hull-space wheel hub (cm), from HelmWheelBone or HelmWheelFallback. */
+	FVector HelmWheelLocal = FVector::ZeroVector;
+
+	/** The Mesh's physics asset is the deck (UpdateDeckCollision, BeginPlay). */
+	bool bDeckIsMesh = false;
+
+	/** BeginPlay: the deck and the Visibility target (bDeckOnPhysicsAsset): HullCollision's and Mesh's Pawn / Visibility responses. */
+	void UpdateDeckCollision();
+
+	/**
+	 * Down the hull's up axis from Point (world), the first deck surface (GetDeckComponent) between Above and Below cm of
+	 * it; a trace that starts inside a body is skipped and the next one starts higher (+300 cm, twice).
+	 */
+	bool TraceDeckBelow(const FVector& Point, double Above, double Below, FVector& OutDeck) const;
+
+	/**
+	 * Moves Character's capsule placed at InOutCentre (world) the least that clears it of the ship's deck bodies (the
+	 * Mesh's physics asset: the wheel, the pedestal, rails): up to 4 steps of their minimum translation, at most MaxPush cm
+	 * in all. Returns the distance moved (0: it was clear, or the deck is the hull's collision).
+	 */
+	double ClearDeckBodies(const ACharacter* Character, FVector& InOutCentre, double MaxPush = 100.0) const;
 
 	/** The pilot last seen by OnRep_PilotCharacter (every machine), for the change event and the collision restore. */
 	TWeakObjectPtr<ACharacter> KnownPilot;

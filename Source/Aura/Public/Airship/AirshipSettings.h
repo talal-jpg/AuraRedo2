@@ -106,21 +106,36 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Boarding")
 	bool bAddPilotComponent = true;
 
-	/** A player can board when their pawn is within this distance (cm) of the ship's pilot seat... */
-	UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0"))
-	float BoardDistance = 1200.f;
-
-	/** ...or within this distance (cm) of the hull's collision (standing on the deck, next to the hull)... */
-	UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0"))
-	float BoardHullDistance = 400.f;
-
 	/**
-	 * ...or standing under the hull with at most this much space (cm) above the pawn (a trace straight up hits the hull):
-	 * a ship hovering over the ground keeps its nozzles MinClearance (4-5 m) up, so its belly is 6-8 m above a player's
-	 * head. 0 = off.
+	 * F takes the helm only at the wheel (Talal 11-25, round2/SPEC_A.md 6.8): the character's feet within this horizontal
+	 * distance (cm, hull frame) of the helm's standing spot (the pilot seat: where the pilot stands behind the wheel)...
+	 * 0 = only the old ranges below.
 	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0"))
-	float BoardBelowDistance = 1000.f;
+	float HelmReach = 150.f;
+
+	/** ...within this height (cm) above or below it, and not ahead of the wheel (behind or beside it). */
+	UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0"))
+	float HelmReachHeight = 100.f;
+
+	/**
+	 * The old boarding ranges (v1, round 2), off since Talal 11-25: F under or near the hull does nothing, only HelmReach
+	 * takes the helm. Kept so a harness can set them back; a non-zero value takes the helm too. The pawn within this
+	 * distance (cm) of the ship's pilot seat (v1: 1200)...
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0"))
+	float BoardDistance = 0.f;
+
+	/** ...or within this distance (cm) of the hull's collision (v1: 400)... */
+	UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0"))
+	float BoardHullDistance = 0.f;
+
+	/**
+	 * ...or standing under the hull with at most this much space (cm) above the pawn (a trace straight up hits the hull;
+	 * round 2: 1000, a ship hovering over the ground keeps its belly 6-8 m above a player's head). 0 = off.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0"))
+	float BoardBelowDistance = 0.f;
 
 	/** Seconds between two board/exit requests of one player (key repeat, double presses). */
 	UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0"))
@@ -216,7 +231,7 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Stations", meta = (ClampMin = "0.0"))
 	float StationMountDistance = 350.f;
 
-	/** How far (cm) the pawn may be above the seat: on the walkable lid or the forward deck's convex, both above the planks. */
+	/** How far (cm) the pawn's capsule centre may be above the seat (the seat is at the feet: a player on the planks is about 71 cm above it). */
 	UPROPERTY(Config, EditAnywhere, Category = "Stations", meta = (ClampMin = "0.0"))
 	float StationMountHeightAbove = 600.f;
 
