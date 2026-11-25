@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Airship/AirshipTypes.h"
 #include "Engine/NetSerialization.h"
 #include "AirshipPilotComponent.generated.h"
 
@@ -32,6 +33,10 @@ struct FInputActionValue;
  * Zoom, Exit; every other key of that context consumed), shows the gunner HUD, sends its camera's aim point
  * (ServerSetGunnerAim, about 25 Hz and on change), a cannon press (ServerGunnerFire, predicted at once) and the machine
  * gun's trigger (ServerGunnerTrigger). F (IA_AirshipExit) leaves the station.
+ *
+ * Team match (round 2 PR B, SPEC_B B6.3): the other team's ship is never offered or used (UMyTeamLibrary::CanUseShip,
+ * which every machine can answer from the replicated team ids); an F that finds only an enemy helm or gun in range is
+ * refused with ClientUseRefused, which the match HUD turns into a toast (OnLocalUseRefused).
  */
 UCLASS(ClassGroup = (Airship), meta = (BlueprintSpawnableComponent))
 class AURA_API UAirshipPilotComponent : public UActorComponent
@@ -56,11 +61,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Airship")
 	void RequestDismount();
 
-	/** Any machine: the nearest free living ship the player's pawn could board now (for a "Press F" prompt). Null if none. */
+	/** Any machine: the nearest free living ship the player's pawn could board now (for a "Press F" prompt; never the other team's). Null if none. */
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	AAirshipPawn* FindBoardableAirship() const;
 
-	/** Server: boards Ship (nearest in range when null). bIgnoreRange for console commands. */
+	/** Server: boards Ship (nearest in range when null, one the player may use). bIgnoreRange for console commands. */
 	bool TryBoard(AAirshipPawn* Ship, bool bIgnoreRange);
 
 	/** Server: leaves the ship the player flies, if any. */
@@ -90,6 +95,17 @@ public:
 	 */
 	UFUNCTION(Client, Reliable)
 	void ClientMountChanged(AAirshipPawn* Ship, int8 Station, FVector_NetQuantize ExitHullLocal, FVector_NetQuantize LaunchVelocity);
+
+	/** Server -> owning client: the F was refused and why (an enemy ship's helm or gun in range, or nothing). Broadcasts OnLocalUseRefused there. */
+	UFUNCTION(Client, Unreliable)
+	void ClientUseRefused(EAirshipUseRefusal Reason);
+
+	/**
+	 * The local player's machine: an F of its own was refused (the match HUD's toast "That's ORANGE's ship"). Process-wide,
+	 * so it names the refused player's controller: single-process PIE runs every player's HUD in one process, and each
+	 * HUD only shows its own player's refusals.
+	 */
+	static TMulticastDelegate<void(const APlayerController* /*Player*/, EAirshipUseRefusal)> OnLocalUseRefused;
 
 	/** Optional: overrides Project Settings > Game > Airship. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Input")

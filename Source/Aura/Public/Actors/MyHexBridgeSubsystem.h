@@ -61,11 +61,17 @@ public:
 	/**
 	 * The top-ranked player in AMyGameState (furthest platform SplineDistance), whose progress decides
 	 * what is left behind. Server only (nullptr on clients). Cached per frame; the rule is SelectLeadPawn().
+	 * In a team match a leader aboard a ship (piloting, manning a station or riding a deck) is skipped: his pawn
+	 * can be hundreds of metres from the platforms his team still runs on.
 	 */
 	UFUNCTION(BlueprintPure, Category = "Hex Platforms")
 	APawn* GetLeadPawn() const;
 
-	/** Lead's distance along the registered path spline (cached per frame). False if there is no lead or no path. */
+	/**
+	 * Lead's distance along the registered path spline (cached per frame). False if there is no lead or no path.
+	 * In a team match, with no lead pawn but a ranked leader (all leaders aboard ships, dead or respawning), the
+	 * leader's last platform's path distance (AMyGameState::GetLeadSplineDistance).
+	 */
 	bool GetLeadPathDistance(float& OutDistance) const;
 
 	/** The path spline platforms are measured along. One per world; the last one registered wins. */

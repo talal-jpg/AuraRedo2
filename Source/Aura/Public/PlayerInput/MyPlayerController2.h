@@ -223,6 +223,11 @@ public:
 	// Sent by AGameSession::KickPlayer. Keeps the reason for the main menu and goes back to it
 	virtual void ClientWasKicked_Implementation(const FText& KickReason) override;
 	
+	// Server, the controller is going away (logout, disconnect). The engine destroys the possessed pawn: a pilot's pawn is
+	// his team's ship, which would cost the team a ship for a disconnect. A team ship is given back unpiloted instead (it
+	// cruises or holds) and only the pilot's character goes (SPEC_B B1.4). Free ships: the engine's (PR A)
+	virtual void PawnLeavingGame() override;
+	
 	private:
 	
 	UPROPERTY()

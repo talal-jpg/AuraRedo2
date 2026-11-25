@@ -17,6 +17,7 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameplayEffect.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "Match/MyTeamLibrary.h"
 #include "MechSwarm/Combat/MechSentinelCombatLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "NiagaraComponent.h"
@@ -77,6 +78,8 @@ void AAirshipCannonball::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AAirshipCannonball, SourceShip, COND_InitialOnly);
+	// Clients' turret tracers look past teammates' balls like the server's rounds (UMyTeamLibrary::GetTeamId)
+	DOREPLIFETIME_CONDITION(AAirshipCannonball, SourceTeamId, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AAirshipCannonball, LaunchVelocity, COND_InitialOnly);
 	// Only differs from the class default for a test ball (SpawnTestCannonball's override), so it costs nothing otherwise
 	DOREPLIFETIME_CONDITION(AAirshipCannonball, GravityScale, COND_InitialOnly);
@@ -87,6 +90,7 @@ void AAirshipCannonball::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 void AAirshipCannonball::InitCannonball(AAirshipPawn* InShip, const FVector& InVelocity, const FGameplayEffectSpecHandle& InDamageSpec, float InDamage)
 {
 	SourceShip = InShip;
+	SourceTeamId = InShip ? InShip->GetTeamId() : MyMatch::NoTeam;
 	LaunchVelocity = InVelocity;
 	DamageSpec = InDamageSpec;
 	Damage = InDamage;
@@ -218,7 +222,14 @@ bool AAirshipCannonball::ShouldIgnore(const AActor* Actor) const
 	}
 
 	// Another ball (same broadside or a crossing one)
-	return Actor->IsA<AAirshipCannonball>();
+	if (Actor->IsA<AAirshipCannonball>())
+	{
+		return true;
+	}
+
+	// Team match: the firing ship's teammates (players, their ship, its turrets), from SourceTeamId; free ships' balls
+	// and the match off: nobody (UMyTeamLibrary resolves a ball to its SourceTeamId)
+	return UMyTeamLibrary::IsFriendlyFireBlocked(this, Actor);
 }
 
 void AAirshipCannonball::OnProjectileStop(const FHitResult& ImpactResult)

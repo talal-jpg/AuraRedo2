@@ -7,6 +7,7 @@
 #include "UI/UserWidgets/MyUserWidget.h"
 #include "EOS/MultiplayerSessionTypes.h"
 #include "EOS/MenuButtonFX.h"
+#include "Match/MyMatchTypes.h"
 #include "Types/SlateEnums.h"
 #include "MainMenu3.generated.h"
 
@@ -74,6 +75,24 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Aura|Menu")
 	FText GetDifficultyName(int32 Difficulty) const;
 
+	//
+	// Team match rules (Docs/Airship/round2/SPEC_B.md B5.2). The host's choices reach AMyGameMode::InitGame as URL
+	// options on the lobby map: Teams, ShipLives, Swarm, Players. These option names and values are the contract.
+	//
+
+	// The team mode a RuleSets entry stands for: one with "1v1" in it is OneVsOne, "2v2" TwoVsTwo, "Practice"
+	// Practice, anything else Auto. Case, spaces and "vs" for "v" don't matter.
+	static EMyTeamMode GetTeamModeForRuleSet(const FString& RuleSet);
+
+	// The RuleSets entry (class defaults) for Mode, so a lobby opened from a running game advertises its real rules.
+	static FString GetRuleSetForTeamMode(EMyTeamMode Mode);
+
+	// The URL value of the Teams option: auto, practice, 1v1, 2v2.
+	static FString GetTeamsOption(EMyTeamMode Mode);
+
+	// Players a team mode has room for: 2 for 1v1, 4 for 2v2, 0 = any number.
+	static int32 GetTeamModeMaxPlayers(EMyTeamMode Mode);
+
 protected:
 	virtual bool Initialize() override;
 	virtual void NativeConstruct() override;
@@ -101,13 +120,20 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
 	int32 DefaultDifficulty = 1;
 
-	// Rule sets offered when hosting and filtering. The first one is the default.
+	// Rule sets offered when hosting and filtering. The first one is the default. Each one is a team mode (see
+	// GetTeamModeForRuleSet), advertised as the session's Rules and sent to the game as the Teams option.
+	// 1v1 and 2v2 set the Max Players box to 2 and 4 and lock it.
 	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
-	TArray<FString> RuleSets = { TEXT("Default") };
+	TArray<FString> RuleSets = { TEXT("Auto teams"), TEXT("1v1"), TEXT("2v2"), TEXT("Practice") };
 
 	// Choices of the Max Players box. MenuSetup's NumberOfPublicConnections is preselected.
 	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
 	TArray<int32> MaxPlayerChoices = { 1, 2, 3, 4 };
+
+	// Choices of the Ship Lives box (ships a team may lose). UMyMatchSettings' DefaultRules.ShipLives is preselected,
+	// or the nearest choice to it.
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
+	TArray<int32> ShipLivesChoices = { 1, 2, 3, 5, 9 };
 
 	// Pixels per second the credits scroll by themselves.
 	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
@@ -221,6 +247,9 @@ private:
 	UComboBoxString* HostDifficultyComboBox;
 	UPROPERTY(meta = (BindWidgetOptional))
 	UComboBoxString* HostRulesComboBox;
+	// Ship lives of the team match. Without it the game uses UMyMatchSettings' DefaultRules.ShipLives.
+	UPROPERTY(meta = (BindWidgetOptional))
+	UComboBoxString* ShipLivesComboBox;
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* StartLobbyButton;
 	// Offline listen server with no session. It can be opened to others later from the pause menu.
@@ -241,6 +270,23 @@ private:
 	void PlaySoloButtonClicked();
 	void RefreshPrivacyLabel();
 	void ReadHostSettingsFromWidgets();
+
+	UFUNCTION()
+	void OnHostRulesChanged(FString SelectedItem, ESelectInfo::Type SelectionType);
+	// 1v1 and 2v2 set the Max Players box to their player count and lock it; Auto and Practice give it back
+	void RefreshMaxPlayersForRules();
+	// The Rules box's choice, or the pending one without the box
+	FString GetSelectedRuleSet() const;
+	// ?Teams=..?ShipLives=..?Swarm=..?Players=.. for the lobby map, from PendingHostSettings and PendingShipLives.
+	// Play Solo expects one player (a versus match would wait for joins that can't come until the lobby is opened).
+	FString BuildMatchOptions(bool bPlaySolo) const;
+
+	// The Max Players box is locked by the rules
+	bool bMaxPlayersForced{ false };
+	// The host's own Max Players pick from before the lock, given back when the rules free the box
+	int32 FreeMaxPlayersIndex{ INDEX_NONE };
+	// 0 = no Ship Lives box: the game's default
+	int32 PendingShipLives{ 0 };
 
 	//
 	// Browse panel

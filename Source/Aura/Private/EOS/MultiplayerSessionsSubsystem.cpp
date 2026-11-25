@@ -15,12 +15,16 @@
 #include "Misc/CommandLine.h"
 #include "Engine/Engine.h"
 #include "Engine/NetDriver.h"
+#include "Engine/NetConnection.h"
 #include "Kismet/GameplayStatics.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameSession.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/OnlineReplStructs.h"
+#include "GameFramework/Character.h"
+#include "Airship/AirshipPawn.h"
+#include "Match/MyMatchTypes.h"
 
 UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete)),
@@ -387,6 +391,22 @@ void UMultiplayerSessionsSubsystem::DestroySession()
 void UMultiplayerSessionsSubsystem::StartSession()
 {
 	if (!SessionInterface.IsValid())
+	{
+		return;
+	}
+
+	// A team match restart reloads the map with ServerTravel and the session survives it, so the host's PostLogin
+	// asks again for a session that already runs. EOS would only log "Can't start an online session in state
+	// InProgress" and report a failure. One still starting reports back through the first call's delegate (binding
+	// it a second time would leave a stale binding behind).
+	const EOnlineSessionState::Type SessionState = SessionInterface->GetSessionState(NAME_GameSession);
+	if (SessionState == EOnlineSessionState::InProgress)
+	{
+		UE_LOG(LogTemp, Log, TEXT("MultiplayerSessionsSubsystem::StartSession - the session is already in progress, not starting it again"));
+		MultiplayerOnStartSessionComplete.Broadcast(true);
+		return;
+	}
+	if (SessionState == EOnlineSessionState::Starting)
 	{
 		return;
 	}
@@ -1076,8 +1096,34 @@ bool UMultiplayerSessionsSubsystem::KickPlayer(APlayerController* Player, const 
 		BannedPlayerIds.Add(Player->PlayerState->GetUniqueId().ToString());
 	}
 
+	// The engine's kick destroys the possessed pawn before the controller (AGameSession::KickPlayer), and the controller
+	// still has its net connection, so APlayerController::Destroyed only unpossesses (PawnLeavingGame never runs). For a
+	// pilot that pawn is his ship: its EndPlay finds the controller alive and gives the character back, which then stays
+	// in the world with nobody controlling it. A team ship stays, as for a pilot who logs out (round 2 PR B, B1.4): put
+	// him on foot first, so the kick takes his character. A free ship goes, as before, and its pilot's character with it
+	ACharacter* LeftoverPilot = nullptr;
+
+	if (AAirshipPawn* Ship = Cast<AAirshipPawn>(Player->GetPawn()); Ship && Cast<UNetConnection>(Player->Player))
+	{
+		if (Ship->GetTeamId() != MyMatch::NoTeam)
+		{
+			Ship->UnboardPilot(false);
+		}
+		else
+		{
+			LeftoverPilot = Ship->GetPilot();
+		}
+	}
+
 	// Sends ClientWasKicked(Reason) to them, then removes their controller
-	return GameMode->GameSession->KickPlayer(Player, Reason);
+	const bool bKicked = GameMode->GameSession->KickPlayer(Player, Reason);
+
+	if (bKicked && IsValid(LeftoverPilot) && !LeftoverPilot->GetController())
+	{
+		LeftoverPilot->Destroy();
+	}
+
+	return bKicked;
 }
 
 bool UMultiplayerSessionsSubsystem::IsPlayerBanned(const FUniqueNetIdRepl& PlayerId) const

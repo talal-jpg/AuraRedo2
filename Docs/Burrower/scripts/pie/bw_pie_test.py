@@ -13,7 +13,8 @@
 # PIE, nothing changed), BW_NO_MAIN (True: only define the functions, for offline tests).
 #
 # Nothing is saved: no asset, no level, no config. In-memory changes (UBurrowerSettings CDO, LevelEditorPlaySettings,
-# UnrealEdEngine fixed frame rate, CVar Aura.Burrower.DebugRotorBox) are restored when the run ends; the originals are
+# UnrealEdEngine fixed frame rate, CVars Aura.Burrower.DebugRotorBox and Aura.Match.Enable, 0 for the run so StartupMap
+# plays the race without the airship team match) are restored when the run ends; the originals are
 # also written to <out_dir>/pie_restore.json for bw_pie_cleanup.py. The TEMP_BW_ actor is removed after PIE ends.
 #
 # Engine facts this relies on (checked in UE 5.8 source / the clone's generated Python stub, see README.md):
@@ -56,6 +57,7 @@ BW_DEFAULTS = {
     'player_bp_class': '/Game/Level/MechChar/BP_MyCharMech.BP_MyCharMech_C',
     'play': {'net_mode': 'PIE_ListenServer', 'num_clients': 2, 'run_under_one_process': True, 'force_in_memory': True},
     'fixed_frame_rate': 30.0,
+    'match_enable': 0,               # CVar Aura.Match.Enable for the run (0: no team match on StartupMap); None = leave it
     'settings': {'bEnabled': False, 'FirstSpawnDelay': 4.0, 'SpawnInterval': 8.0,
                  'burrower_class_if_unset': '/Game/Assets/Enemies/Burrower/BP_Burrower.BP_Burrower_C',
                  'allow_map_if_filtered': True},
@@ -1177,6 +1179,17 @@ class BwRun(object):
             self.orig['cvar_debug_rotor_box'] = unreal.SystemLibrary.get_console_variable_int_value('Aura.Burrower.DebugRotorBox')
         except Exception:
             self.orig['cvar_debug_rotor_box'] = 0
+        # The airship round 2 team match runs on StartupMap by default (UMyMatchSettings::MatchMaps): listen PIE would
+        # wait for players, start both on ship decks and the Burrower would skip them (ship-borne). This test is about the
+        # race, so the match is off for the run (read at InitGame); 'match_enable' None leaves it alone. On a build
+        # without the CVar the command does nothing and the read gives 0.
+        if self.cfg.get('match_enable') is not None:
+            try:
+                self.orig['cvar_match_enable'] = unreal.SystemLibrary.get_console_variable_int_value('Aura.Match.Enable')
+                unreal.SystemLibrary.execute_console_command(None, 'Aura.Match.Enable %d' % int(self.cfg['match_enable']))
+                note('INFO', 'Aura.Match.Enable %d for the run (was %s)' % (int(self.cfg['match_enable']), self.orig['cvar_match_enable']))
+            except Exception as e:
+                note('WARN', 'could not set Aura.Match.Enable: %r' % e)
         if self.log_file:
             try:
                 self.log_offset = os.path.getsize(self.log_file)
@@ -1239,6 +1252,12 @@ class BwRun(object):
             rs['cvar'] = unreal.SystemLibrary.get_console_variable_int_value('Aura.Burrower.DebugRotorBox')
         except Exception as e:
             rs['cvar'] = 'ERROR %r' % e
+        if 'cvar_match_enable' in self.orig:
+            try:
+                unreal.SystemLibrary.execute_console_command(None, 'Aura.Match.Enable %d' % int(self.orig['cvar_match_enable']))
+                rs['cvar_match_enable'] = unreal.SystemLibrary.get_console_variable_int_value('Aura.Match.Enable')
+            except Exception as e:
+                rs['cvar_match_enable'] = 'ERROR %r' % e
         try:
             if self.orig.get('settings'):
                 rs['settings'] = bw_restore_settings(bw_settings_cdo(), self.orig['settings'])

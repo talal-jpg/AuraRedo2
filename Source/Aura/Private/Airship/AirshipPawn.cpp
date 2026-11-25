@@ -12,6 +12,7 @@
 #include "Airship/AirshipDamageEffect.h"
 #include "Airship/AirshipFlightComponent.h"
 #include "Airship/AirshipHUDWidget.h"
+#include "Airship/AirshipLaneComponent.h"
 #include "Airship/AirshipPilotComponent.h"
 #include "Airship/AirshipSettings.h"
 #include "Airship/AirshipSubsystem.h"
@@ -34,6 +35,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/PlayerController.h"
@@ -43,6 +45,8 @@
 #include "InputActionValue.h"
 #include "InputMappingContext.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "Match/MyMatchSettings.h"
+#include "Match/MyTeamLibrary.h"
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 #include "Misc/ScopeExit.h"
 #include "Net/UnrealNetwork.h"
@@ -57,9 +61,22 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogAirshipPawn, Log, All);
 
+namespace AirshipTags
+{
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_SpawnProtected, "Airship.State.SpawnProtected",
+		"A team ship or its turret takes no damage while its ASC has it (round 2 PR B spawn protection, UMyAttributeSet).");
+}
+
 // Named, not anonymous: the unity build compiles this file together with others
 namespace AirshipPawnPrivate
 {
+	/** AGameStateBase::GetServerWorldTimeSeconds (the replicated times are on that clock), else the world's time. */
+	double ServerNow(const UWorld* World)
+	{
+		const AGameStateBase* GameState = World ? World->GetGameState() : nullptr;
+		return GameState ? GameState->GetServerWorldTimeSeconds() : (World ? World->GetTimeSeconds() : 0.0);
+	}
+
 	TAutoConsoleVariable<int32> CVarRepMode(
 		TEXT("Aura.Airship.RepMode"),
 		0,
@@ -350,6 +367,9 @@ AAirshipPawn::AAirshipPawn()
 	// ---- Flight, GAS ----
 	Flight = CreateDefaultSubobject<UAirshipFlightComponent>(TEXT("Flight"));
 
+	// Team ships' lane follower (round 2 PR B); free ships leave it idle
+	Lane = CreateDefaultSubobject<UAirshipLaneComponent>(TEXT("Lane"));
+
 	// Replicated, Mixed (UMyAbilitySystemComponent's constructor); InitializeComponent finds the attribute set
 	AbilitySystemComponent = CreateDefaultSubobject<UMyAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AttributeSet = CreateDefaultSubobject<UMyAttributeSet>(TEXT("AttributeSet"));
@@ -393,7 +413,8 @@ AAirshipPawn::AAirshipPawn()
 	}
 
 	// Mech Sentinel bullets damage what carries this tag when a Visibility trace finds it (the hull is a PhysicsBody,
-	// which their Pawn sweep never sees). Actor tags don't replicate: the hits are server-only anyway.
+	// which their Pawn sweep never sees). Actor tags don't replicate: the hits are server-only anyway. A free ship keeps
+	// it; a team ship carries it only while driven (RefreshSentinelBulletTags, round 2 PR B).
 	Tags.AddUnique(UMechSentinelSwarmSubsystem::BulletTargetTag);
 }
 
@@ -412,6 +433,10 @@ void AAirshipPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AAirshipPawn, StationGunners);
 	DOREPLIFETIME(AAirshipPawn, StationAims);
 	DOREPLIFETIME(AAirshipPawn, Turrets);
+
+	// Team match: who may use it (CanUseShip runs on every machine), the HUD's team and shield
+	DOREPLIFETIME(AAirshipPawn, TeamId);
+	DOREPLIFETIME(AAirshipPawn, ProtectionEndServerTime);
 }
 
 void AAirshipPawn::BeginPlay()
@@ -481,6 +506,7 @@ void AAirshipPawn::BeginPlay()
 void AAirshipPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearAllTimersForObject(this);
+	IncomingReels.Reset();
 
 	// The pilot's machine: ship HUD off, on-foot overlay back
 	HideShipHUD();
@@ -563,6 +589,38 @@ void AAirshipPawn::Tick(float DeltaSeconds)
 		GatherLocalInput(DeltaSeconds);
 	}
 
+	if (HasAuthority())
+	{
+		// Reels that nobody ended (a lost ability end): the lane may move again
+		if (IncomingReels.Num() > 0)
+		{
+			const double Now = AirshipPawnPrivate::ServerNow(GetWorld());
+
+			for (auto It = IncomingReels.CreateIterator(); It; ++It)
+			{
+				if (!It.Key().IsValid() || It.Value() <= Now)
+				{
+					UE_LOG(LogAirshipPawn, Log, TEXT("%s: incoming reel of %s ended (expired)"), *GetName(), *GetNameSafe(It.Key().Get()));
+					It.RemoveCurrent();
+				}
+			}
+		}
+
+		// The sentinel bullet tags follow board / exit / possession / a settings change (one bool compare per frame)
+		const bool bWantTags = HasPilot() || GetController() != nullptr || TeamId == MyMatch::NoTeam || UMyMatchSettings::Get()->bSentinelBulletsHitUndrivenShips;
+
+		if (bWantTags != bSentinelTagsOn)
+		{
+			RefreshSentinelBulletTags();
+		}
+
+		// Round 2 PR B: this frame's lane target, right before the flight model reads it
+		if (Lane)
+		{
+			Lane->UpdateLane(DeltaSeconds);
+		}
+	}
+
 	if (Flight)
 	{
 		Flight->UpdateFlight(DeltaSeconds);
@@ -609,6 +667,9 @@ void AAirshipPawn::Tick(float DeltaSeconds)
 		PilotCharacter = nullptr;
 		PilotController.Reset();
 		OnRep_PilotCharacter();
+
+		// Still driven through the controller: the tags stay on (B6.4)
+		RefreshSentinelBulletTags();
 	}
 }
 
@@ -670,6 +731,9 @@ void AAirshipPawn::PossessedBy(AController* NewController)
 	{
 		Flight->ResetInput();
 	}
+
+	// Driven now: a swarm target, so its bullets hit (B6.4)
+	RefreshSentinelBulletTags();
 }
 
 void AAirshipPawn::UnPossessed()
@@ -680,6 +744,8 @@ void AAirshipPawn::UnPossessed()
 	{
 		Flight->ResetInput();
 	}
+
+	RefreshSentinelBulletTags();
 
 	// Unpossessed some other way than UnboardPilot (the controller took another pawn): put the pilot back on foot
 	if (HasAuthority() && PilotCharacter && !bUnboarding)
@@ -710,6 +776,358 @@ void AAirshipPawn::NotifyControllerChanged()
 	}
 
 	Super::NotifyControllerChanged();
+}
+
+
+// =============================================================================
+// Team match (round 2 PR B, SPEC_B B1.4, B3.4, B4.2, B6.4, B7.4)
+// =============================================================================
+
+void AAirshipPawn::SetTeamId(uint8 NewTeam)
+{
+	if (!HasAuthority())
+	{
+		UE_LOG(LogAirshipPawn, Warning, TEXT("%s: SetTeamId is server only"), *GetName());
+		return;
+	}
+
+	if (NewTeam >= MyMatch::NumTeams)
+	{
+		NewTeam = MyMatch::NoTeam;
+	}
+
+	if (TeamId == NewTeam)
+	{
+		return;
+	}
+
+	UE_LOG(LogAirshipPawn, Log, TEXT("%s: team %d -> %d"), *GetName(), static_cast<int32>(TeamId), static_cast<int32>(NewTeam));
+	TeamId = NewTeam;
+	ForceNetUpdate();
+
+	// Nobody of another team stays at its helm or its guns (a claimed placed ship, a console team change). The seated
+	// pilot is unpossessed and attached, so his own team would read as the ship's (just set): judge him by the controller
+	// that flies the ship. Gunners stay possessed, their characters answer for themselves
+	if (PilotCharacter)
+	{
+		const AActor* PilotUser = PilotController.Get() ? static_cast<const AActor*>(PilotController.Get())
+			: (GetController() ? static_cast<const AActor*>(GetController()) : static_cast<const AActor*>(PilotCharacter.Get()));
+
+		if (!UMyTeamLibrary::CanUseShip(PilotUser, this))
+		{
+			UnboardPilot(false);
+		}
+	}
+
+	for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+	{
+		const ACharacter* Gunner = GetStationGunner(Station);
+
+		if (Gunner && !UMyTeamLibrary::CanUseShip(Gunner, this))
+		{
+			DismountGunner(Station, false);
+		}
+	}
+
+	RefreshSentinelBulletTags();
+
+	// Also before FinishSpawning (the match's deferred spawn): the component is registered, not begun
+	if (Lane)
+	{
+		Lane->NotifyTeamChanged();
+	}
+
+	OnRep_TeamId();
+}
+
+void AAirshipPawn::OnRep_TeamId()
+{
+	// The pilot panel grows a LANE row on team ships (no hide / re-show)
+	RefreshShipHUDLayout();
+	OnTeamChanged.Broadcast();
+}
+
+void AAirshipPawn::RefreshSentinelBulletTags()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	// The same rule the sentinels' targeting follows (every player state's pawn): a ship is a target while its player
+	// flies it, also through the controller alone (a pilot whose character went). Free ships: always, as PR A.
+	const bool bDriven = HasPilot() || GetController() != nullptr;
+	const bool bOn = bDriven || TeamId == MyMatch::NoTeam || UMyMatchSettings::Get()->bSentinelBulletsHitUndrivenShips;
+	const FName Tag = UMechSentinelSwarmSubsystem::BulletTargetTag;
+
+	auto Apply = [bOn, Tag](AActor* Actor)
+	{
+		if (bOn)
+		{
+			Actor->Tags.AddUnique(Tag);
+		}
+		else
+		{
+			Actor->Tags.Remove(Tag);
+		}
+	};
+
+	// The hull and every turret: a bullet stopping on a turret's HitBox (it blocks Visibility) damages it directly
+	Apply(this);
+
+	for (const TObjectPtr<AAirshipTurret>& Turret : Turrets)
+	{
+		if (IsValid(Turret))
+		{
+			Apply(Turret);
+		}
+	}
+
+	if (bOn != bSentinelTagsOn)
+	{
+		UE_LOG(LogAirshipPawn, Log, TEXT("%s: sentinel bullets %s (team %d, driven %d)"), *GetName(), bOn ? TEXT("hit it") : TEXT("pass it"),
+			static_cast<int32>(TeamId), bDriven ? 1 : 0);
+	}
+	bSentinelTagsOn = bOn;
+}
+
+void AAirshipPawn::SetSpawnProtected(float Seconds)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(SpawnProtectionTimer);
+
+	if (Seconds <= 0.f || bIsDead)
+	{
+		const bool bWasProtected = ProtectionEndServerTime > 0.0;
+		ProtectionEndServerTime = 0.0;
+		ApplySpawnProtectionTag(false);
+
+		if (bWasProtected)
+		{
+			UE_LOG(LogAirshipPawn, Log, TEXT("%s: spawn protection off"), *GetName());
+			ForceNetUpdate();
+		}
+		return;
+	}
+
+	ProtectionEndServerTime = AirshipPawnPrivate::ServerNow(GetWorld()) + Seconds;
+	ApplySpawnProtectionTag(true);
+	GetWorldTimerManager().SetTimer(SpawnProtectionTimer, this, &ThisClass::OnSpawnProtectionTimer, Seconds, false);
+	ForceNetUpdate();
+
+	UE_LOG(LogAirshipPawn, Log, TEXT("%s: spawn protected for %.1f s"), *GetName(), Seconds);
+}
+
+bool AAirshipPawn::IsSpawnProtected() const
+{
+	return ProtectionEndServerTime > 0.0 && !bIsDead && AirshipPawnPrivate::ServerNow(GetWorld()) < ProtectionEndServerTime;
+}
+
+void AAirshipPawn::OnSpawnProtectionTimer()
+{
+	UE_LOG(LogAirshipPawn, Log, TEXT("%s: spawn protection ran out"), *GetName());
+	SetSpawnProtected(0.f);
+}
+
+void AAirshipPawn::ApplySpawnProtectionTag(bool bProtected)
+{
+	// One choke point for every damage path (UMyAttributeSet's IncomingDamage): the gun, the beam, splash, cannonballs,
+	// turret rounds, sentinel bullets and hull impacts are all effects on these ASCs. Loose and server only: only the
+	// server applies damage. A count of 1 either way, so repeated calls don't stack.
+	const int32 Count = bProtected ? 1 : 0;
+
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->SetLooseGameplayTagCount(AirshipTags::State_SpawnProtected, Count);
+	}
+
+	for (const TObjectPtr<AAirshipTurret>& Turret : Turrets)
+	{
+		if (UAbilitySystemComponent* TurretASC = IsValid(Turret) ? Turret->GetAbilitySystemComponent() : nullptr)
+		{
+			TurretASC->SetLooseGameplayTagCount(AirshipTags::State_SpawnProtected, Count);
+		}
+	}
+}
+
+void AAirshipPawn::NotifyIncomingReel(const AActor* Reeler, bool bActive)
+{
+	if (!HasAuthority() || !Reeler)
+	{
+		return;
+	}
+
+	const TWeakObjectPtr<const AActor> Key(Reeler);
+
+	if (bActive && !bIsDead)
+	{
+		const bool bNew = !IncomingReels.Contains(Key);
+		IncomingReels.Add(Key, AirshipPawnPrivate::ServerNow(GetWorld()) + IncomingReelSafetySeconds);
+
+		if (bNew)
+		{
+			UE_LOG(LogAirshipPawn, Log, TEXT("%s: incoming reel of %s"), *GetName(), *Reeler->GetName());
+		}
+	}
+	else if (IncomingReels.Remove(Key) > 0)
+	{
+		UE_LOG(LogAirshipPawn, Log, TEXT("%s: incoming reel of %s ended"), *GetName(), *Reeler->GetName());
+	}
+}
+
+bool AAirshipPawn::HasIncomingReel() const
+{
+	if (IncomingReels.Num() == 0)
+	{
+		return false;
+	}
+
+	// Expired entries count no more (the Tick removes them)
+	const double Now = AirshipPawnPrivate::ServerNow(GetWorld());
+
+	for (const TPair<TWeakObjectPtr<const AActor>, double>& Entry : IncomingReels)
+	{
+		if (Entry.Key.IsValid() && Entry.Value > Now)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void AAirshipPawn::GetDeckSpawnTransforms(int32 Count, TArray<FTransform>& Out) const
+{
+	Out.Reset();
+
+	if (Count <= 0 || !HullCollision)
+	{
+		return;
+	}
+
+	const FBox Local = HullCollision->CalcBounds(FTransform::Identity).GetBox();
+
+	if (!Local.IsValid)
+	{
+		return;
+	}
+
+	const FTransform HullTM = HullCollision->GetComponentTransform();
+	const FVector Up = HullTM.GetUnitAxis(EAxis::Z);
+	const FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipDeckSpawn), false);
+
+	// The player pawn's capsule (the game mode's default pawn) stands on the lid with the seat's clearance
+	float HalfHeight = 90.f;
+	const UWorld* World = GetWorld();
+	const AGameModeBase* GameMode = World ? World->GetAuthGameMode() : nullptr;
+
+	if (const ACharacter* PawnCDO = (GameMode && GameMode->DefaultPawnClass) ? Cast<ACharacter>(GameMode->DefaultPawnClass->GetDefaultObject()) : nullptr)
+	{
+		if (const UCapsuleComponent* Capsule = PawnCDO->GetCapsuleComponent())
+		{
+			HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+		}
+	}
+
+	// Straight down onto the hull at a hull-space XY, from above its top: the walkable lid, as UnboardPilot finds it
+	auto TraceDeck = [&](const FVector2D& XY, FVector& OutLocal)
+	{
+		FHitResult Hit;
+		const FVector Top = HullTM.TransformPosition(FVector(XY.X, XY.Y, Local.Max.Z + 300.0));
+		const FVector Bottom = HullTM.TransformPosition(FVector(XY.X, XY.Y, Local.Min.Z - 10.0));
+
+		if (!HullCollision->LineTraceComponent(Hit, Top, Bottom, Params) || Hit.bStartPenetrating
+			|| FVector::DotProduct(Hit.ImpactNormal, Up) < 0.7)
+		{
+			return false;
+		}
+
+		OutLocal = HullTM.InverseTransformPosition(Hit.ImpactPoint);
+		return true;
+	};
+
+	// The deck height where the pilot steps off: other spots must be on the same lid, not on a roof or a gantry
+	const FVector ExitLocal = PilotSeatLocal + ExitOffset;
+	FVector DeckRef;
+
+	if (!TraceDeck(FVector2D(ExitLocal.X, ExitLocal.Y), DeckRef))
+	{
+		DeckRef = FVector(ExitLocal.X, ExitLocal.Y, PilotSeatLocal.Z);
+	}
+
+	// Candidates on both sides of the helm and along the deck (a lattice of DeckSpawnSpacing), nearest the helm first
+	const double Spacing = FMath::Max(DeckSpawnSpacing, 50.f);
+	const double SideY = FMath::Max(FMath::Abs(ExitOffset.Y), Spacing * 0.5);
+	const double MinX = Local.Min.X + Spacing;
+	const double MaxX = Local.Max.X - Spacing;
+	const double MaxY = FMath::Max(0.0, 0.5 * (Local.Max.Y - Local.Min.Y) - Spacing * 0.5);
+	TArray<FVector2D> Candidates;
+
+	for (int32 Step = -6; Step <= 6; ++Step)
+	{
+		for (const double RowY : { -SideY, SideY, -2.0 * SideY, 2.0 * SideY })
+		{
+			const FVector2D XY(ExitLocal.X + Step * Spacing, RowY);
+
+			// On the hull, and clear of the helm itself
+			if (XY.X >= MinX && XY.X <= MaxX && FMath::Abs(XY.Y - 0.5 * (Local.Min.Y + Local.Max.Y)) <= MaxY
+				&& FVector2D::Distance(XY, FVector2D(PilotSeatLocal.X, PilotSeatLocal.Y)) >= Spacing * 0.6)
+			{
+				Candidates.Add(XY);
+			}
+		}
+	}
+
+	const FVector2D ExitXY(ExitLocal.X, ExitLocal.Y);
+	Candidates.Sort([&ExitXY](const FVector2D& A, const FVector2D& B) { return FVector2D::DistSquared(A, ExitXY) < FVector2D::DistSquared(B, ExitXY); });
+
+	const FRotator Facing(0.0, GetActorRotation().Yaw, 0.0);
+	TArray<FVector, TInlineAllocator<8>> Taken;
+
+	for (const FVector2D& XY : Candidates)
+	{
+		FVector DeckLocal;
+
+		if (!TraceDeck(XY, DeckLocal) || FMath::Abs(DeckLocal.Z - DeckRef.Z) > 150.0)
+		{
+			continue;
+		}
+
+		bool bTooClose = false;
+
+		for (const FVector& Other : Taken)
+		{
+			bTooClose |= FVector::Dist2D(Other, DeckLocal) < Spacing * 0.9;
+		}
+
+		if (bTooClose)
+		{
+			continue;
+		}
+
+		Taken.Add(DeckLocal);
+		const FVector Feet = HullTM.TransformPosition(DeckLocal);
+		Out.Emplace(Facing, Feet + FVector(0.0, 0.0, HalfHeight + PilotSeatClearance + 10.0));
+
+		if (Out.Num() >= Count)
+		{
+			break;
+		}
+	}
+
+	if (Out.Num() < Count)
+	{
+		UE_LOG(LogAirshipPawn, Log, TEXT("%s: %d of %d deck spawn spots"), *GetName(), Out.Num(), Count);
+	}
+}
+
+bool AAirshipPawn::IsLaneAssistLook() const
+{
+	return Lane && TeamId != MyMatch::NoTeam && Lane->IsAssistActive();
 }
 
 
@@ -888,6 +1306,12 @@ void AAirshipPawn::GatherLocalInput(float DeltaSeconds)
 	const double Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
 	FAirshipPilotInput Controls;
 
+	// Round 2 PR B: the lane flies this team ship (the replicated lane state is Assist). The pilot's drive keys hand him
+	// the helm (the drive-intent bit below); until then this machine sends no steering, so its own wheel and fans don't
+	// turn while the server holds the lane (SPEC_B B2.9)
+	const bool bLaneAssistLook = IsLaneAssistLook();
+	bool bDriveIntent = false;
+
 	if (Flight->HasDebugInput())
 	{
 		// Test hook (DebugSetInput, Aura.Airship.Input) on the pilot's machine: in place of the keys, so a client's debug
@@ -897,6 +1321,9 @@ void AAirshipPawn::GatherLocalInput(float DeltaSeconds)
 
 		// Point & Fly: the heading target restarts on the hull's heading once the debug controls end
 		bPFValid = false;
+
+		// Plain axes, no heading loop: any of them drives (the steer too, in every scheme)
+		bDriveIntent = Controls.Throttle != 0 || Controls.Steer != 0 || Controls.Lift != 0 || Controls.Strafe != 0 || Controls.IsBoost() || Controls.IsBrake();
 	}
 	else if (ControlScheme == EAirshipControlScheme::PointFly && PC)
 	{
@@ -909,7 +1336,11 @@ void AAirshipPawn::GatherLocalInput(float DeltaSeconds)
 		const float NudgeAxis = Axis(StrafeAction);
 		const bool bMoveKeys = FMath::Abs(Axis(ThrottleAction)) > 0.05f || FMath::Abs(Axis(SteerAction)) > 0.05f || FMath::Abs(NudgeAxis) > 0.05f
 			|| Button(BoostAction);
-		UpdatePointFlyCamera(DeltaSeconds, PC, NudgeAxis, bAimHeld, bMoveKeys, Button(FireAction));
+		UpdatePointFlyCamera(DeltaSeconds, PC, NudgeAxis, bAimHeld, bMoveKeys, Button(FireAction), bLaneAssistLook);
+
+		// Driving: a drive / sidestep / turn / boost key, or the camera steering (out of its parked free look; broadside
+		// mode holds the heading, so Aim alone is no drive). Lift and brake reach the server as axes.
+		bDriveIntent = bMoveKeys || (!bPFParked && !bPFFree);
 
 		Controls.Throttle = FAirshipPilotInput::QuantizeAxis(Axis(ThrottleAction));
 
@@ -955,6 +1386,14 @@ void AAirshipPawn::GatherLocalInput(float DeltaSeconds)
 		const float ViewYawRate = bHullSimulating ? static_cast<float>(HullCollision->GetPhysicsAngularVelocityInDegrees().Z) : 0.f;
 		Controls.Steer = FAirshipPilotInput::QuantizeAxis(Flight->ComputeHeadingSteer(PFSentHeading, static_cast<float>(GetActorRotation().Yaw), ViewYawRate,
 			ViewForwardSpeed, Flight->GetShapedBoost(), Controls.IsBrake(), PilotHeadingLoop));
+
+		// Lane assist without a drive key: no heading target, no steer (the lane holds the heading on the server)
+		if (bLaneAssistLook && !bDriveIntent)
+		{
+			Controls.HeadingTarget = 0;
+			Controls.Steer = 0;
+			PilotHeadingLoop = FPointFlyLoopState();
+		}
 	}
 	else
 	{
@@ -973,6 +1412,20 @@ void AAirshipPawn::GatherLocalInput(float DeltaSeconds)
 			Controls.Throttle = AirshipGalleon::NotchToThrottle(GalleonNotch);
 			Controls.SetButton(Airship::Button_Stations, bGalleonStations);
 		}
+
+		// Driving: any drive axis or button (Galleon: an order other than STOP)
+		const bool bThrottleDrive = ControlScheme == EAirshipControlScheme::Galleon ? GalleonNotch != AirshipGalleon::Stop : FMath::Abs(Controls.GetThrottle()) > 0.05f;
+		bDriveIntent = bThrottleDrive || FMath::Abs(Controls.GetSteer()) > 0.05f || FMath::Abs(Controls.GetLift()) > 0.05f
+			|| FMath::Abs(Controls.GetStrafe()) > 0.05f || Controls.IsBoost() || Controls.IsBrake();
+	}
+
+	// A team ship's lane hands the helm to the pilot on it; free ships send PR A's input unchanged (no bit)
+	Controls.SetButton(Airship::Button_DriveIntent, bDriveIntent && TeamId != MyMatch::NoTeam);
+
+	// Galleon cosmetics on this machine: the cleared order is STOP, which would back the engines against the cruise
+	if (bLaneAssistLook && !bDriveIntent)
+	{
+		Controls.SetButton(Airship::Button_Drift, true);
 	}
 
 	bLocalAimValid = ComputeLocalAimPoint(LocalAimPoint);
@@ -1205,6 +1658,12 @@ bool AAirshipPawn::CanBoard(const APawn* Candidate) const
 		return false;
 	}
 
+	// Team match: nobody takes the other team's helm (a free ship, or no match: anyone)
+	if (!UMyTeamLibrary::CanUseShip(Character, this))
+	{
+		return false;
+	}
+
 	// A gunner leaves its station first (F there dismounts)
 	AAirshipPawn* GunnerShip = nullptr;
 	int32 GunnerStation = INDEX_NONE;
@@ -1326,6 +1785,18 @@ bool AAirshipPawn::BoardPilot(ACharacter* Pilot, APlayerController* PC)
 		return false;
 	}
 
+	// Team match: its team took the helm, so the spawn protection ends (B3.4); the lane hands over or assists (B2.3)
+	if (ProtectionEndServerTime > 0.0)
+	{
+		UE_LOG(LogAirshipPawn, Log, TEXT("%s: spawn protection ends (%s took the helm)"), *GetName(), *Pilot->GetName());
+		SetSpawnProtected(0.f);
+	}
+
+	if (Lane)
+	{
+		Lane->NotifyPilotChanged(true);
+	}
+
 	return true;
 }
 
@@ -1384,7 +1855,9 @@ void AAirshipPawn::UnboardPilot(bool bEject)
 	const float PilotMana = bKeepVitals ? PilotASC->GetNumericAttribute(UMyAttributeSet::GetManaAttribute()) : 0.f;
 	bool bPossessed = false;
 
-	// Back to the character (unless the player already went elsewhere)
+	// Back to the character (unless the player already went elsewhere). A pilot logging out (round 2 PR B,
+	// AMyPlayerController2::PawnLeavingGame on a team ship): his controller is being destroyed, so it isn't possessed;
+	// the controller then lets go of the ship, which stays, and destroys the character
 	if (PC && !PC->IsActorBeingDestroyed() && (PC->GetPawn() == this || PC->GetPawn() == nullptr) && !Pilot->IsActorBeingDestroyed())
 	{
 		PC->Possess(Pilot);
@@ -1419,6 +1892,12 @@ void AAirshipPawn::UnboardPilot(bool bEject)
 	{
 		Flight->NotifyPilotLeft(ShipVelocity);
 	}
+
+	// Team ships: parked in its lane it cruises again, else it is Parked (drift / hold, then the recall)
+	if (Lane)
+	{
+		Lane->NotifyPilotChanged(false);
+	}
 }
 
 void AAirshipPawn::OnRep_PilotCharacter()
@@ -1446,6 +1925,9 @@ void AAirshipPawn::OnRep_PilotCharacter()
 		NewPilot->SetActorEnableCollision(false);
 		PassengersWithCollisionOff.AddUnique(NewPilot);
 	}
+
+	// Server (it calls this at board and exit): driven or not, for the sentinel bullets (B6.4)
+	RefreshSentinelBulletTags();
 
 	OnPilotChanged.Broadcast(this, NewPilot);
 }
@@ -1537,6 +2019,18 @@ TArray<ACharacter*> AAirshipPawn::GetPassengers() const
 }
 
 bool AAirshipPawn::IsRiderForDamage(const ACharacter* Character) const
+{
+	if (!IsRiding(Character))
+	{
+		return false;
+	}
+
+	// The pilot and the gunners are on its team (CanBoard / CanMount); a free ship spares every rider (PR A). A team ship
+	// spares only its own team: an enemy boarder on the deck can be shot by its turrets, and its aim looks at him.
+	return Character->IsAttachedTo(this) || TeamId == MyMatch::NoTeam || UMyTeamLibrary::GetTeamId(Character) == TeamId;
+}
+
+bool AAirshipPawn::IsRiding(const ACharacter* Character) const
 {
 	if (!Character || !HullCollision || Character->IsActorBeingDestroyed())
 	{
@@ -1718,6 +2212,12 @@ bool AAirshipPawn::CanMount(const ACharacter* Candidate, int32 Station) const
 		return false;
 	}
 
+	// Team match: nobody mans the other team's guns
+	if (!UMyTeamLibrary::CanUseShip(Candidate, this))
+	{
+		return false;
+	}
+
 	// A wrecked (or missing) turret has no gun to man
 	if (Airship::IsTurretStation(Station))
 	{
@@ -1822,6 +2322,14 @@ bool AAirshipPawn::MountGunner(ACharacter* Gunner, APlayerController* PC, int32 
 	}
 
 	UE_LOG(LogAirshipPawn, Log, TEXT("%s: %s mounted %s"), *GetName(), *Gunner->GetName(), *AirshipPawnPrivate::StationName(Station));
+
+	// Team match: its team manned a gun, so the spawn protection ends (B3.4)
+	if (ProtectionEndServerTime > 0.0)
+	{
+		UE_LOG(LogAirshipPawn, Log, TEXT("%s: spawn protection ends (%s manned a gun)"), *GetName(), *Gunner->GetName());
+		SetSpawnProtected(0.f);
+	}
+
 	return true;
 }
 
@@ -2300,9 +2808,16 @@ void AAirshipPawn::SpawnTurrets()
 		Turret->AttachToComponent(HullCollision, FAttachmentTransformRules::KeepWorldTransform);
 		Turret->SetActorRelativeTransform(FTransform(Mount.Location));
 
-		// Sentinel bullets damage it (the turret adds the tag itself too, for one spawned any other way)
-		Turret->Tags.AddUnique(UMechSentinelSwarmSubsystem::BulletTargetTag);
 		Turrets[TurretIndex] = Turret;
+	}
+
+	// Sentinel bullets damage the turrets while the ship is driven, or always on a free ship (B6.4; the turret tags
+	// itself only without a ship); a protected ship's new turrets are protected too
+	RefreshSentinelBulletTags();
+
+	if (ProtectionEndServerTime > 0.0)
+	{
+		ApplySpawnProtectionTag(true);
 	}
 
 	ForceNetUpdate();
@@ -3371,15 +3886,18 @@ void AAirshipPawn::UpdateSkyRacerFollow(float DeltaSeconds, double Alpha, FRotat
 // Damage and death
 // =============================================================================
 
-void AAirshipPawn::ApplyShipDamage(float Damage)
+void AAirshipPawn::ApplyShipDamage(float Damage, AActor* DamageInstigator)
 {
 	if (!HasAuthority() || bIsDead || Damage <= 0.f || !AbilitySystemComponent)
 	{
 		return;
 	}
 
+	// The ship's own effect from its own ASC; the shooter (a fixed-damage gun hit) is the context's instigator, so the
+	// match can tell a shot from a crash and the shooter sees his damage number. Hull impacts and the console: the ship.
+	AActor* ContextInstigator = IsValid(DamageInstigator) ? DamageInstigator : static_cast<AActor*>(this);
 	FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
-	Context.AddInstigator(this, this);
+	Context.AddInstigator(ContextInstigator, ContextInstigator);
 
 	const TSubclassOf<UGameplayEffect> EffectClass = DamageEffectClass ? DamageEffectClass : TSubclassOf<UGameplayEffect>(UAirshipDamageEffect::StaticClass());
 	const FGameplayEffectSpecHandle Spec = AbilitySystemComponent->MakeOutgoingSpec(EffectClass, static_cast<float>(ShipLevel), Context);
@@ -3685,10 +4203,16 @@ void AAirshipPawn::OnHullHit(UPrimitiveComponent* HitComponent, AActor* OtherAct
 		}
 	}
 
-	// Server: a drifting unpiloted ship stops on a bow contact (any speed, before the damage threshold)
+	// Server: a drifting unpiloted ship stops on a bow contact (any speed, before the damage threshold); a cruising team
+	// ship waits on one (the lane's rule)
 	if (HasAuthority() && Flight && !bIsDead)
 	{
 		Flight->NotifyHullContact(OtherActor, Hit);
+
+		if (Lane)
+		{
+			Lane->NotifyHullContact(OtherActor, Hit);
+		}
 	}
 
 	if (!HasAuthority() || bIsDead || ImpactDamagePerMS <= 0.f)
@@ -3795,6 +4319,13 @@ void AAirshipPawn::Die()
 	{
 		return;
 	}
+
+	// Team match: a wreck needs no protection, and nobody reels onto it any more
+	if (ProtectionEndServerTime > 0.0)
+	{
+		SetSpawnProtected(0.f);
+	}
+	IncomingReels.Reset();
 
 	// For clients that get the actor later (the multicast only reaches those connected now)
 	bIsDead = true;
@@ -4300,6 +4831,32 @@ FAirshipFlightTelemetry AAirshipPawn::GetFlightTelemetry() const
 		if (GetCannonReloadAlpha(Cannon) >= 1.f)
 		{
 			Telemetry.CannonReadyMask |= 1 << Cannon;
+		}
+	}
+
+	// Team match (round 2 PR B): the team, the lane component's replicated state and hint, the timers
+	const double ServerTime = AirshipPawnPrivate::ServerNow(GetWorld());
+	Telemetry.TeamId = TeamId;
+	Telemetry.ProtectionLeftS = IsSpawnProtected() ? static_cast<float>(ProtectionEndServerTime - ServerTime) : 0.f;
+	Telemetry.bIncomingReel = HasAuthority() && HasIncomingReel();
+
+	if (Lane)
+	{
+		const FMyLaneHint& Hint = Lane->GetLaneHint();
+		Telemetry.LaneState = static_cast<uint8>(Lane->GetLaneState());
+		Telemetry.LaneUM = static_cast<float>(Hint.ProgressDm) * 0.1f;
+		Telemetry.LaneLateralErrorM = static_cast<float>(Hint.LateralDm) * 0.1f;
+		Telemetry.LaneVerticalErrorM = static_cast<float>(Hint.VerticalDm) * 0.1f;
+		Telemetry.LaneYawDeg = static_cast<float>(Hint.LaneYawDeg10) * 0.1f;
+		Telemetry.LaneClamp = Hint.Clamp;
+
+		const double RecallTime = Lane->GetRecallServerTime();
+		Telemetry.RecallInS = RecallTime > 0.0 ? static_cast<float>(FMath::Max(0.0, RecallTime - ServerTime)) : 0.f;
+
+		// Clients have no flight-model lane state: the replicated lane state says it
+		if (!HasAuthority())
+		{
+			Telemetry.bLaneAssist = Lane->IsAssistActive();
 		}
 	}
 
@@ -4945,7 +5502,7 @@ void AAirshipPawn::StepGalleonOrder(int32 Dir, bool bRepeat)
 	}
 }
 
-void AAirshipPawn::UpdatePointFlyCamera(float Dt, APlayerController* PC, float NudgeAxis, bool bAimHeld, bool bMoveKeys, bool bFireHeld)
+void AAirshipPawn::UpdatePointFlyCamera(float Dt, APlayerController* PC, float NudgeAxis, bool bAimHeld, bool bMoveKeys, bool bFireHeld, bool bLaneAssistLook)
 {
 	using namespace AirshipPawnPrivate;
 
@@ -4976,7 +5533,10 @@ void AAirshipPawn::UpdatePointFlyCamera(float Dt, APlayerController* PC, float N
 		PFPrevHeading = PFHeading;
 		PFLockSwingDir = 0;
 		PilotHeadingLoop = FPointFlyLoopState();
-		bPFParked = false;
+		// A team ship's helm starts parked (round 2 PR B): its lane may be flying it at cruise speed, and the lane state
+		// can reach this machine after the possession. Steering from the first frame would be drive and take the lane's
+		// helm. A free ship starts as PR A (parked only below PFParkSpeed).
+		bPFParked = TeamId != MyMatch::NoTeam;
 		bPFValid = true;
 		bJustStarted = true;
 	}
@@ -5007,8 +5567,9 @@ void AAirshipPawn::UpdatePointFlyCamera(float Dt, APlayerController* PC, float N
 	// reset) still sets the heading, as in steering mode. Entering needs |forward speed| < PFParkSpeed; once parked it holds
 	// at any speed until such a key, Aim, or an outside set above PFParkSpeed (follow-up F-B): a hit or a collision that
 	// pushes the ship past PFParkSpeed no longer ends it, so the heading holds and the heading loop turns a knocked hull back
+	// Round 2 PR B: also at any speed while the lane flies the ship (lane assist)
 	const bool bParkedNow = PFParkSpeed > 0.f && !bPFFree && !bMoveKeys
-		&& (FMath::Abs(ViewForwardSpeed) < PFParkSpeed || (bPFParked && !bExternal));
+		&& (FMath::Abs(ViewForwardSpeed) < PFParkSpeed || (bPFParked && !bExternal) || bLaneAssistLook);
 
 	if (bParkedNow)
 	{

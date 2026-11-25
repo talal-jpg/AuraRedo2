@@ -27,6 +27,7 @@
 #include "Components/SplineMeshComponent.h"
 #include "AbilitySystem/Abilities/GA_Beam.h"
 #include "Airship/AirshipPawn.h"
+#include "Match/MyMatchTypes.h"
 #include "Components/CapsuleComponent.h"
 #include "EOS/MainMenu.h"
 #include "GameFramework/Character.h"
@@ -413,6 +414,30 @@ void AMyPlayerController2::TogglePauseMenu()
 	// While it's open the menu has the input (Esc / Start close it there), this only runs to open it
 	if (PauseMenu->IsMenuOpen()) PauseMenu->CloseMenu();
 	else PauseMenu->OpenMenu();
+}
+
+void AMyPlayerController2::PawnLeavingGame()
+{
+	AAirshipPawn* Ship = Cast<AAirshipPawn>(GetPawn());
+
+	if (Ship && Ship->GetTeamId() != MyMatch::NoTeam)
+	{
+		// UnboardPilot can't possess this controller again (it is being destroyed), so the ship stays unpossessed: lane
+		// cruise, or PR A's drift / hold. Then the pilot's character, which the engine would otherwise take with the ship
+		ACharacter* Pilot = Ship->GetPilot();
+		Ship->UnboardPilot(false);
+		UnPossess();
+
+		if (IsValid(Pilot))
+		{
+			Pilot->Destroy();
+		}
+
+		UE_LOG(LogMatch, Log, TEXT("Team: the pilot of %s left the game; the ship stays (team %d)"), *Ship->GetName(), Ship->GetTeamId());
+		return;
+	}
+
+	Super::PawnLeavingGame();
 }
 
 void AMyPlayerController2::ClientWasKicked_Implementation(const FText& KickReason)

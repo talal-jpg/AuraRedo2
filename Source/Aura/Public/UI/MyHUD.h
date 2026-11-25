@@ -7,6 +7,7 @@
 #include "MyHUD.generated.h"
 
 class UMyHexMinimapWidget;
+class UMyMatchHUDWidget;
 class UMyOverlayWidgetController;
 class UMyUserWidget;
 /**
@@ -22,7 +23,22 @@ public:
 
 	void InitOverlay();
 
+protected:
+	/** Adds the team match HUD: it must show while a versus match waits for players, when there is no pawn yet. */
+	virtual void BeginPlay() override;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 private:
+	/** Team match HUD (Docs/Airship/round2/SPEC_B.md B8): over the whole viewport, draws nothing while no match runs. None = off. */
+	UPROPERTY(EditAnywhere, Category = "Match")
+	TSubclassOf<UMyMatchHUDWidget> MatchWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UMyMatchHUDWidget> MatchWidget;
+
+	void AddMatchWidget();
+
 	UPROPERTY()
 	TObjectPtr<UMyUserWidget> OverlayWidget;
 

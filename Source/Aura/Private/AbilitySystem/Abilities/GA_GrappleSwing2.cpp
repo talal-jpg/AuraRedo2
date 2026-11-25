@@ -17,6 +17,9 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Airship/AirshipPawn.h"
+#include "Match/MyMatchSettings.h"
+#include "Match/MyTeamLibrary.h"
 
 // Names differ from v1's: a unity build can put both .cpp files in one translation unit
 UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_GS2_Ability,"Ability.GrappleSwing2")
@@ -120,6 +123,49 @@ namespace GrappleSwing2
 		}
 		return ObjectParams;
 	}
+
+	// A client move time stamp brought next to the server's, across a time stamp reset that straddled the RPC
+	static float AlignClientTime(float ClientTime, float Now, float ResetPeriod)
+	{
+		if (ClientTime-Now>ResetPeriod*0.5f)
+		{
+			return ClientTime-ResetPeriod;
+		}
+		if (Now-ClientTime>ResetPeriod*0.5f)
+		{
+			return ClientTime+ResetPeriod;
+		}
+		return ClientTime;
+	}
+
+	// CMC adds this to an override velocity while falling, take it out so the displacement is exactly ours
+	static FVector DecayingBaseVelocity(const UCharacterMovementComponent& MoveComponent)
+	{
+		return MoveComponent.IsFalling() ? MoveComponent.DecayingFormerBaseVelocity : FVector::ZeroVector;
+	}
+
+	// Ship hook: the airship a hit belongs to, the hull itself or anything attached to it (the turrets)
+	static AAirshipPawn* ResolveShip(AActor* Actor)
+	{
+		for (int32 Depth=0;Actor && Depth<=4;++Depth,Actor=Actor->GetAttachParentActor())
+		{
+			if (AAirshipPawn* Ship=Cast<AAirshipPawn>(Actor))return Ship;
+		}
+		return nullptr;
+	}
+
+	static FVector ShipLinearVelocity(const AAirshipPawn& Ship)
+	{
+		const UPrimitiveComponent* HullComp=Ship.GetHull();
+		return HullComp && HullComp->IsSimulatingPhysics() ? HullComp->GetPhysicsLinearVelocity() : Ship.GetVelocity();
+	}
+
+	// Linear plus angular x r at a world point
+	static FVector ShipVelocityAt(const AAirshipPawn& Ship, const FVector& Point)
+	{
+		const UPrimitiveComponent* HullComp=Ship.GetHull();
+		return HullComp && HullComp->IsSimulatingPhysics() ? HullComp->GetPhysicsLinearVelocityAtPoint(Point) : Ship.GetVelocity();
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -140,6 +186,19 @@ bool FGameplayAbilityTargetData_GrappleSwing2::NetSerialize(FArchive& Ar, UPacka
 	Ar << bHasFloor;
 	Ar << ChainCount;
 	Ar << AgainstMotionDir;
+	Ar << bShipReel;
+	if (bShipReel)
+	{
+		Ar << AnchorActor;
+		Ar << TargetHullLocal;
+		Ar << AnchorVelocity;
+	}
+	else if (Ar.IsLoading())
+	{
+		AnchorActor.Reset();
+		TargetHullLocal=FVector::ZeroVector;
+		AnchorVelocity=FVector::ZeroVector;
+	}
 	bOutSuccess=true;
 	return true;
 }
@@ -861,6 +920,285 @@ FString FRootMotionSource_GrappleSwing2::ToSimpleString() const
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
+// FRootMotionSource_GrappleReel2 (ship hook, SPEC_B B7.3)
+// ---------------------------------------------------------------------------------------------------------------------
+
+FRootMotionSource_GrappleReel2::FRootMotionSource_GrappleReel2()
+{
+	// Additive with zero output while the hook flies, switched to Override when it arrives, like the swing
+	AccumulateMode=ERootMotionAccumulateMode::Additive;
+	Priority=500;
+	InstanceName=FName("GrappleReel2");
+	// Infinite, the source finishes itself
+	Duration=-1.f;
+	Settings.SetFlag(ERootMotionSourceSettingsFlags::UseSensitiveLiftoffCheck);
+	// The final move outputs the leave velocity itself (Clamp/Set finish velocities aren't applied in replays)
+	FinishVelocityParams.Mode=ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
+}
+
+FRootMotionSource* FRootMotionSource_GrappleReel2::Clone() const
+{
+	return new FRootMotionSource_GrappleReel2(*this);
+}
+
+bool FRootMotionSource_GrappleReel2::Matches(const FRootMotionSource* Other) const
+{
+	// Not the base version: it compares AccumulateMode, which this source changes when the hook arrives
+	if (!Other || Other->GetScriptStruct()!=GetScriptStruct())return false;
+	const FRootMotionSource_GrappleReel2* OtherCast=static_cast<const FRootMotionSource_GrappleReel2*>(Other);
+	return Priority==Other->Priority
+		&& bInLocalSpace==Other->bInLocalSpace
+		&& InstanceName==Other->InstanceName
+		&& FMath::IsNearlyEqual(Duration,Other->Duration,UE_SMALL_NUMBER)
+		&& SwingId==OtherCast->SwingId
+		&& AnchorStart.Equals(OtherCast->AnchorStart,1.f);
+}
+
+bool FRootMotionSource_GrappleReel2::MatchesAndHasSameState(const FRootMotionSource* Other) const
+{
+	// As the swing: a correction during a reel always replays from the server's state
+	return false;
+}
+
+bool FRootMotionSource_GrappleReel2::UpdateStateFrom(const FRootMotionSource* SourceToTakeStateFrom, bool bMarkForSimulatedCatchup)
+{
+	if (!FRootMotionSource::UpdateStateFrom(SourceToTakeStateFrom,bMarkForSimulatedCatchup))return false;
+
+	const FRootMotionSource_GrappleReel2* Other=static_cast<const FRootMotionSource_GrappleReel2*>(SourceToTakeStateFrom);
+	Phase=Other->Phase;
+	AccumulateMode=Phase==EGS2Phase::Travel ? ERootMotionAccumulateMode::Additive : ERootMotionAccumulateMode::Override;
+	if (Phase==EGS2Phase::Travel)
+	{
+		// A Travel source outputs nothing (see the swing's UpdateStateFrom)
+		RootMotionParams.Clear();
+	}
+	bPrevJump=Other->bPrevJump;
+	EndReason=Other->EndReason;
+	AttachTime=Other->AttachTime;
+	ReelVelocity=Other->ReelVelocity;
+	// Earliest valid end wins, so a replay never undoes one
+	if (Other->EndTime>=0.f && (EndTime<0.f || Other->EndTime<EndTime))
+	{
+		EndTime=Other->EndTime;
+		EndKind=Other->EndKind;
+	}
+	// Config, tuning and this machine's view of the ship stay as they are
+	return true;
+}
+
+FVector FRootMotionSource_GrappleReel2::VelocityAt(const FVector& X, float Time, const FVector& Up) const
+{
+	const FVector A=GetAnchorAt(Time);
+	const float D=FVector::Dist(A,X);
+	// Close enough: ride along with the ship for the rest of the move, the next move ends the reel
+	if (D<=ArriveDistance)return AnchorVelocity;
+	const FVector Aim=A+Up*FMath::Min(LiftMax,LiftFraction*D);
+	return AnchorVelocity+(Aim-X).GetSafeNormal()*ReelSpeed;
+}
+
+bool FRootMotionSource_GrappleReel2::IsOnShip(const ACharacter& Character, const UCharacterMovementComponent& MoveComponent, const FVector& X, float HalfHeight) const
+{
+	UPrimitiveComponent* HullComp=Hull.Get();
+	if (!HullComp)return false;
+
+	// Landed on the ship (the hull, or anything attached to it), the way AAirshipPawn's rider test reads the base
+	if (MoveComponent.IsMovingOnGround() && Character.GetMovementBaseObject())
+	{
+		const AActor* ShipActor=HullComp->GetOwner();
+		const AActor* BaseActor=APawn::GetMovementBaseActor(&Character);
+		if (ShipActor && BaseActor && (BaseActor==ShipActor || BaseActor->IsAttachedTo(ShipActor)))return true;
+	}
+
+	// Over the deck near the target's height, with the hull right below: an arrival that drifted a little still lands.
+	// This machine's view of the ship, so client and server may end a move apart (the CMC corrects the last metres)
+	if (!DeckBoxLocal.IsValid)return false;
+	const FTransform HullTM=HullComp->GetComponentTransform();
+	if (!DeckBoxLocal.IsInsideOrOn(HullTM.InverseTransformPosition(X)))return false;
+	FHitResult Hit;
+	const FCollisionQueryParams Params(SCENE_QUERY_STAT(GrappleReel2Deck),false);
+	return HullComp->LineTraceComponent(Hit,X,X-HullTM.GetUnitAxis(EAxis::Z)*(HalfHeight+DeckDropTolerance),Params);
+}
+
+void FRootMotionSource_GrappleReel2::Finish(const FVector& VOut, EGS2EndReason Reason, const UCharacterMovementComponent& MoveComponent, float T1, bool bJump)
+{
+	// The final move: its override is still applied this move, then the source is removed with Maintain
+	Phase=EGS2Phase::Done;
+	EndReason=Reason;
+	AccumulateMode=ERootMotionAccumulateMode::Override;
+	RootMotionParams.Set(FTransform(VOut-GrappleSwing2::DecayingBaseVelocity(MoveComponent)));
+	ReelVelocity=VOut;
+	bPrevJump=bJump;
+	// Duration<0, so the time-out check never clears this
+	Status.SetFlag(ERootMotionSourceStatusFlags::Finished);
+	SetTime(T1);
+}
+
+void FRootMotionSource_GrappleReel2::PrepareRootMotion(float SimulationTime, float MovementTickTime, const ACharacter& Character, const UCharacterMovementComponent& MoveComponent)
+{
+	RootMotionParams.Clear();
+	const float T0=GetTime();
+	const float T1=T0+SimulationTime;
+	const float Dt=MovementTickTime;
+
+	if (!Tuning.IsValid() || Dt<=UE_SMALL_NUMBER)
+	{
+		if (Phase!=EGS2Phase::Travel)
+		{
+			RootMotionParams.Set(FTransform(ReelVelocity));
+		}
+		SetTime(T1);
+		return;
+	}
+
+	const FGrappleSwing2Tuning& P=*Tuning;
+	const FVector X0=MoveComponent.UpdatedComponent->GetComponentLocation();
+	const FVector Up=-MoveComponent.GetGravityDirection();
+	const float HalfHeight=Character.GetCapsuleComponent() ? Character.GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 88.f;
+	const bool bJump=GrappleSwing2::ReadMoveJump(Character,MoveComponent);
+
+	// (1) Travel: the hook is in flight, zero additive so normal falling runs
+	if (Phase==EGS2Phase::Travel)
+	{
+		// Ended before the hook arrived (cancel, death): drop the hook and leave the velocity alone
+		if (EndTime>=0.f && EndTime<TravelTime-1.e-4f && T0>=EndTime-1.e-4f)
+		{
+			EndReason=EGS2EndReason::Forced;
+			AccumulateMode=ERootMotionAccumulateMode::Additive;
+			bPrevJump=bJump;
+			Status.SetFlag(ERootMotionSourceStatusFlags::Finished);
+			SetTime(T1);
+			return;
+		}
+		if (SimulationTime<=0.f || T1<TravelTime-1.e-4f)
+		{
+			AccumulateMode=ERootMotionAccumulateMode::Additive;
+			bPrevJump=bJump;
+			SetTime(T1);
+			return;
+		}
+		Phase=EGS2Phase::Swing;
+		AccumulateMode=ERootMotionAccumulateMode::Override;
+		AttachTime=T1;
+		EndReason=EGS2EndReason::None;
+		// A jump held through the hook flight doesn't let go at once
+		bPrevJump=bJump;
+	}
+	else if (Phase==EGS2Phase::Done)
+	{
+		RootMotionParams.Set(FTransform(ReelVelocity));
+		SetTime(T1);
+		return;
+	}
+
+	// (2) Ends, once per move before moving
+	const FVector VNow=VelocityAt(X0,T0,Up);
+	const float Elapsed=FMath::Max(T0-AttachTime,0.f);
+	// a) Ability end (the button alone never ends a reel): keep the reel velocity
+	if (EndTime>=0.f && T0>=EndTime-1.e-4f)
+	{
+		Finish(VNow,EndKind==EGS2EndKind::Forced ? EGS2EndReason::Forced : EGS2EndReason::Released,MoveComponent,T1,bJump);
+		return;
+	}
+	// b) Jump lets go, as on the swing
+	if (P.bJumpReleases && bJump && !bPrevJump && Elapsed>=P.MinSwingTimeAfterAttach)
+	{
+		Finish(VNow,EGS2EndReason::JumpReleased,MoveComponent,T1,bJump);
+		return;
+	}
+	bPrevJump=bJump;
+	// c) At the deck target, on the ship, or over its deck: leave with the ship's velocity and a hop, landing on the lid
+	const FVector Leave=AnchorVelocity+Up*LeaveUpSpeed;
+	if (FVector::Dist(GetAnchorAt(T0),X0)<=ArriveDistance || IsOnShip(Character,MoveComponent,X0,HalfHeight))
+	{
+		Finish(Leave,EGS2EndReason::Arrived,MoveComponent,T1,bJump);
+		return;
+	}
+	// d) Time limit, the same way out wherever it is
+	if (Elapsed>=MaxReelTime)
+	{
+		Finish(Leave,EGS2EndReason::Timeout,MoveComponent,T1,bJump);
+		return;
+	}
+
+	// (3) Substeps: the direction to the moving aim point turns as the player closes in
+	const int32 NumSteps=FMath::Clamp(FMath::CeilToInt(Dt/FMath::Max(P.MaxSubstepDt,1.e-3f)),1,FMath::Max(P.MaxSubsteps,1));
+	const float H=Dt/NumSteps;
+	FVector X=X0;
+	FVector V=VNow;
+	for (int32 i=0;i<NumSteps;++i)
+	{
+		V=VelocityAt(X,T0+SimulationTime*((float)i/NumSteps),Up);
+		X+=V*H;
+	}
+
+	// (4) Output the displacement as a velocity, like the swing
+	RootMotionParams.Set(FTransform((X-X0)/Dt-GrappleSwing2::DecayingBaseVelocity(MoveComponent)));
+	ReelVelocity=V;
+	SetTime(T1);
+}
+
+bool FRootMotionSource_GrappleReel2::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+{
+	if (!FRootMotionSource::NetSerialize(Ar,Map,bOutSuccess))return false;
+
+	// Loading can reuse an existing struct, so every field is written and read
+	Ar << SwingId;
+	SerializePackedVector<100,30>(AnchorStart,Ar);
+	SerializePackedVector<100,30>(AnchorVelocity,Ar);
+
+	uint8 Flags=0;
+	if (Ar.IsSaving())
+	{
+		Flags=(uint8)Phase&3;
+		Flags|=(bPrevJump ? 1 : 0)<<2;
+		Flags|=(EndTime>=0.f ? 1 : 0)<<3;
+		Flags|=((uint8)EndKind&1)<<4;
+	}
+	Ar << Flags;
+	if (Ar.IsLoading())
+	{
+		Phase=(EGS2Phase)(Flags&3);
+		bPrevJump=((Flags>>2)&1)!=0;
+		EndKind=(EGS2EndKind)((Flags>>4)&1);
+	}
+
+	uint8 Reason=(uint8)EndReason;
+	Ar << Reason;
+	EndReason=(EGS2EndReason)Reason;
+
+	Ar << AttachTime;
+	SerializePackedVector<100,30>(ReelVelocity,Ar);
+
+	if (Flags&(1<<3))
+	{
+		Ar << EndTime;
+	}
+	else if (Ar.IsLoading())
+	{
+		EndTime=-1.f;
+	}
+
+	if (Ar.IsLoading())
+	{
+		AccumulateMode=Phase==EGS2Phase::Travel ? ERootMotionAccumulateMode::Additive : ERootMotionAccumulateMode::Override;
+	}
+
+	bOutSuccess=true;
+	return true;
+}
+
+UScriptStruct* FRootMotionSource_GrappleReel2::GetScriptStruct() const
+{
+	return FRootMotionSource_GrappleReel2::StaticStruct();
+}
+
+FString FRootMotionSource_GrappleReel2::ToSimpleString() const
+{
+	return FString::Printf(TEXT("[ID:%u]FRootMotionSource_GrappleReel2 %s Swing(%u) Phase(%d) Speed(%.0f) ShipSpeed(%.0f) EndTime(%.3f)"),
+		LocalID,*InstanceName.GetPlainNameString(),SwingId,(int32)Phase,ReelVelocity.Size(),AnchorVelocity.Size(),EndTime);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 // UGA_GrappleSwing2
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -899,6 +1237,20 @@ FRootMotionSource_GrappleSwing2* UGA_GrappleSwing2::FindSource(TSharedPtr<FRootM
 	return static_cast<FRootMotionSource_GrappleSwing2*>(OutHolder.Get());
 }
 
+FRootMotionSource_GrappleReel2* UGA_GrappleSwing2::FindReelSource(TSharedPtr<FRootMotionSource>& OutHolder) const
+{
+	OutHolder.Reset();
+	UCharacterMovementComponent* MoveComp=GetSwingMovement();
+	if (!MoveComp || RootMotionSourceID==GrappleSwing2::InvalidSourceID)return nullptr;
+	OutHolder=MoveComp->GetRootMotionSourceByID(RootMotionSourceID);
+	if (!OutHolder.IsValid() || OutHolder->GetScriptStruct()!=FRootMotionSource_GrappleReel2::StaticStruct())
+	{
+		OutHolder.Reset();
+		return nullptr;
+	}
+	return static_cast<FRootMotionSource_GrappleReel2*>(OutHolder.Get());
+}
+
 bool UGA_GrappleSwing2::GetGrappleSwing2State(const ACharacter* Character, FVector& OutAnchor, float& OutRopeLength, bool& bOutTaut)
 {
 	OutAnchor=FVector::ZeroVector;
@@ -908,6 +1260,16 @@ bool UGA_GrappleSwing2::GetGrappleSwing2State(const ACharacter* Character, FVect
 	if (!MoveComp)return false;
 	for (const TSharedPtr<FRootMotionSource>& Source:MoveComp->CurrentRootMotion.RootMotionSources)
 	{
+		if (Source.IsValid() && Source->GetScriptStruct()==FRootMotionSource_GrappleReel2::StaticStruct())
+		{
+			// Ship reel: the rope end follows the moving deck anchor
+			const FRootMotionSource_GrappleReel2* Reel=static_cast<const FRootMotionSource_GrappleReel2*>(Source.Get());
+			if (Reel->Phase!=EGS2Phase::Swing)continue;
+			OutAnchor=Reel->GetAnchorAt(Reel->GetTime());
+			OutRopeLength=MoveComp->UpdatedComponent ? (float)FVector::Dist(MoveComp->UpdatedComponent->GetComponentLocation(),OutAnchor) : 0.f;
+			bOutTaut=true;
+			return true;
+		}
 		if (Source.IsValid() && Source->GetScriptStruct()==FRootMotionSource_GrappleSwing2::StaticStruct())
 		{
 			const FRootMotionSource_GrappleSwing2* Swing=static_cast<const FRootMotionSource_GrappleSwing2*>(Source.Get());
@@ -929,6 +1291,15 @@ bool UGA_GrappleSwing2::GetGrappleSwing2Phase(const ACharacter* Character, float
 	bool bHookFlying=false;
 	for (const TSharedPtr<FRootMotionSource>& Source:MoveComp->CurrentRootMotion.RootMotionSources)
 	{
+		if (Source.IsValid() && Source->GetScriptStruct()==FRootMotionSource_GrappleReel2::StaticStruct())
+		{
+			// Ship reel: no arc, the pose where the rope pulls for the whole reel (and the hook flight)
+			if (static_cast<const FRootMotionSource_GrappleReel2*>(Source.Get())->Phase!=EGS2Phase::Done)
+			{
+				bHookFlying=true;
+			}
+			continue;
+		}
 		if (!Source.IsValid() || Source->GetScriptStruct()!=FRootMotionSource_GrappleSwing2::StaticStruct())continue;
 		const FRootMotionSource_GrappleSwing2* Swing=static_cast<const FRootMotionSource_GrappleSwing2*>(Source.Get());
 		if (Swing->Phase==EGS2Phase::Travel)
@@ -1040,6 +1411,9 @@ void UGA_GrappleSwing2::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	RootMotionSourceID=GrappleSwing2::InvalidSourceID;
 	AirborneTime=0.f;
 	ActiveActivationKey=ActivationInfo.GetActivationPredictionKey();
+	ReelShip.Reset();
+	ReelTargetHullLocal=FVector::ZeroVector;
+	bReelDropped=false;
 
 	PollTimerHandle=GetWorld()->GetTimerManager().SetTimerForNextTick(this,&ThisClass::Poll);
 
@@ -1116,6 +1490,42 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 	
 	const float G=-MoveComp->GetGravityZ();
 
+	const FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(GrappleSwing2Search),true,Character);
+	UWorld* World=GetWorld();
+	// The crosshair rays start level with the character so things between the camera and the character don't count
+	const FVector RayStart=Ctx.ViewLoc+Ctx.ViewDir*((Ctx.Pos-Ctx.ViewLoc)|Ctx.ViewDir);
+
+	// Ship hook first: the crosshair on a ship is a deliberate aim and wins over any swing anchor (and over the apex wait).
+	// The crosshair ray below still sees the ship as a pawn and rejects it, as before, when this one doesn't take it.
+	if (IsShipHookOn())
+	{
+		const float ShipRayLength=FMath::Max(MaxGrappleDistance,MaxShipHookDistance);
+		FHitResult ShipHit;
+		if (World->LineTraceSingleByChannel(ShipHit,RayStart,RayStart+Ctx.ViewDir*ShipRayLength,GrappleTraceChannel,QueryParams))
+		{
+			if (AAirshipPawn* Ship=GrappleSwing2::ResolveShip(ShipHit.GetActor()))
+			{
+				FGS2AnchorCandidate ShipCandidate;
+				const bool bValid=EvaluateShipHit(ShipHit,Ship,Ctx,ShipCandidate);
+				if (bDrawDebug)
+				{
+					DrawDebugLine(World,RayStart,ShipHit.ImpactPoint,bValid ? FColor::Cyan : FColor::Magenta,false,0.5f,0,1.f);
+				}
+				if (bValid)
+				{
+					if (bDebugLogSearch)
+					{
+						GS2DebugMessage(FString::Printf(TEXT("GrappleSwing2 search: ship reel to %s, deck target %.0f m away"),*GetNameSafe(Ship),
+							FVector::Dist(Ctx.Pos,ShipCandidate.Anchor)/100.f));
+						bDebugLogSearch=false;
+					}
+					OutBest=ShipCandidate;
+					return true;
+				}
+			}
+		}
+	}
+
 	// Auto-chain: wait for the apex so the next web does not drag the release vault down
 	if (bIsAutoChainActivation && (V|Ctx.Up)>ChainAttachMaxRiseSpeed)
 	{
@@ -1137,9 +1547,6 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 	{
 		Ctx.MoveDirH=Character->GetActorForwardVector();
 	}
-
-	const FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(GrappleSwing2Search),true,Character);
-	UWorld* World=GetWorld();
 
 	FGS2AnchorCandidate Crosshair;
 	FGS2AnchorCandidate Best;
@@ -1172,7 +1579,6 @@ bool UGA_GrappleSwing2::FindAnchor(FGS2AnchorCandidate& OutBest) const
 	};
 
 	// (a) Crosshair, starting level with the character so things between the camera and the character don't count
-	const FVector RayStart=Ctx.ViewLoc+Ctx.ViewDir*((Ctx.Pos-Ctx.ViewLoc)|Ctx.ViewDir);
 	TryRay(RayStart,Ctx.ViewDir,true,false);
 
 	// (b) Aim assist cone, pitched up so anchors above win
@@ -1295,6 +1701,116 @@ bool UGA_GrappleSwing2::EvaluateHit(const FHitResult& Hit, bool bCrosshair, bool
 	return true;
 }
 
+bool UGA_GrappleSwing2::IsShipHookOn() const
+{
+	if (MaxShipHookDistance<=0.f)return false;
+	// The match's rule (replicated, so the client's search agrees with the server). With no match running the grapple is
+	// PR A's (a ship is a pawn, never an anchor, and no extra crosshair trace: SPEC_B B5.5), unless the settings let free
+	// ships be hooked outside a match too
+	if (UMyTeamLibrary::IsMatchActive(this))return UMyTeamLibrary::GetRules(this).bGrappleShips;
+	const UMyMatchSettings* Settings=UMyMatchSettings::Get();
+	return Settings->bShipHookOutsideMatch&&Settings->DefaultRules.bGrappleShips;
+}
+
+bool UGA_GrappleSwing2::TraceStaticPastShip(const FVector& Start, const FVector& End, const AActor* Ship, FHitResult& OutHit) const
+{
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(GrappleSwing2ShipRope),false,GetSwingCharacter());
+	if (Ship)
+	{
+		QueryParams.AddIgnoredActor(Ship);
+		TArray<AActor*> Attached;
+		Ship->GetAttachedActors(Attached,true,true);
+		QueryParams.AddIgnoredActors(Attached);
+	}
+	return GetWorld()->LineTraceSingleByObjectType(OutHit,Start,End,GrappleSwing2::MakeObjectParams(Swing),QueryParams);
+}
+
+bool UGA_GrappleSwing2::FindShipDeckTarget(UPrimitiveComponent& HullComp, const FVector& AimPoint, FVector& OutTargetLocal) const
+{
+	// Hull space: the hidden hull body's own bounds, like AAirshipPawn's rider test
+	const FBox Local=HullComp.CalcBounds(FTransform::Identity).GetBox();
+	if (!Local.IsValid)return false;
+	const FTransform HullTM=HullComp.GetComponentTransform();
+	const FVector HullUp=HullTM.GetUnitAxis(EAxis::Z);
+	const FVector Centre=Local.GetCenter();
+	const FVector Aimed=HullTM.InverseTransformPosition(AimPoint);
+
+	// Clamped onto the deck: inside the bow and the stern, near the centre line, so an arrival short of the target (it
+	// comes in from the side it was shot from) still lands on the deck
+	const double InsetX=FMath::Min((double)ShipReelDeckInset,Local.GetExtent().X*0.5);
+	const double X=FMath::Clamp(Aimed.X,Local.Min.X+InsetX,Local.Max.X-InsetX);
+	const double HalfWidth=FMath::Min((double)ShipReelDeckHalfWidth,Local.GetExtent().Y);
+	const double Y=FMath::Clamp(Aimed.Y,Centre.Y-HalfWidth,Centre.Y+HalfWidth);
+
+	// Straight down onto the hull's top (the walkable lid, CPP_NOTES 3), on the hull only, the way UnboardPilot finds the
+	// deck. Where the hull is narrower than its box, try nearer the middle
+	const double TopZ=FMath::Max(1500.0,Local.Max.Z+100.0);
+	const FCollisionQueryParams Params(SCENE_QUERY_STAT(GrappleSwing2ShipDeck),false);
+	const FVector2D Tries[]={FVector2D(X,Y),FVector2D(X,Centre.Y),FVector2D(FMath::Lerp(X,Centre.X,0.5),Centre.Y),FVector2D(Centre.X,Centre.Y)};
+	for (const FVector2D& Try:Tries)
+	{
+		FHitResult Hit;
+		const FVector Start=HullTM.TransformPosition(FVector(Try.X,Try.Y,TopZ));
+		const FVector End=HullTM.TransformPosition(FVector(Try.X,Try.Y,Local.Min.Z-10.0));
+		if (HullComp.LineTraceComponent(Hit,Start,End,Params) && (Hit.ImpactNormal|HullUp)>0.5f)
+		{
+			OutTargetLocal=HullTM.InverseTransformPosition(Hit.ImpactPoint+HullUp*ShipReelTargetHeight);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UGA_GrappleSwing2::EvaluateShipHit(const FHitResult& Hit, AAirshipPawn* Ship, const FGS2SearchCtx& Ctx, FGS2AnchorCandidate& Out) const
+{
+	auto Reject=[&](const FString& Why)
+	{
+		if (bDebugLogSearch)
+		{
+			GS2DebugMessage(FString::Printf(TEXT("GrappleSwing2 ship hook reject: %s | ship %s"),*Why,*GetNameSafe(Ship)));
+		}
+		return false;
+	};
+	if (!IsValid(Ship) || Ship->IsAirshipDead())return Reject(TEXT("ship dead"));
+	UPrimitiveComponent* HullComp=Ship->GetHull();
+	if (!HullComp)return Reject(TEXT("ship has no hull"));
+	if (bShipHookOwnTeamOnly && !UMyTeamLibrary::CanUseShip(GetSwingCharacter(),Ship))return Reject(TEXT("the other team's ship"));
+	const float ShipSpeed=GrappleSwing2::ShipLinearVelocity(*Ship).Size();
+	if (ShipSpeed>ShipHookMaxShipSpeed)return Reject(FString::Printf(TEXT("ship speed %.0f above ShipHookMaxShipSpeed %.0f"),ShipSpeed,ShipHookMaxShipSpeed));
+
+	FVector TargetLocal;
+	if (!FindShipDeckTarget(*HullComp,Hit.ImpactPoint,TargetLocal))return Reject(TEXT("no deck found under the aimed point"));
+	const FTransform HullTM=HullComp->GetComponentTransform();
+	const FVector A=HullTM.TransformPosition(TargetLocal);
+
+	const float Dist=FVector::Dist(Ctx.Pos,A);
+	if (Dist>MaxShipHookDistance)return Reject(FString::Printf(TEXT("deck target %.0f away, beyond MaxShipHookDistance %.0f"),Dist,MaxShipHookDistance));
+	if (Dist<Swing.MinRopeLength+100.f)return Reject(TEXT("already at the deck"));
+
+	// Not from under the hull: the reel would only push into its bottom until it times out
+	FHitResult Above;
+	const FCollisionQueryParams Params(SCENE_QUERY_STAT(GrappleSwing2ShipAbove),false);
+	if (HullComp->LineTraceComponent(Above,Ctx.Pos,Ctx.Pos+HullTM.GetUnitAxis(EAxis::Z)*MaxShipHookDistance,Params))return Reject(TEXT("under the ship"));
+
+	// Rope line of sight against static geometry, past the ship and everything attached to it
+	const FVector RopeStart=Ctx.Pos+Ctx.Up*Ctx.HalfHeight*Swing.RopeAttachHeightFrac;
+	FHitResult LOSHit;
+	if (TraceStaticPastShip(RopeStart,A-(A-RopeStart).GetSafeNormal()*Swing.AnchorLOSInset,Ship,LOSHit))
+	{
+		return Reject(FString::Printf(TEXT("rope line of sight blocked by %s"),*GetNameSafe(LOSHit.GetActor())));
+	}
+
+	Out.Anchor=A;
+	Out.Normal=HullTM.GetUnitAxis(EAxis::Z);
+	Out.bShipReel=true;
+	Out.Ship=Ship;
+	Out.TargetHullLocal=TargetLocal;
+	Out.AnchorVelocity=GrappleSwing2::ShipVelocityAt(*Ship,A);
+	Out.Score=0.f;
+	Out.bValid=true;
+	return true;
+}
+
 void UGA_GrappleSwing2::TrySearchAndAttach()
 {
 	if (!IsActive() || State!=EGS2AbilityState::Searching)return;
@@ -1353,6 +1869,16 @@ void UGA_GrappleSwing2::TrySearchAndAttach()
 	Data.FloorHeight=Candidate.FloorHeight;
 	Data.bHasFloor=Candidate.bHasFloor ? 1 : 0;
 	Data.ChainCount=PendingChainCount;
+	if (Candidate.bShipReel)
+	{
+		// A reel has no arc: no chain stacks, no look-against-the-motion turn, no floor
+		Data.bShipReel=1;
+		Data.AnchorActor=Candidate.Ship.Get();
+		Data.TargetHullLocal=Candidate.TargetHullLocal;
+		Data.AnchorVelocity=Candidate.AnchorVelocity;
+		Data.AgainstMotionDir=FVector::ZeroVector;
+		Data.ChainCount=0;
+	}
 	Data.ClientStartTime=-1.f;
 	if (Character->GetLocalRole()==ROLE_AutonomousProxy)
 	{
@@ -1380,6 +1906,45 @@ void UGA_GrappleSwing2::TrySearchAndAttach()
 	}
 }
 
+TSharedPtr<FRootMotionSource> UGA_GrappleSwing2::MakeReelSource(const FGameplayAbilityTargetData_GrappleSwing2& Data) const
+{
+	TSharedPtr<FRootMotionSource_GrappleReel2> Reel=MakeShared<FRootMotionSource_GrappleReel2>();
+	Reel->Priority=(uint16)FMath::Clamp(RootMotionPriority,0,65535);
+	Reel->Tuning=SharedTuning;
+	Reel->SwingId=Data.SwingId;
+	Reel->AnchorStart=Data.Anchor;
+	Reel->AnchorVelocity=Data.AnchorVelocity;
+	Reel->TravelTime=Data.TravelTime;
+	Reel->ReelSpeed=FMath::Max(ShipReelSpeed,1.f);
+	Reel->ArriveDistance=FMath::Max(ShipReelArriveDistance,0.f);
+	Reel->MaxReelTime=FMath::Max(ShipReelMaxTime,0.f);
+	Reel->LiftFraction=FMath::Max(ShipReelLiftFraction,0.f);
+	Reel->LiftMax=FMath::Max(ShipReelLiftMax,0.f);
+	Reel->LeaveUpSpeed=ShipReelLeaveUpSpeed;
+	Reel->DeckDropTolerance=FMath::Max(ShipReelDeckBoxMargin,0.f);
+	Reel->Phase=EGS2Phase::Travel;
+	Reel->AccumulateMode=ERootMotionAccumulateMode::Additive;
+
+	// The deck finish reads this machine's ship (the motion doesn't): the deck part the target is on, around its height
+	const AAirshipPawn* Ship=Cast<AAirshipPawn>(Data.AnchorActor.Get());
+	UPrimitiveComponent* HullComp=Ship ? Ship->GetHull() : nullptr;
+	if (HullComp)
+	{
+		const FBox Local=HullComp->CalcBounds(FTransform::Identity).GetBox();
+		if (Local.IsValid)
+		{
+			const double Margin=FMath::Max(ShipReelDeckBoxMargin,0.f);
+			const double HalfWidth=FMath::Min((double)ShipReelDeckHalfWidth,Local.GetExtent().Y)+Margin;
+			const double CentreY=Local.GetCenter().Y;
+			Reel->Hull=HullComp;
+			Reel->DeckBoxLocal=FBox(
+				FVector(Local.Min.X,CentreY-HalfWidth,Data.TargetHullLocal.Z-Margin),
+				FVector(Local.Max.X,CentreY+HalfWidth,Data.TargetHullLocal.Z+Margin));
+		}
+	}
+	return Reel;
+}
+
 void UGA_GrappleSwing2::StartSwing(const FGameplayAbilityTargetData_GrappleSwing2& Data, bool bServerForRemote)
 {
 	ACharacter* Character=GetSwingCharacter();
@@ -1390,20 +1955,31 @@ void UGA_GrappleSwing2::StartSwing(const FGameplayAbilityTargetData_GrappleSwing
 		SharedTuning=MakeShared<FGrappleSwing2Tuning>(Swing);
 	}
 
-	// Both machines build the source only from the target data and the tuning
-	TSharedPtr<FRootMotionSource_GrappleSwing2> Src=MakeShared<FRootMotionSource_GrappleSwing2>();
-	Src->Priority=(uint16)FMath::Clamp(RootMotionPriority,0,65535);
-	Src->Tuning=SharedTuning;
-	Src->SwingId=Data.SwingId;
-	Src->Anchor=Data.Anchor;
-	Src->PreferredSwingDir=Data.PreferredSwingDir;
-	Src->TravelTime=Data.TravelTime;
-	Src->FloorHeight=Data.FloorHeight;
-	Src->bHasFloorBelowAnchor=Data.bHasFloor!=0;
-	Src->ChainCount=Data.ChainCount;
-	Src->AgainstMotionDir=GrappleSwing2::Proj(Data.AgainstMotionDir,-MoveComp->GetGravityDirection()).GetSafeNormal();
-	Src->Phase=EGS2Phase::Travel;
-	Src->AccumulateMode=ERootMotionAccumulateMode::Additive;
+	// Both machines build the source only from the target data and the tuning (a ship reel: and the ability's ship hook
+	// values, plus this machine's view of the ship for the deck finish)
+	TSharedPtr<FRootMotionSource> Src;
+	if (Data.bShipReel)
+	{
+		Src=MakeReelSource(Data);
+		if (!Src.IsValid())return;
+	}
+	else
+	{
+		TSharedPtr<FRootMotionSource_GrappleSwing2> SwingSrc=MakeShared<FRootMotionSource_GrappleSwing2>();
+		SwingSrc->Priority=(uint16)FMath::Clamp(RootMotionPriority,0,65535);
+		SwingSrc->Tuning=SharedTuning;
+		SwingSrc->SwingId=Data.SwingId;
+		SwingSrc->Anchor=Data.Anchor;
+		SwingSrc->PreferredSwingDir=Data.PreferredSwingDir;
+		SwingSrc->TravelTime=Data.TravelTime;
+		SwingSrc->FloorHeight=Data.FloorHeight;
+		SwingSrc->bHasFloorBelowAnchor=Data.bHasFloor!=0;
+		SwingSrc->ChainCount=Data.ChainCount;
+		SwingSrc->AgainstMotionDir=GrappleSwing2::Proj(Data.AgainstMotionDir,-MoveComp->GetGravityDirection()).GetSafeNormal();
+		SwingSrc->Phase=EGS2Phase::Travel;
+		SwingSrc->AccumulateMode=ERootMotionAccumulateMode::Additive;
+		Src=SwingSrc;
+	}
 
 	if (bServerForRemote)
 	{
@@ -1411,24 +1987,13 @@ void UGA_GrappleSwing2::StartSwing(const FGameplayAbilityTargetData_GrappleSwing
 		const FNetworkPredictionData_Server_Character* ServerData=MoveComp->GetPredictionData_Server_Character();
 		if (ServerData && Data.ClientStartTime>=0.f)
 		{
-			const float ResetPeriod=MoveComp->MinTimeBetweenTimeStampResets;
 			const float Now=ServerData->CurrentClientTimeStamp;
-			float Start=Data.ClientStartTime;
-			// A time stamp reset straddled the RPC
-			if (Start-Now>ResetPeriod*0.5f)
-			{
-				Start-=ResetPeriod;
-			}
-			else if (Now-Start>ResetPeriod*0.5f)
-			{
-				Start+=ResetPeriod;
-			}
-			Start=FMath::Min(Start,Now+MaxStartLead);
+			const float Start=FMath::Min(GrappleSwing2::AlignClientTime(Data.ClientStartTime,Now,MoveComp->MinTimeBetweenTimeStampResets),Now+MaxStartLead);
 			Src->StartTime=Start;
 			if (Now>Start)
 			{
 				// Late data: align the clock with the client's, still within the (no-op) hook flight
-				Src->SetTime(FMath::Min(Now-Start,Src->TravelTime));
+				Src->SetTime(FMath::Min(Now-Start,Data.TravelTime));
 			}
 		}
 	}
@@ -1443,6 +2008,13 @@ void UGA_GrappleSwing2::StartSwing(const FGameplayAbilityTargetData_GrappleSwing
 	SwingStartWorldTime=GetWorld()->GetTimeSeconds();
 	ActiveChainCount=Data.ChainCount;
 	ActiveAnchor=Data.Anchor;
+	ReelShip=Data.bShipReel ? Cast<AAirshipPawn>(Data.AnchorActor.Get()) : nullptr;
+	ReelTargetHullLocal=Data.TargetHullLocal;
+	if (Data.bShipReel && HasAuthority(&CurrentActivationInfo))
+	{
+		// The lane holds its speed and heading until the reel ends (B7.4)
+		SetReelRegistered(true);
+	}
 
 	if (RopeCueTag.IsValid())
 	{
@@ -1503,6 +2075,7 @@ bool UGA_GrappleSwing2::ServerValidate(const FGameplayAbilityTargetData_GrappleS
 	if (!Character || !MoveComp)return false;
 	if (Data.SwingId==LastAcceptedSwingId)return false;
 	if (Data.Anchor.ContainsNaN() || Data.StartLocation.ContainsNaN() || Data.AnchorNormal.ContainsNaN() || Data.PreferredSwingDir.ContainsNaN() || Data.AgainstMotionDir.ContainsNaN())return false;
+	if (Data.TargetHullLocal.ContainsNaN() || Data.AnchorVelocity.ContainsNaN())return false;
 
 	const FVector Up=-MoveComp->GetGravityDirection();
 	const float HalfHeight=Character->GetCapsuleComponent() ? Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 88.f;
@@ -1510,6 +2083,11 @@ bool UGA_GrappleSwing2::ServerValidate(const FGameplayAbilityTargetData_GrappleS
 	// Start location near where the server has the character
 	const float StartTolerance=ServerStartTolBase+MoveComp->Velocity.Size()*ServerStartTolSpeedTime;
 	if (FVector::Dist(Data.StartLocation,Character->GetActorLocation())>StartTolerance)return false;
+
+	if (Data.bShipReel)
+	{
+		return ServerValidateReel(Data);
+	}
 
 	// Range and height. The client measured from where it predicted the character would be when the hook arrives,
 	// so allow for the distance covered during the longest hook flight.
@@ -1538,6 +2116,78 @@ bool UGA_GrappleSwing2::ServerValidate(const FGameplayAbilityTargetData_GrappleS
 	return true;
 }
 
+float UGA_GrappleSwing2::GetServerReelTime(float ClientStartTime) const
+{
+	const UCharacterMovementComponent* MoveComp=GetSwingMovement();
+	const FNetworkPredictionData_Server_Character* ServerData=MoveComp ? MoveComp->GetPredictionData_Server_Character() : nullptr;
+	if (!ServerData || ClientStartTime<0.f)return 0.f;
+	// Where StartSwing will put the source clock
+	const float Now=ServerData->CurrentClientTimeStamp;
+	const float Start=FMath::Min(GrappleSwing2::AlignClientTime(ClientStartTime,Now,MoveComp->MinTimeBetweenTimeStampResets),Now+MaxStartLead);
+	return FMath::Max(Now-Start,0.f);
+}
+
+bool UGA_GrappleSwing2::ServerValidateReel(const FGameplayAbilityTargetData_GrappleSwing2& Data) const
+{
+	ACharacter* Character=GetSwingCharacter();
+	UCharacterMovementComponent* MoveComp=GetSwingMovement();
+	if (!Character || !MoveComp)return false;
+	auto Reject=[&](const FString& Why)
+	{
+		// Once per hook at most: the T6 / M7 tests read it
+		UE_LOG(LogGrappleSwing2,Log,TEXT("GrappleSwing2 ship hook %u rejected by the server: %s"),Data.SwingId,*Why);
+		return false;
+	};
+
+	// The ship alive and allowed
+	AAirshipPawn* Ship=Cast<AAirshipPawn>(Data.AnchorActor.Get());
+	if (!IsShipHookOn())return Reject(TEXT("ship hook off"));
+	if (!IsValid(Ship) || Ship->IsAirshipDead())return Reject(TEXT("no ship, or it is dead"));
+	UPrimitiveComponent* HullComp=Ship->GetHull();
+	if (!HullComp)return Reject(TEXT("ship has no hull"));
+	if (bShipHookOwnTeamOnly && !UMyTeamLibrary::CanUseShip(Character,Ship))return Reject(TEXT("the other team's ship"));
+	const FVector ShipVelocity=GrappleSwing2::ShipLinearVelocity(*Ship);
+	// The client checked its own view against ShipHookMaxShipSpeed; the velocity check below covers the difference
+	if (ShipVelocity.Size()>ShipHookMaxShipSpeed+ShipHookMaxVelocityError)return Reject(FString::Printf(TEXT("ship speed %.0f"),ShipVelocity.Size()));
+
+	// The target is on this hull (the client traced the same hull-space deck)
+	const FBox Local=HullComp->CalcBounds(FTransform::Identity).GetBox();
+	if (!Local.IsValid || !Local.ExpandBy(FVector(0.0,0.0,ShipReelTargetHeight+100.0)).IsInsideOrOn(Data.TargetHullLocal))
+	{
+		return Reject(FString::Printf(TEXT("deck target %s outside the hull"),*Data.TargetHullLocal.ToString()));
+	}
+
+	// Client and server see the ship at different times (physics replication lag), so neither can trust its own view of
+	// the hull: the server's hull point must be near the client's moving anchor at the server's source time, within the
+	// drift allowance, and the anchor's velocity near the ship's there
+	const float Tau=GetServerReelTime(Data.ClientStartTime);
+	const FVector ServerPoint=HullComp->GetComponentTransform().TransformPosition(Data.TargetHullLocal);
+	const FVector ClientPoint=Data.Anchor+Data.AnchorVelocity*Tau;
+	const float Drift=FVector::Dist(ServerPoint,ClientPoint);
+	const float Allowance=ShipHookMaxDrift+ShipVelocity.Size()*ShipHookLatencyAllowance;
+	if (Drift>Allowance)return Reject(FString::Printf(TEXT("hull point %.0f from the client's anchor, allowance %.0f"),Drift,Allowance));
+	const float VelocityError=(Data.AnchorVelocity-GrappleSwing2::ShipVelocityAt(*Ship,ServerPoint)).Size();
+	if (VelocityError>ShipHookMaxVelocityError)return Reject(FString::Printf(TEXT("anchor velocity %.0f off the ship's"),VelocityError));
+
+	// Range, with the allowance for the longest hook flight
+	const float G=-MoveComp->GetGravityZ();
+	const float FlightSlack=(float)MoveComp->Velocity.Size()*MaxHookTravelTime+0.5f*FMath::Abs(G)*MaxHookTravelTime*MaxHookTravelTime;
+	const float Range=FVector::Dist(Data.Anchor,Data.StartLocation);
+	if (Range>MaxShipHookDistance+ServerRangeTolerance+FlightSlack)return Reject(FString::Printf(TEXT("range %.0f"),Range));
+
+	// Rope line of sight against static geometry, past the ship and everything attached to it (its turrets' hit boxes)
+	const FVector Up=-MoveComp->GetGravityDirection();
+	const float HalfHeight=Character->GetCapsuleComponent() ? Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 88.f;
+	const FVector RopeStart=Data.StartLocation+Up*HalfHeight*Swing.RopeAttachHeightFrac;
+	const FVector RopeDir=(Data.Anchor-RopeStart).GetSafeNormal();
+	FHitResult Hit;
+	if (TraceStaticPastShip(RopeStart,Data.Anchor-RopeDir*Swing.AnchorLOSInset,Ship,Hit))
+	{
+		return Reject(FString::Printf(TEXT("rope line of sight blocked by %s"),*GetNameSafe(Hit.GetActor())));
+	}
+	return true;
+}
+
 void UGA_GrappleSwing2::ServerReject()
 {
 	// Keep the ability active with no swing: ending it from here would make the held button re-fire every frame
@@ -1546,6 +2196,97 @@ void UGA_GrappleSwing2::ServerReject()
 	{
 		ASC->ClientSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericSignalFromServer,CurrentSpecHandle,ActiveActivationKey);
 	}
+}
+
+void UGA_GrappleSwing2::SetReelRegistered(bool bRegister)
+{
+	if (bRegister==bReelRegistered)return;
+	AAirshipPawn* Ship=ReelShip.Get();
+	UWorld* World=GetWorld();
+	if (bRegister)
+	{
+		if (!Ship || !World)return;
+		bReelRegistered=true;
+		ReelReeler=GetSwingCharacter();
+		Ship->NotifyIncomingReel(ReelReeler.Get(),true);
+		// Safety: the ship is told the reel ended at most this long after it started, whatever happens to this ability
+		// (the ship also expires the entry by itself)
+		const float Safety=MaxHookTravelTime+FMath::Max(ShipReelMaxTime,0.f)+1.f;
+		World->GetTimerManager().SetTimer(ReelSafetyTimerHandle,this,&ThisClass::OnReelSafetyTimeout,Safety,false);
+		return;
+	}
+	bReelRegistered=false;
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(ReelSafetyTimerHandle);
+	}
+	if (Ship)
+	{
+		// The same actor as at the start, even while it is being destroyed
+		Ship->NotifyIncomingReel(ReelReeler.Get(true),false);
+	}
+	ReelReeler.Reset();
+}
+
+void UGA_GrappleSwing2::OnReelSafetyTimeout()
+{
+	if (!bReelRegistered)return;
+	UE_LOG(LogGrappleSwing2,Warning,TEXT("GrappleSwing2 ship reel still registered with %s after its time limit, ending the registration"),*GetNameSafe(ReelShip.Get()));
+	SetReelRegistered(false);
+}
+
+bool UGA_GrappleSwing2::CheckReelOnServer(FRootMotionSource_GrappleReel2& Reel)
+{
+	AAirshipPawn* Ship=ReelShip.Get();
+	UPrimitiveComponent* HullComp=Ship ? Ship->GetHull() : nullptr;
+	if (!HullComp || Ship->IsActorBeingDestroyed() || Ship->IsAirshipDead())
+	{
+		DropReel(Reel,TEXT("the ship is gone or dead"));
+		return false;
+	}
+	// The same allowance as the validation: a lane ship holds its speed during the reel and stays within it, a piloted
+	// ship that turns or brakes leaves the anchor line and the player falls
+	const FVector ShipVelocity=GrappleSwing2::ShipLinearVelocity(*Ship);
+	const FVector HullPoint=HullComp->GetComponentTransform().TransformPosition(ReelTargetHullLocal);
+	const float Drift=FVector::Dist(HullPoint,Reel.GetAnchorAt(Reel.GetTime()));
+	const float Allowance=ShipHookMaxDrift+ShipVelocity.Size()*ShipHookLatencyAllowance;
+	if (Drift>Allowance)
+	{
+		DropReel(Reel,FString::Printf(TEXT("hull point %.0f from the anchor, allowance %.0f (ship %.0f cm/s)"),Drift,Allowance,ShipVelocity.Size()));
+		return false;
+	}
+	return true;
+}
+
+void UGA_GrappleSwing2::DropReel(FRootMotionSource_GrappleReel2& Reel, const FString& Why)
+{
+	UE_LOG(LogGrappleSwing2,Log,TEXT("GrappleSwing2 ship reel %u ended by the server: %s"),Reel.SwingId,*Why);
+	SetReelRegistered(false);
+	if (IsLocallyControlled())
+	{
+		// The listen server's own player: a graceful forced end next move, Poll then ends the ability. No re-fire while the
+		// button stays held (the crosshair is likely still on the ship)
+		bReelDropped=true;
+		RequestEnd(Reel,Reel.GetTime(),EGS2EndKind::Forced);
+		return;
+	}
+	// Server for a remote client: the existing reject path. Finish here next move with the velocity kept, and tell the
+	// client to drop its own copy (OnServerRejected); the CMC corrects the moves in between. The player falls.
+	if (Reel.EndTime<0.f || Reel.EndTime>Reel.GetTime())
+	{
+		Reel.EndTime=Reel.GetTime();
+		Reel.EndKind=EGS2EndKind::Forced;
+	}
+	K2_RemoveGameplayCue(RopeCueTag);
+	if (AActor* AscOwner=GetOwningActorFromActorInfo())
+	{
+		AscOwner->ForceNetUpdate();
+	}
+	if (ACharacter* Character=GetSwingCharacter())
+	{
+		Character->ForceNetUpdate();
+	}
+	ServerReject();
 }
 
 void UGA_GrappleSwing2::OnServerRejected()
@@ -1581,6 +2322,21 @@ void UGA_GrappleSwing2::OnServerReleasePayload()
 	ASC->ConsumeGenericReplicatedEvent(EAbilityGenericReplicatedEvent::GameCustom1,CurrentSpecHandle,ActiveActivationKey);
 
 	TSharedPtr<FRootMotionSource> Holder;
+	if (FRootMotionSource_GrappleReel2* Reel=FindReelSource(Holder))
+	{
+		// Ship reel: the same rules as the swing's below (the client only sends one when the ability ends)
+		if (Reel->SwingId!=(uint16)FMath::RoundToInt(Payload.Y))return;
+		const float ClientEndTime=Payload.X/1000.f;
+		float EndTime=FMath::Clamp(ClientEndTime,Reel->GetTime(),Reel->GetTime()+MaxReleaseLead);
+		if (Reel->Phase==EGS2Phase::Travel && ClientEndTime<Reel->TravelTime-1.e-4f)
+		{
+			EndTime=FMath::Min(EndTime,Reel->TravelTime-2.e-4f);
+		}
+		if (Reel->EndTime>=0.f && Reel->EndTime<=EndTime)return;
+		Reel->EndTime=EndTime;
+		Reel->EndKind=FMath::RoundToInt(Payload.Z)==(int32)EGS2EndKind::Forced ? EGS2EndKind::Forced : EGS2EndKind::Release;
+		return;
+	}
 	FRootMotionSource_GrappleSwing2* Src=FindSource(Holder);
 	if (!Src || Src->SwingId!=(uint16)FMath::RoundToInt(Payload.Y))return;
 
@@ -1604,7 +2360,19 @@ void UGA_GrappleSwing2::RequestEnd(FRootMotionSource_GrappleSwing2& Src, float E
 	if (Src.EndTime>=0.f && Src.EndTime<=EndTime)return;
 	Src.EndTime=EndTime;
 	Src.EndKind=Kind;
+	SendEndTime(EndTime,Src.SwingId,Kind);
+}
 
+void UGA_GrappleSwing2::RequestEnd(FRootMotionSource_GrappleReel2& Src, float EndTime, EGS2EndKind Kind)
+{
+	if (Src.EndTime>=0.f && Src.EndTime<=EndTime)return;
+	Src.EndTime=EndTime;
+	Src.EndKind=Kind;
+	SendEndTime(EndTime,Src.SwingId,Kind);
+}
+
+void UGA_GrappleSwing2::SendEndTime(float EndTime, uint16 SwingId, EGS2EndKind Kind)
+{
 	if (IsLocallyControlled() && !HasAuthority(&CurrentActivationInfo))
 	{
 		// Reliable on the ASC channel and sent before the next ServerMove, so the server ends on the same move.
@@ -1612,7 +2380,7 @@ void UGA_GrappleSwing2::RequestEnd(FRootMotionSource_GrappleSwing2& Src, float E
 		if (UAbilitySystemComponent* ASC=GetAbilitySystemComponentFromActorInfo())
 		{
 			ASC->ServerSetReplicatedEventWithPayload(EAbilityGenericReplicatedEvent::GameCustom1,CurrentSpecHandle,ActiveActivationKey,
-				ASC->ScopedPredictionKey,FVector_NetQuantize100(EndTime*1000.f,(float)Src.SwingId,(float)(uint8)Kind));
+				ASC->ScopedPredictionKey,FVector_NetQuantize100(EndTime*1000.f,(float)SwingId,(float)(uint8)Kind));
 		}
 	}
 }
@@ -1628,6 +2396,13 @@ void UGA_GrappleSwing2::InputReleased(const FGameplayAbilitySpecHandle Handle, c
 	case EGS2AbilityState::Hooked:
 		{
 			TSharedPtr<FRootMotionSource> Holder;
+			if (FindReelSource(Holder))
+			{
+				// A ship reel runs to the deck on its own (a tap is enough): only remember that the button is up, so the
+				// ability ends when the reel does. Jump still lets go
+				State=EGS2AbilityState::Releasing;
+				break;
+			}
 			FRootMotionSource_GrappleSwing2* Src=FindSource(Holder);
 			if (!Src)
 			{
@@ -1689,33 +2464,54 @@ void UGA_GrappleSwing2::Poll()
 
 	TSharedPtr<FRootMotionSource> Holder;
 	FRootMotionSource_GrappleSwing2* Src=FindSource(Holder);
+	// The ship reel's source when this activation reels (the holder then keeps it)
+	FRootMotionSource_GrappleReel2* Reel=Src ? nullptr : FindReelSource(Holder);
 	if (Src)
 	{
 		bSourceSeen=true;
 		LastSeenEndReason=Src->EndReason;
 	}
+	else if (Reel)
+	{
+		bSourceSeen=true;
+		LastSeenEndReason=Reel->EndReason;
+	}
 
-	if (bAuthority && !bLocal && Src && Src->Phase==EGS2Phase::Swing && !bServerSawAttach)
+	if (bAuthority && !bLocal && !bServerSawAttach && ((Src && Src->Phase==EGS2Phase::Swing) || (Reel && Reel->Phase==EGS2Phase::Swing)))
 	{
 		bServerSawAttach=true;
 		Character->ForceNetUpdate();
 	}
 
 	const bool bSwinging=State==EGS2AbilityState::Hooked || State==EGS2AbilityState::Releasing;
+	const bool bReelRunning=Reel && Reel->Phase!=EGS2Phase::Done && !Reel->Status.HasFlag(ERootMotionSourceStatusFlags::Finished);
+
+	// Ship reel, server: the ship must stay on the anchor line the reel follows, and alive. A drop for a remote client
+	// moves the state to Rejected (the client falls), so nothing below treats it as an end
+	if (bAuthority && bSwinging && bReelRegistered && bReelRunning)
+	{
+		CheckReelOnServer(*Reel);
+	}
+
+	const bool bStillSwinging=State==EGS2AbilityState::Hooked || State==EGS2AbilityState::Releasing;
 	// A source that never showed up (still pending, or lost) only counts as gone after a grace period
-	const bool bMissing=!Src && (bSourceSeen || Now-SwingStartWorldTime>GrappleSwing2::SourceAppearTimeout);
-	const bool bOver=bSwinging && (bMissing || (Src && (Src->Phase==EGS2Phase::Done || Src->Status.HasFlag(ERootMotionSourceStatusFlags::Finished))));
+	const bool bMissing=!Src && !Reel && (bSourceSeen || Now-SwingStartWorldTime>GrappleSwing2::SourceAppearTimeout);
+	const bool bOver=bStillSwinging && (bMissing || (Src && (Src->Phase==EGS2Phase::Done || Src->Status.HasFlag(ERootMotionSourceStatusFlags::Finished)))
+		|| (Reel && !bReelRunning));
 
 	if (bOver)
 	{
 		// Vanished unseen: infer the reason
-		const EGS2EndReason Reason=Src ? Src->EndReason
+		const EGS2EndReason Reason=Src ? Src->EndReason : Reel ? Reel->EndReason
 			: (LastSeenEndReason!=EGS2EndReason::None ? LastSeenEndReason : (MoveComp->IsMovingOnGround() ? EGS2EndReason::Landed : EGS2EndReason::Snapped));
 		RootMotionSourceID=GrappleSwing2::InvalidSourceID;
 		Holder.Reset();
 		Src=nullptr;
+		Reel=nullptr;
 		if (bAuthority)
 		{
+			// The reel is over: the ship may move on
+			SetReelRegistered(false);
 			Character->ForceNetUpdate();
 			// The rope cue is removed below or in EndAbility this frame, and replicates with the ASC's owner
 			if (AActor* AscOwner=GetOwningActorFromActorInfo())
@@ -1737,11 +2533,12 @@ void UGA_GrappleSwing2::Poll()
 			bLastDetachWasRelease=Reason==EGS2EndReason::Released || Reason==EGS2EndReason::AutoReleased || Reason==EGS2EndReason::JumpReleased;
 			LastChainCount=bLastDetachWasRelease ? ActiveChainCount : 0;
 
-			switch (Reason)
+			// Landed, JumpReleased, Timeout, a ship reel's arrival, or the listen server's own reel dropped by its check:
+			// no re-fire while the button stays held (on the deck, or with the crosshair still on the ship)
+			const bool bHoldStops=Reason==EGS2EndReason::Landed || Reason==EGS2EndReason::JumpReleased || Reason==EGS2EndReason::Timeout
+				|| Reason==EGS2EndReason::Arrived || bReelDropped;
+			if (bHoldStops)
 			{
-			case EGS2EndReason::Landed:
-			case EGS2EndReason::JumpReleased:
-			case EGS2EndReason::Timeout:
 				if (State==EGS2AbilityState::Releasing)
 				{
 					// The button is already up, and InputReleased won't run again for this activation
@@ -1752,8 +2549,9 @@ void UGA_GrappleSwing2::Poll()
 				RemoveCuePredicted();
 				State=EGS2AbilityState::Spent;
 				AirborneTime=0.f;
-				break;
-			default:
+			}
+			else
+			{
 				// Released/Forced: the button is already up. AutoReleased/Snapped/TooClose: the held button re-fires
 				// next frame, and that's intended (hold to cruise)
 				EndLocal();
@@ -1820,6 +2618,21 @@ void UGA_GrappleSwing2::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 			const float EndTime=Src->Phase==EGS2Phase::Travel ? FMath::Min(Src->GetTime(),Src->TravelTime-2.e-4f) : Src->GetTime();
 			RequestEnd(*Src,EndTime,bWasCancelled ? EGS2EndKind::Forced : EGS2EndKind::Release);
 		}
+		else if (FRootMotionSource_GrappleReel2* Reel=Src ? nullptr : FindReelSource(Holder))
+		{
+			// The same for a ship reel (both kinds keep the reel velocity)
+			if (Reel->Phase!=EGS2Phase::Done && !Reel->Status.HasFlag(ERootMotionSourceStatusFlags::Finished))
+			{
+				const float EndTime=Reel->Phase==EGS2Phase::Travel ? FMath::Min(Reel->GetTime(),Reel->TravelTime-2.e-4f) : Reel->GetTime();
+				RequestEnd(*Reel,EndTime,bWasCancelled ? EGS2EndKind::Forced : EGS2EndKind::Release);
+			}
+		}
+	}
+
+	// The ship may move on (server)
+	if (HasAuthority(&ActivationInfo))
+	{
+		SetReelRegistered(false);
 	}
 
 	if (UAbilitySystemComponent* ASC=GetAbilitySystemComponentFromActorInfo())
@@ -1872,6 +2685,8 @@ void UGA_GrappleSwing2::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 	RootMotionSourceID=GrappleSwing2::InvalidSourceID;
 	bServerSawAttach=false;
 	bSourceSeen=false;
+	ReelShip.Reset();
+	bReelDropped=false;
 
 	// Clears every timer this object owns, so the gate is armed after it
 	Super::EndAbility(Handle,ActorInfo,ActivationInfo,bReplicateEndAbility,bWasCancelled);

@@ -23,9 +23,12 @@
 #include "InputActionValue.h"
 #include "InputMappingContext.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "Match/MyTeamLibrary.h"
 #include "UI/Settings/MyGameUserSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAirshipPilot, Log, All);
+
+TMulticastDelegate<void(const APlayerController*, EAirshipUseRefusal)> UAirshipPilotComponent::OnLocalUseRefused;
 
 UAirshipPilotComponent::UAirshipPilotComponent()
 {
@@ -270,7 +273,8 @@ AAirshipPawn* UAirshipPilotComponent::FindBoardableAirship() const
 
 	for (AAirshipPawn* Ship : Subsystem->GetAirships())
 	{
-		if (!Ship || Ship->IsAirshipDead() || Ship->HasPilot()
+		// Never the other team's ship (CanBoard is server only; the replicated team ids answer this on any machine)
+		if (!Ship || Ship->IsAirshipDead() || Ship->HasPilot() || !UMyTeamLibrary::CanUseShip(Pawn, Ship)
 			|| !Ship->IsWithinBoardRange(Location, Settings->BoardDistance, Settings->BoardHullDistance, Settings->BoardBelowDistance))
 		{
 			continue;
@@ -308,9 +312,9 @@ bool UAirshipPilotComponent::TryBoard(AAirshipPawn* Ship, bool bIgnoreRange)
 	{
 		if (bIgnoreRange)
 		{
-			// Console: the nearest free living ship, any distance
+			// Console: the nearest free living ship the player may use, any distance (a nearer enemy ship is skipped)
 			const UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(this);
-			Ship = Subsystem ? Subsystem->FindNearestAirship(Character->GetActorLocation(), true) : nullptr;
+			Ship = Subsystem ? Subsystem->FindNearestAirship(Character->GetActorLocation(), true, Character) : nullptr;
 		}
 		else
 		{
@@ -392,11 +396,29 @@ bool UAirshipPilotComponent::TryUseNearest()
 	AAirshipPawn* BestShip = nullptr;
 	int32 BestStation = INDEX_NONE;
 	double BestDistSq = TNumericLimits<double>::Max();
+	const AAirshipPawn* EnemyShipInRange = nullptr;
 
 	for (AAirshipPawn* Ship : Subsystem->GetAirships())
 	{
 		if (!Ship || Ship->IsAirshipDead())
 		{
+			continue;
+		}
+
+		// Team match: the other team's ship is never used; remembered for the refusal's reason (its helm or a gun in range)
+		if (!UMyTeamLibrary::CanUseShip(Character, Ship))
+		{
+			bool bInRange = Ship->IsWithinBoardRange(Location, Settings->BoardDistance, Settings->BoardHullDistance, Settings->BoardBelowDistance);
+
+			for (int32 Station = 0; Station < Airship::NumStations && !bInRange; ++Station)
+			{
+				bInRange = Ship->IsWithinStationRange(Station, Location);
+			}
+
+			if (bInRange)
+			{
+				EnemyShipInRange = Ship;
+			}
 			continue;
 		}
 
@@ -433,7 +455,10 @@ bool UAirshipPilotComponent::TryUseNearest()
 
 	if (!BestShip)
 	{
-		UE_LOG(LogAirshipPilot, Log, TEXT("%s: F refused (no free helm or gun in range)"), *Character->GetName());
+		const EAirshipUseRefusal Reason = EnemyShipInRange ? EAirshipUseRefusal::EnemyShip : EAirshipUseRefusal::NothingInRange;
+		UE_LOG(LogAirshipPilot, Log, TEXT("%s: F refused (%s)"), *Character->GetName(),
+			EnemyShipInRange ? *FString::Printf(TEXT("%s is the other team's ship"), *EnemyShipInRange->GetName()) : TEXT("no free helm or gun in range"));
+		ClientUseRefused(Reason);
 		return false;
 	}
 
@@ -447,6 +472,14 @@ bool UAirshipPilotComponent::TryUseNearest()
 	const bool bMounted = BestShip->MountGunner(Character, PC, BestStation);
 	UE_LOG(LogAirshipPilot, Log, TEXT("%s -> %s station %d: %s"), *Character->GetName(), *BestShip->GetName(), BestStation, bMounted ? TEXT("manned") : TEXT("refused"));
 	return bMounted;
+}
+
+void UAirshipPilotComponent::ClientUseRefused_Implementation(EAirshipUseRefusal Reason)
+{
+	// The local player's own machine (a local controller on the server runs it at once): the HUD's toast. The log line
+	// is the harness's proof that the client got it (M2.1)
+	UE_LOG(LogAirshipPilot, Log, TEXT("%s: use refused (%s) on this machine"), *GetNameSafe(GetOwner()), *UEnum::GetValueAsString(Reason));
+	OnLocalUseRefused.Broadcast(GetPlayerController(), Reason);
 }
 
 bool UAirshipPilotComponent::TryMount(AAirshipPawn* Ship, int32 Station, bool bIgnoreRange)

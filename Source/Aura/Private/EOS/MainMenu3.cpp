@@ -4,6 +4,7 @@
 #include "EOS/SessionEntry3.h"
 #include "EOS/MultiplayerSessionsSubsystem.h"
 #include "UI/Settings/SettingsMenu3.h"
+#include "Match/MyMatchSettings.h"
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 #include "Components/ComboBoxString.h"
@@ -136,6 +137,7 @@ bool UMainMenu3::Initialize()
 	if (PrivacyCodeOnlyButton)    PrivacyCodeOnlyButton->OnClicked.AddDynamic(this, &ThisClass::PrivacyCodeOnlyClicked);
 	if (StartLobbyButton)         StartLobbyButton->OnClicked.AddDynamic(this, &ThisClass::StartLobbyButtonClicked);
 	if (PlaySoloButton)           PlaySoloButton->OnClicked.AddDynamic(this, &ThisClass::PlaySoloButtonClicked);
+	if (HostRulesComboBox)        HostRulesComboBox->OnSelectionChanged.AddDynamic(this, &ThisClass::OnHostRulesChanged);
 
 	// Browse
 	if (RefreshSessionsButton) RefreshSessionsButton->OnClicked.AddDynamic(this, &ThisClass::RefreshSessionsButtonClicked);
@@ -400,6 +402,23 @@ void UMainMenu3::ReadHostSettingsFromWidgets()
 	{
 		PendingHostSettings.Rules = HostRulesComboBox->GetSelectedOption();
 	}
+	// 1v1 / 2v2 have room for exactly their teams (the locked box shows it; this also covers a MaxPlayerChoices
+	// without that count): a 1v1 lobby advertising 4 slots lets a third player find it, and AMyGameMode::PreLogin
+	// then refuses him with "That match is full"
+	const int32 ModePlayers = GetTeamModeMaxPlayers(GetTeamModeForRuleSet(PendingHostSettings.Rules));
+	if (ModePlayers > 0)
+	{
+		PendingHostSettings.NumPublicConnections = ModePlayers;
+	}
+	PendingShipLives = 0;
+	if (ShipLivesComboBox)
+	{
+		const int32 Index = ShipLivesComboBox->GetSelectedIndex();
+		if (ShipLivesChoices.IsValidIndex(Index))
+		{
+			PendingShipLives = ShipLivesChoices[Index];
+		}
+	}
 	if (LobbyNameTextBox)
 	{
 		PendingHostSettings.LobbyName = LobbyNameTextBox->GetText().ToString().TrimStartAndEnd().Left(MaxLobbyNameLength);
@@ -430,10 +449,130 @@ void UMainMenu3::StartLobbyButtonClicked()
 
 void UMainMenu3::PlaySoloButtonClicked()
 {
+	// The rules, difficulty and lives boxes count for a solo game too
+	ReadHostSettingsFromWidgets();
+
 	// A listen server with no online session: the pause menu's Current Session tab can still
 	// create one later and let friends in
 	ShowBusy(LOCTEXT("LoadingSolo", "Loading..."), false);
-	OpenLevelLeavingSession(PathToLobby);
+	const FString Options = BuildMatchOptions(true);
+	UE_LOG(LogMatch, Log, TEXT("MainMenu3: Play Solo %s%s"), *PathToLobby, *Options);
+	OpenLevelLeavingSession(PathToLobby + Options);
+}
+
+void UMainMenu3::OnHostRulesChanged(FString SelectedItem, ESelectInfo::Type SelectionType)
+{
+	RefreshMaxPlayersForRules();
+}
+
+void UMainMenu3::RefreshMaxPlayersForRules()
+{
+	if (!MaxPlayersComboBox)
+	{
+		return;
+	}
+
+	const int32 ModePlayers = GetTeamModeMaxPlayers(GetTeamModeForRuleSet(GetSelectedRuleSet()));
+	if (ModePlayers > 0)
+	{
+		if (!bMaxPlayersForced)
+		{
+			FreeMaxPlayersIndex = MaxPlayersComboBox->GetSelectedIndex();
+			bMaxPlayersForced = true;
+		}
+		const int32 ModeIndex = MaxPlayerChoices.Find(ModePlayers);
+		if (ModeIndex != INDEX_NONE)
+		{
+			MaxPlayersComboBox->SetSelectedIndex(ModeIndex);
+		}
+		MaxPlayersComboBox->SetIsEnabled(false);
+	}
+	else if (bMaxPlayersForced)
+	{
+		bMaxPlayersForced = false;
+		if (FreeMaxPlayersIndex >= 0 && FreeMaxPlayersIndex < MaxPlayersComboBox->GetOptionCount())
+		{
+			MaxPlayersComboBox->SetSelectedIndex(FreeMaxPlayersIndex);
+		}
+		FreeMaxPlayersIndex = INDEX_NONE;
+		MaxPlayersComboBox->SetIsEnabled(true);
+	}
+}
+
+FString UMainMenu3::GetSelectedRuleSet() const
+{
+	if (HostRulesComboBox && !HostRulesComboBox->GetSelectedOption().IsEmpty())
+	{
+		return HostRulesComboBox->GetSelectedOption();
+	}
+	return PendingHostSettings.Rules;
+}
+
+FString UMainMenu3::BuildMatchOptions(bool bPlaySolo) const
+{
+	FString Options = FString::Printf(TEXT("?Teams=%s"), *GetTeamsOption(GetTeamModeForRuleSet(PendingHostSettings.Rules)));
+	if (PendingShipLives > 0)
+	{
+		Options += FString::Printf(TEXT("?ShipLives=%d"), PendingShipLives);
+	}
+	// The Difficulty box is the swarm difficulty (AMyGameMode clamps it to its presets)
+	Options += FString::Printf(TEXT("?Swarm=%d"), FMath::Max(PendingHostSettings.Difficulty, 0));
+	// Our own option name: the engine's MaxPlayers is read by AGameSession too
+	Options += FString::Printf(TEXT("?Players=%d"), bPlaySolo ? 1 : FMath::Max(PendingHostSettings.NumPublicConnections, 1));
+	return Options;
+}
+
+EMyTeamMode UMainMenu3::GetTeamModeForRuleSet(const FString& RuleSet)
+{
+	FString Key = RuleSet.ToLower().Replace(TEXT(" "), TEXT(""));
+	Key.ReplaceInline(TEXT("vs"), TEXT("v"));
+	if (Key.Contains(TEXT("1v1")))
+	{
+		return EMyTeamMode::OneVsOne;
+	}
+	if (Key.Contains(TEXT("2v2")))
+	{
+		return EMyTeamMode::TwoVsTwo;
+	}
+	if (Key.Contains(TEXT("practice")))
+	{
+		return EMyTeamMode::Practice;
+	}
+	return EMyTeamMode::Auto;
+}
+
+FString UMainMenu3::GetRuleSetForTeamMode(EMyTeamMode Mode)
+{
+	for (const FString& RuleSet : GetDefault<UMainMenu3>()->RuleSets)
+	{
+		if (GetTeamModeForRuleSet(RuleSet) == Mode)
+		{
+			return RuleSet;
+		}
+	}
+	return GetTeamsOption(Mode);
+}
+
+FString UMainMenu3::GetTeamsOption(EMyTeamMode Mode)
+{
+	switch (Mode)
+	{
+	case EMyTeamMode::Practice:  return TEXT("practice");
+	case EMyTeamMode::OneVsOne:  return TEXT("1v1");
+	case EMyTeamMode::TwoVsTwo:  return TEXT("2v2");
+	default:                     return TEXT("auto");
+	}
+}
+
+int32 UMainMenu3::GetTeamModeMaxPlayers(EMyTeamMode Mode)
+{
+	// Both teams full; AMyGameMode::PreLogin refuses the next join
+	switch (Mode)
+	{
+	case EMyTeamMode::OneVsOne:  return 2;
+	case EMyTeamMode::TwoVsTwo:  return 4;
+	default:                     return 0;
+	}
 }
 
 //
@@ -1030,6 +1169,10 @@ void UMainMenu3::FillStaticOptions()
 {
 	if (MaxPlayersComboBox)
 	{
+		// Refilled from scratch: the Rules box below locks it again if it has to
+		bMaxPlayersForced = false;
+		FreeMaxPlayersIndex = INDEX_NONE;
+		MaxPlayersComboBox->SetIsEnabled(true);
 		MaxPlayersComboBox->ClearOptions();
 		for (const int32 Count : MaxPlayerChoices)
 		{
@@ -1057,6 +1200,30 @@ void UMainMenu3::FillStaticOptions()
 			HostRulesComboBox->AddOption(Rules);
 		}
 		HostRulesComboBox->SetSelectedIndex(0);
+	}
+	RefreshMaxPlayersForRules();
+
+	if (ShipLivesComboBox)
+	{
+		ShipLivesComboBox->ClearOptions();
+		for (const int32 Lives : ShipLivesChoices)
+		{
+			ShipLivesComboBox->AddOption(FString::FromInt(Lives));
+		}
+		// The game's default, or the choice nearest to it
+		const int32 DefaultLives = UMyMatchSettings::Get()->DefaultRules.ShipLives;
+		int32 Preselect = INDEX_NONE;
+		for (int32 Index = 0; Index < ShipLivesChoices.Num(); ++Index)
+		{
+			if (Preselect == INDEX_NONE || FMath::Abs(ShipLivesChoices[Index] - DefaultLives) < FMath::Abs(ShipLivesChoices[Preselect] - DefaultLives))
+			{
+				Preselect = Index;
+			}
+		}
+		if (Preselect != INDEX_NONE)
+		{
+			ShipLivesComboBox->SetSelectedIndex(Preselect);
+		}
 	}
 
 	if (DistanceComboBox)
@@ -1141,7 +1308,10 @@ void UMainMenu3::OnCreateSession(bool bWasSuccessful)
 		ShowBusy(LOCTEXT("LoadingLobby", "Loading lobby..."), false);
 		if (UWorld* World = GetWorld())
 		{
-			World->ServerTravel(PathToLobby);
+			// The host's match rules ride on the URL; clients join later and their options are never read for rules
+			const FString Options = BuildMatchOptions(false);
+			UE_LOG(LogMatch, Log, TEXT("MainMenu3: hosting %s%s"), *PathToLobby, *Options);
+			World->ServerTravel(PathToLobby + Options);
 		}
 	}
 	else

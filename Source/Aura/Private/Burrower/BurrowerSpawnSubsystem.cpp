@@ -192,7 +192,8 @@ void UBurrowerSpawnSubsystem::Poll()
 	const float Elapsed = LastPollTime >= 0.0 ? static_cast<float>(Now - LastPollTime) : 0.f;
 	LastPollTime = Now;
 
-	const bool bAutoSpawn = Settings.bEnabled && IsMapAllowed(Settings) && HasEnemyClassInfo();
+	// Paused (the match isn't running): the countdowns below hold, the living Burrowers still follow
+	const bool bAutoSpawn = Settings.bEnabled && !bSpawningPaused && IsMapAllowed(Settings) && HasEnemyClassInfo();
 
 	// Players who left take their living Burrowers with them
 	for (int32 Index = Entries.Num() - 1; Index >= 0; --Index)
@@ -228,6 +229,8 @@ void UBurrowerSpawnSubsystem::Poll()
 
 		FPlayerEntry& Entry = FindOrAddEntry(PlayerState, Settings);
 
+		// Aboard a ship (the pawn is the ship he pilots, or a character riding or manning one) counts as no pawn: no
+		// spawn, his countdown holds, his Burrower waits instead of carving through the platforms toward the ship
 		APawn* Pawn = PlayerState->GetPawn();
 		APawn* LivingPawn = ABurrowerCharacter::IsLivingTarget(Pawn, Settings.bOnlyCombatPawns) ? Pawn : nullptr;
 
@@ -246,7 +249,7 @@ void UBurrowerSpawnSubsystem::Poll()
 		UpdateEntryBurrowers(Entry, LivingPawn, Settings);
 
 		// The countdown runs only while the player is alive and has room for one more
-		const bool bRoom = Entry.Burrowers.Num() < FMath::Max(Settings.MaxAlivePerPlayer, 1);
+		const bool bRoom = Entry.Burrowers.Num() < FMath::Max(GetMaxAlivePerPlayer(), 1);
 		const bool bMayRespawn = Settings.bRespawnAfterDeath || Entry.NumDied == 0;
 
 		if (!bAutoSpawn || !LivingPawn || !bRoom || !bMayRespawn)
@@ -262,7 +265,7 @@ void UBurrowerSpawnSubsystem::Poll()
 		}
 
 		// No class yet (still loading, or unset): try again in a second
-		Entry.Countdown = SpawnBehind(Entry, LivingPawn, Settings) ? Settings.SpawnInterval : 1.f;
+		Entry.Countdown = SpawnBehind(Entry, LivingPawn, Settings) ? GetSpawnInterval() : 1.f;
 	}
 }
 
@@ -276,7 +279,7 @@ void UBurrowerSpawnSubsystem::UpdateEntryBurrowers(FPlayerEntry& Entry, APawn* L
 		if (!Burrower)
 		{
 			Entry.Burrowers.RemoveAtSwap(Index);
-			Entry.Countdown = FMath::Max(Entry.Countdown, Settings.SpawnInterval);
+			Entry.Countdown = FMath::Max(Entry.Countdown, GetSpawnInterval());
 			continue;
 		}
 
@@ -285,7 +288,7 @@ void UBurrowerSpawnSubsystem::UpdateEntryBurrowers(FPlayerEntry& Entry, APawn* L
 		{
 			Entry.Burrowers.RemoveAtSwap(Index);
 			++Entry.NumDied;
-			Entry.Countdown = FMath::Max(Entry.Countdown, Settings.SpawnInterval);
+			Entry.Countdown = FMath::Max(Entry.Countdown, GetSpawnInterval());
 			continue;
 		}
 
@@ -295,7 +298,7 @@ void UBurrowerSpawnSubsystem::UpdateEntryBurrowers(FPlayerEntry& Entry, APawn* L
 		{
 			Burrower->Destroy();
 			Entry.Burrowers.RemoveAtSwap(Index);
-			Entry.Countdown = FMath::Max(Entry.Countdown, Settings.SpawnInterval);
+			Entry.Countdown = FMath::Max(Entry.Countdown, GetSpawnInterval());
 			continue;
 		}
 
@@ -365,6 +368,14 @@ ABurrowerCharacter* UBurrowerSpawnSubsystem::SpawnBehind(FPlayerEntry& Entry, AP
 
 	Burrower->MarkSpawnedBySubsystem();
 	Burrower->SetTargetPlayer(Pawn);
+
+	// The difficulty's level, before FinishSpawning: BeginPlay applies the attribute effects at CharacterLevel (and
+	// the kill's XP reads it)
+	if (CharacterLevelOverride > 0)
+	{
+		Burrower->CharacterLevel = CharacterLevelOverride;
+	}
+
 	Burrower->FinishSpawning(SpawnTransform);
 
 	if (!IsValid(Burrower))
@@ -374,9 +385,46 @@ ABurrowerCharacter* UBurrowerSpawnSubsystem::SpawnBehind(FPlayerEntry& Entry, AP
 
 	Entry.Burrowers.Add(Burrower);
 
-	UE_LOG(LogBurrowerSpawn, Log, TEXT("Spawned %s behind %s at %s"), *Burrower->GetName(), *Pawn->GetName(), *Location.ToCompactString());
+	UE_LOG(LogBurrowerSpawn, Log, TEXT("Spawned %s (level %d) behind %s at %s"), *Burrower->GetName(), Burrower->CharacterLevel, *Pawn->GetName(), *Location.ToCompactString());
 
 	return Burrower;
+}
+
+float UBurrowerSpawnSubsystem::GetSpawnInterval() const
+{
+	return GetDefault<UBurrowerSettings>()->SpawnInterval * SpawnIntervalScale;
+}
+
+int32 UBurrowerSpawnSubsystem::GetMaxAlivePerPlayer() const
+{
+	// The difficulty's value is a floor on UBurrowerSettings', never a cut: the settings stay the base (Talal's local
+	// header has 10), so a harder preset never ends with fewer Burrowers than an easier one (SPEC_B B5.4, B5.6)
+	const int32 Configured = GetDefault<UBurrowerSettings>()->MaxAlivePerPlayer;
+	return MaxAlivePerPlayerOverride > 0 ? FMath::Max(MaxAlivePerPlayerOverride, Configured) : Configured;
+}
+
+void UBurrowerSpawnSubsystem::SetDifficultyOverride(const float InSpawnIntervalScale, const int32 InMaxAlivePerPlayer, const int32 InCharacterLevel)
+{
+	// A zero interval would spawn on every poll
+	SpawnIntervalScale = FMath::Max(InSpawnIntervalScale, 0.05f);
+	MaxAlivePerPlayerOverride = FMath::Max(InMaxAlivePerPlayer, 0);
+	CharacterLevelOverride = FMath::Max(InCharacterLevel, 0);
+
+	UE_LOG(LogBurrowerSpawn, Log, TEXT("Difficulty: SpawnInterval %.1f s (x%.2f), MaxAlivePerPlayer %d%s, level %d (0 = the class's own)"),
+		GetSpawnInterval(), SpawnIntervalScale, GetMaxAlivePerPlayer(), MaxAlivePerPlayerOverride > GetDefault<UBurrowerSettings>()->MaxAlivePerPlayer ? TEXT("") : TEXT(" (setting)"),
+		CharacterLevelOverride);
+}
+
+void UBurrowerSpawnSubsystem::SetSpawningPaused(bool bPaused)
+{
+	if (bSpawningPaused == bPaused)
+	{
+		return;
+	}
+
+	bSpawningPaused = bPaused;
+
+	UE_LOG(LogBurrowerSpawn, Log, TEXT("Spawning %s"), bPaused ? TEXT("paused") : TEXT("resumed"));
 }
 
 int32 UBurrowerSpawnSubsystem::SpawnNow(int32 PlayerIndex)
@@ -418,7 +466,7 @@ int32 UBurrowerSpawnSubsystem::SpawnNow(int32 PlayerIndex)
 		if (SpawnBehind(Entry, Pawn, Settings))
 		{
 			++NumSpawned;
-			Entry.Countdown = FMath::Max(Entry.Countdown, Settings.SpawnInterval);
+			Entry.Countdown = FMath::Max(Entry.Countdown, GetSpawnInterval());
 		}
 	}
 

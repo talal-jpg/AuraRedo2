@@ -8,6 +8,8 @@
 #include "EOS/MenuButtonFX.h"
 #include "PauseMenu3.generated.h"
 
+class AMyGameMode;
+class AMyGameState;
 class APlayerState;
 class UButton;
 class UPanelWidget;
@@ -25,7 +27,16 @@ enum class EPauseMenu3ConfirmAction : uint8
 	LeaveSession,
 	QuitGame,
 	KickPlayer,
-	BanPlayer
+	BanPlayer,
+	RestartMatch
+};
+
+// A host-only team match button's row (the button plus its graffiti, stamp and label), shown and hidden as one
+struct FPauseMenu3MatchRow
+{
+	TWeakObjectPtr<UWidget> Row;
+	// What the row shows with: the WBP's own visibility for it, or the copied Resume row's
+	ESlateVisibility ShownVisibility = ESlateVisibility::Visible;
 };
 
 /**
@@ -39,6 +50,10 @@ enum class EPauseMenu3ConfirmAction : uint8
  * Same convention as UMainMenu3: a UWidgetSwitcher "MenuSwitcher" with PauseHomePanel,
  * SessionPanel, OptionsPanel (or OptionsMenu itself) and ConfirmPanel; every widget optional.
  * AMyPlayerController2 creates it from PauseMenuClass and opens it on IA_Pause.
+ *
+ * Team match (Docs/Airship/round2/SPEC_B.md B4.2, B4.6): the host gets Start match (while a versus match waits for
+ * players) and Restart match (once it has started) on the Home panel. A WBP without StartMatchButton /
+ * RestartMatchButton gets them built at runtime as copies of the Resume button's row, so they look like the rest.
  */
 UCLASS()
 class AURA_API UPauseMenu3 : public UMyUserWidget
@@ -96,6 +111,13 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
 	FText HostLeftReason = NSLOCTEXT("PauseMenu3", "HostLeftReason", "The host closed the lobby.");
 
+	// Labels of the team match buttons built when the WBP has none. A one-letter stamp behind the copied label gets
+	// the first letter.
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
+	FText StartMatchLabel = NSLOCTEXT("PauseMenu3", "StartMatchLabel", "START MATCH");
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
+	FText RestartMatchLabel = NSLOCTEXT("PauseMenu3", "RestartMatchLabel", "RESTART MATCH");
+
 	// Blueprint hook for panel transition animations / sounds.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Aura|Menu")
 	void OnPanelChanged(UWidget* NewPanel);
@@ -138,6 +160,35 @@ private:
 	void LeaveSessionButtonClicked();
 	UFUNCTION()
 	void QuitGameButtonClicked();
+
+	//
+	// Home: team match, host only (the listen server's own player, or a standalone one, with the match on)
+	//
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* StartMatchButton;
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* RestartMatchButton;
+
+	UFUNCTION()
+	void StartMatchButtonClicked();
+	UFUNCTION()
+	void RestartMatchButtonClicked();
+
+	// Once, from NativeOnInitialized: finds the WBP's rows or builds them after the Resume row
+	void SetupMatchButtons();
+	// Start match during WaitingToStart, Restart match from the countdown on; hidden for everyone else
+	void RefreshMatchButtons();
+	void SetMatchRowVisible(FPauseMenu3MatchRow& MatchRow, bool bVisible);
+	// The game mode when this menu belongs to the host and the match is on, else null
+	AMyGameMode* GetHostMatchGameMode() const;
+	// The buttons follow the phase while the menu is open
+	void BindMatchChanged();
+	void UnbindMatchChanged();
+
+	FPauseMenu3MatchRow StartMatchRow;
+	FPauseMenu3MatchRow RestartMatchRow;
+	TWeakObjectPtr<AMyGameState> MatchGameState;
+	FDelegateHandle MatchChangedHandle;
 
 	//
 	// Current Session

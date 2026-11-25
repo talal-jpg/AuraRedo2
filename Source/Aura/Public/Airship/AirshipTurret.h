@@ -40,6 +40,11 @@ struct FCollisionQueryParams;
  * Every machine aims the meshes (yaw base, pitch gun) and draws tracers into NDC_GunShootHit with TracerSystem: the
  * server sends each frame's shots in one unreliable multicast; the controlling client (its gunner, or the pilot's
  * machine for an unmanned turret) predicts its own shots from SetLocalCommand and skips that multicast while it does.
+ *
+ * Team match (round 2 PR B, SPEC_B B6.2, B6.4, B6.5): its rounds spare its ship's teammates (unless the rules allow
+ * friendly fire) and look past their cannonballs like their own ship's; a round on a team ship or a team ship's turret
+ * deals UMyMatchSettings::ShipDamageTurretRound instead of the gun-based bullet damage. Sentinel bullets damage it only
+ * while its ship is driven (its ship sets the tag, AAirshipPawn::RefreshSentinelBulletTags).
  */
 UCLASS(Blueprintable)
 class AURA_API AAirshipTurret : public AActor, public IAbilitySystemInterface, public IMyCombatInterface
@@ -69,6 +74,13 @@ public:
 	/** Server: wreck now (console, tests). */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Airship|Turret")
 	void DestroyTurret();
+
+	/**
+	 * Server (round 2 PR B, SPEC_B B6.5): Damage through the turret's own damage effect on its own ASC (SetByCaller
+	 * SetDamageByCaller), DamageInstigator in the context (null: the ship). The character gun's fixed hit on a team
+	 * ship's turret uses it instead of its GE value. The spawn protection and the death rule apply as for any hit.
+	 */
+	void ApplyTurretDamage(float Damage, AActor* DamageInstigator);
 
 	UFUNCTION(BlueprintPure, Category = "Airship|Turret")
 	bool IsTurretDestroyed() const { return bDestroyed; }
@@ -355,10 +367,13 @@ private:
 	/** Ignores the turret, its ship, every actor attached to the ship (both turrets, the pilot, gunners) and its deck riders. */
 	void BuildShotQueryParams(FCollisionQueryParams& Params) const;
 
-	/** Visibility line along a round, looking past this ship's own cannonballs (added to Params, at most a few times). */
+	/** Visibility line along a round, looking past this ship's own and its teammates' cannonballs (added to Params, at most a few times). */
 	bool TraceShotLine(const FVector& Start, const FVector& End, FCollisionQueryParams& Params, FHitResult& OutHit) const;
 
-	/** The nearest enemy cannonball (not this ship's, not spent) within BallSweepRadius of the segment, or null. */
+	/** A ball this turret doesn't shoot down: its own ship's, or (team match, no friendly fire) a teammate ship's. Every machine. */
+	bool IsFriendlyBall(const AAirshipCannonball* Ball) const;
+
+	/** The nearest enemy cannonball (not this ship's or a teammate's, not spent) within BallSweepRadius of the segment, or null. */
 	AAirshipCannonball* FindBallOnShot(const FVector& Start, const FVector& End, const FCollisionQueryParams& Params, FVector& OutPoint) const;
 
 	/** Server: one bullet's damage to the GAS actor a round hit (through the ship's ASC). */

@@ -12,11 +12,32 @@
 #include "Net/UnrealNetwork.h"
 
 
+AMyGameState::AMyGameState()
+{
+	for (int32 Index = 0; Index < MyMatch::NumTeams; ++Index)
+	{
+		Teams[Index].TeamId = static_cast<uint8>(Index);
+	}
+}
+
 void AMyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMyGameState, PlayerRanking);
+
+	DOREPLIFETIME(AMyGameState, MatchPhase);
+	DOREPLIFETIME(AMyGameState, MatchRules);
+	DOREPLIFETIME(AMyGameState, Teams);
+	DOREPLIFETIME(AMyGameState, MatchResult);
+	DOREPLIFETIME(AMyGameState, EndReason);
+	DOREPLIFETIME(AMyGameState, WinningTeam);
+	DOREPLIFETIME(AMyGameState, PhaseEndServerTime);
+	DOREPLIFETIME(AMyGameState, MatchEndServerTime);
+	DOREPLIFETIME(AMyGameState, ExpectedPlayers);
+	DOREPLIFETIME(AMyGameState, RoundIndex);
+	DOREPLIFETIME(AMyGameState, bLaneSidesSwapped);
+	DOREPLIFETIME(AMyGameState, bPlayGoesOn);
 }
 
 void AMyGameState::AddPlayerState(APlayerState* PlayerState)
@@ -167,4 +188,133 @@ void AMyGameState::MulticastPlayRespawnFX_Implementation(UNiagaraSystem* System,
 	{
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, System, Location, Rotation);
 	}
+}
+
+const FMyTeamState& AMyGameState::GetTeamState(uint8 TeamId) const
+{
+	static const FMyTeamState NoTeamState;
+	return TeamId < MyMatch::NumTeams ? Teams[TeamId] : NoTeamState;
+}
+
+void AMyGameState::MulticastMatchEvent_Implementation(EMyMatchEvent Event, uint8 TeamId, int32 Value)
+{
+	// One line on every machine, so the harnesses (as_70_matchlib MB_EVENT_RE) can see a client's receipt, not just the send
+	const ENetMode NetMode = GetNetMode();
+	const TCHAR* Role = NetMode == NM_Client ? TEXT("client") : NetMode == NM_Standalone ? TEXT("standalone") : TEXT("server");
+	const UEnum* EventEnum = StaticEnum<EMyMatchEvent>();
+	UE_LOG(LogMatch, Log, TEXT("event %s team %d value %d (%s %s)"),
+		EventEnum ? *EventEnum->GetNameStringByValue(static_cast<int64>(Event)) : TEXT("?"), TeamId, Value, Role, *GetNameSafe(GetWorld()));
+
+	OnMatchEvent.Broadcast(Event, TeamId, Value);
+}
+
+void AMyGameState::SetMatchPhase(EMyMatchPhase NewPhase, double NewPhaseEndServerTime, bool bInPlayGoesOn)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchPhase = NewPhase;
+	PhaseEndServerTime = NewPhaseEndServerTime;
+	bPlayGoesOn = NewPhase == EMyMatchPhase::Countdown && bInPlayGoesOn;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetLaneSidesSwapped(bool bSwapped)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bLaneSidesSwapped = bSwapped;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetMatchRules(const FMyMatchRules& NewRules)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchRules = NewRules;
+	NotifyMatchWritten();
+}
+
+FMyTeamState& AMyGameState::EditTeam(uint8 TeamId)
+{
+	if (!ensureMsgf(HasAuthority() && TeamId < MyMatch::NumTeams, TEXT("EditTeam(%d): server only, team 0 or 1"), TeamId))
+	{
+		ScratchTeam = FMyTeamState();
+		return ScratchTeam;
+	}
+
+	return Teams[TeamId];
+}
+
+void AMyGameState::SetResult(EMyMatchResult NewResult, uint8 NewWinningTeam, EMyMatchEndReason NewEndReason)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchResult = NewResult;
+	WinningTeam = NewResult == EMyMatchResult::TeamWon ? NewWinningTeam : MyMatch::NoTeam;
+	EndReason = NewEndReason;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetMatchEndServerTime(double NewMatchEndServerTime)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchEndServerTime = NewMatchEndServerTime;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetExpectedPlayers(int32 NewExpectedPlayers)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	ExpectedPlayers = NewExpectedPlayers;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetRoundIndex(int32 NewRoundIndex)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	RoundIndex = NewRoundIndex;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::MarkTeamsDirty()
+{
+	if (HasAuthority())
+	{
+		NotifyMatchWritten();
+	}
+}
+
+void AMyGameState::NotifyMatchWritten()
+{
+	ForceNetUpdate();
+	OnMatchChanged.Broadcast();
+}
+
+void AMyGameState::OnRep_Match()
+{
+	OnMatchChanged.Broadcast();
 }

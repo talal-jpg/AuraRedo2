@@ -18,7 +18,10 @@ Code: `Source/Aura/Public/Airship/`, `Source/Aura/Private/Airship/`. Design: `RI
 | `UAirshipDamageEffect` (UGameplayEffect) | `AirshipDamageEffect.h/.cpp` | Built-in instant GE: Additive `UMyAttributeSet::IncomingDamage`, SetByCaller `SetDamageByCaller`. Default for impacts, console damage and cannonballs when `DamageEffectClass` is unset. |
 | types | `AirshipTypes.h` | `FAirshipPilotInput` (int8 axes, button bits, uint8 Seq, FVector_NetQuantize AimPoint, uint16 HeadingTarget), `FAirshipFlightTelemetry` (BlueprintType), `FAirshipCosmeticState` (C++ only), `EAirshipSide`, `EAirshipControlScheme`, `FAirshipFeedbackEvent`, `FPointFlyLoopState`, `Airship::` constants (pod order FL FR RL RR, fans L R, cannons L1 L2 R1 R2, button bits), `AirshipGalleon::` (the engine order code). Control schemes: section 14. |
 
-No new gameplay tags (damage uses `MyTags::SetDamageByCaller`).
+| `UAirshipLaneComponent` (round 2 PR B, the lanes part) | `AirshipLaneComponent.h/.cpp` | On every ship ("Lane"), no tick of its own: the pawn's server Tick calls `UpdateLane` right before `UpdateFlight`. A team ship's lane state, target (`UAirshipFlightComponent::SetLaneTarget`), look-ahead, recall and the replicated lane hint. Idle on free ships. Section 16. |
+
+Gameplay tags: damage uses `MyTags::SetDamageByCaller`. Round 2 PR B adds one native tag, `AirshipTags::State_SpawnProtected`
+("Airship.State.SpawnProtected", section 16.3).
 
 ## 2. What the editor step must create or set (exact names)
 
@@ -841,3 +844,174 @@ The decision record with file:line is `round2/SPEC_A.md` section 6. In short:
   deck. Needs PIE T5.15.
 * **Harnesses**: as_30 / as_43 / as_45 run with `CrewDamageShare` 0 (their v1 health checks predate D4); as_59 has
   T3.2 without the hull-Visibility switch, T6.9 (turret rounds at an enemy turret) and T5.15.
+
+## 16. Round 2, PR B (2026-11-25): team ships, lanes, lives (the airship side)
+
+The contract is `Docs/Airship/round2/SPEC_B.md` (B1-B12, section 2.5 for this part). The match itself (teams, phases,
+lives, respawns) is `AMyGameMode` / `AMyGameState` / `UMyTeamLibrary` (`Source/Aura/.../Match/`); the lane geometry and
+the lane state machine are `UMyLaneSubsystem` and `UAirshipLaneComponent`. This section is what the airship classes do
+for them. **Built (compiles clean); not yet run in the editor or PIE** (the PIE plan is SPEC_B section 4). With the
+match off every ship is team 255 and every path below gives the PR A answer.
+
+### 16.1 Team id and who may use a ship
+
+* `AAirshipPawn::TeamId` (uint8, `ReplicatedUsing = OnRep_TeamId`, 255 = a free ship). `SetTeamId` (server) is called
+  by the game mode before `FinishSpawning`. It puts a pilot or gunner of another team on foot, refreshes the sentinel
+  tags (16.5), tells the lane (`NotifyTeamChanged`, also before BeginPlay) and resizes the pilot's HUD panel.
+* `CanBoard` and `CanMount` refuse unless `UMyTeamLibrary::CanUseShip(Candidate, this)`: a free ship, no match, or the
+  same team.
+* The search for a ship to use is filtered the same way on every machine, from the replicated team ids:
+  * `UAirshipPilotComponent::FindBoardableAirship`: the "Press F" prompt.
+  * `UAirshipSubsystem::FindNearestAirship(Location, bOnlyBoardable, ForUser)`: `TryBoard(nullptr, true)`, which
+    `Aura.Airship.Board` uses, so a nearer enemy ship is skipped.
+* F that finds only an enemy helm or gun in range: `TryUseNearest` sends `ClientUseRefused(EAirshipUseRefusal)`
+  (unreliable) to the owner. That broadcasts the static `UAirshipPilotComponent::OnLocalUseRefused`, which the match HUD
+  turns into a toast. The log line is unchanged for "nothing in range".
+* Riders (SPEC_B 0.3, B6.3):
+  * `IsRiding(Character)`: PR A's rider test (attached, standing on the ship, or no base inside the hull's own box up
+    to `RiderZoneHeight` above it), team-blind. `UAirshipSubsystem::IsShipBorne` / `FindShipCarrying` (static, every
+    machine) use it: a ship pawn, a character attached to a ship, or a rider. An enemy standing on your deck is
+    ship-borne too (lead pawn, path growth, Burrower and fall death skip him).
+  * `IsRiderForDamage(Character)` = `IsRiding` and, for a rider that isn't attached, the ship's own team (anyone on a
+    free ship). So a team ship's cannonballs, turrets and aim traces spare only its own team; an enemy boarder can be
+    shot.
+
+### 16.2 Friendly fire and damage to ships
+
+* Cannonballs: `SourceTeamId` (replicated once) is stored at spawn by `InitCannonball`, because the ship may be gone
+  when the ball lands. `ShouldIgnore` adds `UMyTeamLibrary::IsFriendlyFireBlocked(Ball, Actor)`: no overlap stop, no
+  direct hit and no splash on the firing ship's teammates (players, their ship, its turrets) unless the rules allow
+  friendly fire.
+* Turret rounds (`ApplyBulletDamage`, the turret's one target filter): return when `IsFriendlyFireBlocked(OwnShip,
+  Target)`. `IsFriendlyBall` (own ship's ball, or a teammate ship's) replaces the three "own ball" tests (the line
+  re-trace, the ball sweep, the ball on the line), on every machine so predicted tracers agree.
+* Fixed damage to team ships (B6.5): a turret round on a team ship or a team ship's turret
+  (`UMyTeamLibrary::IsTeamShipTarget`) deals `UMyMatchSettings::ShipDamageTurretRound` (4) instead of `GetBulletDamage()`
+  (0 = PR A). The character gun (combat owner, `GA_GunShoot`) calls `AAirshipPawn::ApplyShipDamage(ShipDamageGunHit,
+  Shooter)` for a hull and the new `AAirshipTurret::ApplyTurretDamage(Damage, Shooter)` for a turret.
+* `ApplyShipDamage(Damage, DamageInstigator = nullptr)`: the instigator goes into the effect context (instigator and
+  causer), so the match can tell a shot from a crash (hull impacts and the console pass none: the ship) and the
+  shooter gets his damage number. The effect is still the ship's own from its own ASC. `ApplyTurretDamage` is the
+  same on the turret's ASC. With an effect class that has an execution, the source attributes then come from the
+  shooter's ASC (as for any gun hit); the built-in `UAirshipDamageEffect` has none.
+* The crew share and hull impacts are unchanged (not friendly fire).
+
+### 16.3 Spawn protection (B3.4)
+
+* `SetSpawnProtected(Seconds)` (server): the loose tag `AirshipTags::State_SpawnProtected` ("Airship.State.SpawnProtected",
+  native, declared in `AirshipTypes.h`, defined in `AirshipPawn.cpp`) on the ship's ASC and every turret's (count 1,
+  so repeated calls don't stack), and `ProtectionEndServerTime` (replicated, server clock). `UMyAttributeSet` drops
+  IncomingDamage on an ASC with the tag (combat owner; it registers the same tag name itself).
+* It ends when the time runs out (a timer), when its team first takes the helm (`BoardPilot`) or mans a station
+  (`MountGunner`), at death, or with `SetSpawnProtected(0)`. Turrets spawned while protected get the tag too.
+* `IsSpawnProtected()` (every machine) and `GetProtectionEndServerTime()` for the HUD's shield.
+* `DebugKill` (`Aura.Match.KillShip`) sets Health directly, so it ignores the protection.
+
+### 16.4 Lane mode in the flight model (B2.5)
+
+* `EAirshipUnpilotedMode::Lane = 4`. `FAirshipUnpilotedTarget` gains `bHasHoldZ`, `HoldZ`, `HoldAccel`.
+* `SetLaneTarget(Target, bAssist)` (server, the lane component every frame before `UpdateFlight`): stored with the
+  frame number. `UpdateUnpilotedMode` checks it first. A target of this frame wins when flight is on, the ship is alive,
+  no debug input is active, and there is no pilot or `bAssist`; then the drift request and block are cleared. A frame
+  without one leaves Lane through None (an exit's drift request still starts a drift, else hold if slow, else coast).
+* Forces in Lane mode:
+  * the hold law on the moving point, `LaneKp` / `LaneKd`, plus the hull drag at the target speed and the target's own
+    acceleration fed forward, capped at `LaneAccelMax` (`UMyMatchSettings`);
+  * the heading loop of drift / hold (`HoldYawGain`, `HoldYawRateMax`) on the target's heading;
+  * station keeping off; the neutral input carries `Button_Drift` (Galleon: no STOP reverse);
+  * altitude: `HoldZ` follows the target's at `LaneClimbRate` (the MinClearance floor still lifts the ship);
+  * **the lateral grip's speed target** is the lane law's own (its target velocity plus the position error x
+    `LaneKp / LaneKd`) instead of 0. Reason: with a zero target the grip's 4 /s fought the law's 0.4 /s^2, which left a
+    sideways error a 12 s time constant; now it is about 2 s, overdamped (not in SPEC_B, see 16.9).
+* `SetDriftMaxDistanceOverride` (team ships outside their lane: `LaneOutDriftMaxDistance`). The distance end with the
+  override still faster than `HoldEngageSpeed` coasts first (Coast holds once slow); a blocked drift holds at once.
+  Without the override PR A's ending is unchanged.
+* `SweepHullAhead(HeadingYaw, Distance, OutHit)`: PR A's look-ahead box sweep (`SweepHullBox`, which the drift sweep
+  now calls too, same log line) with an explicit heading and length, for the lane's look-ahead and bypass.
+* Telemetry: `bUnpilotedLane`, `LaneTargetSpeedMS` (the target's speed), `bLaneAssist`, `HoldOffsetM` also in Lane.
+
+### 16.5 Lane assist and the drive-intent bit (B2.9)
+
+* `Airship::Button_DriveIntent = 1 << 7`: the pilot's machine says it is driving.
+  * Point & Fly: a drive / sidestep / turn / boost key, or the camera steering (out of its parked free look).
+    Broadside mode (Aim) holds the heading, so it is no drive.
+  * The other schemes: any drive axis or button (Galleon: an order other than STOP). Debug input: any axis.
+  * Sent on team ships only, so a free ship's input is PR A's.
+* Server (`UpdateFlight`, right after `SelectControls`): `HasPilotDriveInput()` = the bit or any drive axis / button of
+  the controls used (in Point & Fly the steer and the heading target don't count: they come from the camera's heading
+  loop). With the lane's target in assist this frame (`IsLaneAssistActive()`), the drive is cleared (throttle, steer,
+  lift, strafe, boost, brake, heading target) and the aim, fire and stations bits pass; `Button_Drift` is set.
+* Pilot's machine while the replicated lane state is Assist (`IsLaneAssistLook()`):
+  * Point & Fly's parked free look holds at any speed (the mouse looks, the heading holds);
+  * without a drive key no heading target and steer 0 are sent, so the pilot's wheel and fans don't turn on his
+    screen while the server holds the lane;
+  * the first drive key leaves the parked look (PR A's rule: the ship then heads where the camera looks).
+* **A team ship's helm starts in the parked free look** (Point & Fly, at any speed): the lane state can reach a client
+  after its possession, and steering from the first frame would be drive and take the helm from the lane at once
+  (not in SPEC_B, 16.9). Free ships start as PR A.
+
+### 16.6 Sentinel bullets on undriven ships (B6.4)
+
+* `RefreshSentinelBulletTags()` (server): `UMechSentinelSwarmSubsystem::BulletTargetTag` on the hull and every turret
+  while `HasPilot() || GetController()` (the swarm's own targeting rule), on a free ship, or with
+  `UMyMatchSettings::bSentinelBulletsHitUndrivenShips`; removed from all three otherwise.
+* Called from `OnRep_PilotCharacter` (board and exit on the server), `PossessedBy`, `UnPossessed`, the end of
+  `SpawnTurrets`, `SetTeamId` and the pilot-destroyed branch of the Tick. The Tick also compares the wanted state with
+  the applied one every frame (one bool), which catches a settings change.
+* A turret tags itself in BeginPlay only without a ship.
+
+### 16.7 Reels, deck spots, logout
+
+* `NotifyIncomingReel(Reeler, bActive)` / `HasIncomingReel()` (server, from GA_GrappleSwing2's ship hook, B7.4): while
+  any reel is registered the lane holds its speed and heading. An entry ends by itself after
+  `IncomingReelSafetySeconds` (6 s; the reel's own limit is 5 s), and at death.
+* `GetDeckSpawnTransforms(Count, Out)` (server, start aboard B4.2, and the lane's recall replacement): spots on the
+  walkable lid, `DeckSpawnSpacing` (260 cm) apart, nearest the helm's exit point first. Each candidate of a lattice
+  along the deck is traced straight down onto the hull (as `UnboardPilot` finds the deck); only hits facing up on the
+  same lid as the exit point (within 1.5 m of its height) count. Height above it: the game mode's default pawn's
+  capsule half height plus `PilotSeatClearance` plus 10 cm; facing the bow.
+* A pilot logging out (B1.4): `AMyPlayerController2::PawnLeavingGame` (match owner) calls `UnboardPilot(false)` (which
+  never possesses a controller that is being destroyed), `UnPossess()` and destroys the character. The ship stays:
+  `UnPossessed` refreshes its tags and the lane sees the exit on its next update.
+
+### 16.8 HUD and console
+
+* Pilot panel and gunner panel (`UAirshipHUDWidget`): team ships get a LANE row (`LaneRowHeight` 40), every scheme.
+  * First line: the team's tag in its colour, `SHIELD n s` while protected, and on the right `LIVES n` (the team's
+    lives left once the match runs, `ShipLives + BonusLives` before; `SHIPS LOST n` in solo practice).
+  * Second line, from the replicated lane state and hint (B8.6): `LANE AUTO - W/S/A/D TAKE THE HELM`,
+    `IN LANE - EXIT = CRUISE`, `IN LANE - SLOW DOWN TO PARK (8 m/s)`, `LANE 35 m <- - EXIT = DRIFT + HOLD, BACK IN
+    20 s` (the side is relative to the hull; the recall part only with `bShipRecall`), and for gunners or an unpiloted
+    ship `LANE CRUISE n m/s`, `LANE - WAITING FOR THE TEAM` (and the other clamps), `PARKED - RETURNS TO LANE IN n s`,
+    `RETURNING TO LANE`. 8 pt when 9 pt doesn't fit.
+  * `OnRep_TeamId` re-applies the panel's slot (`RefreshShipHUDLayout`).
+* `FAirshipFlightTelemetry` gains TeamId, LaneState, LaneUM, LaneLateralErrorM, LaneVerticalErrorM, LaneYawDeg,
+  LaneTargetSpeedMS, LaneClamp, bUnpilotedLane, bLaneAssist, RecallInS, ProtectionLeftS, bIncomingReel.
+* `Aura.Airship.Telemetry` logs a fourth line: team, lane state, u, lateral / vertical error, lane yaw, target speed,
+  clamp, lane mode, assist, recall, protection, reel.
+
+### 16.9 Where the code differs from SPEC_B (and why)
+
+* The lateral grip in Lane mode targets the lane law's sideways speed (16.4): without it the grip held the ship off
+  the lane (T2.1's 1.5 m lateral bound would take about 12 s per metre of join).
+* Point & Fly starts parked on a team ship's helm (16.5): the lane state replicates separately from the possession.
+* The drive-intent bit is sent on team ships only, and Point & Fly's steer doesn't count as drive on the server: it is
+  the camera loop's output, which also turns a parked ship toward its held heading.
+* The drift distance end coasts first only with the lane's override (free ships keep PR A's ending exactly).
+* `FAirshipFlightTelemetry` has five more fields than B11 lists (LaneYawDeg, bLaneAssist, RecallInS, ProtectionLeftS,
+  bIncomingReel) for the HUD and the harness.
+* Ship-side additions the contract didn't list: `GetProtectionEndServerTime`, `IsLaneAssistLook`, `OnTeamChanged`,
+  `IsLaneAssistActive` / `GetDriftMaxDistanceOverride` on the flight component, `AAirshipTurret::IsFriendlyBall`, and the
+  properties `DeckSpawnSpacing`, `IncomingReelSafetySeconds`, `LaneRowHeight`.
+
+### 16.10 To check in PIE
+
+* T2.1 / T2.4-T2.7: the lane law's lateral and heading errors with the grip change, the assist hand-over in every
+  scheme (Q/E in Point & Fly, Galleon's notch), and the client's first frames at a cruising ship's helm (M6.1).
+* M2.1 / M2.3: F and `Aura.Airship.Board` next to the enemy ship; the refusal toast on the client.
+* M3.1: cannonball splash on teammates with the firing ship destroyed in flight (SourceTeamId); turret rounds on
+  teammates and their ship; the fixed 4 / 5 per hit on team ships and turrets.
+* M4.1: a sentinel test bullet at an undriven team ship's hull and turret; tags back on when a pilot boards.
+* T3.4: the protection on the ship and its turrets, its end on the first board / mount and after 15 s.
+* M1.1: deck spots for 2-4 players on BP_AirshipPawn's real hull (the lid's height and width, the 260 cm spacing).
+* M5.2: a client pilot's window closing: the ship stays, LaneState Parked or Cruising.

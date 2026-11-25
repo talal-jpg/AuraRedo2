@@ -6,6 +6,7 @@
 #include "Actors/MyHexBridge.h"
 #include "Actors/MyHexBridgeSettings.h"
 #include "Actors/MyHexPlatform.h"
+#include "Airship/AirshipSubsystem.h"
 #include "Algo/Reverse.h"
 #include "CollisionQueryParams.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -18,6 +19,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Match/MyTeamLibrary.h"
 #include "MyGameState.h"
 #include "MyPlayerState.h"
 #include "TimerManager.h"
@@ -4787,18 +4789,23 @@ APawn* UMyHexBridgeSubsystem::SelectLeadPawn() const
 	const AMyGameState* MyGameState = World->GetGameState<AMyGameState>();
 	const TArray<AMyPlayerState*> Leaders = MyGameState ? MyGameState->GetLeadingPlayerStates() : TArray<AMyPlayerState*>();
 
-	// Several leaders on the same platform: the first one alive
+	// Team match: a leader aboard a ship is not where his race is. His pawn is the ship while he pilots (or his
+	// character on a deck or a station), which can fly hundreds of metres ahead of the platforms and would cull them in
+	// front of his runners. Match off: any leader, as before.
+	const bool bOnFootOnly = UMyTeamLibrary::IsMatchActive(this);
+
+	// Several leaders on the same platform: the first one alive (and on foot in a match)
 	for (const AMyPlayerState* Leader : Leaders)
 	{
 		APawn* Pawn = Leader ? Leader->GetPawn() : nullptr;
 
-		if (IsValid(Pawn))
+		if (IsValid(Pawn) && !(bOnFootOnly && UAirshipSubsystem::IsShipBorne(Pawn)))
 		{
 			return Pawn;
 		}
 	}
 
-	// Dead / respawning / spectating: no lead this frame
+	// Dead / respawning / spectating (or every leader aboard a ship): no lead this frame
 	return nullptr;
 }
 
@@ -4828,6 +4835,22 @@ bool UMyHexBridgeSubsystem::GetLeadPathDistance(float& OutDistance) const
 			CachedLeadPathDistance = Spline->GetDistanceAlongSplineAtSplineInputKey(
 				Spline->FindInputKeyClosestToWorldLocation(Lead->GetActorLocation()));
 			bLeadPathDistanceValid = true;
+		}
+		else if (!Lead && Spline && Spline->GetNumberOfSplinePoints() >= 2 && UMyTeamLibrary::IsMatchActive(this))
+		{
+			// Team match, no lead pawn (every leader aboard a ship, or dead): the segments behind still go, measured from
+			// the leader's last platform (a path distance too). It only moves when a runner lands further, so nothing
+			// in front of the runners is lost while the leaders fly. The platforms' own culling pauses meanwhile
+			// (AMyHexPlatform::UpdateLeadState needs a lead pawn).
+			const UWorld* World = GetWorld();
+			const AMyGameState* MyGameState = World ? World->GetGameState<AMyGameState>() : nullptr;
+			const float LeaderDistance = MyGameState ? MyGameState->GetLeadSplineDistance() : -1.f;
+
+			if (LeaderDistance >= 0.f)
+			{
+				CachedLeadPathDistance = LeaderDistance;
+				bLeadPathDistanceValid = true;
+			}
 		}
 	}
 

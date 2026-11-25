@@ -22,6 +22,24 @@ void AMyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME_CONDITION_NOTIFY(AMyPlayerState,SpellPoints,COND_None,REPNOTIFY_Always);
 	DOREPLIFETIME(AMyPlayerState,CurrentPlatform);
 	DOREPLIFETIME(AMyPlayerState,PlatformSplineDistance);
+	DOREPLIFETIME(AMyPlayerState,TeamId);
+}
+
+void AMyPlayerState::SetTeamId(uint8 NewTeam)
+{
+	if (!HasAuthority() || NewTeam == TeamId)
+	{
+		return;
+	}
+	
+	TeamId = NewTeam;
+	ForceNetUpdate();
+	OnTeamChanged.Broadcast();
+}
+
+void AMyPlayerState::OnRep_TeamId()
+{
+	OnTeamChanged.Broadcast();
 }
 
 void AMyPlayerState::SetCurrentPlatform(AMyHexPlatform* Platform)

@@ -23,7 +23,11 @@ class UBurrowerSettings;
  *
  * Players are polled every PollInterval from GameState->PlayerArray and keyed by their PlayerState, which
  * survives respawns: a new pawn is retargeted, a dead or missing pawn pauses that player's countdown
- * and leaves their Burrower waiting, a player who leaves takes their Burrower with them.
+ * and leaves their Burrower waiting, a player who leaves takes their Burrower with them. A player aboard an
+ * airship (piloting, manning a gun, riding on deck) counts as one without a pawn (ABurrowerCharacter::IsLivingTarget).
+ *
+ * The match changes the settings at runtime only (SetDifficultyOverride, SetSpawningPaused): UBurrowerSettings
+ * stays the base.
  *
  * Console (not shipping): Aura.Burrower.SpawnNow [PlayerIndex], Aura.Burrower.KillAll.
  */
@@ -54,6 +58,32 @@ public:
 
 	/** True on the machine that runs the spawning (listen server or standalone). */
 	bool IsActive() const { return bActive; }
+
+	/**
+	 * Server: the match's swarm difficulty on top of UBurrowerSettings, which stays the base (the project's and the
+	 * user's own values). InSpawnIntervalScale multiplies SpawnInterval from the next re-arm of each countdown;
+	 * InMaxAlivePerPlayer > 0 is a floor on the setting's (max of the two; 0 = the setting); InCharacterLevel > 0 is the level of the
+	 * Burrowers spawned from now on, set before their attribute effects apply (0 = the Burrower class's own, 1). Safe
+	 * before OnWorldBeginPlay (only stored).
+	 */
+	void SetDifficultyOverride(float InSpawnIntervalScale, int32 InMaxAlivePerPlayer, int32 InCharacterLevel);
+
+	/**
+	 * Server: no automatic spawns while paused (the match waiting for players, counting down or over). The countdowns
+	 * hold where they are; living Burrowers keep following. SpawnNow still works.
+	 */
+	void SetSpawningPaused(bool bPaused);
+
+	bool IsSpawningPaused() const { return bSpawningPaused; }
+
+	/** UBurrowerSettings::SpawnInterval x the difficulty's scale (s). */
+	float GetSpawnInterval() const;
+
+	/** UBurrowerSettings' MaxAlivePerPlayer, raised to the difficulty's when that is higher. */
+	int32 GetMaxAlivePerPlayer() const;
+
+	/** Level given to new Burrowers; 0 = their class's own. */
+	int32 GetCharacterLevelOverride() const { return CharacterLevelOverride; }
 
 protected:
 
@@ -93,6 +123,16 @@ private:
 	bool bWarnedMissingClass = false;
 
 	bool bWarnedMissingClassInfo = false;
+
+	/** SetDifficultyOverride: x SpawnInterval, MaxAlivePerPlayer (0 = the setting), new Burrowers' level (0 = their own). */
+	float SpawnIntervalScale = 1.f;
+
+	int32 MaxAlivePerPlayerOverride = 0;
+
+	int32 CharacterLevelOverride = 0;
+
+	/** SetSpawningPaused. */
+	bool bSpawningPaused = false;
 
 	/** Joins, leaves, respawns, deaths, retargeting and the countdowns. */
 	void Poll();

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "Match/MyMatchTypes.h"
 #include "MyPlayerState.generated.h"
 
 class UMySpellMenuWidgetController;
@@ -75,7 +76,23 @@ public:
 	
 	bool HasPlatformSplineDistance() const { return PlatformSplineDistance >= 0.f; }
 	
+	/** Team match team: 0 or 1, 255 (MyMatch::NoTeam) outside a match. Set by AMyGameMode when the player joins; survives respawns. */
+	UFUNCTION(BlueprintPure, Category = "Match")
+	uint8 GetTeamId() const { return TeamId; }
+	
+	/** Server. Broadcasts OnTeamChanged when it changes. */
+	void SetTeamId(uint8 NewTeam);
+	
+	/** Every machine: on the server from SetTeamId, on clients when TeamId replicates. */
+	FSimpleMulticastDelegate OnTeamChanged;
+	
 	private:
+	
+	UPROPERTY(ReplicatedUsing=OnRep_TeamId)
+	uint8 TeamId=MyMatch::NoTeam;
+	
+	UFUNCTION()
+	void OnRep_TeamId();
 	
 	/** Last platform the pawn landed on (kept while on bridges or in the air). Null once destroyed. */
 	UPROPERTY(Replicated)

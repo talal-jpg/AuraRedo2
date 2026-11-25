@@ -11,6 +11,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "HAL/IConsoleManager.h"
+#include "Match/MyMatchSettings.h"
 #include "Net/UnrealNetwork.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "PhysicsEngine/PhysicsSettings.h"
@@ -45,6 +46,24 @@ namespace AirshipFlightPrivate
 	float WrapDeg(float AngleDeg)
 	{
 		return static_cast<float>(FRotator::NormalizeAxis(static_cast<double>(AngleDeg)));
+	}
+
+	/**
+	 * Round 2 PR B (lane assist): the controls drive the ship. The drive-intent bit (the pilot's machine: Point & Fly's
+	 * keys and steering camera), or any drive axis past 0.05, boost, brake, a Galleon order other than STOP. Not the
+	 * heading target, and in Point & Fly not the steer: there both come from the camera's heading loop (also in its
+	 * parked free look, which holds a heading), which the bit already reports when it steers.
+	 */
+	bool IsDriveInput(const FAirshipPilotInput& Controls, EAirshipControlScheme Scheme)
+	{
+		constexpr float Dead = 0.05f;
+		const bool bThrottle = Scheme == EAirshipControlScheme::Galleon
+			? AirshipGalleon::ThrottleToNotch(Controls.Throttle) != AirshipGalleon::Stop
+			: FMath::Abs(Controls.GetThrottle()) > Dead;
+		const bool bSteer = Scheme != EAirshipControlScheme::PointFly && FMath::Abs(Controls.GetSteer()) > Dead;
+
+		return Controls.HasButton(Airship::Button_DriveIntent) || bThrottle || bSteer || FMath::Abs(Controls.GetLift()) > Dead
+			|| FMath::Abs(Controls.GetStrafe()) > Dead || Controls.IsBoost() || Controls.IsBrake();
 	}
 
 	/** Solves M x = B for a 3x3 M (rows). False when M is (nearly) singular. */
@@ -471,10 +490,11 @@ FAirshipPilotInput UAirshipFlightComponent::SelectControls() const
 			return Held;
 		}
 
-		// No pilot, or the pilot went quiet: neutral controls (the ship holds its altitude). A drifting ship says so in
-		// them: RepInput carries the bit to every machine, so they all shape the same cosmetics (Galleon: no STOP reverse)
+		// No pilot, or the pilot went quiet: neutral controls (the ship holds its altitude). An unpiloted cruise (a drift,
+		// or a team ship on its lane) says so in them: RepInput carries the bit to every machine, so they all shape the
+		// same cosmetics (Galleon: no STOP reverse)
 		FAirshipPilotInput Neutral;
-		Neutral.SetButton(Airship::Button_Drift, UnpilotedTarget.Mode == EAirshipUnpilotedMode::Drift);
+		Neutral.SetButton(Airship::Button_Drift, UnpilotedTarget.Mode == EAirshipUnpilotedMode::Drift || UnpilotedTarget.Mode == EAirshipUnpilotedMode::Lane);
 		return Neutral;
 	}
 
@@ -858,6 +878,25 @@ void UAirshipFlightComponent::UpdateFlight(float DeltaSeconds)
 
 	if (bAuthority)
 	{
+		// Round 2 PR B: did the pilot drive this frame (the lane component hands him the helm on the first drive), and
+		// the lane assist: the lane flies, the pilot keeps his aim, fire and stations, his drive goes (SPEC_B B2.9)
+		const bool bPiloted = Ship->HasPilot() || Ship->GetController() != nullptr;
+		bPilotDriveInput = bPiloted && bFlightEnabled && AirshipFlightPrivate::IsDriveInput(Controls, ActiveScheme);
+
+		if (bLaneAssistThisFrame)
+		{
+			Controls.Throttle = 0;
+			Controls.Steer = 0;
+			Controls.Lift = 0;
+			Controls.Strafe = 0;
+			Controls.HeadingTarget = 0;
+			Controls.SetButton(Airship::Button_Boost, false);
+			Controls.SetButton(Airship::Button_Brake, false);
+			Controls.SetButton(Airship::Button_DriveIntent, false);
+			// Galleon: the cleared order decodes as STOP, whose speed loop would back the engines against the cruise
+			Controls.SetButton(Airship::Button_Drift, true);
+		}
+
 		Controls.SetButton(Airship::Button_Boost, bFlightEnabled && UpdateBoostServer(Controls.IsBoost(), Dt, Body));
 
 		// Point & Fly: the heading loop on the authoritative hull writes the steer the forces and every observer use
@@ -956,9 +995,24 @@ namespace AirshipFlightPrivate
 		case EAirshipUnpilotedMode::Coast: return TEXT("Coast");
 		case EAirshipUnpilotedMode::Drift: return TEXT("Drift");
 		case EAirshipUnpilotedMode::Hold: return TEXT("Hold");
+		case EAirshipUnpilotedMode::Lane: return TEXT("Lane");
 		default: return TEXT("None");
 		}
 	}
+}
+
+void UAirshipFlightComponent::SetLaneTarget(const FAirshipUnpilotedTarget& Target, bool bAssist)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+
+	// Read by this frame's UpdateUnpilotedMode (the pawn's Tick calls the lane right before UpdateFlight)
+	LaneTarget = Target;
+	LaneTarget.Mode = EAirshipUnpilotedMode::Lane;
+	LaneTargetFrame = GFrameCounter;
+	bLaneTargetAssist = bAssist;
 }
 
 void UAirshipFlightComponent::NotifyPilotLeft(const FVector& ExitVelocity)
@@ -1035,12 +1089,23 @@ float UAirshipFlightComponent::GetDriftLookAheadDistance(float ForwardSpeed) con
 
 bool UAirshipFlightComponent::SweepDriftAhead(UPrimitiveComponent* Body, float ForwardSpeed, float& OutDistance) const
 {
+	OutDistance = GetDriftLookAheadDistance(ForwardSpeed);
+	return SweepHullBox(Body, UnpilotedTarget.HeadingYaw, OutDistance, nullptr, TEXT("drift ends"));
+}
+
+bool UAirshipFlightComponent::SweepHullAhead(float HeadingYaw, float Distance, FHitResult* OutHit) const
+{
+	// The lane component logs what it does with the answer
+	return SweepHullBox(GetBody(), HeadingYaw, Distance, OutHit, nullptr);
+}
+
+bool UAirshipFlightComponent::SweepHullBox(const UPrimitiveComponent* Body, float HeadingYaw, float Distance, FHitResult* OutHit, const TCHAR* LogContext) const
+{
 	const UWorld* World = GetWorld();
 	const AActor* Owner = GetOwner();
 	const UAirshipSettings* S = UAirshipSettings::Get();
-	OutDistance = GetDriftLookAheadDistance(ForwardSpeed);
 
-	if (!World || !Body || !Owner)
+	if (!World || !Body || !Owner || Distance <= 0.f)
 	{
 		return false;
 	}
@@ -1072,8 +1137,7 @@ bool UAirshipFlightComponent::SweepDriftAhead(UPrimitiveComponent* Body, float F
 	const FTransform BodyTM = Body->GetComponentTransform();
 	const FVector Extent = 0.5 * (Max - Min) * BodyTM.GetScale3D().GetAbs();
 	const FVector Start = BodyTM.TransformPosition(0.5 * (Min + Max));
-	const FVector Dir = FRotator(0.0, UnpilotedTarget.HeadingYaw, 0.0).Vector();
-	const float Distance = OutDistance;
+	const FVector Dir = FRotator(0.0, HeadingYaw, 0.0).Vector();
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipDriftAhead), false, Owner);
 	TArray<AActor*> Attached;
@@ -1105,8 +1169,16 @@ bool UAirshipFlightComponent::SweepDriftAhead(UPrimitiveComponent* Body, float F
 			continue;
 		}
 
-		UE_LOG(LogAirshipFlight, Log, TEXT("%s: drift ends, %s %.0f cm ahead"), *GetNameSafe(Owner), *GetNameSafe(Hit.GetActor()),
-			Hit.bStartPenetrating ? 0.f : Hit.Distance);
+		if (LogContext)
+		{
+			UE_LOG(LogAirshipFlight, Log, TEXT("%s: %s, %s %.0f cm ahead"), *GetNameSafe(Owner), LogContext, *GetNameSafe(Hit.GetActor()),
+				Hit.bStartPenetrating ? 0.f : Hit.Distance);
+		}
+
+		if (OutHit)
+		{
+			*OutHit = Hit;
+		}
 		return true;
 	}
 
@@ -1136,10 +1208,30 @@ void UAirshipFlightComponent::UpdateUnpilotedMode(UPrimitiveComponent* Body, con
 	}
 
 	const EAirshipUnpilotedMode OldMode = UnpilotedTarget.Mode;
+	const bool bPiloted = Ship->HasPilot() || Ship->GetController() != nullptr;
 
+	// Round 2 PR B: a team ship's lane target of this frame (UAirshipLaneComponent) wins, also with a pilot at the helm
+	// while the lane assists him. Flight off, death and the harness's debug controls still win over it.
+	const bool bLaneWins = LaneTargetFrame == GFrameCounter && bFlightEnabled && !bDebugInputActive && !Ship->IsAirshipDead()
+		&& (!bPiloted || bLaneTargetAssist);
+	bLaneAssistThisFrame = bLaneWins && bPiloted;
+
+	if (!bLaneWins && UnpilotedTarget.Mode == EAirshipUnpilotedMode::Lane)
+	{
+		// The lane let go (a pilot took the helm, the ship is parked outside its lane, the lane state is NoLane): out
+		// through None, where an exit's drift request still starts a drift, else it holds if slow or coasts
+		UnpilotedTarget = FAirshipUnpilotedTarget();
+	}
+
+	if (bLaneWins)
+	{
+		UnpilotedTarget = LaneTarget;
+		bDriftRequest = false;
+		bDriftBlocked = false;
+	}
 	// A pilot at the helm (or a controller on the ship: a pilot whose character is gone keeps flying), debug controls
 	// (the harness), flight off (death): nobody else's business. A later exit asks again (NotifyPilotLeft).
-	if (!bFlightEnabled || Ship->HasPilot() || Ship->GetController() || bDebugInputActive || Ship->IsAirshipDead())
+	else if (!bFlightEnabled || bPiloted || bDebugInputActive || Ship->IsAirshipDead())
 	{
 		// Any drift asked for before is dropped: the request comes after the possession ends (debug controls cleared on
 		// an unpiloted ship: Hold if slow, else Coast then Hold)
@@ -1213,14 +1305,22 @@ void UAirshipFlightComponent::UpdateUnpilotedMode(UPrimitiveComponent* Body, con
 				NextDriftSweepTime = Now + FMath::Clamp(HalfCoverTime, 0.02f, FMath::Max(S->DriftSweepInterval, 0.02f));
 			}
 
-			const bool bFar = S->DriftMaxDistance > 0.f && FVector2D::Distance(COMXY, FVector2D(DriftStart.X, DriftStart.Y)) > S->DriftMaxDistance;
+			// A team ship left outside its lane (round 2 PR B) drifts at most the lane's limit (SetDriftMaxDistanceOverride)
+			const float DriftLimit = DriftMaxDistanceOverride > 0.f ? DriftMaxDistanceOverride : S->DriftMaxDistance;
+			const bool bFar = DriftLimit > 0.f && FVector2D::Distance(COMXY, FVector2D(DriftStart.X, DriftStart.Y)) > DriftLimit;
+			const bool bBlocked = bDriftBlocked;
 
-			if (bDriftBlocked || bFar || S->DriftSpeed <= 0.f)
+			if (bBlocked || bFar || S->DriftSpeed <= 0.f)
 			{
 				// Something ahead (or far enough): stop where it is. Without the hold: the old coast.
 				bDriftBlocked = false;
 
-				if (bCanHold)
+				// The lane's distance end while still faster than HoldEngageSpeed coasts first (Coast holds once slow): a
+				// hold spring started at speed overshoots by v^2 / (2 HoldAccelMax). A blocked drift still holds at once.
+				// Only with the override, so free ships keep PR A's ending.
+				const bool bCoastFirst = bFar && !bBlocked && S->DriftSpeed > 0.f && DriftMaxDistanceOverride > 0.f && !bSlow;
+
+				if (bCanHold && !bCoastFirst)
 				{
 					BeginHold(Body);
 				}
@@ -1373,6 +1473,10 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 	const bool bSky = ActiveScheme == EAirshipControlScheme::SkyRacer;
 	const bool bPointFly = ActiveScheme == EAirshipControlScheme::PointFly;
 
+	// Round 2 PR B: a team ship on its lane (UpdateUnpilotedMode), also under a pilot while the lane assists him
+	const bool bUnpilotedLane = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Lane;
+	const UMyMatchSettings* LaneSettings = UMyMatchSettings::Get();
+
 	// Sky Racer drift: direction, the shaped steer into the drift (-1 counter .. +1 full in) as 0..1
 	const bool bSkyDrift = bSky && SkyDriftDir != 0;
 	const float SkyDir = static_cast<float>(SkyDriftDir);
@@ -1472,6 +1576,15 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 		if (bBrakePressed)
 		{
 			HoldZ = Z + (bBrakeHoldLead ? StopLead(Vz) : 0.f);
+		}
+
+		// Lane: the held altitude follows the lane's at LaneClimbRate, or the target's own rate (a recall climbing over the
+		// field: at 200 cm/s its 80 m climb and descent alone would outlast ShipRecallMaxTime). The MinClearance floor
+		// below still lifts the ship over anything under its pods
+		if (bUnpilotedLane && UnpilotedTarget.bHasHoldZ)
+		{
+			const float ClimbRateNow = UnpilotedTarget.ClimbRate > 0.f ? UnpilotedTarget.ClimbRate : LaneSettings->LaneClimbRate;
+			HoldZ = FMath::FInterpConstantTo(HoldZ, UnpilotedTarget.HoldZ, Dt, ClimbRateNow);
 		}
 
 		const float HoldError = HoldZ - Z;
@@ -1593,12 +1706,13 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 		}
 	}
 
-	// Unpiloted drift / hold: hold the heading (no pilot, so the steer is neutral; the anchor branch's yaw loop)
+	// Unpiloted drift / hold / lane: hold the heading (no pilot, or the lane assist cleared his steer; the anchor
+	// branch's yaw loop)
 	const bool bUnpilotedDrift = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Drift;
 	const bool bUnpilotedHold = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Hold;
 	const UAirshipSettings* UnpilotedSettings = UAirshipSettings::Get();
 
-	if (bUnpilotedDrift || bUnpilotedHold)
+	if (bUnpilotedDrift || bUnpilotedHold || bUnpilotedLane)
 	{
 		const float HeadingErrDeg = WrapDeg(UnpilotedTarget.HeadingYaw - static_cast<float>(Current.Yaw));
 		YawRateCmd = FMath::DegreesToRadians(FMath::Clamp(UnpilotedSettings->HoldYawGain * HeadingErrDeg, -UnpilotedSettings->HoldYawRateMax, UnpilotedSettings->HoldYawRateMax));
@@ -1861,7 +1975,21 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 			EnergyKeep = SkyGripEnergyKeep;
 		}
 
-		const float GripTerm = Klat * (Strafe * StrafeSpeed - Vl);
+		// Lane: the grip's sideways speed is the lane law's own (its target velocity plus the position error over the
+		// spring / damper ratio), so the grip helps the ship back onto the lane instead of holding it where it is (with a
+		// zero target the grip's 4 /s against the law's 0.4 /s^2 left a sideways error a 12 s time constant)
+		float LatSpeedTarget = Strafe * StrafeSpeed;
+
+		if (bUnpilotedLane)
+		{
+			const FVector LaneCOM = Body->GetCenterOfMass();
+			const FVector2D LaneErr = UnpilotedTarget.HoldPoint - FVector2D(LaneCOM.X, LaneCOM.Y);
+			const FVector2D LaneWant = UnpilotedTarget.HoldVelocity + LaneErr * (LaneSettings->LaneKp / FMath::Max(LaneSettings->LaneKd, 0.1f));
+			const FVector2D Right2D = FVector2D(Right.X, Right.Y).GetSafeNormal();
+			LatSpeedTarget = FMath::Clamp(static_cast<float>(FVector2D::DotProduct(LaneWant, Right2D)), -StrafeSpeed, StrafeSpeed);
+		}
+
+		const float GripTerm = Klat * (LatSpeedTarget - Vl);
 		const float ALatCmd = FMath::Clamp(bSky ? CentripetalFF + GripTerm : GripTerm, -ALatMax, ALatMax);
 		const float ALatPhys = static_cast<float>((PodSumBody.Y + (FanForce[0] + FanForce[1]) * FanDir.Y) / Mass);
 		AGrip = ALatCmd - ALatPhys;
@@ -1963,9 +2091,10 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 	// Base fix 4d: station keeping at low speed with no throttle, strafe or boost
 	float AKeepF = 0.f;
 
-	// Not while drifting (2.5 m/s is inside its full-strength band: it would brake the drift) or holding (the hold law
-	// replaces it at rest)
-	if (StationKeepGain > 0.f && FMath::Abs(Throttle) < 0.05f && FMath::Abs(Strafe) < 0.05f && Boost < 0.05f && !bUnpilotedDrift && !bUnpilotedHold)
+	// Not while drifting (2.5 m/s is inside its full-strength band: it would brake the drift), holding (the hold law
+	// replaces it at rest) or on a lane (it would brake the 6 m/s cruise)
+	if (StationKeepGain > 0.f && FMath::Abs(Throttle) < 0.05f && FMath::Abs(Strafe) < 0.05f && Boost < 0.05f && !bUnpilotedDrift && !bUnpilotedHold
+		&& !bUnpilotedLane)
 	{
 		const float Fade = FMath::Clamp(2.f - FMath::Sqrt(Vf * Vf + Vl * Vl) / FMath::Max(StationKeepSpeed, 1.f), 0.f, 1.f);
 		AKeepF = FMath::Clamp(-StationKeepGain * Vf, -StationKeepAccelMax, StationKeepAccelMax) * Fade;
@@ -2028,6 +2157,21 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 		const FVector2D VErr = UnpilotedTarget.HoldVelocity - FVector2D(V.X, V.Y);
 		const FVector2D AHold = (Err * UnpilotedSettings->HoldKp + VErr * UnpilotedSettings->HoldKd).GetClampedToMaxSize(UnpilotedSettings->HoldAccelMax);
 		ACom += FVector(AHold.X, AHold.Y, 0.0);
+	}
+	else if (bUnpilotedLane)
+	{
+		// The hold law on a moving point (LaneKp, LaneKd), with the hull drag at the lane speed and the target's own
+		// acceleration fed forward so the ship doesn't trail its target (ADragFwd above takes the real drag off), capped
+		// at LaneAccelMax: 28 m/s needs 164 cm/s^2 of drag plus the 250 cm/s^2 ramp (SPEC_B B2.5 item 6)
+		const FVector LaneCOM = Body->GetCenterOfMass();
+		const FVector2D Err = UnpilotedTarget.HoldPoint - FVector2D(LaneCOM.X, LaneCOM.Y);
+		const FVector2D VErr = UnpilotedTarget.HoldVelocity - FVector2D(V.X, V.Y);
+		const FVector2D Fwd2D(Fwd.X, Fwd.Y);
+		const float T = static_cast<float>(FVector2D::DotProduct(UnpilotedTarget.HoldVelocity, Fwd2D));
+		const FVector2D DragFF = Fwd2D * (DragC1 * T + DragC2 * T * FMath::Abs(T));
+		const FVector2D ALane = (Err * LaneSettings->LaneKp + VErr * LaneSettings->LaneKd + DragFF + UnpilotedTarget.HoldAccel)
+			.GetClampedToMaxSize(LaneSettings->LaneAccelMax);
+		ACom += FVector(ALane.X, ALane.Y, 0.0);
 	}
 
 	ACom.Z += AVert;
@@ -2244,7 +2388,12 @@ void UAirshipFlightComponent::FillTelemetry(FAirshipFlightTelemetry& Out) const
 	Out.bUnpilotedHold = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Hold;
 	Out.DriftTargetSpeedMS = Out.bUnpilotedDrift ? UnpilotedTarget.ForwardSpeed * 0.01f : 0.f;
 
-	if (Out.bUnpilotedHold)
+	// Round 2 PR B: the lane target (the pawn adds the team and the lane component's state and hint)
+	Out.bUnpilotedLane = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Lane;
+	Out.LaneTargetSpeedMS = Out.bUnpilotedLane ? static_cast<float>(UnpilotedTarget.HoldVelocity.Size()) * 0.01f : 0.f;
+	Out.bLaneAssist = Out.bUnpilotedLane && bLaneAssistThisFrame;
+
+	if (Out.bUnpilotedHold || Out.bUnpilotedLane)
 	{
 		const FVector COM = Body->GetCenterOfMass();
 		Out.HoldOffsetM = static_cast<float>(FVector2D::Distance(UnpilotedTarget.HoldPoint, FVector2D(COM.X, COM.Y))) * 0.01f;

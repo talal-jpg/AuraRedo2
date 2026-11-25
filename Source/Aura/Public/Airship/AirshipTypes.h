@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/NetSerialization.h"
+#include "NativeGameplayTags.h"
 #include "AirshipTypes.generated.h"
 
 class AActor;
@@ -55,6 +56,24 @@ namespace Airship
 	 * doesn't reverse the engines on any machine's cosmetics.
 	 */
 	constexpr uint8 Button_Drift = 1 << 6;
+
+	/**
+	 * The pilot's machine: the pilot is driving this frame (round 2 PR B, SPEC_B B2.5 item 9). Point & Fly: a drive /
+	 * sidestep / turn / boost key, or the camera steering (out of its parked free look); the other schemes: any drive
+	 * axis or button. The server can't tell Point & Fly's Q/E from the heading target alone, so the pilot says it. Read
+	 * only by the lane assist of team ships (UAirshipFlightComponent::HasPilotDriveInput); free ships ignore it.
+	 */
+	constexpr uint8 Button_DriveIntent = 1 << 7;
+}
+
+/** Native gameplay tags of the airship module (defined in AirshipPawn.cpp). */
+namespace AirshipTags
+{
+	/**
+	 * Loose tag on a team ship's ASC and its turrets' (server) while it is spawn protected (SPEC_B B3.4):
+	 * UMyAttributeSet drops IncomingDamage on an ASC that has it. "Airship.State.SpawnProtected".
+	 */
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_SpawnProtected)
 }
 
 /** Broadside: the two cannons on one side. */
@@ -80,10 +99,7 @@ enum class EAirshipStation : uint8
 	None = 255 UMETA(Hidden)
 };
 
-/**
- * What a ship does while nobody flies it (server, UAirshipFlightComponent). A later lane mode slots in after Hold, so
- * keep the values.
- */
+/** What a ship does while nobody flies it (server, UAirshipFlightComponent). Keep the values (telemetry, harnesses). */
 UENUM(BlueprintType)
 enum class EAirshipUnpilotedMode : uint8
 {
@@ -94,7 +110,24 @@ enum class EAirshipUnpilotedMode : uint8
 	/** Keeps going slowly ahead along its heading after a moving exit. */
 	Drift = 2,
 	/** Holds a point and a heading (parked). */
-	Hold = 3
+	Hold = 3,
+	/**
+	 * A team ship on its lane (round 2 PR B, UAirshipLaneComponent sets the target every frame): the hold law on a moving
+	 * point with the drag and the target's acceleration fed forward, and the lane's height. Also with a pilot at the helm
+	 * whose drive keys are untouched (lane assist): he aims and fires, the lane flies.
+	 */
+	Lane = 4
+};
+
+/** Why the server refused a player's F (UAirshipPilotComponent::ClientUseRefused, the HUD's toast). */
+UENUM(BlueprintType)
+enum class EAirshipUseRefusal : uint8
+{
+	None,
+	/** No free helm or gun station in range. */
+	NothingInRange,
+	/** The helm or a station in range belongs to the other team's ship. */
+	EnemyShip
 };
 
 /** A turret mount in hull space (cm), its yaw limits (deg about hull +Z, 0 = bow, + = toward starboard) and pitch limits. */
@@ -522,6 +555,59 @@ struct AURA_API FAirshipFlightTelemetry
 	/** Bit c = cannon c loaded on this machine's clock. */
 	UPROPERTY(BlueprintReadOnly, Category = "Airship")
 	int32 CannonReadyMask = 0;
+
+	// ---- Team match (round 2 PR B, every machine from the replicated team, lane state and lane hint unless noted).
+
+	/** The ship's team: 0, 1, or 255 (a free ship, or no match). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	uint8 TeamId = 255;
+
+	/** EMyLaneState (NoLane on free ships). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	uint8 LaneState = 0;
+
+	/** The ship's progress u along the start heading (m), from the lane hint. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float LaneUM = 0.f;
+
+	/** Ship minus its lane (m): sideways in the start-heading frame (+ = right) and up. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float LaneLateralErrorM = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float LaneVerticalErrorM = 0.f;
+
+	/** The lane tangent's world yaw at the ship (deg), from the lane hint. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float LaneYawDeg = 0.f;
+
+	/** The lane target's speed (m/s), server only (0 on clients and outside Lane mode). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float LaneTargetSpeedMS = 0.f;
+
+	/** EMyLaneClamp: what limits the lane target. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	uint8 LaneClamp = 0;
+
+	/** The unpiloted mode is Lane this frame (server). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	bool bUnpilotedLane = false;
+
+	/** Lane assist this frame: a pilot at the helm, the lane flies (server: the flight model's; clients: the lane state). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	bool bLaneAssist = false;
+
+	/** Seconds until the ship flies itself back to its lane (the recall timer, B2.11); 0 = none. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float RecallInS = 0.f;
+
+	/** Spawn protection (B3.4): seconds left, 0 = not protected. */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	float ProtectionLeftS = 0.f;
+
+	/** Someone reels in toward the ship with the ship hook (server; the lane holds its speed, B7.4). */
+	UPROPERTY(BlueprintReadOnly, Category = "Airship")
+	bool bIncomingReel = false;
 };
 
 /**

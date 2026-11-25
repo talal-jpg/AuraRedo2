@@ -155,6 +155,9 @@ All positions in cm. "component space" = the Burrower mesh component (`get_bone_
   One render target per world, made once; a failed capture setup is not retried (leaked render targets crashed Vulkan
   before). `max_captures` caps the total. Scene captures are written as `<label>_<kind>_<role>.png`.
 * `fixed_frame_rate`: 30 (UnrealEdEngine `bUseFixedFrameRate`/`FixedFrameRate`, restored after). `force_refresh_bones`.
+* `match_enable`: 0 = CVar `Aura.Match.Enable 0` for the run (restored after, also by `bw_pie_cleanup.py`). The airship
+  round 2 team match is on for StartupMap by default; with it a listen PIE waits for players, starts everyone on ship
+  decks and the Burrower skips ship-borne players, so this test turns it off. `None` leaves the CVar alone.
 
 ## Turns variant (bw_pie_config_turns.json): path-follow bend and death momentum
 

@@ -55,8 +55,21 @@ public:
 	/** Ships of this world (valid ones only). */
 	TArray<AAirshipPawn*> GetAirships() const;
 
-	/** Nearest ship to Location (by pilot seat); bOnlyBoardable: alive and without a pilot. */
-	AAirshipPawn* FindNearestAirship(const FVector& Location, bool bOnlyBoardable) const;
+	/**
+	 * Nearest ship to Location (by pilot seat); bOnlyBoardable: alive and without a pilot. ForUser (round 2 PR B): only
+	 * ships that player may use (UMyTeamLibrary::CanUseShip: free ships, no match, or the same team).
+	 */
+	AAirshipPawn* FindNearestAirship(const FVector& Location, bool bOnlyBoardable, const APawn* ForUser = nullptr) const;
+
+	/**
+	 * Every machine (SPEC_B 0.3): Pawn is "ship-borne": a ship (its player is at the helm), a character attached to a ship
+	 * (the seated pilot, a gunner), or a character riding one (AAirshipPawn::IsRiding: on its deck, or jumping on it;
+	 * team-blind, so an enemy on your deck counts). The lead pawn, path growth, the Burrower and the fall death skip it.
+	 */
+	static bool IsShipBorne(const APawn* Pawn);
+
+	/** Every machine: the ship that makes Pawn ship-borne (Pawn itself for a ship), or null. */
+	static AAirshipPawn* FindShipCarrying(const APawn* Pawn);
 
 	/** Every machine: the ship and gunner station (EAirshipStation) Character mans, from the replicated StationGunners. False if none. */
 	bool FindGunnerStation(const ACharacter* Character, AAirshipPawn*& OutShip, int32& OutStation) const;
