@@ -163,6 +163,9 @@ for mi, t in mtype.items():
     nv = len(child(g, 'Vertices').props[0]) // 3
     sk = skin_of_geom.get(geom_of_model[mi], [])
     ent = {'mesh': name_of(models[mi]), 'verts': nv, 'skins': len(sk), 'materials': mats_of_model.get(mi, []), 'clusters': {}}
+    pvi = np.array(child(g, 'PolygonVertexIndex').props[0], int)     # polygon ends are stored as ~index
+    sizes = np.diff(np.concatenate([[-1], np.where(pvi < 0)[0]]))
+    ent['polys'] = int(len(sizes)); ent['tris'] = int((sizes - 2).sum())
     if len(sk) == 1:
         wsum = np.zeros(nv); ninf = np.zeros(nv, int)
         for c in clusters_of_skin.get(sk[0], []):
@@ -184,6 +187,7 @@ for mi, t in mtype.items():
 R['meshes'] = len(skins)
 R['meshes_with_one_skin'] = sum(1 for s in skins if s['skins'] == 1)
 R['total_vertices'] = tot_v
+R['total_triangles'] = int(sum(e['tris'] for e in skins))
 R['weights'] = {'worst_abs(sum-1)': worst_sum, 'unweighted_vertices': unweighted, 'vertices_with_more_than_one_bone': multi,
                 'max_influences': max_inf}
 R['clusters_total'] = sum(len(s['clusters']) for s in skins)

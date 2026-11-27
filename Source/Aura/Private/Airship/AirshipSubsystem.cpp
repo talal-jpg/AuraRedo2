@@ -5,10 +5,13 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/MyAttributeSet.h"
+#include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Airship/AirshipDamageEffect.h"
 #include "Airship/AirshipFlightComponent.h"
 #include "Airship/AirshipPawn.h"
 #include "Airship/AirshipPilotComponent.h"
 #include "Airship/AirshipSettings.h"
+#include "Airship/AirshipTurret.h"
 #include "Animation/AnimInstance.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -19,6 +22,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
+#include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 #include "TimerManager.h"
 #include "UObject/UnrealType.h"
 
@@ -69,6 +73,15 @@ void UAirshipSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		for (FConstPlayerControllerIterator It = InWorld.GetPlayerControllerIterator(); It; ++It)
 		{
 			EnsurePilotComponent(It->Get());
+		}
+
+		// Sentinel bullets on a hull over the forward deck hit the turret inside it (both turrets sit inside the hull's
+		// collision). A static function: nothing to unbind when this subsystem goes before the swarm's.
+		if (UMechSentinelSwarmSubsystem* Swarm = UMechSentinelSwarmSubsystem::Get(&InWorld))
+		{
+			Swarm->BulletTargetRedirect.BindStatic(&AAirshipPawn::RedirectBulletHitToTurret);
+			// The swarm aims at a ship's root; part of its bullets go for the turrets (SwarmTurretAimChance)
+			Swarm->BulletAimRedirect.BindStatic(&AAirshipPawn::RedirectBulletAimToTurret);
 		}
 	}
 }
@@ -158,6 +171,31 @@ AAirshipPawn* UAirshipSubsystem::FindNearestAirship(const FVector& Location, boo
 	}
 
 	return Best;
+}
+
+bool UAirshipSubsystem::FindGunnerStation(const ACharacter* Character, AAirshipPawn*& OutShip, int32& OutStation) const
+{
+	OutShip = nullptr;
+	OutStation = INDEX_NONE;
+
+	if (!Character)
+	{
+		return false;
+	}
+
+	for (AAirshipPawn* Airship : GetAirships())
+	{
+		const int32 Station = Airship->FindStationOf(Character);
+
+		if (Station != INDEX_NONE)
+		{
+			OutShip = Airship;
+			OutStation = Station;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 // =============================================================================
@@ -380,6 +418,28 @@ void UAirshipSubsystem::RestorePassenger(FPassenger& Passenger)
 	Passenger.Primitives.Reset();
 }
 
+void UAirshipSubsystem::CheckNewPassengers(const AAirshipPawn* Airship)
+{
+	UWorld* World = GetWorld();
+
+	if (!World || !Airship || bUpdatingPassengers)
+	{
+		return;
+	}
+
+	// The characters of this world (the class list, not every actor); the full pass only when one is new to the zone
+	for (TActorIterator<ACharacter> It(World); It; ++It)
+	{
+		const ACharacter* Character = *It;
+
+		if (IsValid(Character) && !FindPassengerEntry(Character) && Airship->IsPassengerCandidate(Character))
+		{
+			UpdatePassengers();
+			return;
+		}
+	}
+}
+
 const UAirshipSubsystem::FPassenger* UAirshipSubsystem::FindPassengerEntry(const ACharacter* Character) const
 {
 	return Character ? Passengers.FindByPredicate([Character](const FPassenger& Passenger)
@@ -542,6 +602,20 @@ namespace AirshipConsole
 		return Ship->GetFlight();
 	}
 
+	/** "Settings.Name" -> UAirshipSettings's mutable class default (true), anything else false. */
+	bool ResolveSettings(const FString& FullName, UObject*& OutTarget)
+	{
+		FString Prefix;
+
+		if (FullName.Split(TEXT("."), &Prefix, nullptr) && Prefix.Equals(TEXT("Settings"), ESearchCase::IgnoreCase))
+		{
+			OutTarget = GetMutableDefault<UAirshipSettings>();
+			return OutTarget != nullptr;
+		}
+
+		return false;
+	}
+
 	FString JoinArgs(const TArray<FString>& Args, int32 First)
 	{
 		FString Result;
@@ -562,7 +636,7 @@ namespace AirshipConsole
 
 	FAutoConsoleCommandWithWorldAndArgs GSetCommand(
 		TEXT("Aura.Airship.Set"),
-		TEXT("Aura.Airship.Set <Property> <Value> - sets a property on every airship of this world by name: the flight component (UAirshipFlightComponent), or Pawn.<Name> / Anim.<Name>. Any type that imports from text (float, int, bool, FVector as (X=..,Y=..,Z=..)). Forces run on the server: use the server window."),
+		TEXT("Aura.Airship.Set <Property> <Value> - sets a property on every airship of this world by name: the flight component (UAirshipFlightComponent), or Pawn.<Name> / Anim.<Name>, or Settings.<Name> (Project Settings > Game > Airship on this machine). Any type that imports from text (float, int, bool, FVector as (X=..,Y=..,Z=..)). Forces run on the server: use the server window."),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
 		{
 			UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World);
@@ -575,6 +649,35 @@ namespace AirshipConsole
 
 			const FString Value = JoinArgs(Args, 1);
 			int32 NumSet = 0;
+
+			// Settings.<Name>: Project Settings > Game > Airship (the class default) on this machine, once
+			if (UObject* SettingsTarget = nullptr; ResolveSettings(Args[0], SettingsTarget))
+			{
+				FString PropertyName;
+				Args[0].Split(TEXT("."), nullptr, &PropertyName);
+				FProperty* Property = FindFProperty<FProperty>(SettingsTarget->GetClass(), *PropertyName);
+
+				if (!Property)
+				{
+					UE_LOG(LogAirship, Warning, TEXT("Aura.Airship.Set: UAirshipSettings has no property %s"), *PropertyName);
+					return;
+				}
+
+				if (!Property->ImportText_Direct(*Value, Property->ContainerPtrToValuePtr<void>(SettingsTarget), SettingsTarget, PPF_None))
+				{
+					UE_LOG(LogAirship, Warning, TEXT("Aura.Airship.Set: '%s' is not a valid %s"), *Value, *Property->GetCPPType());
+					return;
+				}
+
+				// Seats, mounts and the like are read from the settings by the ships' geometry refresh
+				for (AAirshipPawn* Ship : Subsystem->GetAirships())
+				{
+					Ship->OnTuningChanged();
+				}
+
+				UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Set: Settings.%s = %s (this machine)"), *PropertyName, *ExportValue(Property, SettingsTarget));
+				return;
+			}
 
 			for (AAirshipPawn* Ship : Subsystem->GetAirships())
 			{
@@ -605,7 +708,7 @@ namespace AirshipConsole
 
 	FAutoConsoleCommandWithWorldAndArgs GGetCommand(
 		TEXT("Aura.Airship.Get"),
-		TEXT("Aura.Airship.Get <Property> - prints a property of every airship of this world (same names as Aura.Airship.Set)."),
+		TEXT("Aura.Airship.Get <Property> - prints a property of every airship of this world, or Settings.<Name> (same names as Aura.Airship.Set)."),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
 		{
 			UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World);
@@ -613,6 +716,23 @@ namespace AirshipConsole
 			if (!Subsystem || Args.Num() < 1)
 			{
 				UE_LOG(LogAirship, Warning, TEXT("Usage: Aura.Airship.Get <Property>"));
+				return;
+			}
+
+			if (UObject* SettingsTarget = nullptr; ResolveSettings(Args[0], SettingsTarget))
+			{
+				FString PropertyName;
+				Args[0].Split(TEXT("."), nullptr, &PropertyName);
+				const FProperty* Property = FindFProperty<FProperty>(SettingsTarget->GetClass(), *PropertyName);
+
+				if (Property)
+				{
+					UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Get: Settings.%s = %s"), *PropertyName, *ExportValue(Property, SettingsTarget));
+				}
+				else
+				{
+					UE_LOG(LogAirship, Warning, TEXT("Aura.Airship.Get: UAirshipSettings has no property %s"), *PropertyName);
+				}
 				return;
 			}
 
@@ -711,7 +831,7 @@ namespace AirshipConsole
 
 	FAutoConsoleCommandWithWorld GKillCommand(
 		TEXT("Aura.Airship.Kill"),
-		TEXT("Aura.Airship.Kill - server: every living airship dies (health 0, normal death: pilot ejected, wreck, LifeSpan)."),
+		TEXT("Aura.Airship.Kill - server: every living airship dies (health 0, normal death: pilot and gunners ejected alive, wreck, LifeSpan)."),
 		FConsoleCommandWithWorldDelegate::CreateLambda([](UWorld* World)
 		{
 			UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World);
@@ -730,11 +850,8 @@ namespace AirshipConsole
 					continue;
 				}
 
-				if (UAbilitySystemComponent* ASC = Ship->GetAbilitySystemComponent())
-				{
-					ASC->SetNumericAttributeBase(UMyAttributeSet::GetHealthAttribute(), 0.f);
-				}
-				Ship->Die();
+				// Health 0 and the normal death, without the crew's share of the drop (gunners and the pilot are ejected alive)
+				Ship->DebugKill();
 				++NumKilled;
 			}
 
@@ -806,7 +923,7 @@ namespace AirshipConsole
 
 	FAutoConsoleCommandWithWorld GTelemetryCommand(
 		TEXT("Aura.Airship.Telemetry"),
-		TEXT("Aura.Airship.Telemetry - logs speed, altitude, attitude, fuel, health and the control scheme's state of every airship of this world, then its hull inertia (Chaos principal moments, mass frame, hull-space COM)."),
+		TEXT("Aura.Airship.Telemetry - logs speed, altitude, attitude, fuel, health and the control scheme's state of every airship of this world, then the unpiloted mode, gunner stations, turrets and pilot health, then its hull inertia (Chaos principal moments, mass frame, hull-space COM)."),
 		FConsoleCommandWithWorldDelegate::CreateLambda([](UWorld* World)
 		{
 			if (UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World))
@@ -820,6 +937,30 @@ namespace AirshipConsole
 					UE_LOG(LogAirship, Log, TEXT("%s: scheme %d order %.2f drift %.2f (dir %d tier %d turbo %.2f chain %d) heading %d %.1f freelook %d gundeck %d lock %d"),
 						*Ship->GetName(), static_cast<int32>(T.Scheme), T.ThrottleOrder, T.DriftCharge, T.DriftDir, T.DriftTier, T.TurboAlpha, T.TurboChain,
 						T.bHeadingTargetActive ? 1 : 0, T.HeadingTargetDeg, T.bFreeLook ? 1 : 0, T.bGunDeck ? 1 : 0, T.bGunLock ? 1 : 0);
+
+					// Round 2: what the unpiloted ship does (server), who mans which station, the turrets, the pilot's health
+					FString Gunners;
+
+					for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+					{
+						if (const ACharacter* Gunner = Ship->GetStationGunner(Station))
+						{
+							Gunners += FString::Printf(TEXT("%s%d=%s"), Gunners.IsEmpty() ? TEXT("") : TEXT(" "), Station, *Gunner->GetName());
+						}
+					}
+
+					FString TurretText;
+
+					for (int32 TurretIndex = 0; TurretIndex < T.TurretHeat.Num(); ++TurretIndex)
+					{
+						TurretText += FString::Printf(TEXT("%s%d: heat %.2f health %.0f shots %d%s"), TurretText.IsEmpty() ? TEXT("") : TEXT(", "), TurretIndex,
+							T.TurretHeat[TurretIndex], T.TurretHealth.IsValidIndex(TurretIndex) ? T.TurretHealth[TurretIndex] : 0.f,
+							T.TurretShots.IsValidIndex(TurretIndex) ? T.TurretShots[TurretIndex] : 0, (T.TurretDestroyedMask & (1 << TurretIndex)) ? TEXT(" destroyed") : TEXT(""));
+					}
+
+					UE_LOG(LogAirship, Log, TEXT("%s: unpiloted %d (drift %d hold %d, drift target %.1f m/s, hold offset %.1f m), stations 0x%02x gunners %d [%s], turrets [%s], pilot health %.0f, cannons ready 0x%x"),
+						*Ship->GetName(), static_cast<int32>(T.UnpilotedMode), T.bUnpilotedDrift ? 1 : 0, T.bUnpilotedHold ? 1 : 0, T.DriftTargetSpeedMS, T.HoldOffsetM,
+						T.StationMask, T.NumGunners, *Gunners, *TurretText, T.PilotHealth, T.CannonReadyMask);
 
 					// BASELINE.md 4a / 4f row 0: what GetInertiaTensor returns (Chaos's principal moments, largest / smallest /
 					// middle), the mass frame's rotation and position in the hull, and the hull-space COM. Read it before
@@ -903,6 +1044,192 @@ namespace AirshipConsole
 				Ship->SetControlScheme(NewScheme);
 				UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Scheme: %s = %s (%d)"), *Ship->GetName(), *UEnum::GetDisplayValueAsText(NewScheme).ToString(), Value);
 			}
+		})
+	);
+
+	// ---- Gunner stations and turrets (round 2) ----------------------------------------------------------------------
+
+	/** Args[First..First+2] as a point, if there are three of them. */
+	bool ParsePoint(const TArray<FString>& Args, int32 First, FVector& OutPoint)
+	{
+		if (Args.Num() < First + 3)
+		{
+			return false;
+		}
+
+		OutPoint = FVector(FCString::Atof(*Args[First]), FCString::Atof(*Args[First + 1]), FCString::Atof(*Args[First + 2]));
+		return true;
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GMountCommand(
+		TEXT("Aura.Airship.Mount"),
+		TEXT("Aura.Airship.Mount <PlayerIndex> <Station 0-5> - server: the player mans that gunner station (0 cannon L1, 1 L2, 2 R1, 3 R2, 4 turret L, 5 turret R) on the nearest living ship where it is free, any distance."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			if (!CheckServer(World, TEXT("Aura.Airship.Mount")))
+			{
+				return;
+			}
+
+			if (Args.Num() < 2)
+			{
+				UE_LOG(LogAirship, Warning, TEXT("Usage: Aura.Airship.Mount <PlayerIndex> <Station 0-5>"));
+				return;
+			}
+
+			UAirshipPilotComponent* Pilot = GetPilotComponent(World, FCString::Atoi(*Args[0]));
+			const int32 Station = FCString::Atoi(*Args[1]);
+			const bool bMounted = Pilot && Pilot->TryMount(nullptr, Station, true);
+			UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Mount: station %d %s"), Station,
+				bMounted ? TEXT("manned") : TEXT("failed (no player character, the player flies or mans a gun, no ship with it free, or the turret is wrecked)"));
+		})
+	);
+
+	FAutoConsoleCommandWithWorldAndArgs GDismountCommand(
+		TEXT("Aura.Airship.Dismount"),
+		TEXT("Aura.Airship.Dismount [PlayerIndex] - server: the player (default 0) leaves the gunner station they man."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			if (!CheckServer(World, TEXT("Aura.Airship.Dismount")))
+			{
+				return;
+			}
+
+			UAirshipPilotComponent* Pilot = GetPilotComponent(World, Args.Num() > 0 ? FCString::Atoi(*Args[0]) : 0);
+			const bool bDismounted = Pilot && Pilot->TryDismount();
+			UE_LOG(LogAirship, Log, TEXT("Aura.Airship.Dismount: %s"), bDismounted ? TEXT("on foot") : TEXT("not at a station"));
+		})
+	);
+
+	FAutoConsoleCommandWithWorldAndArgs GTurretFireCommand(
+		TEXT("Aura.Airship.TurretFire"),
+		TEXT("Aura.Airship.TurretFire <0/1> [X Y Z] - server: every airship's unmanned turrets fire (1) at the point (default: 100 m ahead of the bow at muzzle height) until 0."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World);
+
+			if (!CheckServer(World, TEXT("Aura.Airship.TurretFire")) || !Subsystem)
+			{
+				return;
+			}
+
+			const bool bFire = Args.Num() > 0 && FCString::Atoi(*Args[0]) != 0;
+			FVector Point = FVector::ZeroVector;
+			const bool bHasPoint = ParsePoint(Args, 1, Point);
+			int32 NumShips = 0;
+
+			for (AAirshipPawn* Ship : Subsystem->GetAirships())
+			{
+				Ship->SetDebugTurretFire(bFire, bHasPoint, Point);
+				++NumShips;
+			}
+
+			UE_LOG(LogAirship, Log, TEXT("Aura.Airship.TurretFire: %s %s on %d ship(s)"), bFire ? TEXT("fire at") : TEXT("stop"),
+				bHasPoint ? *Point.ToCompactString() : TEXT("(ahead)"), NumShips);
+		})
+	);
+
+	FAutoConsoleCommandWithWorldAndArgs GTurretDamageCommand(
+		TEXT("Aura.Airship.TurretDamage"),
+		TEXT("Aura.Airship.TurretDamage <Turret 0/1> <Amount> - server: that turret of every airship takes Amount damage through its own ASC (UAirshipDamageEffect)."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World);
+
+			if (!CheckServer(World, TEXT("Aura.Airship.TurretDamage")) || !Subsystem)
+			{
+				return;
+			}
+
+			if (Args.Num() < 2)
+			{
+				UE_LOG(LogAirship, Warning, TEXT("Usage: Aura.Airship.TurretDamage <Turret 0/1> <Amount>"));
+				return;
+			}
+
+			const int32 TurretIndex = FCString::Atoi(*Args[0]);
+			const float Amount = FCString::Atof(*Args[1]);
+
+			for (AAirshipPawn* Ship : Subsystem->GetAirships())
+			{
+				AAirshipTurret* Turret = Ship->GetTurret(TurretIndex);
+				UAbilitySystemComponent* ASC = Turret ? Turret->GetAbilitySystemComponent() : nullptr;
+
+				if (!ASC || Turret->IsTurretDestroyed() || Amount <= 0.f)
+				{
+					continue;
+				}
+
+				FGameplayEffectContextHandle Context = ASC->MakeEffectContext();
+				Context.AddInstigator(Turret, Turret);
+				const FGameplayEffectSpecHandle Spec = ASC->MakeOutgoingSpec(UAirshipDamageEffect::StaticClass(), 1.f, Context);
+
+				if (Spec.IsValid())
+				{
+					Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, Amount);
+					ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+				}
+
+				UE_LOG(LogAirship, Log, TEXT("Aura.Airship.TurretDamage: %s turret %d health %.0f%s"), *Ship->GetName(), TurretIndex, Turret->GetHealth(),
+					Turret->IsTurretDestroyed() ? TEXT(" (destroyed)") : TEXT(""));
+			}
+		})
+	);
+
+	FAutoConsoleCommandWithWorldAndArgs GStationFireCommand(
+		TEXT("Aura.Airship.StationFire"),
+		TEXT("Aura.Airship.StationFire <PlayerIndex> [X Y Z] [Seconds=1] - server: the player's gunner station fires at the point (default: its current aim). A cannon fires once; a turret holds its trigger for Seconds."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World);
+
+			if (!CheckServer(World, TEXT("Aura.Airship.StationFire")) || !Subsystem)
+			{
+				return;
+			}
+
+			const APlayerController* PC = GetPlayerController(World, Args.Num() > 0 ? FCString::Atoi(*Args[0]) : 0);
+			const ACharacter* Character = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+			AAirshipPawn* Ship = nullptr;
+			int32 Station = INDEX_NONE;
+
+			if (!Subsystem->FindGunnerStation(Character, Ship, Station))
+			{
+				UE_LOG(LogAirship, Warning, TEXT("Aura.Airship.StationFire: the player mans no station"));
+				return;
+			}
+
+			FVector Point = FVector::ZeroVector;
+			const bool bHasPoint = ParsePoint(Args, 1, Point);
+			const float Seconds = FMath::Max(0.05f, Args.Num() >= 5 ? FCString::Atof(*Args[4]) : (Args.Num() == 2 ? FCString::Atof(*Args[1]) : 1.f));
+
+			if (bHasPoint)
+			{
+				// The gun aims there for the shot (a cannon's barrel for a second, a turret for the burst) whatever its gunner does
+				Ship->SetStationConsoleAim(Station, Point, Airship::IsTurretStation(Station) ? Seconds + 0.2f : 1.f);
+			}
+			else
+			{
+				Point = Ship->GetStationAimPoint(Station);
+			}
+
+			if (Airship::IsCannonStation(Station))
+			{
+				Ship->FireStation(Station, Point);
+				UE_LOG(LogAirship, Log, TEXT("Aura.Airship.StationFire: %s station %d fired at %s (loaded %d)"), *Ship->GetName(), Station, *Point.ToCompactString(),
+					Ship->GetCannonReloadAlpha(Station) < 0.05f ? 1 : 0);
+				return;
+			}
+
+			// A turret: the trigger for Seconds (released by the ship's own timer, so a ship gone meanwhile drops it)
+			Ship->SetStationTrigger(Station, true);
+			FTimerHandle Release;
+			World->GetTimerManager().SetTimer(Release, FTimerDelegate::CreateWeakLambda(Ship, [Ship, Station]()
+			{
+				Ship->SetStationTrigger(Station, false);
+			}), Seconds, false);
+
+			UE_LOG(LogAirship, Log, TEXT("Aura.Airship.StationFire: %s station %d holds the trigger %.2f s at %s"), *Ship->GetName(), Station, Seconds, *Point.ToCompactString());
 		})
 	);
 }

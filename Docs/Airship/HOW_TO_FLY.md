@@ -3,15 +3,21 @@
 Version 2 (2026-11-23, with the follow-up fixes to the gun lock and the parked free look). The ship has four control
 schemes in one build. **Point & Fly is the default.** Classic (the v1 controls of 2026-11-22), Galleon and Sky Racer
 are one console command away ("Switch schemes" below). How the schemes were built, tested and judged:
-`controls/RESULTS.md`.
+`controls/RESULTS.md`. Round 2 (2026-11-28, tested in PIE: `round2/RESULTS_A.md`) adds gunners at the cannons, two
+front machine guns, bigger cannonballs, damage to the crew, and a ship that drifts or holds after you leave the helm.
+You take the helm only at the wheel, you stay there when you leave it, and you walk on the planks: "Round 2" below.
 
 ## Try it
 
 * Map: `/Game/Assets/MyShip/Drivable/Maps/L_AirshipTest` (start platform, walls and a ground plane for cannon and
   crash tests). In any other map, `Aura.Airship.Spawn` (server console) puts a ship 60 m in front of and 15 m above
   player 0.
-* Walk up to the ship and press **F** (gamepad **Y**) within 12 m of the helm or 4 m of the hull to take the helm.
-  **F** again leaves it; you are put 2.5 m to port of the helm. Other players can stand and walk on the deck.
+* Get onto the deck, walk up to the steering wheel and press **F** (gamepad **Y**) to take the helm. **F** again leaves
+  it: you stay standing at the wheel. F anywhere else, on the deck, beside or under the hull, does nothing ("Getting
+  aboard, the helm, the deck" below). Leave the helm while moving and the ship keeps drifting slowly ahead; leave it at
+  rest and it stays where it is ("Round 2" below). Other players can stand and walk on the deck, and man the cannons and
+  the two front machine guns.
+* For a test without the climb: `Aura.Airship.Board` (server console) puts player 0 at the helm from anywhere.
 
 ## Point & Fly (the default)
 
@@ -32,12 +38,13 @@ and to aim a broadside.
 | Boost (uses boost fuel; each start costs 10, forward kick every 1.5 s at most) | Left Shift | A |
 | Air brake (stops from 48 m/s in about 2.5 s). With a big turn still to come at speed: brake-drift (below) | X | B |
 | Look around and aim (broadside mode, below); the ship holds its heading | hold right mouse | hold LB |
-| Fire both cannons on the side the camera faces (1.5 s reload per side). One press, one broadside; held, it also arms the gun lock (below) | left mouse | RB |
+| Fire the cannons on the side the camera faces (each cannon reloads in 1.5 s; a cannon a gunner mans is theirs). One press, one broadside; held, it also arms the gun lock (below). With the camera within 50 deg of the bow, holding it fires the two front machine guns instead | left mouse | RB |
 | Zoom the camera between 40 and 120 m | mouse wheel | D-pad up / down |
 | Leave the helm | F | Y |
 
 The keyboard alone works too: Q/E turn, A/D sidestep. The cannons turn up to 20 deg either way from the beam and aim
-from -10 to +8.5 deg of elevation.
+from -10 to +8.5 deg of elevation. They lob their balls on an arc and lift the barrels for the range by themselves:
+put the crosshair on the target. Past about 240 m the arc is out of reach and the ball falls short.
 
 ### Camera modes
 
@@ -101,6 +108,111 @@ Over the view:
    you round. Press Fire again each time the side is loaded (every 1.5 s); each broadside renews the lock's 6 s, and
    holding Fire keeps the lock on in between.
 6. **Line up with Q/E.** In broadside mode Q/E turn the ship under a still camera, so you never lose the target.
+
+## Round 2: gunners, machine guns, damage
+
+These apply in every scheme.
+
+### At a glance
+
+* **Take the helm at the wheel.** Stand behind or beside the steering wheel and press F. Anywhere else F does nothing.
+* **Leave in place.** F again: you stay standing behind the wheel and walk with the ship.
+* **Man a gun.** Walk up to a cannon or a front machine gun and press F. Aim with the mouse, fire with the left button,
+  F to leave.
+* **What the driver fires.** Left mouse looking to a side: a broadside from the cannons nobody mans. Left mouse looking
+  ahead (within 50 deg of the bow): the two front machine guns, if nobody mans them.
+* **Crew damage.** When the ship is hit, the pilot and every gunner lose a quarter of that damage.
+* **Drift.** Leave the helm while moving and the ship drifts on slowly (2.5 m/s); leave it at rest and it stays put.
+* **Getting aboard.** Fly up with hover and boost (Space, Space, Space, then Shift + W), or jump or hover across from a
+  platform at deck height.
+
+### Manning a gun
+
+Walk up to a cannon or one of the two machine guns on the narrow forward deck and press **F** within about 3.5 m of its
+seat (beside the cannon's breech, behind the machine gun). You stay yourself: you stand at the gun, aim with your own
+camera, and enemies can still target you. When you leave the gun you are put on the planks next to it.
+
+| Action | Keyboard / mouse | Gamepad |
+|---|---|---|
+| Aim: the gun follows your camera (a cannon within its 20 deg / -10..+8.5 deg arc; a machine gun from far out to the side to 30 deg across the bow, -20..+40 deg) | mouse | right stick |
+| Fire. Cannon: one ball per press, 1.5 s reload. Machine gun: hold, 10 rounds a second, overheats after about 3 s and cools while you let go | left mouse | RB |
+| Narrower view | hold right mouse | hold LB |
+| Camera closer / farther | mouse wheel | D-pad up / down |
+| Leave the gun | F | Y |
+
+The gunner HUD shows the gun's name, its mark (where the gun really points; for a cannon, where its ball comes down
+at your aim's distance), the reload or the heat (OVERHEAT), OUT OF ARC, the machine gun's health and the hull. Any
+player can man any free gun, with or without a pilot aboard. The pilot's broadside fires only the cannons nobody mans;
+the pilot's panel shows who mans what (GUNS row) and MANNED on a side with both cannons manned.
+
+### The front machine guns
+
+Two machine guns sit on the edges of the narrow forward deck. Each bullet does 4 hits of the character gun. They shoot
+characters, ships, other machine guns, enemy cannonballs and sentinels, never your own ship or crew. Nobody on one: the
+pilot fires both by holding the left mouse button with the camera within 50 deg of the bow. Each has 400 health; a
+destroyed one burns, stops firing and throws its gunner off.
+
+The sentinel swarm only goes for a ship that somebody drives, or for a player at one of its guns. On a driven ship one
+bullet in four is aimed at a machine gun that still works (Project Settings > Game > Airship > Crew, "Swarm Turret Aim
+Chance"; 0 = never), the rest at the middle of the hull. Every hit on the hull also costs the pilot and each gunner a
+quarter of it. A gunner on a ship nobody drives is the swarm's target himself: most bullets hit him or his gun.
+
+### Damage
+
+* Cannonballs are 1 m across and have health: about 8 machine-gun bullets (or 30 character-gun hits) shoot one down in
+  the air, and then it does no damage. A ball's splash reaches 6 m.
+* Sentinel bullets now hurt ships and machine guns too.
+* When the ship takes damage, its pilot and every gunner take a quarter of it. If that would kill someone, they are
+  put on foot first and die there. Damage the pilot took while flying stays after leaving the helm.
+
+### Getting aboard, the helm, the deck
+
+* **The deck.** You walk on the planks now. Before, you stood on an invisible lid 1.2 to 2.9 m above them. The wheel,
+  its pedestal, the cannons, the winches, the searchlight posts and the crates and barrels on the main deck are solid;
+  the rails are not (you can walk off the edge). A walking player no longer pushes the hovering ship.
+* **Taking the helm.** Stand behind or beside the wheel and press **F**. You must be within 1.5 m of the spot the pilot
+  stands on (55 cm behind the wheel) and at deck height (within 1 m). In front of the wheel does not count. Both numbers
+  are in Project Settings > Game > Airship (`HelmReach`, `HelmReachHeight`).
+* **Leaving the helm.** **F** leaves you where you stood while driving, behind the wheel, facing the bow, and you walk
+  with the ship. You are no longer moved 2.5 m to port, and you are not thrown. Only when the ship dies or is removed
+  under you, or its damage would kill you, are you thrown clear as before.
+* **Under or beside the hull, F does nothing.** There is no climb aboard. A hovering ship keeps its nozzles at least
+  4 m above the ground, so its main deck is never lower than about 12.5 m over flat ground: 18.7 m in `L_AirshipTest`
+  (the ship is placed 16 m up), 13.6 m for the ship placed in StartupMap. A jump reaches 1.76 m and the air jump
+  3.5 m, so you cannot jump aboard from the ground.
+* **How you get aboard: fly.** Space, Space at the top, Space again: you hover 3.5 m up. Now hold **Shift + W**: the
+  boost flies you where you look, up as well. Fly up beside the ship, come in over the planks, let go, and press Space
+  once more to drop out of the hover onto the deck. Then walk to the wheel and press F. Measured in PIE with these keys
+  and nothing else: from the ground 15 m beside the parked ship to the helm, 5.4 s in the air, no mana used.
+  * Shift on the ground does not fly: there the boost is a run at twice the walking speed. It flies only while you
+    hover.
+  * The flight is fast (up to 26 m/s) and you keep your speed when you let go. Steer against your motion to stop.
+  * Hover alone moves level at 6 m/s for as long as you like (66 m in the test, no mana used), so from a platform at
+    deck height or above you can also cross to the deck with Space, Space, Space and W.
+  * The grapple does **not** take you aboard. Its rope refuses the ship (it hooks only world geometry, never a pawn).
+  * In StartupMap the hex platform beside the ship (`BP_MyHexPlatform1`) has its top 3.5 m above the main deck and
+    7.9 m from it. A running jump from its edge should land on the deck (about 9.8 m of reach for that drop, worked
+    out from the measured jump and walking speed; not yet played there). Back up to the platform needs the hover and
+    the boost.
+* **The forward deck** (the machine guns) is 4.2 m above the main deck and has no stairs. The air jump does not reach
+  it from the main deck, and F does not reach a machine gun from the main deck either. **Known limit:** on foot you
+  get there only by hover and boost (as above). Stairs or a ladder come with the model detail pass after this PR. One
+  way works today by accident: jump under the forward deck near a machine gun and press F at the top of the jump. The
+  gun is then in range, you are put on it, and leaving it puts you on the forward deck.
+* **Jumping on deck in flight.** A jump or air jump on the deck stays with the ship: you come down where you took off,
+  at any speed, and a direction key turns only your own movement. Jump past the rail and you leave the ship with its
+  speed. Hovering does not hold you to the ship: it flies on without you (read from the code, not flown yet).
+* **You can be shot on deck.** Guns, machine guns and sentinel bullets now hit a player standing on the planks. Before,
+  the invisible lid above the planks stopped them. Shots at the ship land on its hull, forward deck, pods, fans,
+  rudder, cannons, wheel, winches and searchlights. Open structure, such as the truss under the forward deck, has no
+  hit box: shots pass through it.
+
+### After you leave the helm
+
+* Moving faster than 1 m/s: the ship slows to 2.5 m/s and keeps drifting ahead on the same heading, engines idle,
+  until a pilot boards or something is in its way, then it stops and holds there.
+* At rest: it holds its spot and heading, without the slow creep it had before.
+* Gunners on board don't change this.
 
 ## The other schemes
 
@@ -206,14 +318,18 @@ until the next switch.
 | Command | Does |
 |---|---|
 | `Aura.Airship.Spawn` | A ship 60 m in front of and 15 m above player 0 |
-| `Aura.Airship.Board [player]` / `Aura.Airship.Exit [player]` | The player (default 0) takes the helm of the nearest free ship, any distance / leaves it |
-| `Aura.Airship.Damage <n>` / `Aura.Airship.Kill` | Every living ship takes n damage / dies |
+| `Aura.Airship.Board [player]` / `Aura.Airship.Exit [player]` | The player (default 0) takes the helm of the nearest free ship, from any distance (only the F key needs you at the wheel) / leaves it and stays at the wheel |
+| `Aura.Airship.Damage <n>` / `Aura.Airship.Kill` | Every living ship takes n damage (the crew takes a quarter) / dies (the crew is ejected unhurt) |
 | `Aura.Airship.Set <name> <value>` / `Aura.Airship.Get <name>` | Any ship property by name (the flight component; `Pawn.<name>`, `Anim.<name>`) |
 | `Aura.Airship.Input <throttle> <steer> [lift] [strafe] [boost] [brake]` / `Aura.Airship.InputClear` | Flies every ship with fixed controls. Classic-style in every scheme (no heading target); under Galleon the throttle is the order: 1 FULL, 0.67 HALF, 0.33 SLOW, 0 STOP, -1 ASTERN |
 | `Aura.Airship.Telemetry` | Logs each ship's flight values, its scheme state and its hull inertia |
 | `Aura.Airship.Passengers` | Logs the characters riding a ship |
 | `Aura.Airship.Debug 1` | Draws the forces and ground contacts |
 | `Aura.Airship.RepMode 0/1` | The ship's network replication mode |
-| `Aura.Airship.Scheme [0-3 \| check]` | **New.** 0-3: switch every ship's control scheme (server). No argument: print each ship's scheme. `check`: list every scheme tuning value that differs from the class defaults (0 right after `Aura.Airship.Scheme 0`) |
+| `Aura.Airship.Scheme [0-3 \| check]` | 0-3: switch every ship's control scheme (server). No argument: print each ship's scheme. `check`: list every scheme tuning value that differs from the class defaults (0 right after `Aura.Airship.Scheme 0`) |
+| `Aura.Airship.Mount <player> <station>` / `Aura.Airship.Dismount [player]` | **Round 2.** The player mans a gun of the nearest ship with it free (0-3 cannons L1, L2, R1, R2; 4-5 machine guns L, R) / leaves it |
+| `Aura.Airship.TurretFire <0/1> [x y z]` | **Round 2.** The unmanned machine guns fire at the point (default 100 m ahead) / stop |
+| `Aura.Airship.TurretDamage <0/1> <n>` / `Aura.Airship.StationFire <player> [x y z] [seconds]` | **Round 2.** Damage a machine gun / fire a player's gun at a point |
+| `Aura.Airship.Set Settings.<name> <value>` | **Round 2.** A project setting of the airship on this machine (for example `Settings.DriftSpeed 0`) |
 
 `Docs/Airship/CPP_NOTES.md` section 6 lists the arguments, section 14 the control-scheme code.

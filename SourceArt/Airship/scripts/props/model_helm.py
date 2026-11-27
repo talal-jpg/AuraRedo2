@@ -21,6 +21,11 @@ hub flange r 0.33, wider iron bands (0.11 m of arc), an iron ferrule on the king
 z -0.05 (deck slopes 1.9 deg at x -6.5), thicker rope (r 0.03, 2.5 turns, 8 sides), drum end discs
 split into a visible full-density rim annulus + a hidden centre. v1 backup: rig/props/_backup_helm_v1/.
 
+v3 (round 2, 2026-11-24, "ship wheel smaller to the size of the character"): wheel 1.40 m across the handle
+tips (was 3.1 m), axle 1.00 m above the deck (was 1.65), wheel centre 0.35 m aft of the pedestal origin
+(was 0.63), rim 0.44-0.54 x 0.10 deep, pedestal scaled by 1.00 / 1.65. v2 files:
+rig/_backup_round1_20261124/props/.
+
 Shading: every face smooth; sharp edges only on hard breaks (flanges, box corners, cap rims).
 UVs: one map "UVMap" per object; seams = cap rims + one hidden meridian / longitudinal cut per
 tube (+ cross cuts on the rim under the iron bands); angle-based unwrap, average island scale,
@@ -34,26 +39,36 @@ from mathutils import Vector as V
 OUT_BLEND = "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/props/Helm.blend"
 
 # ---------------------------------------------------------------- knobs
-AXLE_H = 1.65          # axle height above the deck; the handle tips clear the deck by AXLE_H - TIP_R
-TIP_R = 1.55           # radius of the handle-peg tips
-RIM_RO, RIM_RI = 1.17, 0.99   # rim outer / inner radius (0.18 radial; v1 0.12 was ~2 px at 59 m)
-RIM_HB = 0.075         # rim half thickness along the axle (0.15)
-RIM_CH = 0.025         # rim edge chamfer
-SPOKE_SCALE = 1.45     # radius scale of the spoke + handle profile (v1 = 1.0)
-HUB_FLANGE_R = 0.33    # front hub flange radius (v1 0.285)
-BOLT_RING_R = 0.25     # hub bolt circle radius (v1 0.226)
-BAND_ARC = 0.11        # iron band length along the rim (v1 0.076): ~2 px at 59 m
-BAND_GAP = 0.010       # iron band thickness over the rim
-FERRULE = (1.36, 1.41, 0.012)  # king-spoke iron ferrule: t from, t to, radius over the neck
-PLATE_BOTTOM = -0.05   # base plate skirt bottom (z 0 = deck): hides the 1.9 deg deck slope (+-2.2 cm)
+# v3 (round 2, 2026-11-24): the wheel is scaled to the player mech (capsule 141.6 cm tall, radius 34 cm): 140 cm across
+# the handle tips (v2: 310 cm), hub at chest height (axle 1.00 m above the deck, v2 1.65). The spoke and hub profiles
+# below are the v2 ones, scaled by WHEEL_S along the spoke; the rim and the spoke radii are set on their own so the
+# small wheel stays a little chunkier than a pure scale (it must still read from the 65 m game camera). The pedestal is
+# the v2 pedestal scaled uniformly by PED_S (it is modelled in v2 units below).
+AXLE_H = 1.00          # axle height above the deck; the handle tips clear the deck by AXLE_H - TIP_R
+TIP_R = 0.70           # radius of the handle-peg tips (wheel 1.40 m across)
+WHEEL_DESIGN_TIP_R = 1.55              # tip radius the spoke / hub profiles were drawn for (v2)
+WHEEL_S = TIP_R / WHEEL_DESIGN_TIP_R   # 0.452: spoke lengths, hub, bolts, ferrule
+PED_DESIGN_AXLE_H = 1.65               # axle height the pedestal was drawn for (v2)
+PED_S = AXLE_H / PED_DESIGN_AXLE_H     # 0.606: the whole pedestal
+RIM_RO, RIM_RI = 0.54, 0.44   # rim outer / inner radius (0.10 radial; a pure scale of v2 would be 0.53 / 0.45)
+RIM_HB = 0.05          # rim half thickness along the axle (0.10)
+RIM_CH = 0.015         # rim edge chamfer
+SPOKE_SCALE = 0.70     # radius scale of the v1 spoke + handle profile (v1 = 1.0, v2 1.45 for the 3.1 m wheel)
+HUB_FLANGE_R = 0.15    # front hub flange radius (v2 0.33)
+BOLT_RING_R = 0.11     # hub bolt circle radius (v2 0.25)
+BOLT_S = 0.6           # hub bolt heads: v2 size x this (a pure WHEEL_S scale would make them 2 cm specks)
+BAND_ARC = 0.06        # iron band length along the rim (v2 0.11)
+BAND_GAP = 0.006       # iron band thickness over the rim
+FERRULE = (1.36 * WHEEL_S, 1.41 * WHEEL_S, 0.012 * WHEEL_S)  # king-spoke iron ferrule: t from, t to, radius over the neck
+PLATE_BOTTOM = -0.05   # base plate skirt bottom (z 0 = deck): hides the 1.9 deg deck slope (+-1.1 cm under the v3 plate)
 RIM_STEPS = 7          # rim rings per felloe (8 felloes): 56 round, no visible kinks at ~2 m
 SPOKE_SEGS = 10
 HUB_SEGS = 24
-WHEEL_X = -0.63        # wheel centre (x) relative to the pedestal origin
-POST_X = 0.30          # fore/aft stanchions at x = +-POST_X
+WHEEL_X = -0.35        # wheel centre (x) relative to the pedestal origin (v2 -0.63)
+POST_X = 0.30          # fore/aft stanchions at x = +-POST_X (pedestal design units, x PED_S in the model: 0.18)
 ROPE = True            # tiller rope coiled on the drum
 ROPE_TURNS = 2.5       # n + 0.5 so the two ends leave on opposite sides
-ROPE_R = 0.03          # rope radius (v1 0.02 = 0.7 px at 59 m)
+ROPE_R = 0.03          # rope radius (pedestal design units)
 ROPE_STEPS = 20        # rings per turn
 ROPE_SEGS = 8
 UNWRAP = "MINIMUM_STRETCH"   # SLIM: less area stretch on the bulging turned parts than ANGLE_BASED
@@ -268,12 +283,14 @@ def build_wheel(mat):
     # bead, through the rim (thinner than the rim), then the handle peg: bulb, neck, round knob.
     # "seam" rings cut the hidden inner cap and the knob tip off as discs (no pole pinching).
     # bead sits 0.125 inside the rim's inner face as in v1 (it moves in with the deeper rim)
-    bd = RIM_RI - 0.125
+    # (v2 profile in design units: t for tips at WHEEL_DESIGN_TIP_R, scaled by WHEEL_S along the spoke below)
+    bd = RIM_RI / WHEEL_S - 0.125
     sp = [(0.17, 0.0, False), (0.18, 0.046, "seam"), (0.325, 0.066, False),
           (0.37, 0.048, False), (bd - 0.045, 0.040, False), (bd, 0.060, False), (bd + 0.045, 0.040, False),
           (1.16, 0.042, False), (1.24, 0.064, False), (1.32, 0.066, False), (1.385, 0.042, False),
-          (1.44, 0.060, False), (1.505, 0.057, "seam"), (TIP_R - 0.012, 0.034, False), (TIP_R, 0.0, False)]
-    sp = [(p[0], p[1] * SPOKE_SCALE) + tuple(p[2:]) for p in sp]
+          (1.44, 0.060, False), (1.505, 0.057, "seam"), (WHEEL_DESIGN_TIP_R - 0.012, 0.034, False),
+          (WHEEL_DESIGN_TIP_R, 0.0, False)]
+    sp = [(p[0] * WHEEL_S, p[1] * SPOKE_SCALE) + tuple(p[2:]) for p in sp]
 
     def r_at(t):
         for p, q in zip(sp, sp[1:]):
@@ -315,31 +332,36 @@ def build_wheel(mat):
 
     # hub: brass dome cap, iron front flange, wooden drum, iron back flange (t along +X)
     hub = [(-0.24, 0.0, False, BRASS), (-0.232, 0.062, False, BRASS), (-0.21, 0.115, "seam", BRASS),
-           (-0.172, 0.150, False, BRASS), (-0.125, 0.165, True, IRON), (-0.125, HUB_FLANGE_R, True, IRON),
-           (-0.06, HUB_FLANGE_R, True, IRON), (-0.06, 0.225, True, WOOD), (0.085, 0.225, True, IRON),
+           (-0.172, 0.150, False, BRASS), (-0.125, 0.165, True, IRON), (-0.125, HUB_FLANGE_R / WHEEL_S, True, IRON),
+           (-0.06, HUB_FLANGE_R / WHEEL_S, True, IRON), (-0.06, 0.225, True, WOOD), (0.085, 0.225, True, IRON),
            (0.085, 0.26, True, IRON), (0.13, 0.26, True, IRON), (0.13, 0.0, False, IRON)]
+    hub = [(p[0] * WHEEL_S, p[1] * WHEEL_S) + tuple(p[2:]) for p in hub]   # v2 design units -> metres
     b.lathe(hub, HUB_SEGS, (0, 0, 0), X, (0, 0, 1), IRON)  # meridian seam at +Z, behind spoke 0
 
     # bolt ring on the front flange (hex heads, between the spokes)
     for k in range(8):
         phi = math.radians(22.5) + k * TAU / 8
-        c = V((-0.125 + 0.004, 0, 0)) + radial(phi) * BOLT_RING_R
-        b.lathe([(0, 0, False), (0, 0.024, True), (0.026, 0.024, True), (0.026, 0, False)],
+        c = V(((-0.125 + 0.004) * WHEEL_S, 0, 0)) + radial(phi) * BOLT_RING_R
+        br, bh = 0.024 * BOLT_S, 0.026 * BOLT_S
+        b.lathe([(0, 0, False), (0, br, True), (bh, br, True), (bh, 0, False)],
                 6, c, -X, radial(phi), IRON, facet=True, hidden={0})
     return b.finish("Helm_Wheel", mat)
 
 
 # ---------------------------------------------------------------- pedestal (world = local)
 def build_pedestal(mat):
+    """Modelled in v2 design units (axle at PED_DESIGN_AXLE_H), then scaled by PED_S about the origin."""
     b = Builder()
     X, Y, Z = V((1, 0, 0)), V((0, 1, 0)), V((0, 0, 1))
+    AXLE_H = PED_DESIGN_AXLE_H                  # design units in here (shadows the knob on purpose)
+    PLATE_BOTTOM_D = PLATE_BOTTOM / PED_S
     PT = 0.06  # base plate thickness
     HB = 0.10  # half length (x) of the pillow-block bearings
 
     # base plate: top at PT, the sides run down to PLATE_BOTTOM (a skirt below the deck line z 0),
     # so the plate sits flush on the sloped deck (1.9 deg at x -6.5: +-2.2 cm at the plate corners)
     sec = chamfer_rect(0.56, 0.52, 0.12)
-    b.tube([b.row(sec, V((0, 0, PLATE_BOTTOM)), X, Y), b.row(sec, V((0, 0, PT)), X, Y)], IRON,
+    b.tube([b.row(sec, V((0, 0, PLATE_BOTTOM_D)), X, Y), b.row(sec, V((0, 0, PT)), X, Y)], IRON,
            hard=[True] * 8, seam_idx=0, hide_caps=(True, False))
     # plate bolts
     for (x, y) in ((0.47, 0.43), (-0.47, 0.43), (0.47, -0.43), (-0.47, -0.43),
@@ -407,8 +429,9 @@ def build_pedestal(mat):
           (xb - 0.04, 0.19, True, IRON), (xb, 0.19, True, IRON), (xb, 0.15, "seam", IRON), (xb, 0.0, False, IRON)]
     b.lathe(br, 20, (0, 0, AXLE_H), X, Z, WOOD, phase=math.pi, hidden={0, 8})  # seam underneath
 
-    # axle: inside the wheel hub, collar at the aft bearing, through both blocks, brass end cap
-    xa = WHEEL_X + 0.10
+    # axle: inside the wheel hub (starts 0.045 m aft of the wheel centre, the hub's back face is at +0.059), collar at
+    # the aft bearing, through both blocks, brass end cap
+    xa = (WHEEL_X + 0.10 * WHEEL_S) / PED_S
     bf = POST_X + HB
     ax = [(xa, 0.0, False), (xa, 0.055, True), (-bf - 0.025, 0.055, True), (-bf - 0.025, 0.085, True),
           (-bf, 0.085, True), (-bf, 0.055, True), (bf, 0.055, True), (bf, 0.085, True),
@@ -443,6 +466,7 @@ def build_pedestal(mat):
             b.tube([b.row(chamfer_rect(0.05, 0.058, 0.015), C + Z * (PT - 0.005), X, Y),
                     b.row(chamfer_rect(0.042, 0.047, 0.012), C + Z * (PT + 0.07), X, Y)], IRON,
                    hard=[True] * 8, hide_caps=(True, False))
+    bmesh.ops.scale(b.bm, vec=V((PED_S, PED_S, PED_S)), verts=b.bm.verts)
     return b.finish("Helm_Pedestal", mat)
 
 

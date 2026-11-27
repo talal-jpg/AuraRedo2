@@ -8,6 +8,9 @@ parents against RIG_CONTRACT.md, rest positions (contract + geometry-derived piv
 world-aligned, identity after the Y-up -> Z-up conversion UE applies), weights (one bone, weight 1 per vertex, the
 expected bone from the research island map), SM_Airship positions / face corners / UVs / normals vs Talal's mesh,
 materials, UCX, prop UV channels.
+Round 2 (2026-11-24): the rig deletes the deck pieces listed in scripts/deck_removals.json, so SM_Airship is compared
+with Talal's mesh minus those islands (kept vertices renumbered in order, the faces made of them in order); the helm
+contract is the character-size wheel (HELM_WHEEL_OFS, PILOT_BEHIND_AXLE below).
 """
 import bpy, sys, os, json, math
 import numpy as np
@@ -25,6 +28,11 @@ def arg(k, d):
     return argv[argv.index(k) + 1] if k in argv else d
 FBX = arg('--fbx', RIG + '/export/SK_Airship.fbx')
 OUT = arg('--out', RIG + '/checks/verify/fbx_verify.json')
+# round 2 contract (Docs/Airship/round2/SPEC_A.md D7): wheel origin relative to the pedestal, pilot behind the axle
+HELM_WHEEL_OFS = (-0.35, 0.0, 1.00)
+PILOT_BEHIND_AXLE = 0.55
+DECK_REMOVALS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deck_removals.json')))
+REMOVED = sorted(i for p in DECK_REMOVALS['pieces'] for i in p['islands'])
 
 rep = {'fbx': FBX, 'defects': [], 'notes': []}
 def defect(msg):
@@ -183,7 +191,11 @@ islands = json.load(open(RES + '/sm_airship_islands.json'))
 vparts = json.load(open(RES + '/sm_airship_vertex_parts.json'))
 isl = {i['id']: i for i in islands['islands']}
 part_names = vparts['parts']
+# FBX SM_Airship vertex i = Talal's vertex KEEP[i] (the islands in deck_removals.json are gone, order kept)
+KEEP = np.nonzero(~np.isin(np.array(vparts['vertex_island']), REMOVED))[0]
+rep['deck_removals'] = {'islands': REMOVED, 'talal_verts': len(vparts['vertex_island']), 'kept_verts': int(len(KEEP))}
 def expected_bone_sm(vi):
+    vi = int(KEEP[vi])
     part = part_names[vparts['vertex_part'][vi]]
     i = isl[vparts['vertex_island'][vi]]
     piece = i['piece']
@@ -299,12 +311,22 @@ tal = bpy.data.objects['SM_Airship']
 dg = bpy.context.evaluated_depsgraph_get()
 tme = tal.data
 TW = tal.matrix_world
-tV = np.array([tuple(TW @ v.co) for v in tme.vertices])
+tVall = np.array([tuple(TW @ v.co) for v in tme.vertices])
 fV = mesh_world['SM_Airship']
-sm = {'talal_verts': len(tV), 'fbx_verts': len(fV), 'talal_modifiers': [m.type for m in tal.modifiers],
-      'talal_matrix_world_identity': TW == Matrix.Identity(4)}
-if len(tV) != len(fV) or len(tV) != 36908:
-    defect('SM_Airship vertex count FBX %d vs Talal %d (expected 36908)' % (len(fV), len(tV)))
+# Talal's mesh minus the removed islands: kept vertices renumbered in order, faces / corners made of them in order
+NEWI = np.full(len(tVall), -1, np.int64); NEWI[KEEP] = np.arange(len(KEEP))
+tl_all = np.array([l.vertex_index for l in tme.loops])
+kept_loop = NEWI[tl_all] >= 0
+kept_poly = np.array([NEWI[p.vertices[0]] >= 0 for p in tme.polygons])
+tV = tVall[KEEP]
+sm = {'talal_verts': len(tVall), 'talal_kept_verts': len(tV), 'fbx_verts': len(fV),
+      'talal_modifiers': [m.type for m in tal.modifiers], 'talal_matrix_world_identity': TW == Matrix.Identity(4),
+      'removed_islands': REMOVED, 'removed_verts': int(len(tVall) - len(KEEP)),
+      'removed_tris': int(sum(len(p.vertices) - 2 for p, k in zip(tme.polygons, kept_poly) if not k))}
+if len(tVall) != DECK_REMOVALS['source_vertex_count']:
+    defect('Talal\'s SM_Airship has %d vertices, deck_removals.json was made for %d' % (len(tVall), DECK_REMOVALS['source_vertex_count']))
+if len(tV) != len(fV):
+    defect('SM_Airship vertex count FBX %d vs Talal minus the removed islands %d' % (len(fV), len(tV)))
 else:
     d = np.linalg.norm(tV - fV, axis=1)
     sm['pos_max_delta_m'] = float(d.max()); sm['pos_mean_delta_m'] = float(d.mean())
@@ -312,10 +334,11 @@ else:
 gd = mesh_info['SM_Airship']['_gd']
 pvi = np.array(gd['pvi'])
 corner_v = np.where(pvi < 0, ~pvi, pvi)
-tl = np.array([l.vertex_index for l in tme.loops])
-sm['corners_fbx'] = len(corner_v); sm['corners_talal'] = len(tl)
-sm['polys_fbx'] = int((pvi < 0).sum()); sm['polys_talal'] = len(tme.polygons)
-tstarts = np.array([p.loop_start for p in tme.polygons]); tsz = np.array([p.loop_total for p in tme.polygons])
+tl = NEWI[tl_all[kept_loop]]
+sm['corners_fbx'] = len(corner_v); sm['corners_talal_kept'] = len(tl)
+sm['polys_fbx'] = int((pvi < 0).sum()); sm['polys_talal_kept'] = int(kept_poly.sum())
+tsz = np.array([p.loop_total for p in tme.polygons])[kept_poly]
+tstarts = np.concatenate([[0], np.cumsum(tsz)[:-1]])
 fends = np.where(pvi < 0)[0]
 same_topo = len(corner_v) == len(tl) and np.array_equal(corner_v, tl) and len(fends) == len(tstarts) and \
             np.array_equal(fends, tstarts + tsz - 1)
@@ -324,7 +347,7 @@ if not same_topo: defect('SM_Airship face corners / polygon order differ from Ta
 sm['talal_uv_layers'] = [u.name for u in tme.uv_layers]
 uvres = []
 for k, u in enumerate(tme.uv_layers):
-    tuv = np.array([tuple(d.uv) for d in u.data])
+    tuv = np.array([tuple(d.uv) for d in u.data])[kept_loop]
     if k < len(gd['uv']):
         fuv = np.array(F.per_corner_uv(gd['uv'][k]))
         if len(fuv) == len(tuv):
@@ -338,9 +361,9 @@ for k, u in enumerate(tme.uv_layers):
 sm['uv'] = uvres
 # normals (shading): FBX corner normals vs Talal's corner normals
 try:
-    tn = np.array([tuple(n.vector) for n in tme.corner_normals])
+    tn = np.array([tuple(n.vector) for n in tme.corner_normals])[kept_loop]
 except AttributeError:
-    tme.calc_normals_split(); tn = np.array([tuple(l.normal) for l in tme.loops])
+    tme.calc_normals_split(); tn = np.array([tuple(l.normal) for l in tme.loops])[kept_loop]
 nl = gd['normals'][0] if gd['normals'] else None
 if nl is not None:
     N = np.array(nl['N']).reshape(-1, 3)
@@ -406,7 +429,7 @@ chk('Turbine_L_Exhaust', (-18.758, 7.6, 1.4), 0.06, 'contract ~(-18.8): duct she
 chk('Turbine_R_Exhaust', (-18.758, -7.6, 1.4), 0.06, 'contract ~(-18.8): duct shell rear x -18.758')
 
 # deck height from Talal's hull (ray down; SM_Airship only)
-bm_bvh = BVHTree.FromPolygons([tuple(v) for v in tV], [tuple(p.vertices) for p in tme.polygons])
+bm_bvh = BVHTree.FromPolygons([tuple(v) for v in tVall], [tuple(p.vertices) for p, k in zip(tme.polygons, kept_poly) if k])
 def deck_z(x, y, top=20.0):
     hit = bm_bvh.ray_cast(Vector((x, y, top)), Vector((0, 0, -1)))
     return hit[0].z if hit[0] is not None else None
@@ -417,16 +440,23 @@ chk('Helm', (-6.5, 0.0, hz), 0.02, 'contract x -6.5 centreline, z = deck (ray) %
 whl = mesh_world['SM_AirshipProp_Helm_Wheel']
 wc = (whl.min(0) + whl.max(0)) / 2
 geo['helm_wheel_bbox_centre'] = wc.round(4).tolist()
-chk('Helm_Wheel', (BP['Helm'][0] - 0.63, 0.0, BP['Helm'][2] + 1.65), 0.02, 'Helm + Helm.blend wheel origin (-0.63, 0, 1.65)')
+chk('Helm_Wheel', (BP['Helm'][0] + HELM_WHEEL_OFS[0], 0.0, BP['Helm'][2] + HELM_WHEEL_OFS[2]), 0.02,
+    'Helm + Helm.blend wheel origin %s' % (HELM_WHEEL_OFS,))
 geo['helm_wheel_bone_minus_bbox_centre_yz'] = (BP['Helm_Wheel'] - wc)[1:].round(4).tolist()
-pz = deck_z(BP['Helm_Wheel'][0] - 1.3, 0.0)
-chk('PilotSeat', (BP['Helm_Wheel'][0] - 1.3, 0.0, pz), 0.02, 'wheel axle - 1.3 m, z = deck (ray)')
+pz = deck_z(BP['Helm_Wheel'][0] - PILOT_BEHIND_AXLE, 0.0)
+chk('PilotSeat', (BP['Helm_Wheel'][0] - PILOT_BEHIND_AXLE, 0.0, pz), 0.02, 'wheel axle - %.2f m, z = deck (ray)' % PILOT_BEHIND_AXLE)
+# wheel size (round 2: about 1.40 m across the handle tips, character size)
+geo['helm_wheel_size_m'] = (whl.max(0) - whl.min(0)).round(4).tolist()
+if not 1.36 <= geo['helm_wheel_size_m'][2] <= 1.44:
+    defect('Helm_Wheel is %.3f m tall, expected about 1.40 (character-size wheel)' % geo['helm_wheel_size_m'][2])
 ped = mesh_world['SM_AirshipProp_Helm_Pedestal']
 geo['helm_pedestal_min_z_minus_deck'] = float(ped[:, 2].min() - hz)
 # thruster petals / flames from geometry
 A = Vector((-0.13917303085327148, 0.0, -0.9902680516242981)).normalized()
 SMV = mesh_world['SM_Airship']
-vpart = np.array(vparts['vertex_part']); visl = np.array(vparts['vertex_island'])
+vpart = np.array(vparts['vertex_part'])[KEEP]; visl = np.array(vparts['vertex_island'])[KEEP]
+gone = sorted(set(REMOVED) & set(visl.tolist()))
+if gone: defect('removed islands still in the FBX mapping: %s' % gone)
 petal_geo = {}
 for t in ['FL', 'FR', 'RL', 'RR']:
     T0 = np.array(fixed['Thruster_' + t]) + np.array((0, 0, -0.4))

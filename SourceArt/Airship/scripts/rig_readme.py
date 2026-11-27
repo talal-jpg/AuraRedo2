@@ -129,7 +129,43 @@ if os.path.exists(_sf):
                rail=_m1['on_rail_plane']['filled_x_p5_p50_p95'])
 OLD_L1 = (-5.3437, 5.9086, 2.5638)        # fore station before 2026-11-22 (rail gap x -5.344), Blender m
 MOVE_UE = (100 * (c1['origin'][0] - OLD_L1[0]), -100 * (c1['origin'][1] - OLD_L1[1]), 100 * (c1['origin'][2] - OLD_L1[2]))
-tris = 69210 + 4 * (2960 + 2672 + 132 + 4 * 384) + 3932 + 2388
+# totals from the exported file (rig_fbx_inspect.py), not typed in: they change when a prop or the hull changes
+MESH = {m['mesh']: m for m in fbx['mesh_list']}
+tris = fbx['total_triangles']
+HULL_V, HULL_T = MESH['SM_Airship']['verts'], MESH['SM_Airship']['tris']
+DR = skin['deck_removal']
+WHEEL_OFS = [round(100 * (a - b)) for a, b in zip(H['wheel_axle'], H['pedestal'])]
+PILOT_BEHIND = H['wheel_axle'][0] - H['pilot'][0]
+_td = os.path.join(CH, 'turret_dims.json')
+TD = json.load(open(_td)) if os.path.exists(_td) else None
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deck_removals.json')) as _f:
+    DRJ = json.load(_f)
+REMOVED_ROWS = '\n'.join('  | %d | %s | %s | %s | %d |' % (
+    p['arrow'], p['name'], ', '.join(str(i) for i in p['islands']),
+    '(%.0f..%.0f, %.0f..%.0f, %.0f..%.0f)' % (100 * p['bbox_min'][0], 100 * p['bbox_max'][0], -100 * p['bbox_max'][1],
+                                           -100 * p['bbox_min'][1], 100 * p['bbox_min'][2], 100 * p['bbox_max'][2]),
+    q['verts']) for p, q in zip(DRJ['pieces'], DR['pieces']))
+if TD:
+    TM = TD['mounts']
+    TURRET_TXT = f"""* **Front machine-gun turrets** (new, not part of SK_Airship: the pawn spawns two `AAirshipTurret` actors):
+  `scripts/props/model_turret.py` -> `rig/props/Turret.blend`, on the shared prop atlas, exported by
+  `scripts/export_turret.py` as two static meshes (cm, X forward, Z up, one UV channel, slot `M_AirshipProps`, no UCX):
+
+  | File | Pivot (object origin) | Size (cm) | Triangles |
+  |---|---|---|---:|
+  | `SM_AirshipTurret_Base.fbx` | yaw axis on the deck (z 0 = deck top) | radius {TD['base_radius_cm']:.1f}, height {TD['base_height_cm']:.1f} | {TD['files']['SM_AirshipTurret_Base']['tris']:,} |
+  | `SM_AirshipTurret_Gun.fbx` | trunnion (pitch) axis, fires +X | {TD['gun_length_cm']:.1f} long ({TD['gun_rear_extent_cm']:.1f} behind the pivot) | {TD['files']['SM_AirshipTurret_Gun']['tris']:,} |
+
+  `PivotHeight` {TD['pivot_height_cm']:.0f} cm (GunMesh on BaseMesh), `MuzzleForward` {TD['muzzle_forward_cm']:.0f} cm (between the two
+  barrels, which end at Y -10 / +10), pitch -20..+40 checked clear of the base. Mounts (hull cm): port
+  {T(TM['L']['location_cm'])}, starboard {T(TM['R']['location_cm'])}: deck top {TD['deck_top_cm_at_mounts']['L']:.1f}, the gantry
+  rail's inner face at |Y| {TD['rail_inner_y_cm']} and its top at Z {TD['rail_top_cm']}; the yaw part is
+  {TM['L']['base_to_rail_gap_cm']} cm clear of the rail; swept through yaw {TM['L']['yaw_limits_deg']} (port) /
+  {TM['R']['yaw_limits_deg']} (starboard) x pitch -20..+40 against the ship: {len(TM['L']['sweep_contacts']) + len(TM['R']['sweep_contacts'])}
+  contacts. Gunner seat (1.0 m behind the axis): {T(TM['L']['gunner_seat_cm'])} / {T(TM['R']['gunner_seat_cm'])}. All numbers:
+  `turret_dims.json`."""
+else:
+    TURRET_TXT = '* Front turrets: run `export_turret.py` (turret_dims.json missing).'
 
 CSV_ROWS = []
 with open(os.path.join(CH, 'bones_ue.csv')) as f:
@@ -139,7 +175,8 @@ with open(os.path.join(CH, 'bones_ue.csv')) as f:
 
 md = f"""# SK_Airship rig: 118 bones, rigid skin, FBX for Unreal
 
-Rig of the stylized airship (Talal's `SM_Airship`, geometry and UVs unchanged) plus the new helm and four cannons, made to
+Rig of the stylized airship (Talal's `SM_Airship`, geometry and UVs unchanged except five deck pieces removed in round 2)
+plus the helm and four cannons, made to
 `/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/RIG_CONTRACT.md`. Every part is a rigid piece: each vertex
 belongs 100 % to one bone. Built headless in Blender 4.5.3 from the scripts in `scripts/` (nothing done by hand).
 
@@ -151,6 +188,7 @@ Blender side: `/mnt/new_partition/BlenderProjects/StylizedAirship/rig/` (called 
 | File | What it is |
 |---|---|
 | `SK_Airship.fbx` (rig/export, SourceArt/Airship) | Skeleton (118 bones) + 31 skinned meshes in rest pose, no animation. Import this as the skeletal mesh. |
+| `SM_AirshipTurret_Base.fbx`, `SM_AirshipTurret_Gun.fbx` (rig/export, SourceArt/Airship) | Round 2: the front machine-gun turret, two static meshes on the prop atlas (see Round 2). `turret_dims.json` (rig/checks/rig, SourceArt/Airship): its pivots, mounts, rail clearance, helm and pilot seat numbers for Unreal. |
 | `SK_Airship_testanim.fbx` | Same skeleton and meshes + a 32 s test sweep (frames 1-961 at 30 fps, take `SK_Airship_TestSweep`): every control swept through its range, one group every 2 s (`checks/rig/testanim_segments.json`). Import as an animation on SKEL_Airship. |
 | `rig/AirshipRig.blend` | Blender source: armature `Armature`, the meshes in collection `SK_Airship` (vertex groups + Armature modifier), action `SK_Airship_TestSweep` (not assigned). Made from `rig/AirshipRig_src.blend`, a byte copy of Talal's StylizedAirship.blend (md5 4cb832deaa0fa005bf6a9359e34692bb, never written). |
 | `SourceArt/Airship/textures/` (= `rig/props/textures/`) | The prop atlas `T_AirshipProps_ComicLines.png` (sRGB) and `T_AirshipProps_ComicMask.png` (linear), 2048. The hull keeps the existing `T_Airship_ComicLines` / `T_Airship_ComicMask` (4096) already in `/Game/Assets/MyShip`. |
@@ -161,12 +199,15 @@ Scripts (`rig/scripts/`, copied to `SourceArt/Airship/scripts/`; run all with `b
 `rig_common.py` (paths, bone map, pose maths), `rig_place.py` (step 1: placement + clearance), `rig_build.py` (steps 2-4:
 armature, skin, props, materials, test action), `rig_export.py` (step 5, `-- --anim` for the test file),
 `rig_fbx_inspect.py`, `rig_roundtrip.py`, `rig_check_motion.py`, `rig_render.py` (step 6), `rig_readme.py` (this file),
-`rig_inspect.py` (lists what a .blend holds).
+`rig_inspect.py` (lists what a .blend holds). Round 2: `deck_removals.json` (the deck pieces `rig_build.py` deletes),
+`export_turret.py` (turret static meshes + `turret_dims.json`), `round2_render.py` (review renders),
+`props_all.sh` (rebuilds `props/model_*.py` + `bake_props_comic.py`; run it before `rig_all.sh` when a prop changes).
 
 ## Mesh and materials
 
 * {fbx['total_vertices']:,} vertices, {tris:,} triangles, 31 mesh nodes; Unreal merges them into one skeletal mesh.
-* Material slot 0 `M_Airship` (SM_Airship, 36,908 vertices, UVs untouched). Slot 1 `M_AirshipProps` (helm + 4 cannons,
+* Material slot 0 `M_Airship` (SM_Airship, {HULL_V:,} vertices: Talal's {DR['source_verts']:,} minus the {DR['removed_verts']} of the five
+  deck pieces removed in round 2; everything else, UVs included, untouched). Slot 1 `M_AirshipProps` (helm + 4 cannons,
   the shared 2048 atlas; the four cannon copies use the same atlas region, everything else is overlap-free). The prop
   meshes are named `SM_AirshipProp_*` so that `SM_Airship` comes first in the FBX (Blender writes objects by name), which
   puts M_Airship first in the file's material list.
@@ -208,8 +249,8 @@ Every bone with its exact position is in `checks/rig/bones_ue.csv`.
 | Prop | Bone position (UE cm) | How it was placed |
 |---|---|---|
 | Helm | {T(H['origin_ue_cm'])} | centreline x -6.5 m, z = deck at that point; the base plate reaches 5 cm below its origin, so nothing floats (its aft edge sits 3.8 cm proud of the sloping deck) |
-| Helm_Wheel | {T(H['wheel_axle_ue_cm'])} | Helm.blend wheel origin offset (-63, 0, 165) cm; axle along X, the helmsman's side faces aft |
-| PilotSeat | {T(H['pilot_ue_cm'])} | 1.3 m aft of the axle on the deck (the aft hatch starts 47 cm further aft) |
+| Helm_Wheel | {T(H['wheel_axle_ue_cm'])} | Helm.blend wheel origin offset ({WHEEL_OFS[0]}, 0, {WHEEL_OFS[2]}) cm; axle along X, the helmsman's side faces aft |
+| PilotSeat | {T(H['pilot_ue_cm'])} | {PILOT_BEHIND:.2f} m aft of the axle on the deck (the 141.6 cm mech's capsule: radius 34 cm + 21 cm for the arms) |
 | Cannon_L1 / R1 | {T(c1['origin_ue_cm'])} / Y mirrored | rail-post gap middle nearest x {c1['target_x']} = Talal's fore mark (see the change log) (gap {c1['rail']['gap']:.2f} m, rail at {abs(c1['rail']['slope_deg']):.1f} deg to the ship's axis), muzzle face {c1['muzzle_face_inside_rail_m']:.2f} m inside the rail centre line, barrel axis {100 * (c1['barrel_axis_z'] - c1['rail']['foot_z']):.0f} cm above the rail foot (mid bar 55, top bar 110) |
 | Cannon_L2 / R2 | {T(c2['origin_ue_cm'])} / Y mirrored | gap middle nearest x {c2['target_x']} = Talal's aft mark (gap {c2['rail']['gap']:.2f} m), moved {c2['nudge_inboard_m']:.2f} m inboard: muzzle face {c2['muzzle_face_inside_rail_m']:.2f} m inside the rail (see deviations) |
 
@@ -265,7 +306,7 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 * Clamp the controls to the safe ranges above: elevation +8.75, aft yaw of L2/R2 21 deg, chain outward only, pods +-0.5..1
   if close-ups matter. `SK_Airship_testanim.fbx` stays inside those ranges (elevation +8.75 max, chain 0..+25) except the
   pods (+-3, the contract's value) and the extra helper sweeps (rods +-8, posts +-4).
-* Triangle count {tris:,} (hull 69,210); bounds about 51.9 x 23.9 x 17 m like SM_Airship plus the props.
+* Triangle count {tris:,} (hull {HULL_T:,}); bounds about 51.9 x 23.9 x 17 m like SM_Airship plus the props.
 
 ## Deviations from the contract
 
@@ -288,6 +329,37 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 7. Exact socket spots where the contract says "about": `Thruster_*_Flame` on the nozzle axis at the petal tips (h = 4.35 m
    along A); `Turbine_*_Exhaust` at the duct shell's rear rim, x = -18.758 m.
 
+## Round 2 (2026-11-24)
+
+Talal's asks for the ship model: "ship wheel smaller to the size of the character", "pointed items to be removed" (5
+arrows on a top view), "bigger canon balls", "machine gun turrets (2) in front". Specification:
+`Docs/Airship/round2/SPEC_A.md` D7; notes: `Docs/Airship/round2/NOTES_blender.md`.
+
+* **Deck pieces removed** from the rig's SM_Airship (`scripts/deck_removals.json`, deleted in `rig_build.py` after the
+  source checks; Talal's StylizedAirship.blend and the Unreal `/Game/Assets/MyShip/SM_Airship` physics body with its UCX
+  are not changed): {len(DR['removed_islands'])} islands, {DR['removed_verts']} vertices, {DR['removed_tris']} triangles; all were on the `Hull` bone, so the
+  skeleton is the same (118 bones, same names).
+
+  | Arrow | Piece | Islands | Box (UE cm, X / Y / Z) | Vertices |
+  |---:|---|---|---|---:|
+{REMOVED_ROWS}
+
+* **Wheel at character size** (`scripts/props/model_helm.py` v3): {TD['helm_wheel_size_cm'][1] if TD else '?'} cm across the handle tips (was 310), axle
+  {WHEEL_OFS[2]} cm above the deck (was 165), wheel centre {-WHEEL_OFS[0]} cm aft of the pedestal origin (was 63), pedestal scaled
+  by 1.00 / 1.65. `Helm_Wheel` is now at {T(H['wheel_axle_ue_cm'])}, `PilotSeat` at {T(H['pilot_ue_cm'])} (was (-713, 0, 425) and
+  (-843, 0, 269)). Unreal: `AirshipPawn.h` `PilotSeatFallback` = the new PilotSeat; the PA_Airship helm boxes (not rebuilt in
+  PR A) are larger than the new wheel.
+* **Cannon bore** (`scripts/props/model_cannon.py` v3): bore radius 22 cm (was 13), muzzle face from radius 25 to the 28 cm
+  lip, for the 1 m cannonball. Sockets and the barrel length are unchanged.
+{TURRET_TXT}
+* **Prop atlas** (`scripts/props/bake_props_comic.py`): the turret joins the helm and cannon on the 2048 atlas (all islands
+  repacked: the helm, cannon and turret UVs all moved, so `T_AirshipProps_ComicLines` / `ComicMask` must be re-imported
+  together with the meshes); the helm's ink lengths are scaled with it (wheel 0.45, pedestal 0.6: `INK_SCALE`).
+* Rebuild: `bash rig/scripts/props_all.sh` (models + atlas + bake), `bash rig/scripts/rig_all.sh`, then
+  `bash rig/scripts/verify_all.sh`; copy `export/SK_Airship*.fbx`, `export/SM_AirshipTurret_*.fbx`,
+  `checks/rig/turret_dims.json`, `props/textures/T_AirshipProps_Comic*.png` and this README to `SourceArt/Airship`.
+  Review renders: `rig/renders/round2/` (before / after, helm and turret close-ups with the mech capsule).
+
 ## Change log
 
 * **2026-11-22, fore cannon pair moved forward to Talal's mark.** `Cannon_L1` / `Cannon_R1` (and all their sub-bones
@@ -307,8 +379,9 @@ nothing pushed more than 2 cm into the closed hull skin or the bow wedge). Direc
 ## How it was checked
 
 * Blender side (`rig_build.py`): every bone world-aligned (rest matrix = 90 deg about X, head at the pivot), deform flag
-  exactly on the bones that have vertices, every vertex one group at 1.0, SM_Airship positions + UVs + face corners hashed
-  before and after (unchanged), prop pivots on the placed objects' origins.
+  exactly on the bones that have vertices, every vertex one group at 1.0, SM_Airship positions + UVs + face corners of
+  the kept part hashed before the deck pieces are deleted and again after skinning (unchanged), prop pivots on the
+  placed objects' origins.
 * FBX (`rig_fbx_inspect.py`, Blender's raw FBX parser, no importer logic): FBX 7.4, Y-up, UnitScaleFactor 1; 1 Null
   `Armature` (identity) -> 118 LimbNodes, 31 meshes each with one Skin, 105 clusters, every vertex weighted once with sum 1,
   bind poses cover all 118 bones and agree with every cluster's TransformLink, node transforms agree with the bind pose

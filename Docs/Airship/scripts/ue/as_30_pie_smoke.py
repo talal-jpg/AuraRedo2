@@ -7,7 +7,8 @@
 #          Saved/Airship/captures/*.png (TEMP_AS_Capture scene captures).
 # In memory only, restored at the end: UnrealEdEngine fixed frame rate 30 (game time stays right when the editor is on a
 # hidden i3 workspace), LevelEditorPlaySettings Standalone / 1 player, UBurrowerSettings.bEnabled False (no Burrower
-# chasing the test pilot). One TEMP_AS_Capture SceneCapture2D in the editor level (removed after PIE; the map is never
+# chasing the test pilot), UAirshipSettings.CrewDamageShare 0 (AS30_CREW_SHARE, default 0.0, None = keep: round 2's
+# crew share would hurt the pilot in the damage and kill phases; as_43 inherits it). One TEMP_AS_Capture SceneCapture2D in the editor level (removed after PIE; the map is never
 # saved by this script). The user's own Play ("Repeating last play command" in the log) is never stopped.
 #
 # Timeline (game seconds; each phase starts when the previous one ends):
@@ -16,6 +17,9 @@
 #  cannons 9  look port, RequestFire; look stbd, fire      (i) balls from the muzzles, recoil in the bones, wall hits
 #  exit 3     Aura.Airship.Exit (pilot hurt by 25 first)   (k) character back, Health/Mana = the saved values
 #                                                          (k2) capsule keeps a QueryOnly body, stands on the hull 2 s
+#                                                          (since Talal 11-25, SPEC_A.md 6.8: at the wheel, on the planks'
+#                                                          boxes of the Mesh's physics asset, not 2.5 m to port on the
+#                                                          lid; the check and its limits are as they were)
 #  board2 2   Aura.Airship.Board
 #  lift 11    lift +1 4 s, -1 4 s, 0 3 s                   (c)
 #  throttle 10 throttle 1                                  (d) speed curve, top speed; (g) rig bones; (h) Niagara
@@ -25,7 +29,7 @@
 #  kill 16    Aura.Airship.Kill                            (j2) forces off, falls to the ground plane, wreck parts, pilot out
 import json, math, os, time, traceback  # unreal = inbox namespace
 
-AS30_VERSION = 'as_30_pie_smoke 2026-11-22'
+AS30_VERSION = 'as_30_pie_smoke 2026-11-27 helm+deck'
 OUT = os.path.join(os.path.abspath(unreal.Paths.project_saved_dir()), 'Airship')
 CAPS = os.path.join(OUT, 'captures')
 MAP_NAME = 'L_AirshipTest'
@@ -150,6 +154,31 @@ def parse_struct(txt):
     return out
 
 
+AIRSHIP_SETTINGS_CLS = '/Script/Aura.AirshipSettings'
+
+
+def crew_share_set(orig, want):
+    """Round 2 (D4) gives the crew UAirshipSettings.CrewDamageShare of every ship Health loss. The v1 regressions (as_30,
+    as_43, as_45) compare the pilot's health with its value before boarding after phases that hurt the ship (damage,
+    bumps, the host's gun), so they run with the share at `want` (their knob, default 0.0; None keeps the project's
+    value). Sets the class default (the C++ reads it on every hit, PIE included); the old value goes to
+    orig['crew_share'] for crew_share_restore. Returns a log line, or None when nothing changed."""
+    if want is None:
+        return None
+    st = unreal.get_default_object(unreal.load_class(None, AIRSHIP_SETTINGS_CLS))
+    orig['crew_share'] = float(st.get_editor_property('CrewDamageShare'))
+    st.set_editor_property('CrewDamageShare', float(want), unreal.PropertyAccessChangeNotifyMode.NEVER)
+    return 'AirshipSettings.CrewDamageShare %s for the run (was %s)' % (float(want), orig['crew_share'])
+
+
+def crew_share_restore(orig):
+    if 'crew_share' not in orig:
+        return None
+    st = unreal.get_default_object(unreal.load_class(None, AIRSHIP_SETTINGS_CLS))
+    st.set_editor_property('CrewDamageShare', float(orig['crew_share']), unreal.PropertyAccessChangeNotifyMode.NEVER)
+    return 'AirshipSettings.CrewDamageShare restored to %s' % orig['crew_share']
+
+
 # ----------------------------------------------------------------------------------------------------------- run
 class AsRun(object):
     def __init__(self):
@@ -269,6 +298,12 @@ class AsRun(object):
         except Exception:  # noqa: BLE001
             self.err('burrower_settings')
         try:
+            msg = crew_share_set(self.orig, globals().get('AS30_CREW_SHARE', 0.0))
+            if msg:
+                self.line('INFO', msg)
+        except Exception:  # noqa: BLE001
+            self.err('crew_share')
+        try:
             for a in eas.get_all_level_actors():
                 if a.get_actor_label().startswith(TEMP):
                     eas.destroy_actor(a)
@@ -315,6 +350,12 @@ class AsRun(object):
                 bcdo.set_editor_property('bEnabled', self.orig['burrower_enabled'], unreal.PropertyAccessChangeNotifyMode.NEVER)
         except Exception:  # noqa: BLE001
             self.err('restore_burrower')
+        try:
+            msg = crew_share_restore(self.orig)
+            if msg:
+                self.line('INFO', msg)
+        except Exception:  # noqa: BLE001
+            self.err('restore_crew_share')
 
     def remove_temp(self):
         try:

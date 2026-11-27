@@ -2,8 +2,18 @@
 # the SK bounds follow the bones (debris is not culled) and traces/overlaps hit the moving parts. No constraints.
 # Boxes only, axis-aligned: every bone is world-aligned (identity rest rotation, checked by as_10), so a bone-local box =
 # a component-space box moved by the bone position. Part boxes come from Saved/Airship/part_bounds.json
-# (as_09_part_bounds_blender.py: per-bone vertex AABBs, UE cm). Hull: 4 boxes under/around the hull skin, tops at the
-# deck so nothing invisible stands on deck. Collision type on the component is set by the C++ (QueryOnly).
+# (as_09_part_bounds_blender.py: per-bone vertex AABBs, UE cm). Collision type on the component is set by the C++
+# (QueryOnly Pawn, blocks Visibility: sentinel bullets' Pawn sweeps and Visibility traces hit these boxes).
+# Round 2 (2026-11-25, Talal 11-24 "make a proper PA for ship"; the round-2 rig: 140 cm wheel, 5 deck pieces removed):
+#   Hull: the boxes fitted by as_11b_hull_boxes.py (Saved/Airship/pa_hull_boxes.json, from the as_11a column survey of
+#     the new rig): stacked boxes per 2 m slab, none above the hull's top surface or below its bottom in any 25 cm column
+#     it covers, none over a column without hull (the round-1 4 hand-made boxes stood up to 5.2 m above it). The open
+#     truss under the forward platform and the removed deck pieces get nothing. Required: run as_11a + as_11b first.
+#   ChainFwd: one box per chain link (as_11b). Winch_Aft / Winch_Fwd / Turbine_*_Rod: their AABB + 2 cm (they had no
+#     body in round 1). Every bone with geometry in part_bounds.json is covered by a body (own or merged: petals into the
+#     nozzle, rotor into the nacelle, quoin/wheels into the carriage); the script FAILs otherwise.
+#   Report (Saved/Airship/as_11_physics_asset.json): per body its bones, boxes and the union of its boxes vs the bones'
+#   part_bounds union (+-PAD); Helm_Wheel's box must fit the 140 cm wheel.
 # Route = Burrower bw_03: AssetTools.create_asset (no factory, no dialog) + PhysicsToolsets.PhysicsAssetToolset tools
 # through unreal.ToolsetRegistry (AddBody/SetBox/SetBodyPhysicsMode/RemoveBody), CollisionTraceFlag via ToolsetLibrary.
 # Re-runnable: an existing PA_Airship is cleared and rebuilt. Saves PA_Airship + SK_Airship (physics_asset set).
@@ -75,41 +85,79 @@ def _as11():
                 mx[i] = max(mx[i], pb[b]['max'][i])
         return [mn[i] - PAD for i in range(3)], [mx[i] + PAD for i in range(3)]
 
-    # bone -> [(shape name, min_cs, max_cs)]
+    # bone -> [(shape name, min_cs, max_cs)]; members: body bone -> the part_bounds bones its boxes cover
     plan = {}
-    # Hull: lower hull in 3 x-slabs (tops at/below the deck), bow block; from the hull profile (x bins of 2.5 m)
-    plan['Hull'] = [('HullAft', (-1760.0, -720.0, -470.0), (-1000.0, 720.0, 290.0)),
-                    ('HullMid', (-1000.0, -925.0, -530.0), (750.0, 925.0, 250.0)),
-                    ('HullFwd', (750.0, -580.0, -415.0), (2250.0, 580.0, 240.0)),
-                    ('HullBow', (2250.0, -360.0, 60.0), (3152.0, 360.0, 850.0))]
+    members = {}
+    HB = os.path.join(os.path.abspath(unreal.Paths.project_saved_dir()), 'Airship', 'pa_hull_boxes.json')
+    try:
+        hb = json.load(open(HB))
+    except Exception as e:
+        out('FAIL', '%s not readable (%s): run as_11a_hull_survey_blender.py (headless Blender) + as_11b_hull_boxes.py' % (HB, e))
+        return R
+    if hb.get('check_failures') or not hb.get('hull_boxes'):
+        out('FAIL', 'pa_hull_boxes.json has check failures %s or no hull boxes: re-run as_11b' % hb.get('check_failures'))
+        return R
+    plan['Hull'] = [(b['name'], tuple(b['min']), tuple(b['max'])) for b in hb['hull_boxes']]
+    members['Hull'] = ['Hull']
+    out('INFO', 'Hull: %d boxes from pa_hull_boxes.json (regions %s)' % (len(plan['Hull']), dict(
+        (k, v.get('coverage')) for k, v in (hb.get('regions') or {}).items())))
+    if 'ChainFwd' in pb and hb.get('chain_boxes'):
+        plan['ChainFwd'] = [(b['name'], tuple(b['min']), tuple(b['max'])) for b in hb['chain_boxes']]
+        members['ChainFwd'] = ['ChainFwd']
+    for b in ('Winch_Aft', 'Winch_Fwd', 'Turbine_L_Rod', 'Turbine_R_Rod'):
+        if b in pb:
+            mn, mx = aabb(b)
+            plan[b] = [(b + '_Box', mn, mx)]
+            members[b] = [b]
+    def part(body, shape, *bones):
+        mn, mx = aabb(*bones)
+        plan[body] = [(shape, mn, mx)]
+        members[body] = list(bones)
+
     for p in ('FL', 'FR', 'RL', 'RR'):
         t = 'Thruster_' + p
-        mn, mx = aabb(t)
-        plan[t] = [(t + '_Pod', mn, mx)]
-        mn, mx = aabb(*([t + '_Nozzle'] + ['%s_Petal%02d' % (t, k) for k in range(12)]))
-        plan[t + '_Nozzle'] = [(t + '_NozzleBox', mn, mx)]
-    for s in ('L', 'R'):
-        t = 'Turbine_' + s
-        mn, mx = aabb(t, t + '_Rotor')
-        plan[t] = [(t + '_Nacelle', mn, mx)]
-    mn, mx = aabb('Rudder')
-    plan['Rudder'] = [('Rudder_Blade', mn, mx)]
+        part(t, t + '_Pod', t)
+        part(t + '_Nozzle', t + '_NozzleBox', *([t + '_Nozzle'] + ['%s_Petal%02d' % (t, k) for k in range(12)]))
+    for sd in ('L', 'R'):
+        t = 'Turbine_' + sd
+        part(t, t + '_Nacelle', t, t + '_Rotor')
+    part('Rudder', 'Rudder_Blade', 'Rudder')
     for c in ('L1', 'L2', 'R1', 'R2'):
         b = 'Cannon_' + c
-        mn, mx = aabb(b, b + '_Quoin', b + '_Wheel_FL', b + '_Wheel_FR', b + '_Wheel_BL', b + '_Wheel_BR')
-        plan[b] = [(b + '_Carriage', mn, mx)]
-        mn, mx = aabb(b + '_Barrel')
-        plan[b + '_Barrel'] = [(b + '_BarrelBox', mn, mx)]
+        part(b, b + '_Carriage', b, b + '_Quoin', b + '_Wheel_FL', b + '_Wheel_FR', b + '_Wheel_BL', b + '_Wheel_BR')
+        part(b + '_Barrel', b + '_BarrelBox', b + '_Barrel')
     for L in ('AftL', 'MidL', 'MidR', 'FwdC'):
         b = 'SearchLight_' + L
-        mn, mx = aabb(b)
-        plan[b] = [(b + '_Post', mn, mx)]
-        mn, mx = aabb(b + '_Head')
-        plan[b + '_Head'] = [(b + '_HeadBox', mn, mx)]
-    mn, mx = aabb('Helm')
-    plan['Helm'] = [('Helm_Pedestal', mn, mx)]
-    mn, mx = aabb('Helm_Wheel')
-    plan['Helm_Wheel'] = [('Helm_WheelBox', mn, mx)]
+        part(b, b + '_Post', b)
+        part(b + '_Head', b + '_HeadBox', b + '_Head')
+    part('Helm', 'Helm_Pedestal', 'Helm')
+    part('Helm_Wheel', 'Helm_WheelBox', 'Helm_Wheel')
+    # every bone with geometry is covered by a body; every body's boxes span its bones (+-PAD)
+    cov = set(b for v in members.values() for b in v)
+    miss = sorted(b for b in pb if b not in cov)
+    out('PASS' if not miss else 'FAIL', '%d of %d bones with geometry (part_bounds.json) covered by %d bodies%s' % (
+        len(pb) - len(miss), len(pb), len(plan), '' if not miss else '; NOT covered: %s' % miss))
+    R['bodies_vs_part_bounds'] = {}
+    worst = 0.0
+    for body, shapes in plan.items():
+        if body == 'Hull':
+            continue
+        bmn, bmx = aabb(*members[body])
+        umn = [min(sh[1][i] for sh in shapes) for i in range(3)]
+        umx = [max(sh[2][i] for sh in shapes) for i in range(3)]
+        d = max(max(abs(umn[i] - bmn[i]), abs(umx[i] - bmx[i])) for i in range(3))
+        if body == 'ChainFwd':      # link boxes: inside the chain's AABB, ends at its ends
+            d = max(max(bmn[i] - umn[i], umx[i] - bmx[i], 0.0) for i in range(3))
+        worst = max(worst, d)
+        R['bodies_vs_part_bounds'][body] = {'bones': members[body], 'boxes': len(shapes), 'union_min': [round(x, 1) for x in umn],
+                                            'union_max': [round(x, 1) for x in umx], 'part_bounds_padded_min': [round(x, 1) for x in bmn],
+                                            'part_bounds_padded_max': [round(x, 1) for x in bmx], 'max_diff_cm': round(d, 2)}
+    out('PASS' if worst <= 0.5 else 'FAIL', 'part bodies match their bones\' part_bounds (+%.0f cm pad): worst %.2f cm' % (PAD, worst))
+    wmn, wmx = plan['Helm_Wheel'][0][1], plan['Helm_Wheel'][0][2]
+    wsz = [wmx[i] - wmn[i] for i in range(3)]
+    out('PASS' if wsz[1] <= 140.0 + 2 * PAD + 1.0 and wsz[2] <= 140.0 + 2 * PAD + 1.0 else 'FAIL',
+        'Helm_Wheel box %.1f x %.1f x %.1f cm (the 140 cm wheel + %.0f cm each side), z %.1f..%.1f' % (
+            wsz[0], wsz[1], wsz[2], PAD, wmn[2], wmx[2]))
 
     # PA asset
     pa = eal.load_asset(PA) if eal.does_asset_exist(PA) else None
@@ -157,21 +205,41 @@ def _as11():
     out('INFO', 'added %d bodies, %d boxes' % (len(plan), nshapes))
 
     # per body: UseSimpleAsComplex trace flag (complex traces hit the boxes), collision response enabled
-    bcls = unreal.load_class(None, '/Script/Engine.SkeletalBodySetup')
-    pp = pa.get_path_name()
-    nset = 0
-    for o in unreal.ObjectIterator(bcls):
+    # the PA's own body setups (the ObjectIterator route also met the removed bodies, still in memory until GC:
+    # "65 of 35" on the 2026-11-25 rebuild)
+    try:
+        live = list(pa.get_editor_property('skeletal_body_setups'))
+    except Exception:
+        live = None
+    if live is None:
         try:
-            if o.get_outer() is None or o.get_outer().get_path_name() != pp:
-                continue
-            if str(o.get_editor_property('bone_name')) not in plan:
-                continue
+            unreal.SystemLibrary.collect_garbage()      # the removed bodies' setups would be met too
         except Exception:
+            pass
+        bcls = unreal.load_class(None, '/Script/Engine.SkeletalBodySetup')
+        pp = pa.get_path_name()
+        live = []
+        for o in unreal.ObjectIterator(bcls):
+            try:
+                if o.get_outer() is not None and o.get_outer().get_path_name() == pp:
+                    live.append(o)
+            except Exception:
+                continue
+    nset = 0
+    done = set()
+    for o in live:
+        try:
+            bn = str(o.get_editor_property('bone_name'))
+        except Exception:
+            continue
+        if bn not in plan:
             continue
         if unreal.ToolsetLibrary.set_object_properties(o, json.dumps({'CollisionTraceFlag': 2, 'CollisionReponse': 0,
                                                                       'PhysicsType': 1})):
             nset += 1
-    out('PASS' if nset == len(plan) else 'WARN', 'trace flag / kinematic set on %d of %d body objects' % (nset, len(plan)))
+            done.add(bn)
+    out('PASS' if len(done) == len(plan) else 'WARN', 'trace flag / kinematic set on the bodies of %d of %d bones (%d body '
+        'objects met; more than the bones = removed bodies not yet garbage-collected)' % (len(done), len(plan), nset))
 
     # verify through the toolset
     names = sorted(str(n) for n in (tool('GetBodyNames', PhysicsAsset=PA_OBJ) or []))

@@ -7,13 +7,15 @@ Input : rig/AirshipRig_src.blend (byte copy of Talal's StylizedAirship.blend, ne
         the research island classifier (sm_airship_islands.json / sm_airship_vertex_parts.json).
 Output: rig/AirshipRig.blend (overwritten on every run), checks/rig/bones_blender.json, checks/rig/skin_report.json.
 
-* SM_Airship geometry/UVs untouched (checked by hash before/after). One vertex group per bone, weight 1.0, exactly one
-  group per vertex (100 % rigid per island, like the Burrower's hard pieces).
+* SM_Airship geometry/UVs untouched except for the deck pieces in deck_removals.json (round 2: whole islands deleted
+  after the source checks; the kept vertices, UVs and face corners are hashed before the deletion and after the
+  skinning and must match). One vertex group per bone, weight 1.0, exactly one group per vertex (100 % rigid per
+  island, like the Burrower's hard pieces).
 * Bones world-aligned: head at the pivot, tail = head + (0, 0, 0.5), roll 0; deform only on skinned bones.
 * Props: helm (2 objects) + 4 cannon copies (7 objects each) with their own mesh copies (same atlas UVs), placed from
   placement.json; each prop object is 100 % on its bone.
 """
-import bpy, sys, os, math, hashlib, time
+import bpy, bmesh, sys, os, math, hashlib, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 from mathutils import Vector as V, Matrix, Quaternion
@@ -28,17 +30,23 @@ ship = bpy.data.objects[C.HULL_OBJ]
 assert ship.matrix_world == Matrix.Identity(4)
 
 
-def mesh_hash(me):
+def mesh_hash(me, keep=None):
+    """md5 of vertex positions, corner UVs and corner vertex indices. keep (vertex indices, ascending): hash only the
+    part of the mesh made of those vertices, renumbered 0..n-1 in order, i.e. what the mesh is after deleting the
+    other vertices (and the faces using them)."""
     co = np.empty(len(me.vertices) * 3, np.float32); me.vertices.foreach_get('co', co)
     uv = np.empty(len(me.loops) * 2, np.float32); me.uv_layers['UVMap'].data.foreach_get('uv', uv)
     lv = np.empty(len(me.loops), np.int32); me.loops.foreach_get('vertex_index', lv)
+    if keep is not None:
+        new = np.full(len(me.vertices), -1, np.int64); new[keep] = np.arange(len(keep))
+        co = co.reshape(-1, 3)[keep].ravel()
+        kl = new[lv] >= 0          # whole islands go, so a face keeps all its corners or none
+        uv = uv.reshape(-1, 2)[kl].ravel()
+        lv = new[lv[kl]].astype(np.int32)
     h = hashlib.md5()
     for a in (co, uv, lv):
         h.update(a.tobytes())
     return h.hexdigest()
-
-
-HASH0 = mesh_hash(ship.data)
 
 # ------------------------------------------------------------------ geometry facts for the pivots
 co, polys = C.mesh_arrays(ship.data)
@@ -54,6 +62,40 @@ for r in ISL['islands']:
     m = visl == r['id']
     assert np.allclose(co[m].mean(0), r['c'], atol=2e-3), (r['id'], co[m].mean(0), r['c'])
 FR = ISL['frames']
+
+# ------------------------------------------------------------------ round 2: delete the marked deck pieces
+# (deck_removals.json; whole islands, Hull bone, no bone changes). co / visl / vbones above stay the source arrays for
+# the pivots below (none of them uses a removed island); the skin uses the kept vertices.
+REMOVED = C.removed_islands()
+DR = C.deck_removals()
+assert DR['source_vertex_count'] == len(co) and DR['source_island_count'] == 1150
+for p in DR['pieces']:            # the listed islands are where the file says (a stale list must not delete the wrong ones)
+    for i in p['islands']:
+        assert all(p['bbox_min'][k] - 0.01 <= IS[i]['bbmin'][k] and IS[i]['bbmax'][k] <= p['bbox_max'][k] + 0.01
+                   for k in range(3)), (p['name'], i, IS[i]['bbmin'], IS[i]['bbmax'])
+        assert C.bone_of_island(IS[i]) == 'Hull', (i, IS[i]['part'])
+KEEP = C.kept_vertex_index(visl)
+DROP = np.nonzero(np.isin(visl, REMOVED))[0]
+assert len(KEEP) + len(DROP) == len(co)
+src_tris = sum(len(p) - 2 for p in polys)
+drop_tris = sum(len(p) - 2 for p in polys if visl[p[0]] in set(REMOVED))
+HASH0 = mesh_hash(ship.data, KEEP)
+bm = bmesh.new()
+bm.from_mesh(ship.data)
+bm.verts.ensure_lookup_table()
+bmesh.ops.delete(bm, geom=[bm.verts[i] for i in DROP.tolist()], context='VERTS')
+bm.to_mesh(ship.data)
+bm.free()
+ship.data.update()
+assert len(ship.data.vertices) == len(KEEP), (len(ship.data.vertices), len(KEEP))
+assert mesh_hash(ship.data) == HASH0, 'kept SM_Airship geometry/UV/corners changed by the deletion'
+REMOVAL = dict(removed_islands=REMOVED, removed_verts=int(len(DROP)), removed_tris=int(drop_tris),
+               source_verts=int(len(co)), source_tris=int(src_tris), kept_verts=int(len(KEEP)),
+               kept_tris=int(sum(len(p.vertices) - 2 for p in ship.data.polygons)),
+               pieces=[dict(arrow=p['arrow'], name=p['name'], islands=p['islands'],
+                            verts=int(np.isin(visl, p['islands']).sum())) for p in DR['pieces']])
+assert REMOVAL['kept_tris'] == src_tris - drop_tris
+print('[build] removed', len(REMOVED), 'islands,', len(DROP), 'verts,', drop_tris, 'tris; kept', len(KEEP), 'verts')
 
 
 def island_verts(pred):
@@ -252,7 +294,7 @@ def add_armature_mod(o):
 
 
 ship.vertex_groups.clear()
-vb = np.array(vbones)
+vb = np.array(vbones)[KEEP]      # per rig vertex (the kept source vertices, in order)
 counts = {}
 for bn in sorted(set(vbones), key=ORDER.index):
     idx = np.nonzero(vb == bn)[0].tolist()
@@ -281,7 +323,7 @@ for on, cnt in SKIN.items():
         used[bn] = used.get(bn, 0) + k
 for n in ORDER:
     assert (n in used) == BONES[n]['deform'], (n, n in used, BONES[n]['deform'])
-assert mesh_hash(ship.data) == HASH0, 'SM_Airship geometry/UV changed'
+assert mesh_hash(ship.data) == HASH0, 'SM_Airship geometry/UV changed (kept part)'
 
 # ------------------------------------------------------------------ materials
 assert [m.name for m in ship.data.materials] == ['M_Airship']
@@ -363,7 +405,9 @@ for n in ORDER:
 C.dump_json(dict(count=len(ORDER), deform=sum(1 for n in ORDER if BONES[n]['deform']), bones=tab), C.CHECKS + '/bones_blender.json')
 C.dump_json(dict(meshes={k: dict(verts=sum(v.values()), groups=v) for k, v in SKIN.items()},
                  total_verts=sum(sum(v.values()) for v in SKIN.values()), per_bone_verts=used,
-                 hull_hash_unchanged=True, hull_hash=HASH0,
+                 hull_hash_unchanged=True, hull_hash=HASH0, hull_hash_note='md5 of the kept part of Talal\'s '
+                 'SM_Airship (positions, UVs, corners) before the deletion = the rig mesh after skinning',
+                 deck_removal=REMOVAL,
                  rule='every vertex exactly one vertex group, weight 1.0; one group per bone; props 100 % on their bone'),
            C.CHECKS + '/skin_report.json')
 bpy.ops.wm.save_as_mainfile(filepath=C.RIG_BLEND, relative_remap=True, compress=False)

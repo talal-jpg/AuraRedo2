@@ -6,13 +6,17 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "AbilitySystem/Data/MyGameplayTags.h"
+#include "Airship/AirshipDamageEffect.h"
 #include "Airship/AirshipPawn.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/Engine.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameplayEffect.h"
+#include "Interfaces/MyCombatInterface.h"
 #include "MechSwarm/Combat/MechSentinelCombatLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "NiagaraComponent.h"
@@ -36,7 +40,9 @@ AAirshipCannonball::AAirshipCannonball()
 	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionSphere->SetCollisionObjectType(ECC_WorldDynamic);
 	CollisionSphere->SetCollisionResponseToAllChannels(ECR_Block);
-	CollisionSphere->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+	// Visibility blocks: the character gun's crosshair sweep and the ship turrets' traces hit the ball and can shoot it
+	// down (ApplyShotDamage). The ship's own aim traces look past every ball (AAirshipPawn::TraceAimPoint).
+	CollisionSphere->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 	CollisionSphere->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	// Pawns: overlap, so a hit on a character (or the Burrower's mesh, which only overlaps) explodes without a bounce
 	CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
@@ -72,6 +78,10 @@ void AAirshipCannonball::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 
 	DOREPLIFETIME_CONDITION(AAirshipCannonball, SourceShip, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AAirshipCannonball, LaunchVelocity, COND_InitialOnly);
+	// Only differs from the class default for a test ball (SpawnTestCannonball's override), so it costs nothing otherwise
+	DOREPLIFETIME_CONDITION(AAirshipCannonball, GravityScale, COND_InitialOnly);
+	DOREPLIFETIME(AAirshipCannonball, bShotDown);
+	DOREPLIFETIME(AAirshipCannonball, ShotDownLocation);
 }
 
 void AAirshipCannonball::InitCannonball(AAirshipPawn* InShip, const FVector& InVelocity, const FGameplayEffectSpecHandle& InDamageSpec, float InDamage)
@@ -98,6 +108,9 @@ void AAirshipCannonball::IgnoreActor(AActor* Actor)
 void AAirshipCannonball::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Every machine starts full; only the server counts hits (ApplyShotDamage)
+	BallHealth = BallMaxHealth;
 
 	if (CollisionSphere)
 	{
@@ -140,6 +153,13 @@ void AAirshipCannonball::BeginPlay()
 	SentinelsHit = MakeShared<TSet<uint64>>();
 	LastSweepLocation = GetActorLocation();
 	bHasLastSweepLocation = true;
+
+	// A client that first hears of the ball after it was shot down gets bShotDown with the spawn, and its OnRep runs
+	// before BeginPlay (which just restarted the flight above): stop it again
+	if (bShotDown)
+	{
+		EnterShotDownState();
+	}
 }
 
 void AAirshipCannonball::Tick(float DeltaSeconds)
@@ -175,6 +195,28 @@ bool AAirshipCannonball::ShouldIgnore(const AActor* Actor) const
 		return true;
 	}
 
+	// Deck riders of the firing ship (not attached, so IsAttachedTo misses them): no friendly fire on its own crew.
+	// The actor may be something a rider carries, so the character it is attached to counts. IsRiderForDamage, not the
+	// wider passenger zone: an enemy jumping or hovering next to the ship is hit.
+	if (SourceShip)
+	{
+		for (const AActor* Link = Actor; Link; Link = Link->GetAttachParentActor())
+		{
+			const ACharacter* Character = Cast<ACharacter>(Link);
+
+			if (!Character)
+			{
+				continue;
+			}
+
+			if (SourceShip->IsRiderForDamage(Character))
+			{
+				return true;
+			}
+			break;
+		}
+	}
+
 	// Another ball (same broadside or a crossing one)
 	return Actor->IsA<AAirshipCannonball>();
 }
@@ -183,7 +225,10 @@ void AAirshipCannonball::OnProjectileStop(const FHitResult& ImpactResult)
 {
 	if (!HasAuthority())
 	{
-		// Clients: wait for the server's impact (or the actor's removal), hidden
+		// Clients: wait for the server's impact (or the actor's removal), hidden. Collision off as Explode does on the
+		// server: the ball blocks Visibility, and a hidden one left on a target would catch this machine's crosshair
+		// sweep and turret tracers there.
+		SetActorEnableCollision(false);
 		SetActorHiddenInGame(true);
 		return;
 	}
@@ -390,6 +435,9 @@ void AAirshipCannonball::QueueSentinelSweep(const FVector& Start, const FVector&
 
 void AAirshipCannonball::MulticastImpact_Implementation(FVector_NetQuantize Location, FVector_NetQuantizeNormal Normal)
 {
+	// Spent on every machine: no Visibility block left where it hit (a client's crosshair sweep would pick the hidden
+	// ball, and GA_GunShoot ignores a spent one, so shots at the target would do nothing for ImpactDestroyDelay)
+	SetActorEnableCollision(false);
 	SetActorHiddenInGame(true);
 
 	if (Movement)
@@ -397,10 +445,164 @@ void AAirshipCannonball::MulticastImpact_Implementation(FVector_NetQuantize Loca
 		Movement->StopMovementImmediately();
 	}
 
-	if (ImpactFX && GetNetMode() != NM_DedicatedServer)
+	// Once per machine: with bSplashWhenShotDown a shot-down ball also explodes, and the replicated shoot-down may arrive first
+	if (ImpactFX && GetNetMode() != NM_DedicatedServer && !bImpactFXPlayed)
 	{
+		bImpactFXPlayed = true;
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ImpactFX, Location, FVector(Normal).Rotation(), FVector(ImpactFXScale));
 	}
 
 	BP_OnImpact(Location, Normal);
+}
+
+bool AAirshipCannonball::ApplyShotDamage(float DamageUnits, AActor* DamageInstigator)
+{
+	// Not before BeginPlay (BallHealth is set there); NaN fails the > test
+	if (!HasAuthority() || !HasActorBegunPlay() || IsSpent() || BallMaxHealth <= 0.f || !(DamageUnits > 0.f))
+	{
+		return false;
+	}
+
+	BallHealth -= DamageUnits;
+
+	if (BallHealth > 0.f)
+	{
+		UE_LOG(LogAirshipCannonball, Verbose, TEXT("%s hit by %s: %.1f of %.1f left"), *GetName(), *GetNameSafe(DamageInstigator), BallHealth, BallMaxHealth);
+		return false;
+	}
+
+	BallHealth = 0.f;
+	bShotDown = true;
+	ShotDownLocation = GetActorLocation();
+
+	UE_LOG(LogAirshipCannonball, Verbose, TEXT("%s shot down by %s at %s"), *GetName(), *GetNameSafe(DamageInstigator), *ShotDownLocation.ToCompactString());
+
+	if (bSplashWhenShotDown)
+	{
+		// Explodes like an impact (damage, splash, sentinels, MulticastImpact); bShotDown still stops every client's copy
+		Explode(ShotDownLocation, -GetVelocity().GetSafeNormal(), nullptr);
+		PlayShotDownFX();
+		EnterShotDownState();
+	}
+	else
+	{
+		// Defused: Explode never runs (no damage, no splash, no sentinel sweep)
+		bExploded = true;
+		PlayShotDownFX();
+		EnterShotDownState();
+		SetLifeSpan(ImpactDestroyDelay);
+	}
+
+	// The state is what clients act on: send it now, not at the next net update
+	ForceNetUpdate();
+	return true;
+}
+
+void AAirshipCannonball::OnRep_ShotDown()
+{
+	if (!bShotDown)
+	{
+		return;
+	}
+
+	// The client's copy flew on its own: burst it where the server's ball was, then stop it there
+	SetActorEnableCollision(false);
+	SetActorLocation(ShotDownLocation, false, nullptr, ETeleportType::TeleportPhysics);
+	PlayShotDownFX();
+	EnterShotDownState();
+}
+
+void AAirshipCannonball::EnterShotDownState()
+{
+	SetActorEnableCollision(false);
+	SetActorHiddenInGame(true);
+
+	if (Movement)
+	{
+		Movement->StopMovementImmediately();
+		// The projectile adds gravity every tick: without this the hidden ball would fall on until it is removed
+		Movement->SetComponentTickEnabled(false);
+	}
+}
+
+void AAirshipCannonball::PlayShotDownFX()
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	if (ImpactFX && !bImpactFXPlayed)
+	{
+		bImpactFXPlayed = true;
+
+		// Faces back along the flight, like the normal of a wall hit (a copy that already stopped uses its launch direction)
+		FVector Back = Movement ? -Movement->Velocity.GetSafeNormal() : FVector::ZeroVector;
+
+		if (Back.IsNearlyZero())
+		{
+			Back = -FVector(LaunchVelocity).GetSafeNormal();
+		}
+
+		const FRotator Rotation = Back.IsNearlyZero() ? FRotator::ZeroRotator : Back.Rotation();
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ImpactFX, ShotDownLocation, Rotation, FVector(ImpactFXScale));
+	}
+
+	BP_OnShotDown(ShotDownLocation);
+}
+
+AAirshipCannonball* AAirshipCannonball::SpawnTestCannonball(UObject* WorldContextObject, TSubclassOf<AAirshipCannonball> BallClass,
+	FVector Location, FVector Velocity, AAirshipPawn* SourceShip, float InDamage, float GravityScaleOverride)
+{
+	UWorld* World = GEngine ? GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull) : nullptr;
+
+	if (!World || World->GetNetMode() == NM_Client)
+	{
+		UE_LOG(LogAirshipCannonball, Warning, TEXT("SpawnTestCannonball: needs a server world (listen server or standalone)"));
+		return nullptr;
+	}
+
+	UClass* Class = BallClass ? BallClass.Get() : AAirshipCannonball::StaticClass();
+
+	// The damage path of FireCannons (ship ASC, SetByCaller); the ship's own DamageEffectClass is not public, so the
+	// built-in effect stands in. No ship: no spec and no damage at all (sentinels included)
+	FGameplayEffectSpecHandle Spec;
+	float SpecDamage = 0.f;
+	UAbilitySystemComponent* ShipASC = SourceShip ? SourceShip->GetAbilitySystemComponent() : nullptr;
+
+	if (ShipASC && InDamage > 0.f)
+	{
+		FGameplayEffectContextHandle Context = ShipASC->MakeEffectContext();
+		Context.AddInstigator(SourceShip, SourceShip);
+		Context.AddSourceObject(SourceShip);
+		const float Level = static_cast<float>(IMyCombatInterface::Execute_GetLevel(SourceShip));
+		Spec = ShipASC->MakeOutgoingSpec(TSubclassOf<UGameplayEffect>(UAirshipDamageEffect::StaticClass()), Level, Context);
+
+		if (Spec.IsValid())
+		{
+			Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, InDamage);
+			SpecDamage = InDamage;
+		}
+	}
+
+	const FTransform SpawnTM(Velocity.IsNearlyZero() ? FRotator::ZeroRotator : Velocity.Rotation(), Location);
+	AAirshipCannonball* Ball = World->SpawnActorDeferred<AAirshipCannonball>(Class, SpawnTM, SourceShip, SourceShip, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+
+	if (!Ball)
+	{
+		return nullptr;
+	}
+
+	Ball->InitCannonball(SourceShip, Velocity, Spec, SpecDamage);
+
+	if (GravityScaleOverride >= 0.f)
+	{
+		Ball->GravityScale = GravityScaleOverride;
+	}
+
+	Ball->FinishSpawning(SpawnTM);
+
+	UE_LOG(LogAirshipCannonball, Log, TEXT("SpawnTestCannonball: %s at %s, velocity %s, gravity %.2f, ship %s, damage %.1f"),
+		*Ball->GetName(), *Location.ToCompactString(), *Velocity.ToCompactString(), Ball->GravityScale, *GetNameSafe(SourceShip), SpecDamage);
+	return Ball;
 }

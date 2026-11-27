@@ -208,6 +208,68 @@ bool UMyCharacterMovementComponent::IsOnGrappleRope() const
 	return false;
 }
 
+void UMyCharacterMovementComponent::ApplyImpartedMovementBaseVelocity()
+{
+	// What Super adds to Velocity: the base's velocity at the character (zero for a base that does not move)
+	CarriedBaseVelocity=GetImpartedMovementBaseVelocity();
+	Super::ApplyImpartedMovementBaseVelocity();
+}
+
+void UMyCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
+{
+	if (MovementMode==MOVE_Falling)
+	{
+		// Before Super, which reads it: leaving the deck of a vehicle (a base under a pawn that simulates physics: the
+		// airship's physics asset bodies and its turrets under the simulating hull) keeps the base in the air; any other
+		// base is dropped and gives its velocity (ApplyImpartedMovementBaseVelocity) as always. UpdateBasedMovement
+		// reads it while falling and drops the base once the character is not over it any more
+		bool bOnVehicle=false;
+		const FMovementBaseInterfaceData* Base=GetMovementBaseInterfaceData();
+		if (bStayOnVehicleInAir && MovementBaseUtility::IsSimulatedBase(Base))
+		{
+			const USceneComponent* Root=Cast<USceneComponent>(Base->GetBodyInstanceOwner()->GetPhysicsOwnerAttachmentRoot());
+			bOnVehicle=Root && Cast<APawn>(Root->GetOwner())!=nullptr;
+		}
+		bStayBasedInAir=bOnVehicle;
+	}
+	Super::OnMovementModeChanged(PreviousMovementMode,PreviousCustomMode);
+	if (MovementMode!=MOVE_Falling)
+	{
+		// Landed, hovering (its braking takes the speed off), swimming...: nothing carried any more
+		CarriedBaseVelocity=FVector::ZeroVector;
+	}
+}
+
+void UMyCharacterMovementComponent::SetPostLandedPhysics(const FHitResult& Hit)
+{
+	const bool bWasFalling=IsFalling();
+	// Walking again: Super finds the floor and sets the new base (OnMovementModeChanged)
+	Super::SetPostLandedPhysics(Hit);
+	if (!bWasFalling || !IsMovingOnGround() || HasAnimRootMotion() || CurrentRootMotion.HasOverrideVelocity())
+	{
+		return;
+	}
+
+	// Landed on a moving base. Walking velocity is relative to the base (the base's own movement is added on top by
+	// UpdateBasedMovement), but Velocity still holds the world velocity of the fall: after a jump on the deck of an
+	// airship at 48 m/s that is the ship's 48 m/s, and the character slid 2.7 m along the deck until the ground friction
+	// had taken it off. The same velocity the engine gives on leaving the base (GetImpartedMovementBaseVelocity, now of
+	// the base landed on) comes off here, in the floor's plane. Only when that leaves the smaller speed: a character
+	// that reaches the deck from outside, slow in the world, keeps the engine's landing (it sticks to the deck)
+	const FVector Up=-GetGravityDirection();
+	const FVector BaseVelocity=FVector::VectorPlaneProject(GetImpartedMovementBaseVelocity(),Up);
+	if (BaseVelocity.IsNearlyZero())
+	{
+		return;
+	}
+	const FVector Horizontal=FVector::VectorPlaneProject(Velocity,Up);
+	const FVector Relative=Horizontal-BaseVelocity;
+	if (Relative.SizeSquared()<Horizontal.SizeSquared())
+	{
+		Velocity+=Relative-Horizontal;
+	}
+}
+
 void UMyCharacterMovementComponent::ApplyHover()
 {
 	if (bWantsToHover)
@@ -247,9 +309,14 @@ void UMyCharacterMovementComponent::ApplyAirJumpRedirect()
 		return;
 	}
 
-	const FVector Horizontal=FVector::VectorPlaneProject(Velocity,Up);
-	const FVector Vertical=Velocity-Horizontal;
+	// Relative to the moving base the character left (zero otherwise): after a jump on an airship's deck the horizontal
+	// velocity is the ship's 48 m/s plus the character's own. Turning all of it toward the input threw the character
+	// off the ship at the ship's speed; only its own part turns, the ship's stays
+	const FVector Carried=FVector::VectorPlaneProject(CarriedBaseVelocity,Up);
+	const FVector HorizontalWorld=FVector::VectorPlaneProject(Velocity,Up);
+	const FVector Vertical=Velocity-HorizontalWorld;
+	const FVector Horizontal=HorizontalWorld-Carried;
 	const float BaseSpeed=(AirJumpHorizontalSpeed>0.f ? AirJumpHorizontalSpeed : MaxWalkSpeed)*InputStrength;
 	const float NewSpeed=FMath::Max(static_cast<float>(Horizontal.Size())*AirJumpKeepSpeed,BaseSpeed);
-	Velocity=Vertical+Input.GetSafeNormal()*NewSpeed;
+	Velocity=Vertical+Carried+Input.GetSafeNormal()*NewSpeed;
 }

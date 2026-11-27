@@ -3,7 +3,9 @@
 * skin: every vertex in exactly one group with weight 1, the expected bone (research island map / prop names);
 * deformation: each of the 105 skinned bones is rotated alone; the set of vertices that move must be exactly the
   vertices of that bone and its descendants (checked per vertex, all 31 meshes);
-* prop atlas: UV channel 0, overlap raster test (4 cannon copies may share their region with each other only).
+* prop atlas: UV channel 0, overlap raster test (4 cannon copies may share their region with each other only), with the
+  two turret static meshes (export/SM_AirshipTurret_*.fbx) on the same atlas.
+Round 2: SM_Airship is Talal's mesh minus the islands in scripts/deck_removals.json (vertex i = his kept vertex i).
 
   blender -b --factory-startup --python rig/scripts/verify_import.py -- [--fbx F] [--out rig/checks/verify/import_verify.json]
 """
@@ -71,7 +73,12 @@ islands = json.load(open(RES + '/sm_airship_islands.json'))
 vparts = json.load(open(RES + '/sm_airship_vertex_parts.json'))
 isl = {i['id']: i for i in islands['islands']}
 pn = vparts['parts']
+DR = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deck_removals.json')))
+REMOVED = sorted(i for p in DR['pieces'] for i in p['islands'])
+KEEP = np.nonzero(~np.isin(np.array(vparts['vertex_island']), REMOVED))[0]
+rep['sm_airship_expected_verts'] = int(len(KEEP))
 def exp_sm(vi):
+    vi = int(KEEP[vi])
     part = pn[vparts['vertex_part'][vi]]; i = isl[vparts['vertex_island'][vi]]; piece = i['piece']
     if part.startswith('Pod_'): return 'Thruster_' + part[4:]
     if part.startswith('Nozzle_'):
@@ -91,9 +98,12 @@ def exp_prop(n):
 expected = {}
 for o in meshes:
     nv = len(o.data.vertices)
+    if o.name == 'SM_Airship' and nv != len(KEEP):
+        defect('imported SM_Airship has %d vertices, expected %d (Talal\'s minus the removed deck pieces)' % (nv, len(KEEP)))
+        nv = min(nv, len(KEEP))
     expected[o.name] = [exp_sm(i) for i in range(nv)] if o.name == 'SM_Airship' else [exp_prop(o.name)] * nv
-if 'SM_Airship' not in expected or len(expected['SM_Airship']) != 36908:
-    defect('imported SM_Airship missing or wrong vertex count')
+if 'SM_Airship' not in expected:
+    defect('imported SM_Airship missing')
 
 # ---------------------------------------------------------------- weights (second reader)
 bad_w = 0; wrong = {}; nverts = 0
@@ -167,6 +177,17 @@ cover = np.zeros((RESN, RESN), np.int32)
 owner = np.full((RESN, RESN), -1, np.int32)
 pairs = {}
 props = [o for o in meshes if o.name != 'SM_Airship']
+# round 2: the turret static meshes share the prop atlas (separate FBX files next to the SK)
+before = set(bpy.data.objects)
+for n in ('SM_AirshipTurret_Base', 'SM_AirshipTurret_Gun'):
+    f = os.path.join(os.path.dirname(FBX), n + '.fbx')
+    if os.path.exists(f):
+        bpy.ops.import_scene.fbx(filepath=f)
+    else:
+        defect('missing %s' % f)
+turret_objs = sorted([o for o in bpy.data.objects if o not in before and o.type == 'MESH'], key=lambda o: o.name)
+rep['turret_meshes'] = [o.name for o in turret_objs]
+props += turret_objs
 uvinfo = {}
 oid = 0
 names = {}

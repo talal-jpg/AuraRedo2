@@ -3,10 +3,13 @@
 
 #include "Airship/AirshipFlightComponent.h"
 
+#include "Airship/AirshipCannonball.h"
 #include "Airship/AirshipPawn.h"
+#include "Airship/AirshipSettings.h"
 #include "Components/PrimitiveComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
+#include "GameFramework/Character.h"
 #include "HAL/IConsoleManager.h"
 #include "Net/UnrealNetwork.h"
 #include "PhysicsEngine/BodyInstance.h"
@@ -387,7 +390,9 @@ void UAirshipFlightComponent::ServerSetPilotInput_Implementation(const FAirshipP
 	}
 
 	ServerInput = Input;
-	LastGoodServerInput = Input;
+	// The drift bit is the server's own (an unpiloted ship's neutral controls), never a pilot's
+	ServerInput.SetButton(Airship::Button_Drift, false);
+	LastGoodServerInput = ServerInput;
 	bHasServerInput = true;
 	LastServerInputTime = Now;
 }
@@ -460,12 +465,17 @@ FAirshipPilotInput UAirshipFlightComponent::SelectControls() const
 			Held.SetButton(Airship::Button_Brake, false);
 			Held.SetButton(Airship::Button_Aim, false);
 			Held.SetButton(Airship::Button_Stations, false);
+			// A quiet pilot's held Fire doesn't keep the turrets firing
+			Held.SetButton(Airship::Button_FireHeld, false);
 			Held.HeadingTarget = 0;
 			return Held;
 		}
 
-		// No pilot, or the pilot went quiet: neutral controls (the ship holds its altitude)
-		return FAirshipPilotInput();
+		// No pilot, or the pilot went quiet: neutral controls (the ship holds its altitude). A drifting ship says so in
+		// them: RepInput carries the bit to every machine, so they all shape the same cosmetics (Galleon: no STOP reverse)
+		FAirshipPilotInput Neutral;
+		Neutral.SetButton(Airship::Button_Drift, UnpilotedTarget.Mode == EAirshipUnpilotedMode::Drift);
+		return Neutral;
 	}
 
 	return RepInput;
@@ -633,6 +643,13 @@ void UAirshipFlightComponent::ShapeGalleon(const FAirshipPilotInput& Controls, f
 		const float OrderSpeed = Notch < 0 ? -GalleonOrderAsternSpeed
 			: (Notch == AirshipGalleon::Slow ? GalleonOrderSlowSpeed : (Notch == AirshipGalleon::Half ? GalleonOrderHalfSpeed : 0.f));
 		ThrottleTarget = FMath::Clamp(GalleonHoldThrottle(OrderSpeed) + GalleonOrderSpeedGain * (OrderSpeed - ForwardSpeed), -1.f, 1.f);
+	}
+
+	// An unpiloted drift: the neutral controls decode as STOP, whose speed loop would back the engines against the drift.
+	// The engines idle (the drift force eases the speed down instead, ApplyForces).
+	if (Controls.HasButton(Airship::Button_Drift))
+	{
+		ThrottleTarget = 0.f;
 	}
 
 	// The air brake while held (the order resumes on release); the swing keeps the order's throttle
@@ -831,6 +848,12 @@ void UAirshipFlightComponent::UpdateFlight(float DeltaSeconds)
 	const FVector Velocity = Body->IsSimulatingPhysics() ? Body->GetPhysicsLinearVelocity() : Ship->GetVelocity();
 	const float ForwardSpeed = static_cast<float>(FVector::DotProduct(Velocity, Body->GetForwardVector()));
 
+	// Server: what the ship does without a pilot (before the controls: a drift sets a bit in the neutral ones)
+	if (bAuthority)
+	{
+		UpdateUnpilotedMode(Body, Velocity);
+	}
+
 	FAirshipPilotInput Controls = SelectControls();
 
 	if (bAuthority)
@@ -912,9 +935,343 @@ void UAirshipFlightComponent::UpdateFlight(float DeltaSeconds)
 		bPodForceInitialized = false;
 		DriftTime = 0.f;
 		ResetSchemeState(false);
+		UnpilotedTarget = FAirshipUnpilotedTarget();
+		bDriftRequest = false;
 	}
 
 	UpdateCosmetic(ForwardSpeed, static_cast<float>(Velocity.Size()));
+}
+
+
+// =============================================================================
+// Unpiloted ship (server): drift after a moving exit, hold when parked
+// =============================================================================
+
+namespace AirshipFlightPrivate
+{
+	const TCHAR* UnpilotedModeName(EAirshipUnpilotedMode Mode)
+	{
+		switch (Mode)
+		{
+		case EAirshipUnpilotedMode::Coast: return TEXT("Coast");
+		case EAirshipUnpilotedMode::Drift: return TEXT("Drift");
+		case EAirshipUnpilotedMode::Hold: return TEXT("Hold");
+		default: return TEXT("None");
+		}
+	}
+}
+
+void UAirshipFlightComponent::NotifyPilotLeft(const FVector& ExitVelocity)
+{
+	const UPrimitiveComponent* Body = GetBody();
+
+	if (!Body || !GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+
+	// ResetInput (UnPossessed, before this) leaves it alone; the next evaluation drifts or parks
+	bDriftRequest = true;
+	DriftExitForwardSpeed = static_cast<float>(FVector::DotProduct(ExitVelocity, Body->GetForwardVector()));
+	DriftRequestYaw = static_cast<float>(Body->GetComponentRotation().Yaw);
+	DriftStart = Body->GetCenterOfMass();
+	bDriftBlocked = false;
+}
+
+bool UAirshipFlightComponent::IsDriftIgnored(const AActor* Other) const
+{
+	const AActor* Owner = GetOwner();
+
+	if (!Other)
+	{
+		return false;
+	}
+
+	// Its own parts and riders, characters anywhere and cannonballs never stop it. Other ships do (they are pawns too).
+	return Other == Owner
+		|| (Owner && Other->IsAttachedTo(Owner))
+		|| Other->IsA<ACharacter>()
+		|| Other->IsA<AAirshipCannonball>()
+		|| (Other->IsA<APawn>() && !Other->IsA<AAirshipPawn>());
+}
+
+void UAirshipFlightComponent::NotifyHullContact(const AActor* Other, const FHitResult& Hit)
+{
+	UPrimitiveComponent* Body = GetBody();
+
+	if (UnpilotedTarget.Mode != EAirshipUnpilotedMode::Drift || bDriftBlocked || !Body || IsDriftIgnored(Other))
+	{
+		return;
+	}
+
+	// At the bow: ahead of the centre of mass by more than 30 % of the hull's half length, and facing the drift (the
+	// normal's sign in rigid-body hit events is not relied on). A graze along the side or the ground under it doesn't count.
+	const FTransform BodyTM = Body->GetComponentTransform();
+	const FBox Local = Body->CalcBounds(FTransform::Identity).GetBox();
+	const double HalfLength = Local.IsValid ? 0.5 * (Local.Max.X - Local.Min.X) : 0.0;
+	const double AheadOfCOM = BodyTM.InverseTransformPosition(Hit.ImpactPoint).X - BodyTM.InverseTransformPosition(Body->GetCenterOfMass()).X;
+	const FVector DriftDir = FRotator(0.0, UnpilotedTarget.HeadingYaw, 0.0).Vector();
+
+	if (AheadOfCOM <= 0.3 * HalfLength || FMath::Abs(FVector::DotProduct(Hit.ImpactNormal, DriftDir)) < UAirshipSettings::Get()->DriftBowHitMinDot)
+	{
+		return;
+	}
+
+	bDriftBlocked = true;
+	UE_LOG(LogAirshipFlight, Log, TEXT("%s: drift ends, bow contact with %s"), *GetNameSafe(GetOwner()), *GetNameSafe(Other));
+}
+
+float UAirshipFlightComponent::GetDriftLookAheadDistance(float ForwardSpeed) const
+{
+	const UAirshipSettings* S = UAirshipSettings::Get();
+
+	// Never shorter than the drift target's own look-ahead. At speed: the time ahead, plus the stop the hold's capped
+	// spring needs from there (drag helps it, so this errs long). After a 48 m/s exit that is about 720 m, falling as
+	// the ship slows: a far wall ends the drift only once the ship couldn't stop short of it any more.
+	const float Speed = FMath::Max(ForwardSpeed, UnpilotedTarget.ForwardSpeed);
+	const float StopDistance = FMath::Square(Speed) / (2.f * FMath::Max(S->HoldAccelMax, 1.f));
+	return FMath::Max(S->DriftLookAheadMin, Speed * S->DriftLookAheadTime + StopDistance);
+}
+
+bool UAirshipFlightComponent::SweepDriftAhead(UPrimitiveComponent* Body, float ForwardSpeed, float& OutDistance) const
+{
+	const UWorld* World = GetWorld();
+	const AActor* Owner = GetOwner();
+	const UAirshipSettings* S = UAirshipSettings::Get();
+	OutDistance = GetDriftLookAheadDistance(ForwardSpeed);
+
+	if (!World || !Body || !Owner)
+	{
+		return false;
+	}
+
+	// The hull's own box (the hidden SM_Airship body), inset on every side and with its bottom lifted, so level flight over
+	// the ground doesn't count (the MinClearance floor lifts the ship over rising ground)
+	const FBox Local = Body->CalcBounds(FTransform::Identity).GetBox();
+
+	if (!Local.IsValid)
+	{
+		return false;
+	}
+
+	FVector Min = Local.Min + FVector(S->DriftSweepInset);
+	FVector Max = Local.Max - FVector(S->DriftSweepInset);
+	Min.Z += S->DriftSweepFloorLift;
+
+	for (int32 Axis = 0; Axis < 3; ++Axis)
+	{
+		// Aura.Airship.Set skips the ClampMin metadata: keep a box at least 20 cm across
+		if (Max[Axis] - Min[Axis] < 20.0)
+		{
+			const double Mid = 0.5 * (Max[Axis] + Min[Axis]);
+			Min[Axis] = Mid - 10.0;
+			Max[Axis] = Mid + 10.0;
+		}
+	}
+
+	const FTransform BodyTM = Body->GetComponentTransform();
+	const FVector Extent = 0.5 * (Max - Min) * BodyTM.GetScale3D().GetAbs();
+	const FVector Start = BodyTM.TransformPosition(0.5 * (Min + Max));
+	const FVector Dir = FRotator(0.0, UnpilotedTarget.HeadingYaw, 0.0).Vector();
+	const float Distance = OutDistance;
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipDriftAhead), false, Owner);
+	TArray<AActor*> Attached;
+	Owner->GetAttachedActors(Attached, true, true);
+	Params.AddIgnoredActors(Attached);
+
+	FCollisionObjectQueryParams Objects;
+	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
+	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+	Objects.AddObjectTypesToQuery(ECC_PhysicsBody);
+
+	TArray<FHitResult> Hits;
+	World->SweepMultiByObjectType(Hits, Start, Start + Dir * Distance, BodyTM.GetRotation(), Objects, FCollisionShape::MakeBox(Extent), Params);
+
+	const ECollisionChannel HullChannel = Body->GetCollisionObjectType();
+
+	for (const FHitResult& Hit : Hits)
+	{
+		const UPrimitiveComponent* Other = Hit.GetComponent();
+
+		if (!Other || IsDriftIgnored(Hit.GetActor()))
+		{
+			continue;
+		}
+
+		// Only what the hull would bump into (a physics body that blocks the hull's channel): no trigger volumes
+		if (!CollisionEnabledHasPhysics(Other->GetCollisionEnabled()) || Other->GetCollisionResponseToChannel(HullChannel) != ECR_Block)
+		{
+			continue;
+		}
+
+		UE_LOG(LogAirshipFlight, Log, TEXT("%s: drift ends, %s %.0f cm ahead"), *GetNameSafe(Owner), *GetNameSafe(Hit.GetActor()),
+			Hit.bStartPenetrating ? 0.f : Hit.Distance);
+		return true;
+	}
+
+	return false;
+}
+
+void UAirshipFlightComponent::BeginHold(UPrimitiveComponent* Body)
+{
+	const FVector COM = Body->GetCenterOfMass();
+	UnpilotedTarget = FAirshipUnpilotedTarget();
+	UnpilotedTarget.Mode = EAirshipUnpilotedMode::Hold;
+	UnpilotedTarget.HoldPoint = FVector2D(COM.X, COM.Y);
+	UnpilotedTarget.HeadingYaw = static_cast<float>(Body->GetComponentRotation().Yaw);
+}
+
+void UAirshipFlightComponent::UpdateUnpilotedMode(UPrimitiveComponent* Body, const FVector& Velocity)
+{
+	using namespace AirshipFlightPrivate;
+
+	const AAirshipPawn* Ship = GetShip();
+	const UWorld* World = GetWorld();
+	const UAirshipSettings* S = UAirshipSettings::Get();
+
+	if (!Ship || !World || !Body)
+	{
+		return;
+	}
+
+	const EAirshipUnpilotedMode OldMode = UnpilotedTarget.Mode;
+
+	// A pilot at the helm (or a controller on the ship: a pilot whose character is gone keeps flying), debug controls
+	// (the harness), flight off (death): nobody else's business. A later exit asks again (NotifyPilotLeft).
+	if (!bFlightEnabled || Ship->HasPilot() || Ship->GetController() || bDebugInputActive || Ship->IsAirshipDead())
+	{
+		// Any drift asked for before is dropped: the request comes after the possession ends (debug controls cleared on
+		// an unpiloted ship: Hold if slow, else Coast then Hold)
+		UnpilotedTarget = FAirshipUnpilotedTarget();
+		bDriftBlocked = false;
+		bDriftRequest = false;
+	}
+	else
+	{
+		const FVector COM = Body->GetCenterOfMass();
+		const FVector2D COMXY(COM.X, COM.Y);
+		const float HullYaw = static_cast<float>(Body->GetComponentRotation().Yaw);
+		const bool bSlow = static_cast<float>(Velocity.Size2D()) < S->HoldEngageSpeed;
+		const bool bCanHold = S->bHoldWhenUnpiloted;
+		const double Now = World->GetTimeSeconds();
+
+		switch (UnpilotedTarget.Mode)
+		{
+		case EAirshipUnpilotedMode::None:
+		{
+			if (bDriftRequest && S->DriftSpeed > 0.f && DriftExitForwardSpeed > S->DriftMinExitSpeed)
+			{
+				// A moving exit: ahead on the exit heading at DriftSpeed (or slower: a slow exit never speeds up)
+				UnpilotedTarget = FAirshipUnpilotedTarget();
+				UnpilotedTarget.Mode = EAirshipUnpilotedMode::Drift;
+				UnpilotedTarget.HeadingYaw = DriftRequestYaw;
+				DriftSpeedLimit = DriftExitForwardSpeed;
+				UnpilotedTarget.ForwardSpeed = FMath::Min(DriftSpeedLimit, S->DriftSpeed);
+				bDriftBlocked = false;
+				NextDriftSweepTime = Now;
+			}
+			else if (bCanHold && bSlow)
+			{
+				// Left at rest, or never piloted (placed, spawned): parked here (no creep off its trim)
+				BeginHold(Body);
+			}
+			else
+			{
+				UnpilotedTarget = FAirshipUnpilotedTarget();
+				UnpilotedTarget.Mode = EAirshipUnpilotedMode::Coast;
+			}
+
+			bDriftRequest = false;
+			break;
+		}
+
+		case EAirshipUnpilotedMode::Coast:
+		{
+			if (bCanHold && bSlow)
+			{
+				BeginHold(Body);
+			}
+			break;
+		}
+
+		case EAirshipUnpilotedMode::Drift:
+		{
+			// Live tuning follows (Aura.Airship.Set Settings.DriftSpeed); 0 ends the drift
+			UnpilotedTarget.ForwardSpeed = FMath::Min(DriftSpeedLimit, S->DriftSpeed);
+
+			if (!bDriftBlocked && Now >= NextDriftSweepTime)
+			{
+				// The real speed along the heading: after a fast exit the ship is still slowing from cruise for a while
+				const FVector DriftDir = FRotator(0.0, UnpilotedTarget.HeadingYaw, 0.0).Vector();
+				const float AlongSpeed = FMath::Max(0.f, static_cast<float>(FVector::DotProduct(Velocity, DriftDir)));
+				float LookAhead = 0.f;
+				bDriftBlocked = SweepDriftAhead(Body, AlongSpeed, LookAhead);
+
+				// The next sweep before the ship has covered half of this one (consecutive boxes overlap at any speed)
+				const float HalfCoverTime = 0.5f * LookAhead / FMath::Max(AlongSpeed, 1.f);
+				NextDriftSweepTime = Now + FMath::Clamp(HalfCoverTime, 0.02f, FMath::Max(S->DriftSweepInterval, 0.02f));
+			}
+
+			const bool bFar = S->DriftMaxDistance > 0.f && FVector2D::Distance(COMXY, FVector2D(DriftStart.X, DriftStart.Y)) > S->DriftMaxDistance;
+
+			if (bDriftBlocked || bFar || S->DriftSpeed <= 0.f)
+			{
+				// Something ahead (or far enough): stop where it is. Without the hold: the old coast.
+				bDriftBlocked = false;
+
+				if (bCanHold)
+				{
+					BeginHold(Body);
+				}
+				else
+				{
+					UnpilotedTarget = FAirshipUnpilotedTarget();
+					UnpilotedTarget.Mode = EAirshipUnpilotedMode::Coast;
+				}
+			}
+			break;
+		}
+
+		case EAirshipUnpilotedMode::Hold:
+		{
+			if (!bCanHold)
+			{
+				UnpilotedTarget = FAirshipUnpilotedTarget();
+				UnpilotedTarget.Mode = EAirshipUnpilotedMode::Coast;
+				break;
+			}
+
+			// Pushed far or turned hard (a ram, a tow, a teleport): the hold drops again where it is once slow, coasting until then
+			const bool bFar = S->HoldResetDistance > 0.f && FVector2D::Distance(COMXY, UnpilotedTarget.HoldPoint) > S->HoldResetDistance;
+			const bool bTurned = S->HoldResetYawDeg > 0.f && FMath::Abs(WrapDeg(UnpilotedTarget.HeadingYaw - HullYaw)) > S->HoldResetYawDeg;
+
+			if (bFar || bTurned)
+			{
+				if (bSlow)
+				{
+					BeginHold(Body);
+				}
+				else
+				{
+					UnpilotedTarget = FAirshipUnpilotedTarget();
+					UnpilotedTarget.Mode = EAirshipUnpilotedMode::Coast;
+				}
+			}
+			break;
+		}
+
+		default:
+			break;
+		}
+	}
+
+	if (UnpilotedTarget.Mode != OldMode)
+	{
+		const FString Extra = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Drift ? FString::Printf(TEXT(", drift %.0f cm/s"), UnpilotedTarget.ForwardSpeed) : FString();
+		UE_LOG(LogAirshipFlight, Log, TEXT("%s: unpiloted %s -> %s (%.0f cm/s%s)"), *GetNameSafe(GetOwner()), UnpilotedModeName(OldMode),
+			UnpilotedModeName(UnpilotedTarget.Mode), static_cast<float>(Velocity.Size2D()), *Extra);
+	}
 }
 
 void UAirshipFlightComponent::TraceGround(UPrimitiveComponent* Body)
@@ -1234,6 +1591,17 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 			// Drift exit: the nose swings back part of the slip while the grip pulls the path onto it
 			YawRateCmd -= SkyDriftExitYawGain * FMath::DegreesToRadians(SlipDeg);
 		}
+	}
+
+	// Unpiloted drift / hold: hold the heading (no pilot, so the steer is neutral; the anchor branch's yaw loop)
+	const bool bUnpilotedDrift = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Drift;
+	const bool bUnpilotedHold = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Hold;
+	const UAirshipSettings* UnpilotedSettings = UAirshipSettings::Get();
+
+	if (bUnpilotedDrift || bUnpilotedHold)
+	{
+		const float HeadingErrDeg = WrapDeg(UnpilotedTarget.HeadingYaw - static_cast<float>(Current.Yaw));
+		YawRateCmd = FMath::DegreesToRadians(FMath::Clamp(UnpilotedSettings->HoldYawGain * HeadingErrDeg, -UnpilotedSettings->HoldYawRateMax, UnpilotedSettings->HoldYawRateMax));
 	}
 
 	// The steady gun deck: fine helm (not while drifting)
@@ -1595,7 +1963,9 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 	// Base fix 4d: station keeping at low speed with no throttle, strafe or boost
 	float AKeepF = 0.f;
 
-	if (StationKeepGain > 0.f && FMath::Abs(Throttle) < 0.05f && FMath::Abs(Strafe) < 0.05f && Boost < 0.05f)
+	// Not while drifting (2.5 m/s is inside its full-strength band: it would brake the drift) or holding (the hold law
+	// replaces it at rest)
+	if (StationKeepGain > 0.f && FMath::Abs(Throttle) < 0.05f && FMath::Abs(Strafe) < 0.05f && Boost < 0.05f && !bUnpilotedDrift && !bUnpilotedHold)
 	{
 		const float Fade = FMath::Clamp(2.f - FMath::Sqrt(Vf * Vf + Vl * Vl) / FMath::Max(StationKeepSpeed, 1.f), 0.f, 1.f);
 		AKeepF = FMath::Clamp(-StationKeepGain * Vf, -StationKeepAccelMax, StationKeepAccelMax) * Fade;
@@ -1638,6 +2008,26 @@ void UAirshipFlightComponent::ApplyForces(UPrimitiveComponent* Body, float Dt)
 		{
 			ACom += FVector(V.X / VH, V.Y / VH, 0.0) * ADragPath;
 		}
+	}
+
+	if (bUnpilotedDrift)
+	{
+		// Along the hull: track the drift speed, with the drag at that speed fed forward (ADragFwd above takes the real
+		// drag off), capped both ways: from cruise speed it eases down at DriftDecelMax
+		const float T = UnpilotedTarget.ForwardSpeed;
+		const float ADrift = FMath::Clamp(UnpilotedSettings->DriftGain * (T - Vf) + (DragC1 * T + DragC2 * T * FMath::Abs(T)),
+			-UnpilotedSettings->DriftDecelMax, UnpilotedSettings->DriftAccelMax);
+		ACom += Fwd * ADrift;
+	}
+	else if (bUnpilotedHold)
+	{
+		// Capped spring and damper on the centre of mass back to the hold point (the anchor branch's law); the target
+		// velocity is 0 when parked (a lane cruise moves the point)
+		const FVector HoldCOM = Body->GetCenterOfMass();
+		const FVector2D Err = UnpilotedTarget.HoldPoint - FVector2D(HoldCOM.X, HoldCOM.Y);
+		const FVector2D VErr = UnpilotedTarget.HoldVelocity - FVector2D(V.X, V.Y);
+		const FVector2D AHold = (Err * UnpilotedSettings->HoldKp + VErr * UnpilotedSettings->HoldKd).GetClampedToMaxSize(UnpilotedSettings->HoldAccelMax);
+		ACom += FVector(AHold.X, AHold.Y, 0.0);
 	}
 
 	ACom.Z += AVert;
@@ -1847,4 +2237,16 @@ void UAirshipFlightComponent::FillTelemetry(FAirshipFlightTelemetry& Out) const
 	Out.TurboChain = bSky ? static_cast<int32>(SkyChain) : 0;
 	Out.bGunDeck = bShGunDeck;
 	Out.bGunLock = false;
+
+	// Unpiloted (server values; the target stays None on clients)
+	Out.UnpilotedMode = static_cast<uint8>(UnpilotedTarget.Mode);
+	Out.bUnpilotedDrift = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Drift;
+	Out.bUnpilotedHold = UnpilotedTarget.Mode == EAirshipUnpilotedMode::Hold;
+	Out.DriftTargetSpeedMS = Out.bUnpilotedDrift ? UnpilotedTarget.ForwardSpeed * 0.01f : 0.f;
+
+	if (Out.bUnpilotedHold)
+	{
+		const FVector COM = Body->GetCenterOfMass();
+		Out.HoldOffsetM = static_cast<float>(FVector2D::Distance(UnpilotedTarget.HoldPoint, FVector2D(COM.X, COM.Y))) * 0.01f;
+	}
 }

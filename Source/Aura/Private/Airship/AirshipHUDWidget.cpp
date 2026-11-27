@@ -3,13 +3,19 @@
 
 #include "Airship/AirshipHUDWidget.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "AbilitySystem/MyAttributeSet.h"
 #include "Airship/AirshipFlightComponent.h"
 #include "Airship/AirshipPawn.h"
+#include "Airship/AirshipTurret.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/LocalPlayer.h"
 #include "Fonts/FontMeasure.h"
 #include "Framework/Application/SlateApplication.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
 #include "Rendering/DrawElements.h"
 #include "Rendering/SlateRenderer.h"
@@ -86,6 +92,13 @@ namespace AirshipHUDPrivate
 		static TSet<FObjectKey> Learned;
 		return Learned;
 	}
+
+	/** The gunner panel's station tag (EAirshipStation order). */
+	const TCHAR* GunnerStationLabel(int32 Station)
+	{
+		static const TCHAR* const Labels[] = { TEXT("CANNON L1"), TEXT("CANNON L2"), TEXT("CANNON R1"), TEXT("CANNON R2"), TEXT("GUN L"), TEXT("GUN R") };
+		return (Station >= 0 && Station < static_cast<int32>(UE_ARRAY_COUNT(Labels))) ? Labels[Station] : TEXT("GUN");
+	}
 }
 
 UAirshipHUDWidget::UAirshipHUDWidget(const FObjectInitializer& ObjectInitializer)
@@ -97,6 +110,7 @@ UAirshipHUDWidget::UAirshipHUDWidget(const FObjectInitializer& ObjectInitializer
 	HullColor = FLinearColor(FColor(196, 58, 44));
 	BoostColor = FLinearColor(FColor(38, 120, 178));
 	ReloadColor = FLinearColor(FColor(232, 160, 40));
+	PilotColor = FLinearColor(FColor(74, 142, 64));
 
 	// Display only: clicks go through to the game
 	SetVisibilityInternal(ESlateVisibility::HitTestInvisible);
@@ -138,9 +152,21 @@ void UAirshipHUDWidget::SetAirship(AAirshipPawn* InAirship)
 
 FVector2D UAirshipHUDWidget::GetPanelSize() const
 {
-	const float Extra = LayoutScheme == EAirshipControlScheme::Galleon ? GalleonExtraHeight
-		: (LayoutScheme == EAirshipControlScheme::SkyRacer ? SkyRowHeight : 0.f);
+	if (GunnerStation >= 0)
+	{
+		return GunnerPanelSize;
+	}
+
+	// Every scheme: the PILOT and GUNS rows (round 2)
+	const float Extra = (LayoutScheme == EAirshipControlScheme::Galleon ? GalleonExtraHeight
+		: (LayoutScheme == EAirshipControlScheme::SkyRacer ? SkyRowHeight : 0.f)) + PilotRowHeight + GunsRowHeight;
 	return PanelSize + FVector2D(0.0, Extra);
+}
+
+void UAirshipHUDWidget::SetGunnerStation(AAirshipPawn* InAirship, int32 InStation)
+{
+	GunnerStation = (InAirship && InStation >= 0 && InStation < Airship::NumStations) ? InStation : -1;
+	SetAirship(GunnerStation >= 0 ? InAirship : nullptr);
 }
 
 void UAirshipHUDWidget::RefreshLayoutScheme()
@@ -186,6 +212,12 @@ void UAirshipHUDWidget::RefreshValues(float DeltaSeconds, bool bForceAltitude)
 	// Every frame: a scheme switch with the HUD up redraws at once (the ship resizes the slot)
 	LayoutScheme = Ship->GetControlScheme();
 
+	if (GunnerStation >= 0)
+	{
+		RefreshGunnerValues();
+		return;
+	}
+
 	if (bOverlayMode)
 	{
 		RefreshOverlayValues(DeltaSeconds);
@@ -209,6 +241,8 @@ void UAirshipHUDWidget::RefreshValues(float DeltaSeconds, bool bForceAltitude)
 		ReloadAlpha[Side] = Ship->GetCannonReloadAlpha(Which);
 		ReloadSeconds[Side] = (1.f - ReloadAlpha[Side]) * Ship->GetCannonCooldown();
 	}
+
+	RefreshCrewValues(Ship);
 
 	// The ground under the ship: a trace every AltitudeTraceInterval
 	AltitudeTimer -= DeltaSeconds;
@@ -377,6 +411,12 @@ int32 UAirshipHUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Al
 		return Layer;
 	}
 
+	// A gunner's own machine: crosshair, gun mark, the gunner panel
+	if (GunnerStation >= 0)
+	{
+		return PaintGunner(AllottedGeometry, OutDrawElements, Layer, InWidgetStyle);
+	}
+
 	// Point & Fly's marks over the viewport (nothing in other schemes)
 	if (bOverlayMode)
 	{
@@ -539,6 +579,15 @@ int32 UAirshipHUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Al
 		Text(FVector2f(Panel.X - Pad - MeasureWidth(Value, ValueFont), Y - 1.f), Value, ValueFont, InkColor, Layer);
 	}
 
+	// The pilot's own health (round 2: the on-foot overlay is hidden while flying, and the crew takes a share of hull damage)
+	Y += BarHeight + 8.f;
+	Text(FVector2f(Pad, Y - 1.f), TEXT("PILOT"), LabelFont, InkColor, Layer);
+	Bar(FVector2f(BarX, Y), FVector2f(BarWidth, BarHeight), PilotHealthAlpha, PilotColor, Layer);
+	{
+		const FString Value = PilotHealth >= 0.f ? FString::FromInt(FMath::CeilToInt(PilotHealth)) : FString(TEXT("--"));
+		Text(FVector2f(Panel.X - Pad - MeasureWidth(Value, ValueFont), Y - 1.f), Value, ValueFont, InkColor, Layer);
+	}
+
 	// Boost fuel (the label turns into an ink tag while boosting)
 	Y += BarHeight + 8.f;
 
@@ -674,7 +723,12 @@ int32 UAirshipHUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Al
 		const FVector2f BarPosition(X + TagWidth + 2.f, Y + 2.f);
 		const FVector2f BarSize(HalfWidth - TagWidth - 8.f, 10.f);
 
-		if (bReady)
+		if (bSideManned[Side])
+		{
+			// Both cannons have gunners: the broadside is theirs
+			Text(BarPosition + FVector2f(0.f, -4.f), TEXT("MANNED"), ValueFont, InkColor, Layer);
+		}
+		else if (bReady)
 		{
 			// Galleon: in the arc and loaded = FIRE
 			Text(BarPosition + FVector2f(0.f, -4.f), bInArc ? TEXT("FIRE") : TEXT("READY"), ValueFont, bInArc ? HullColor : InkColor, Layer);
@@ -683,6 +737,58 @@ int32 UAirshipHUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Al
 		{
 			Bar(BarPosition, BarSize, ReloadAlpha[Side], ReloadColor, Layer);
 			Text(BarPosition + FVector2f(0.f, 11.f), FString::Printf(TEXT("%.1fs"), ReloadSeconds[Side]), SmallFont, InkColor, Layer);
+		}
+	}
+
+	// ---- GUNS (round 2): the turrets' heat (health underneath, an X when wrecked), then a dot per station (cannons L1,
+	// L2, R1, R2, turrets L, R), filled when manned -------------------------------------------------------------------
+	{
+		const float GunsY = Y + 30.f;
+		const float GaugeWidth = 54.f;
+		const float GaugeHeight = 10.f;
+		Text(FVector2f(Pad, GunsY - 3.f), TEXT("GUNS"), LabelFont, InkColor, Layer);
+
+		for (int32 TurretIndex = 0; TurretIndex < 2; ++TurretIndex)
+		{
+			const FVector2f GaugePosition(BarX + static_cast<float>(TurretIndex) * (GaugeWidth + 10.f), GunsY);
+
+			if (!bTurretShown[TurretIndex])
+			{
+				Text(GaugePosition + FVector2f(0.f, -3.f), TEXT("--"), ValueFont, InkColor, Layer);
+				continue;
+			}
+
+			Bar(GaugePosition, FVector2f(GaugeWidth, GaugeHeight), TurretHeat[TurretIndex], bTurretOverheated[TurretIndex] ? HullColor : ReloadColor, Layer);
+			const float HealthWidth = GaugeWidth * FMath::Clamp(TurretHealthAlpha[TurretIndex], 0.f, 1.f);
+
+			if (HealthWidth > 0.5f)
+			{
+				Lines({ GaugePosition + FVector2f(0.f, GaugeHeight + 3.f), GaugePosition + FVector2f(HealthWidth, GaugeHeight + 3.f) }, PilotColor, 3.f, Layer + 1);
+			}
+
+			if (bTurretWrecked[TurretIndex])
+			{
+				const FVector2f A = GaugePosition + FVector2f(GaugeWidth * 0.5f - 8.f, -3.f);
+				const FVector2f B = GaugePosition + FVector2f(GaugeWidth * 0.5f + 8.f, GaugeHeight + 3.f);
+				Lines({ A, B }, HullColor, 3.f, Layer + 3);
+				Lines({ FVector2f(A.X, B.Y), FVector2f(B.X, A.Y) }, HullColor, 3.f, Layer + 3);
+			}
+		}
+
+		const float DotSize = 9.f;
+		float DotX = BarX + 2.f * (GaugeWidth + 10.f) + 2.f;
+
+		for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+		{
+			// A small gap between the cannons and the turrets
+			if (Station == Airship::FirstTurretStation)
+			{
+				DotX += 6.f;
+			}
+
+			const bool bManned = (MannedMask & (1 << Station)) != 0;
+			Box(FVector2f(DotX, GunsY), FVector2f(DotSize, DotSize), bManned ? TagBrush : TrackBrush, FLinearColor::White, Layer);
+			DotX += DotSize + 3.f;
 		}
 	}
 
@@ -900,4 +1006,260 @@ int32 UAirshipHUDWidget::PaintPointFlyOverlay(const FGeometry& AllottedGeometry,
 	}
 
 	return Layer + 8;
+}
+
+void UAirshipHUDWidget::RefreshCrewValues(const AAirshipPawn* Ship)
+{
+	if (!Ship)
+	{
+		return;
+	}
+
+	for (int32 TurretIndex = 0; TurretIndex < 2; ++TurretIndex)
+	{
+		const AAirshipTurret* Turret = Ship->GetTurret(TurretIndex);
+		bTurretShown[TurretIndex] = Turret != nullptr;
+
+		if (Turret)
+		{
+			const float MaxHealth = Turret->GetMaxHealth();
+			bTurretWrecked[TurretIndex] = Turret->IsTurretDestroyed();
+			bTurretOverheated[TurretIndex] = Turret->IsOverheated();
+			TurretHeat[TurretIndex] = Turret->GetHeat01();
+			TurretHealthAlpha[TurretIndex] = MaxHealth > 0.f ? FMath::Clamp(Turret->GetHealth() / MaxHealth, 0.f, 1.f) : 0.f;
+		}
+	}
+
+	MannedMask = 0;
+
+	for (int32 Station = 0; Station < Airship::NumStations; ++Station)
+	{
+		if (Ship->IsStationManned(Station))
+		{
+			MannedMask |= 1 << Station;
+		}
+	}
+
+	bSideManned[0] = Ship->IsSideFullyManned(EAirshipSide::Port);
+	bSideManned[1] = Ship->IsSideFullyManned(EAirshipSide::Starboard);
+
+	// The pilot character's own attributes (its ASC is on the PlayerState, replicated to the owner)
+	PilotHealth = -1.f;
+	PilotHealthAlpha = 0.f;
+	const UAbilitySystemComponent* PilotASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Ship->GetPilot());
+
+	if (PilotASC && PilotASC->HasAttributeSetForAttribute(UMyAttributeSet::GetHealthAttribute()))
+	{
+		const float MaxHealth = PilotASC->GetNumericAttribute(UMyAttributeSet::GetMaxHealthAttribute());
+		PilotHealth = PilotASC->GetNumericAttribute(UMyAttributeSet::GetHealthAttribute());
+		PilotHealthAlpha = MaxHealth > 0.f ? FMath::Clamp(PilotHealth / MaxHealth, 0.f, 1.f) : 0.f;
+	}
+}
+
+void UAirshipHUDWidget::RefreshGunnerValues()
+{
+	const AAirshipPawn* Ship = Airship.Get();
+	const APlayerController* PC = GetOwningPlayer();
+
+	if (!Ship || !Ship->GetHull())
+	{
+		return;
+	}
+
+	const FAirshipFlightTelemetry Telemetry = Ship->GetFlightTelemetry();
+	Health = Telemetry.Health;
+	HealthAlpha = Telemetry.MaxHealth > 0.f ? FMath::Clamp(Telemetry.Health / Telemetry.MaxHealth, 0.f, 1.f) : 0.f;
+
+	// Where the gun points now (this machine's barrel or turret): a turret 100 m along its barrel, a cannon where its ball
+	// would come down at the aim's distance (its arc lifts the barrel above the crosshair)
+	FVector From = Ship->GetActorLocation();
+	FVector Direction = Ship->GetActorForwardVector();
+	FVector MarkPoint = FVector::ZeroVector;
+	bool bHasMarkPoint = false;
+	const FVector Aim = Ship->GetStationAimPoint(GunnerStation);
+
+	if (Airship::IsCannonStation(GunnerStation))
+	{
+		const int32 Cannon = GunnerStation;
+		const FTransform HullTM = Ship->GetHull()->GetComponentTransform();
+		From = HullTM.TransformPosition(Ship->GetCannonMuzzleLocal(Cannon));
+		Direction = HullTM.TransformVectorNoScale(Ship->GetCannonDirLocal(Cannon, Ship->GetCannonAimYawDeg(Cannon), Ship->GetCannonAimElevDeg(Cannon)));
+		MarkPoint = Ship->GetCannonBallPathPoint(Cannon, Aim);
+		bHasMarkPoint = true;
+		GunReloadAlpha = Ship->GetCannonReloadAlpha(Cannon);
+		GunReloadSeconds = (1.f - GunReloadAlpha) * Ship->GetCannonCooldown();
+		bGunInArc = Ship->IsCannonAimInArc(Cannon, Aim);
+		bGunReady = GunReloadAlpha >= 1.f;
+	}
+	else
+	{
+		const int32 TurretIndex = Airship::StationToTurret(GunnerStation);
+		RefreshCrewValues(Ship);
+
+		if (const AAirshipTurret* Turret = Ship->GetTurret(TurretIndex))
+		{
+			From = Turret->GetMuzzleLocation();
+			Direction = Turret->GetBarrelDirection();
+			bGunInArc = Turret->IsAimInArc(Aim, 3.f);
+			bGunReady = !Turret->IsOverheated() && !Turret->IsTurretDestroyed();
+		}
+	}
+
+	bGunMarkOnScreen = PC && UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(PC, bHasMarkPoint ? MarkPoint : From + Direction * 10000.0, GunMarkPosition, true);
+}
+
+int32 UAirshipHUDWidget::PaintGunner(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) const
+{
+	using namespace AirshipHUDPrivate;
+
+	const FLinearColor Opacity = InWidgetStyle.GetColorAndOpacityTint();
+	const FVector2f Size(AllottedGeometry.GetLocalSize());
+	const FVector2f Centre = Size * 0.5f;
+	int32 Layer = LayerId + 1;
+
+	const FSlateFontInfo LabelFont = FCoreStyle::GetDefaultFontStyle(TEXT("Black"), 11);
+	const FSlateFontInfo ValueFont = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 11);
+	const FSlateFontInfo SmallFont = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 9);
+
+	auto Box = [&](const FVector2f& Position, const FVector2f& BoxSize, const FSlateBrush& Brush, const FLinearColor& Tint, int32 InLayer)
+	{
+		FSlateDrawElement::MakeBox(OutDrawElements, InLayer, AllottedGeometry.ToPaintGeometry(BoxSize, FSlateLayoutTransform(Position)), &Brush,
+			ESlateDrawEffect::None, Brush.GetTint(InWidgetStyle) * Tint * Opacity);
+	};
+
+	auto Text = [&](const FVector2f& Position, const FString& String, const FSlateFontInfo& Font, const FLinearColor& Color, int32 InLayer)
+	{
+		FSlateDrawElement::MakeText(OutDrawElements, InLayer, AllottedGeometry.ToPaintGeometry(FVector2f(Size.X, Font.Size * 1.6f), FSlateLayoutTransform(Position)),
+			String, Font, ESlateDrawEffect::None, Color * Opacity);
+	};
+
+	// Ink (or amber) with a paper outline, for contrast on sky and platforms
+	auto Stroke = [&](const TArray<FVector2f>& Points, const FLinearColor& Color, float Thickness, int32 InLayer)
+	{
+		FSlateDrawElement::MakeLines(OutDrawElements, InLayer, AllottedGeometry.ToPaintGeometry(), Points, ESlateDrawEffect::None,
+			PaperColor.CopyWithNewOpacity(Color.A) * Opacity, true, Thickness + 2.f);
+		FSlateDrawElement::MakeLines(OutDrawElements, InLayer + 1, AllottedGeometry.ToPaintGeometry(), Points, ESlateDrawEffect::None, Color * Opacity, true, Thickness);
+	};
+
+	auto Bar = [&](const FVector2f& Position, const FVector2f& BarSize, float Alpha, const FLinearColor& Color, int32 InLayer)
+	{
+		Box(Position, BarSize, TrackBrush, FLinearColor::White, InLayer);
+		const float Inset = 3.f;
+		const float FillWidth = (BarSize.X - 2.f * Inset) * FMath::Clamp(Alpha, 0.f, 1.f);
+
+		if (FillWidth > 0.5f)
+		{
+			Box(Position + FVector2f(Inset, Inset), FVector2f(FillWidth, BarSize.Y - 2.f * Inset), FillBrush, Color, InLayer + 1);
+		}
+	};
+
+	// An ink tag with paper text; returns its width
+	auto Tag = [&](const FVector2f& Position, const FString& String, const FSlateFontInfo& Font, int32 InLayer)
+	{
+		const float TagWidth = MeasureWidth(String, Font) + 10.f;
+		Box(Position, FVector2f(TagWidth, Font.Size * 1.6f), TagBrush, FLinearColor::White, InLayer);
+		Text(Position + FVector2f(5.f, 0.f), String, Font, PaperColor, InLayer + 1);
+		return TagWidth;
+	};
+
+	// ---- The crosshair (the camera's aim) and the mark where the gun points now (it slews to the crosshair) -----------
+	for (const FVector2f& Arm : { FVector2f(1.f, 0.f), FVector2f(-1.f, 0.f), FVector2f(0.f, 1.f), FVector2f(0.f, -1.f) })
+	{
+		Stroke({ Centre + Arm * 4.f, Centre + Arm * 12.f }, InkColor, 2.f, Layer);
+	}
+
+	if (bGunMarkOnScreen)
+	{
+		const FLinearColor MarkColor = (bGunReady && bGunInArc) ? ReloadColor : InkColor;
+		Stroke(ArcPoints(FVector2f(GunMarkPosition), 9.f, 0.f, 360.f, 20), MarkColor, 2.f, Layer + 2);
+	}
+
+	// ---- The panel, bottom-left ----------------------------------------------------------------------------------------
+	const float Pad = 12.f;
+	const float ShadowOffset = 5.f;
+	const FVector2f PanelSizeF(GunnerPanelSize);
+	const FVector2f Origin(24.f, Size.Y - 24.f - PanelSizeF.Y);
+	const FVector2f Panel(PanelSizeF.X - ShadowOffset, PanelSizeF.Y - ShadowOffset);
+	Layer += 4;
+	Box(Origin + FVector2f(ShadowOffset, ShadowOffset), Panel, ShadowBrush, FLinearColor::White, Layer);
+	++Layer;
+	Box(Origin, Panel, PanelBrush, FLinearColor::White, Layer);
+	++Layer;
+
+	const float LabelWidth = 58.f;
+	const float ValueWidth = 50.f;
+	const float BarX = Origin.X + Pad + LabelWidth;
+	const float BarWidth = Panel.X - Pad - LabelWidth - ValueWidth - Pad;
+	const float BarHeight = 16.f;
+	float Y = Origin.Y + Pad;
+
+	// The station and the way out
+	Tag(FVector2f(Origin.X + Pad - 4.f, Y - 2.f), GunnerStationLabel(GunnerStation), LabelFont, Layer);
+	{
+		const FString Leave = TEXT("F  LEAVE");
+		Text(FVector2f(Origin.X + Panel.X - Pad - MeasureWidth(Leave, SmallFont), Y + 1.f), Leave, SmallFont, InkColor, Layer);
+	}
+
+	Y += 26.f;
+	const float ValueX = Origin.X + Panel.X - Pad;
+
+	if (Airship::IsCannonStation(GunnerStation))
+	{
+		// Reload, then the arc (the crosshair beyond the gun's yaw / elevation limits: it would miss)
+		Text(FVector2f(Origin.X + Pad, Y - 1.f), TEXT("LOAD"), LabelFont, InkColor, Layer);
+		Bar(FVector2f(BarX, Y), FVector2f(BarWidth, BarHeight), GunReloadAlpha, ReloadColor, Layer);
+		const FString Value = bGunReady ? FString(TEXT("READY")) : FString::Printf(TEXT("%.1fs"), GunReloadSeconds);
+		Text(FVector2f(ValueX - MeasureWidth(Value, ValueFont), Y - 1.f), Value, ValueFont, InkColor, Layer);
+
+		Y += BarHeight + 8.f;
+
+		if (bGunInArc)
+		{
+			Text(FVector2f(Origin.X + Pad, Y - 1.f), TEXT("IN ARC"), ValueFont, InkColor, Layer);
+		}
+		else
+		{
+			Tag(FVector2f(Origin.X + Pad - 4.f, Y - 2.f), TEXT("OUT OF ARC"), ValueFont, Layer);
+		}
+	}
+	else
+	{
+		const int32 TurretIndex = FMath::Clamp(Airship::StationToTurret(GunnerStation), 0, 1);
+
+		// Heat (the label is an ink tag while overheated), then the gun's own health
+		if (bTurretOverheated[TurretIndex])
+		{
+			Tag(FVector2f(Origin.X + Pad - 4.f, Y - 2.f), TEXT("OVERHEAT"), SmallFont, Layer);
+		}
+		else
+		{
+			Text(FVector2f(Origin.X + Pad, Y - 1.f), TEXT("HEAT"), LabelFont, InkColor, Layer);
+		}
+
+		Bar(FVector2f(BarX, Y), FVector2f(BarWidth, BarHeight), TurretHeat[TurretIndex], bTurretOverheated[TurretIndex] ? HullColor : ReloadColor, Layer);
+		{
+			const FString Value = FString::Printf(TEXT("%d%%"), FMath::RoundToInt(TurretHeat[TurretIndex] * 100.f));
+			Text(FVector2f(ValueX - MeasureWidth(Value, ValueFont), Y - 1.f), Value, ValueFont, InkColor, Layer);
+		}
+
+		Y += BarHeight + 8.f;
+		Text(FVector2f(Origin.X + Pad, Y - 1.f), TEXT("GUN"), LabelFont, InkColor, Layer);
+		Bar(FVector2f(BarX, Y), FVector2f(BarWidth, BarHeight), TurretHealthAlpha[TurretIndex], PilotColor, Layer);
+
+		if (bTurretWrecked[TurretIndex])
+		{
+			Text(FVector2f(ValueX - MeasureWidth(TEXT("WRECK"), ValueFont), Y - 1.f), TEXT("WRECK"), ValueFont, HullColor, Layer);
+		}
+	}
+
+	// The ship's hull
+	Y += BarHeight + 8.f;
+	Text(FVector2f(Origin.X + Pad, Y - 1.f), TEXT("HULL"), LabelFont, InkColor, Layer);
+	Bar(FVector2f(BarX, Y), FVector2f(BarWidth, BarHeight), HealthAlpha, HullColor, Layer);
+	{
+		const FString Value = FString::FromInt(FMath::CeilToInt(Health));
+		Text(FVector2f(ValueX - MeasureWidth(Value, ValueFont), Y - 1.f), Value, ValueFont, InkColor, Layer);
+	}
+
+	return Layer + 3;
 }

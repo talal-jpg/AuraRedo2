@@ -12,6 +12,9 @@ TALAL_BLEND = '/mnt/new_partition/BlenderProjects/StylizedAirship/StylizedAirshi
 SRC_BLEND = RIG + '/AirshipRig_src.blend'      # byte copy (cp) of Talal's file, the pristine input of rig_build
 RIG_BLEND = RIG + '/AirshipRig.blend'          # the rigged copy (written by rig_build.py)
 PROPS_BLEND = RIG + '/props/AirshipProps.blend'
+TURRET_BLEND = RIG + '/props/Turret.blend'     # model_turret.py (geometry); its atlas UVs live in AirshipProps.blend
+SCRIPTS = os.path.dirname(os.path.abspath(__file__))
+SOURCE_ART = '/mnt/new_partition/UnrealProjects/_AirshipWork/SourceArt/Airship'
 RESEARCH = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/research'
 CHECKS = RIG + '/checks/rig'
 RENDERS = RIG + '/renders/rig'
@@ -42,9 +45,19 @@ C_WHEEL_R = 0.22
 MUZZLE_INSIDE_RAIL = 0.12
 QUOIN_K, QUOIN_CAP = 0.024, 0.15          # quoin slide (m) = clamp(0.024 * elev_deg, 0, 0.15) back along cannon -X
 HELM_X = -6.5
-HELM_WHEEL_OFS = V((-0.63, 0.0, 1.65))     # Helm_Wheel origin relative to the pedestal origin (Helm.blend)
-PILOT_BEHIND_AXLE = 1.3
+# Helm_Wheel origin relative to the pedestal origin (Helm.blend: WHEEL_X, 0, AXLE_H). Round 2 (2026-11-24): the wheel was
+# scaled to the 141.6 cm mech (140 cm across the handle tips, hub at chest height); it was (-0.63, 0, 1.65), 3.1 m across.
+HELM_WHEEL_OFS = V((-0.35, 0.0, 1.00))
+# pilot capsule axis behind the wheel plane: capsule radius 0.34 + 0.21 m of room for the arms (was 1.3 m)
+PILOT_BEHIND_AXLE = 0.55
 BONE_TAIL = V((0, 0, 0.5))
+
+# front machine-gun turrets (round 2): yaw axis on the narrow forward deck, Blender metres (UE (2100, -/+245)). The
+# turret actors are spawned by the pawn in Unreal; they are not part of SK_Airship. TURRET_SEAT_BEHIND = the gunner's
+# capsule axis behind the yaw axis (UAirshipSettings TurretSeatOffset (-100, 0, 0)).
+TURRET_MOUNTS = {'L': (21.0, 2.45), 'R': (21.0, -2.45)}
+TURRET_SEAT_BEHIND = 1.0
+MECH_CAPSULE_RADIUS, MECH_CAPSULE_HALF_HEIGHT = 0.34, 0.708     # the player mech's capsule (141.6 cm tall)
 
 # object names in the rig .blend / FBX (sorted by name in the FBX, so SM_Airship comes first -> material slot 0)
 HULL_OBJ = 'SM_Airship'
@@ -54,6 +67,24 @@ PROP_PREFIX = 'SM_AirshipProp_'
 def prop_obj_name(kind, part):
     """kind 'Helm' or a cannon id; part = 'Pedestal'/'Wheel' or a CANNON_PARTS entry"""
     return PROP_PREFIX + ('Helm_' + part if kind == 'Helm' else 'Cannon_%s_%s' % (kind, part))
+
+
+def deck_removals():
+    """the deck pieces the rig build deletes from SM_Airship (scripts/deck_removals.json)"""
+    return load_json(os.path.join(SCRIPTS, 'deck_removals.json'))
+
+
+def removed_islands():
+    return sorted(i for p in deck_removals()['pieces'] for i in p['islands'])
+
+
+def kept_vertex_index(visl=None):
+    """indices (into Talal's 36908 SM_Airship vertices) of the vertices the rig keeps, in their original order. Deleting
+    whole islands keeps the order of the remaining vertices, so kept_vertex_index()[i] is the source vertex of rig vertex i
+    (rig_build.py checks this)."""
+    if visl is None:
+        visl = np.array(load_json(RESEARCH + '/sm_airship_vertex_parts.json')['vertex_island'])
+    return np.nonzero(~np.isin(np.asarray(visl), removed_islands()))[0]
 
 
 def load_json(p):
