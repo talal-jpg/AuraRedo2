@@ -3,10 +3,9 @@
 Version 2 (2026-11-23, with the follow-up fixes to the gun lock and the parked free look). The ship has four control
 schemes in one build. **Point & Fly is the default.** Classic (the v1 controls of 2026-11-22), Galleon and Sky Racer
 are one console command away ("Switch schemes" below). How the schemes were built, tested and judged:
-`controls/RESULTS.md`. Round 2 (2026-11-24, built but not yet play-tested) adds gunners at the cannons, two front
-machine guns, damage to the crew, and a ship that drifts or holds after you leave the helm: "Round 2" below. Since
-2026-11-27 you take the helm only at the wheel, you stay there when you leave it, and you walk on the planks: "Getting
-aboard, the helm, the deck" below.
+`controls/RESULTS.md`. Round 2 (2026-11-28, tested in PIE: `round2/RESULTS_A.md`) adds gunners at the cannons, two
+front machine guns, bigger cannonballs, damage to the crew, and a ship that drifts or holds after you leave the helm.
+You take the helm only at the wheel, you stay there when you leave it, and you walk on the planks: "Round 2" below.
 
 ## Try it
 
@@ -114,6 +113,19 @@ Over the view:
 
 These apply in every scheme.
 
+### At a glance
+
+* **Take the helm at the wheel.** Stand behind or beside the steering wheel and press F. Anywhere else F does nothing.
+* **Leave in place.** F again: you stay standing behind the wheel and walk with the ship.
+* **Man a gun.** Walk up to a cannon or a front machine gun and press F. Aim with the mouse, fire with the left button,
+  F to leave.
+* **What the driver fires.** Left mouse looking to a side: a broadside from the cannons nobody mans. Left mouse looking
+  ahead (within 50 deg of the bow): the two front machine guns, if nobody mans them.
+* **Crew damage.** When the ship is hit, the pilot and every gunner lose a quarter of that damage.
+* **Drift.** Leave the helm while moving and the ship drifts on slowly (2.5 m/s); leave it at rest and it stays put.
+* **Getting aboard.** Fly up with hover and boost (Space, Space, Space, then Shift + W), or jump or hover across from a
+  platform at deck height.
+
 ### Manning a gun
 
 Walk up to a cannon or one of the two machine guns on the narrow forward deck and press **F** within about 3.5 m of its
@@ -155,8 +167,6 @@ quarter of it. A gunner on a ship nobody drives is the swarm's target himself: m
 
 ### Getting aboard, the helm, the deck
 
-Changed 2026-11-27 (your two points of 11-25, and "no need to make the character climb"). Built, not yet play-tested.
-
 * **The deck.** You walk on the planks now. Before, you stood on an invisible lid 1.2 to 2.9 m above them. The wheel,
   its pedestal, the cannons, the winches, the searchlight posts and the crates and barrels on the main deck are solid;
   the rails are not (you can walk off the edge). A walking player no longer pushes the hovering ship.
@@ -168,8 +178,8 @@ Changed 2026-11-27 (your two points of 11-25, and "no need to make the character
   under you, or its damage would kill you, are you thrown clear as before.
 * **Under or beside the hull, F does nothing.** There is no climb aboard. A hovering ship keeps its nozzles at least
   4 m above the ground, so its main deck is never lower than about 12.5 m over flat ground: 18.7 m in `L_AirshipTest`
-  (the ship is placed 16 m up), 13.6 m for the ship in your StartupMap (at z 1097, the start floor's top at z -4). A
-  jump reaches 1.76 m and the air jump 3.5 m, so you cannot jump aboard from the ground.
+  (the ship is placed 16 m up), 13.6 m for the ship placed in StartupMap. A jump reaches 1.76 m and the air jump
+  3.5 m, so you cannot jump aboard from the ground.
 * **How you get aboard: fly.** Space, Space at the top, Space again: you hover 3.5 m up. Now hold **Shift + W**: the
   boost flies you where you look, up as well. Fly up beside the ship, come in over the planks, let go, and press Space
   once more to drop out of the hover onto the deck. Then walk to the wheel and press F. Measured in PIE with these keys
@@ -180,11 +190,10 @@ Changed 2026-11-27 (your two points of 11-25, and "no need to make the character
   * Hover alone moves level at 6 m/s for as long as you like (66 m in the test, no mana used), so from a platform at
     deck height or above you can also cross to the deck with Space, Space, Space and W.
   * The grapple does **not** take you aboard. Its rope refuses the ship (it hooks only world geometry, never a pawn).
-    An earlier version of this page said it did.
-  * In your StartupMap the hex platform beside the ship (`BP_MyHexPlatform1`) has its top 3.5 m above the main deck
-    and 7.9 m from it. A running jump from its edge lands on the deck: 9.8 m of reach for that drop, worked out from
-    the measured jump and walking speed. I read your map from disk and did not play it. Back up to the platform needs
-    the hover and the boost.
+  * In StartupMap the hex platform beside the ship (`BP_MyHexPlatform1`) has its top 3.5 m above the main deck and
+    7.9 m from it. A running jump from its edge should land on the deck (about 9.8 m of reach for that drop, worked
+    out from the measured jump and walking speed; not yet played there). Back up to the platform needs the hover and
+    the boost.
 * **The forward deck** (the machine guns) is 4.2 m above the main deck and has no stairs. The air jump does not reach
   it from the main deck, and F does not reach a machine gun from the main deck either. **Known limit:** on foot you
   get there only by hover and boost (as above). Stairs or a ladder come with the model detail pass after this PR. One
