@@ -23,6 +23,11 @@
 # Since round 2 (2026-11-25) the run also has UAirshipSettings.CrewDamageShare 0 (as_30's arm, knob AS30_CREW_SHARE,
 # restored at the end): D4's crew share of the damage phase's 3 x 300 would kill the pilot (85 health) on the second hit,
 # the GameMode's respawn would destroy self.char, and j2_death / b4_hud_after_death would not run.
+# Since 2026-11-27 (Talal 11-25, helm and deck; SPEC_A.md 6.8): Exit leaves the character at the wheel, on the planks (the
+# Mesh's physics asset boxes; it was 2.5 m to port on the lid). a3 stands there. a4's square would start into the wheel
+# 8 cm ahead, so deck_walk first puts the walker on open planks (AS43_WALK_START, hull x / y: 1.8 m ahead of the helm
+# pedestal, 2.3 m to port; the square then runs between the helm and the forward cannons). A setup change only: a3 / a4 / k2
+# keep their criteria.
 # The X window of the editor is grabbed for the HUD (Saved/Airship/val/xgrab/<label>.req -> a bash loop run by the
 # caller: Docs/Airship/scripts/harness/xgrab_loop.sh; read-only X calls, no input). Scene captures (TEMP_AS_Capture as in
 # as_30) -> Saved/Airship/captures/val/. Results: Saved/Airship/val/val_result.json, val_report.txt, val_log.txt.
@@ -33,7 +38,7 @@ AS43_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts
 _as43_src = open(AS43_AS30).read()
 exec(compile(_as43_src[:_as43_src.index("\nif 'AS30_RUN' in globals()")], AS43_AS30, 'exec'), globals())
 
-AS43_VERSION = 'as_43_pie_validate 2026-11-25'
+AS43_VERSION = 'as_43_pie_validate 2026-11-27 helm+deck'
 VAL = os.path.join(OUT, 'val')
 CAPS = os.path.join(OUT, 'captures', 'val')      # AsRun.capture writes here (global name)
 XG = os.path.join(VAL, 'xgrab')
@@ -439,6 +444,30 @@ class AsVal(AsRun):
     WALK = [(0.0, 1.5, 'fwd'), (1.5, 3.0, 'stbd'), (3.0, 4.5, 'aft'), (4.5, 6.0, 'port')]
 
     def start_deck_walk(self):
+        # open planks for the 4.6 m square (see the header): from the seat it would start into the wheel
+        try:
+            hx, hy = globals().get('AS43_WALK_START') or (-560.0, -231.0)
+            tr = self.ship.get_actor_transform()
+            deck = self.hull()
+            f = getattr(self.ship, 'is_deck_on_physics_asset', None)
+            if f is not None and bool(f()):
+                deck = self.ship.get_editor_property('Mesh')
+            res = deck.line_trace_component(unreal.MathLibrary.transform_location(tr, unreal.Vector(hx, hy, 700.0)),
+                                            unreal.MathLibrary.transform_location(tr, unreal.Vector(hx, hy, -200.0)), False, False, False)
+            hit = None
+            if isinstance(res, tuple) and not (isinstance(res[0], bool) and not res[0]):
+                hit = next((v3(x) for x in res if isinstance(x, unreal.Vector)), None)
+            caps = gp(self.char, 'capsule_component', 'CapsuleComponent')
+            hh = caps.get_scaled_capsule_half_height() if caps else 90.0
+            if hit is not None and self.char.get_attach_parent_actor() is None:
+                self.char.set_actor_location_and_rotation(unreal.Vector(hit[0], hit[1], hit[2] + hh + 5.0),
+                                                          unreal.Rotator(0.0, 0.0, self.ship.get_actor_rotation().yaw), False, True)
+                cm = gp(self.char, 'character_movement', 'CharacterMovement')
+                if cm:
+                    cm.stop_movement_immediately()
+            self.line('INFO', 'a4: the walker starts on open planks at hull (%.0f, %.0f), deck trace %s' % (hx, hy, hit is not None))
+        except Exception:  # noqa: BLE001
+            self.err('deck_walk_start')
         self.D['loc0'] = self.ship_loc()
         cm = gp(self.char, 'character_movement', 'CharacterMovement')
         self.D['walk_speed'] = gp(cm, 'max_walk_speed', default=None) if cm else None

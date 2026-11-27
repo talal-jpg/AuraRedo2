@@ -94,8 +94,9 @@
 #                                                            a client trace through it reaches the hull
 #  g6_  drift after a CLIENT pilot leaves at speed (Point & Fly)
 #   g6_cruise 4  client throttle 1 (its own ship copy)
-#   g6_drift 22  client F (IA_AirshipExit) at speed; once    T9.7 Drift on the server, the client copy moves the same
-#                slow, Settings.DriftSpeed 0 (Drift -> Hold)
+#   g6_drift 22  client F (IA_AirshipExit) at speed; once    T9.7 Drift on the server, the client copy moves the same;
+#                slow, Settings.DriftSpeed 0 (Drift -> Hold)  T8.4 L the client's character stays at the wheel on both
+#                                                            machines (hull space), walking, no snap on its own machine
 #   g6_hold 8    hold                                        hold on the server and the client (< 0.5 m), DriftSpeed back
 #  g7_  lethal crew share (D4)
 #   g7_k1 5.5    host pilots ship 2, client F on L1, both    T4.3 the client gunner dismounted first, then dead; T4.2 (host)
@@ -106,13 +107,24 @@
 #  end           log scan                                    T5.13 log part (corrections, "back on the seat")
 # Not here (SKIP in the report with the reason): late join (not possible in PIE), T5.11 (Kill kills every ship; as_59
 # T5.11 S), T5.15 (as_59 S), T4.5, T8.1, T2.8 (3 players), T3.5 / T6.7 (no swarm in L_AirshipTest), T7.x.
+# 2026-11-27 (Talal 11-25, helm and deck; SPEC_A.md 6.8; not run in PIE yet). Setups only, no threshold changed:
+#  * deck_point traces the deck the characters walk on (the Mesh's physics asset, AAirshipPawn::IsDeckOnPhysicsAsset)
+#    instead of the top of the hull's collision (the UCX lid, which characters now pass through);
+#  * F takes the helm only at the wheel, so a client that takes a helm by F is put 80 cm behind the standing spot
+#    (board_point; it was any deck point 4.5 m from the guns); the points next to a gun seat are on its helm side (open
+#    planks; the far side is the cannon itself, which the deck trace would now land on);
+#  * the hull's collision ignores Visibility, so the "hull" test bullets keep the Mesh's collision on and aim at the hull's
+#    side 1 m above the hull origin (a PA_Airship box; g4_bullet, g7's hull_bullet), and g5_spent's ball goes there too
+#    (its trace through the hidden ball runs 4 m on, to the box behind the hull's skin);
+#  * new: T8.4_client_exit_in_place_L in g6_drift (the client pilot leaves at speed: both copies stay at the wheel, hull
+#    space, the client's own copy never more than 1 m off: round 1 snapped it by 3 m).
 import json, math, os, time, traceback  # unreal = inbox namespace
 
 AS60_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_30_pie_smoke.py'
 _as60_src = open(AS60_AS30).read()
 exec(compile(_as60_src[:_as60_src.index('\nclass AsRun')], AS60_AS30, 'exec'), globals())   # OUT, MAP_NAME, v3, q4, r, dist, wrap180, tl_get/tl_set, gp, valid, find_log
 
-AS60_VERSION = 'as_60_pie_mp_round2 2026-11-25 r2'
+AS60_VERSION = 'as_60_pie_mp_round2 2026-11-27 helm+deck'
 MP2 = os.path.join(OUT, 'round2_mp')
 CAPS60 = os.path.join(OUT, 'captures', 'round2_mp')
 TEMP60 = 'TEMP_AS60_'
@@ -160,7 +172,7 @@ SKIPPED = {
     'T5.11': 'Aura.Airship.Kill kills every ship of the world, which ends the later groups: as_59 T5.11 S covers it',
     'T5.15': 'standalone (as_59 T5.15 S); the ragdoll rule runs on every machine but is not driven here',
     'T4.5': 'not in as_60 (a ship firing at another ship\'s manned station)',
-    'T8.1': 'not in as_60 (boarding from below needs a ship hovering at a set height over the platform)',
+    'T8.1': 'not in as_60 (F under the hull: as_59 T8.1 S; the helm at the wheel and the exit in place: as_59 T8.2-T8.7, here T8.4 L)',
     'T2.8': 'needs 3 players (a rider, a gunner and the pilot)',
     'T3.5': 'L_AirshipTest has no swarm spawner', 'T6.7': 'L_AirshipTest has no swarm spawner',
     'T7.x': 'Blender / captures: as_59 and the Blender checks',
@@ -889,12 +901,23 @@ class R60(object):
             d['rel'] = r(self.rel(ship, p), 1)
         return d
 
+    def deck_comp(self, ship):
+        """what characters stand on and Visibility traces hit: the Mesh (PA_Airship's boxes, tops at the planks) when the
+        ship says so (AAirshipPawn::IsDeckOnPhysicsAsset, Talal 11-25), else the hull's collision (v1: the UCX lid)"""
+        try:
+            if bool(call(ship, 'is_deck_on_physics_asset')):
+                return ship.get_editor_property('Mesh')
+        except Exception:  # noqa: BLE001
+            self.err('deck_comp')
+        return self.hull(ship)
+
     def deck_point(self, ship, hx, hy, c):
-        """world point on top of the hull's collision at hull-space (hx, hy), plus the character's half height (as as_59)"""
+        """world point on the deck (deck_comp: a line trace on that component alone; the planks' boxes, or whatever part box
+        stands over that spot) at hull-space (hx, hy), plus the character's half height + 30 cm (as as_59)"""
         tr = ship.get_actor_transform()
         top = unreal.MathLibrary.transform_location(tr, unreal.Vector(hx, hy, 1600.0))
         bot = unreal.MathLibrary.transform_location(tr, unreal.Vector(hx, hy, -200.0))
-        hit = trace_loc(self.hull(ship).line_trace_component(top, bot, False, False, False))
+        hit = trace_loc(self.deck_comp(ship).line_trace_component(top, bot, False, False, False))
         p = hit if hit is not None else self.world_of(ship, (hx, hy, 700.0))
         return [p[0], p[1], p[2] + self.hh(c) + 30.0], hit is not None
 
@@ -1500,15 +1523,11 @@ class R60(object):
             host, client, hw[0], cw[0], ', '.join(done) if done else 'nothing to change'))
 
     def board_point(self, ship, c):
-        """a deck point of ship at least 4.5 m from every gun seat (F there takes the helm: TryUseNearest), as g1_far"""
-        seats = [self.seat_local(ship, st) for st in range(6)]
-        for hx, hy in ((600.0, 0.0), (-300.0, 0.0), (1200.0, 0.0), (-1800.0, 0.0), (200.0, 0.0)):
-            if min(hdist((hx, hy), x) for x in seats) < 450.0:
-                continue
-            p, traced = self.deck_point(ship, hx, hy, c)
-            if traced:
-                return p
-        return self.deck_point(ship, 600.0, 0.0, c)[0]
+        """where F takes ship's helm (Talal 11-25: only at the wheel, AAirshipPawn::IsWithinHelmReach): on the planks 80 cm
+        behind the pilot's standing spot (HelmReach 150 cm; clear of somebody who stands at the spot itself), every gun
+        seat more than 3.5 m away"""
+        helm = self.helm_local(ship)
+        return self.deck_point(ship, helm[0] - 80.0, helm[1], c)[0]
 
     def client_to(self, role):
         """the client's role changes through its own machine: 'pilot2' (F on ship 2's deck away from the guns), 'foot'.
@@ -1726,19 +1745,20 @@ class R60(object):
                    'helm is the host\'s: station %s (want none), pilot still the host %s, client still on foot %s' % (
                        self.D.get('pt'), gs, same(s.get_pilot(), self.hchar), same(self.cpc.get_controlled_pawn(), self.cchar_c)), self.D.get('pt'))
 
-    # ---- T5.1 / T5.14: F on the lid 2 m from L1's seat
+    # ---- T5.1 / T5.14: F on the planks 2 m from L1's seat, on its helm side (the far side is the cannon itself: the deck
+    # trace would put the player on its boxes; until the helm / deck change the player stood on the lid above it)
     def start_g1_mount(self):
         s = self.ship1_s
         seat, helm = self.seat_local(s, 0), self.helm_local(s)
         d = [seat[0] - helm[0], seat[1] - helm[1]]
         n = math.hypot(*d) or 1.0
-        hx, hy = seat[0] + d[0] / n * 200.0, seat[1] + d[1] / n * 200.0
+        hx, hy = seat[0] - d[0] / n * 200.0, seat[1] - d[1] / n * 200.0
         p, traced = self.deck_point(s, hx, hy, self.cchar_s)
         lp = self.rel(s, p)
         self.D['pt'] = {'hull': r(lp, 0), 'traced': traced, 'seat_h_cm': r(hdist(lp, seat), 0), 'seat_dz_cm': r(lp[2] - self.hh(self.cchar_s) - 30.0 - seat[2], 0),
                         'helm_cm': r(dist(lp, helm), 0)}
         self.tp_client(p, self.yaw(s) - 90.0)
-        self.line('INFO', 'client onto the lid near L1: %s' % self.D['pt'])
+        self.line('INFO', 'client onto the planks near L1: %s' % self.D['pt'])
 
     def ph_g1_mount(self, el):
         s = self.ship1_s
@@ -2160,7 +2180,7 @@ class R60(object):
             self.tship(self.ship1_s, SPAWN, 0.0)
         self.set_scheme(self.ship1_s, self.cfg['aim_scheme'])
         self.look('host', self.yaw(self.ship1_s), -8.0)
-        # the walker goes onto the lid before the lag starts (no lagged moves from before the teleport)
+        # the walker goes onto the planks before the lag starts (no lagged moves from before the teleport)
         s = self.ship1_s
         seat = self.seat_local(s, 0)
         inb = 60.0 if seat[1] < 0 else -60.0
@@ -2733,42 +2753,44 @@ class R60(object):
         hits = dt / self.gun_base if dt is not None and self.gun_base > 0 else None
         first = (self.D.get('line') or {}).get('actor')
         ok = dt is not None and dt > 0 and abs(hits - round(hits)) < 0.01 and h1.get('turret_c') is not None and abs(h1['turret_c'] - h1['turret_s']) < 0.01
-        self.check('fix6.3_host_gun_turret_through_hull', 'PASS' if ok else 'FAIL', 'the host fires GA_GunShoot at ship 2\'s turret L HitBox %s '
-                   '(inside the hull\'s forward deck convex): first Visibility hit from the host camera %s (want ship 2\'s hull: then '
-                   'FindTurretBehindHullHit hands it on); turret %s -> %s on the server (drop %s = %s hits of %.2f, want > 0 whole hits), the client '
+        self.check('fix6.3_host_gun_turret_through_hull', 'PASS' if ok else 'FAIL', 'the host fires GA_GunShoot at ship 2\'s turret L HitBox %s: '
+                   'first Visibility hit from the host camera %s (the turret itself since the hull\'s collision ignores Visibility, or ship 2\'s '
+                   'Mesh: a PA_Airship box in front of it, which FindTurretBehindHullHit hands on); turret %s -> %s on the server (drop %s = %s hits of %.2f, want > 0 whole hits), the client '
                    'sees %s; ship 2 %s -> %s, client pilot %s -> %s (the crew share of any hull hit)' % (
                        r(self.D.get('hb'), 0), self.D.get('line'), h0.get('turret_s'), h1.get('turret_s'), dt, r(hits, 2) if hits is not None else None,
                        self.gun_base, h1.get('turret_c'), h0.get('ship_s'), h1.get('ship_s'), h0.get('pilot_s'), h1.get('pilot_s')),
                    {'first_hit': first, 'track': self.D.get('trk', [])[:20]})
 
     def start_g4_bullet(self):
-        m = self.ship2_s.get_editor_property('Mesh')
-        self.D['mesh_coll'] = m.get_collision_enabled()
-        m.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+        # Since the helm / deck change (Talal 11-25) the hull's collision ignores Visibility: the Mesh's physics asset
+        # bodies are what the bullet meets, so the Mesh's collision stays on (as_59 T3.1)
+        pass
+
+    def hull_side_line(self, ship):
+        """(from, to) of a test bullet into ship's port side: 37 m to port -> 1 m above the hull origin (below the planks,
+        inside the hull tub's PA boxes, clear of the pods), as as_59 T3.1"""
+        to = self.loc(ship)
+        up, rg = v3(ship.get_actor_up_vector()), self.rgt(ship)
+        to = [to[k] + up[k] * 100.0 for k in range(3)]
+        return [to[k] - rg[k] * 3700.0 for k in range(3)], to
 
     def ph_g4_bullet(self, el):
         s = self.ship2_s
         if el >= 0.5 and 'b' not in self.D:
             self.D['b'] = True
             self.D['h0'] = self.crew2_h()
-            to = self.loc(s)
-            to[2] += 300.0
-            rg = self.rgt(s)
-            frm = [to[k] - rg[k] * 3700.0 for k in range(3)]
+            frm, to = self.hull_side_line(s)
             self.D['line'] = self.trace(self.sw, frm, to)
             self.scmd('Aura.MechSentinel.TestBullet %.0f %.0f %.0f %.0f %.0f %.0f 3' % (tuple(frm) + tuple(to)))
         if el >= 2.0 and 'h1' not in self.D:
             self.D['h1'] = self.crew2_h()
-            s.get_editor_property('Mesh').set_collision_enabled(self.D['mesh_coll'])
 
     def end_g4_bullet(self):
-        if 'h1' not in self.D and 'mesh_coll' in self.D:
-            self.ship2_s.get_editor_property('Mesh').set_collision_enabled(self.D['mesh_coll'])
         dr = self.drops(self.D.get('h0') or {}, self.D.get('h1') or {})
         want = 3.0 * self.share
         ok = dr.get('ship_s') is not None and abs(dr['ship_s'] - 3.0) < 0.05 and all(dr.get(k) is not None and abs(dr[k] - want) <= 0.05 for k in ('pilot_s', 'pilot_c'))
         self.check('crew_share_sentinel_bullet_client_pilot', 'PASS' if ok else 'FAIL', 'Aura.MechSentinel.TestBullet (3) from 37 m to port at ship 2\'s '
-                   'hull (Mesh collision off, as T3.1): drops %s (want ship 3, the client pilot %.2f on the server and in its own view); first '
+                   'hull side (a PA_Airship box, as T3.1): drops %s (want ship 3, the client pilot %.2f on the server and in its own view); first '
                    'Visibility hit %s' % (dr, want, self.D.get('line')))
 
     def crew2_h(self):
@@ -2888,7 +2910,9 @@ class R60(object):
             half = abs(float(e.x) * rg[0]) + abs(float(e.y) * rg[1])
             p = self.loc(s)
             start = [p[k] - rg[k] * (half + 1000.0) for k in range(3)]
-            start[2] += 300.0
+            # 1 m above the hull origin: the hull's side below the planks, where a PA_Airship box lies behind the skin (3 m
+            # up, as before the helm / deck change, there is only the lid, which Visibility traces now pass)
+            start[2] += 100.0
             self.D['start'] = r(start, 0)
             self.D['ball'] = self.spawn_ball(start, [rg[k] * 3000.0 for k in range(3)], self.ship1_s, 0.0, 0.0)
             self.D['t_ball'] = self.now
@@ -2910,12 +2934,12 @@ class R60(object):
         if 'c_hid' in self.D and el >= self.D['c_hid'] + 0.15 and 'ctr' not in self.D and cs.get('loc'):
             rg = self.rgt(self.ship2_c)
             p = cs['loc']
-            self.D['ctr'] = self.trace(self.cw, [p[k] - rg[k] * 500.0 for k in range(3)], [p[k] + rg[k] * 150.0 for k in range(3)])
+            self.D['ctr'] = self.trace(self.cw, [p[k] - rg[k] * 500.0 for k in range(3)], [p[k] + rg[k] * 400.0 for k in range(3)])
             self.D['c_coll'] = cs.get('coll')
             sb = self.D.get('ball')
             if valid(sb):
                 sp = self.loc(sb)
-                self.D['str'] = self.trace(self.sw, [sp[k] - rg[k] * 500.0 for k in range(3)], [sp[k] + rg[k] * 150.0 for k in range(3)])
+                self.D['str'] = self.trace(self.sw, [sp[k] - rg[k] * 500.0 for k in range(3)], [sp[k] + rg[k] * 400.0 for k in range(3)])
 
     def end_g5_spent(self):
         ctr, stt = self.D.get('ctr') or {}, self.D.get('str') or {}
@@ -2943,6 +2967,10 @@ class R60(object):
         self.ship2_c.debug_clear_input()
         t = self.tele(self.ship2_s)
         self.D['v_exit'] = t.get('ForwardSpeedMS')
+        # T8.4 L: the driving pose of both copies (attached at the seat), each in its own machine's hull space
+        self.D['drive'] = {'server': self.rel(self.ship2_s, self.loc(self.cchar_s)), 'client': self.rel(self.ship2_c, self.loc(self.cchar_c)),
+                           'seat_expected': self.helm_local(self.ship2_s)}
+        self.D['xt'] = []
         self.inject('client', 'IA_AirshipExit')
         self.event('inject', what='IA_AirshipExit (client pilot at speed)')
         self.D['trk'] = []
@@ -2955,6 +2983,13 @@ class R60(object):
             self.line('WARN', 'the client\'s exit injection did nothing in 1.2 s: fallback Aura.Airship.Exit (the client gets no ClientRestart)')
         if 'foot_t' not in self.D and same(self.cpc.get_controlled_pawn(), self.cchar_c):
             self.D['foot_t'] = el
+        if 'srv_foot_t' not in self.D and not s.has_pilot():
+            self.D['srv_foot_t'] = el
+        if 'srv_foot_t' in self.D and el <= self.D['srv_foot_t'] + 3.0:
+            # every frame for 3 s from the server's exit: both copies in their own hull's space, their modes and parents
+            cs, cc = self.char_info(self.cchar_s, s) or {}, self.char_info(self.cchar_c, c) or {}
+            self.D['xt'].append((r(el - self.D['srv_foot_t'], 3), cs.get('rel'), cc.get('rel'), cs.get('mode'), cc.get('mode'), cs.get('att'), cc.get('att'),
+                                 cc.get('actor_coll'), cc.get('role')))
         t = self.tele(s)
         m = int(fnum(t.get('UnpilotedMode'), -1))
         vf = fnum(t.get('ForwardSpeedMS'))
@@ -2969,6 +3004,35 @@ class R60(object):
 
     def end_g6_drift(self):
         self.carry['g6'] = dict((k, v) for k, v in self.D.items())
+        # T8.4 L (Talal 11-25): "when player exits, the character should keep its position in front of the steering wheel".
+        # Server: UnboardPilot leaves it at the seat, walking, the ship its base. The client's own copy: ClientLeftHelm ->
+        # PlaceLeftPilotLocal puts it at the same hull-relative place at once (left to replication it fell with no base and
+        # no speed: 1.2 m behind per frame at 35 m/s until the server's correction, round 1's 3 m snap).
+        xt, dr = self.D.get('xt') or [], self.D.get('drive') or {}
+        ds, dc = dr.get('server'), dr.get('client')
+        dev_s = [hdist(x[1], ds) for x in xt if x[1] and ds]
+        dev_c = [hdist(x[2], dc) for x in xt if x[2] and dc]
+        step_c = [dist(xt[i][2], xt[i - 1][2]) for i in range(1, len(xt)) if xt[i][2] and xt[i - 1][2]]
+        late = [x for x in xt if x[0] >= 2.0]
+        end = late[-1] if late else (xt[-1] if xt else None)
+        modes_s, modes_c = sorted(set(x[3] for x in xt if x[3])), sorted(set(x[4] for x in xt if x[4]))
+        both = [dist(x[1], x[2]) for x in late if x[1] and x[2]]
+        dz = (end[1][2] - ds[2], end[2][2] - dc[2]) if end and end[1] and end[2] and ds and dc else (None, None)
+        ok = (bool(xt) and end is not None and not self.D.get('fb') and self.D.get('foot_t') is not None
+              and bool(dev_s) and max(dev_s) <= 10.0 and bool(dev_c) and max(dev_c) <= 100.0
+              and end[1] is not None and end[2] is not None and hdist(end[1], ds) <= 10.0 and hdist(end[2], dc) <= 10.0
+              and end[3] == 'MOVE_WALKING' and end[4] == 'MOVE_WALKING' and end[5] is None and end[6] is None)
+        self.check('T8.4_client_exit_in_place_L', 'PASS' if ok else 'FAIL', 'client pilot F (IA_AirshipExit) at %s m/s%s, 3 s from the server\'s exit, each '
+                   'copy in its own hull\'s space against its driving pose (server %s, client %s; the seat %s): server copy at most %s cm off in xy '
+                   '(want <= 10), the client\'s own copy at most %s cm off (want <= 100: no snap; round 1: 300), its largest step in one frame %s cm; '
+                   'from 2 s on: server %s, client %s (want within 10 cm in xy, walking, detached), z %s / %s cm from the driving pose (the seat\'s '
+                   'clearance down onto the deck box), the two copies %s cm apart; modes seen server %s client %s; client copy first frame %s' % (
+                       self.D.get('v_exit'), ' FALLBACK console Exit (no ClientRestart, no ClientLeftHelm: not the tested path)' if self.D.get('fb') else '',
+                       r(ds, 1) if ds else None, r(dc, 1) if dc else None, r(dr.get('seat_expected'), 1) if dr.get('seat_expected') else None,
+                       r(max(dev_s), 1) if dev_s else None, r(max(dev_c), 1) if dev_c else None, r(max(step_c), 1) if step_c else None,
+                       end[1::2][:3] if end else None, end[2::2][:3] if end else None, r(dz[0], 1) if dz[0] is not None else None,
+                       r(dz[1], 1) if dz[1] is not None else None, stats(both), modes_s, modes_c, xt[0] if xt else None),
+                   {'drive': dr, 'track': xt[::3], 'dev_server_cm': stats(dev_s), 'dev_client_cm': stats(dev_c)})
 
     def start_g6_hold(self):
         self.D['trk'] = []
@@ -3048,23 +3112,18 @@ class R60(object):
 
     # ================================================================ g7_: lethal crew share
     def near_seat_point(self, ship, st, c, d_cm=200.0):
-        """a deck point d_cm from station st's seat toward the helm (as g1_mount): F there mans that station"""
+        """a deck point d_cm from station st's seat on its helm side (open planks, as g1_mount): F there mans that station"""
         seat, helm = self.seat_local(ship, st), self.helm_local(ship)
         d = [seat[0] - helm[0], seat[1] - helm[1]]
         n = math.hypot(*d) or 1.0
-        return self.deck_point(ship, seat[0] + d[0] / n * d_cm, seat[1] + d[1] / n * d_cm, c)
+        return self.deck_point(ship, seat[0] - d[0] / n * d_cm, seat[1] - d[1] / n * d_cm, c)
 
     def hull_bullet(self, ship, damage):
-        """a sentinel test bullet from 37 m to port into ship's hull (its Mesh collision off until restore_mesh, as T3.1):
-        the ship's damage lands in the swarm's tick, so the crew share's eject / dismount send their RPCs to the client (a
-        console Aura.Airship.Damage from Python runs them under the editor script guard: local only)"""
-        m = ship.get_editor_property('Mesh')
-        self.D['mesh_coll'] = m.get_collision_enabled()
-        m.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
-        to = self.loc(ship)
-        to[2] += 300.0
-        rg = self.rgt(ship)
-        frm = [to[k] - rg[k] * 3700.0 for k in range(3)]
+        """a sentinel test bullet from 37 m to port into ship's hull side (a PA_Airship box; the Mesh's collision stays on
+        since the hull's own ignores Visibility, as T3.1): the ship's damage lands in the swarm's tick, so the crew share's
+        eject / dismount send their RPCs to the client (a console Aura.Airship.Damage from Python runs them under the editor
+        script guard: local only)"""
+        frm, to = self.hull_side_line(ship)
         self.D['line'] = self.trace(self.sw, frm, to)
         self.bullet(frm, to, '%.0f' % damage)
 

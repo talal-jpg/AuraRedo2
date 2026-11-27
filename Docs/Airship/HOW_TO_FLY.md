@@ -4,17 +4,21 @@ Version 2 (2026-11-23, with the follow-up fixes to the gun lock and the parked f
 schemes in one build. **Point & Fly is the default.** Classic (the v1 controls of 2026-11-22), Galleon and Sky Racer
 are one console command away ("Switch schemes" below). How the schemes were built, tested and judged:
 `controls/RESULTS.md`. Round 2 (2026-11-24, built but not yet play-tested) adds gunners at the cannons, two front
-machine guns, damage to the crew, and a ship that drifts or holds after you leave the helm: "Round 2" below.
+machine guns, damage to the crew, and a ship that drifts or holds after you leave the helm: "Round 2" below. Since
+2026-11-27 you take the helm only at the wheel, you stay there when you leave it, and you walk on the planks: "Getting
+aboard, the helm, the deck" below.
 
 ## Try it
 
 * Map: `/Game/Assets/MyShip/Drivable/Maps/L_AirshipTest` (start platform, walls and a ground plane for cannon and
   crash tests). In any other map, `Aura.Airship.Spawn` (server console) puts a ship 60 m in front of and 15 m above
   player 0.
-* Walk up to the ship and press **F** (gamepad **Y**) within 12 m of the helm or 4 m of the hull, or standing up to
-  10 m under the hull, to take the helm. **F** again leaves it; you are put 2.5 m to port of the helm. Leave it while
-  moving and the ship keeps drifting slowly ahead; leave it at rest and it stays where it is ("Round 2" below). Other
-  players can stand and walk on the deck, and man the cannons and the two front machine guns.
+* Get onto the deck, walk up to the steering wheel and press **F** (gamepad **Y**) to take the helm. **F** again leaves
+  it: you stay standing at the wheel. F anywhere else, on the deck, beside or under the hull, does nothing ("Getting
+  aboard, the helm, the deck" below). Leave the helm while moving and the ship keeps drifting slowly ahead; leave it at
+  rest and it stays where it is ("Round 2" below). Other players can stand and walk on the deck, and man the cannons and
+  the two front machine guns.
+* For a test without the climb: `Aura.Airship.Board` (server console) puts player 0 at the helm from anywhere.
 
 ## Point & Fly (the default)
 
@@ -113,8 +117,8 @@ These apply in every scheme.
 ### Manning a gun
 
 Walk up to a cannon or one of the two machine guns on the narrow forward deck and press **F** within about 3.5 m of its
-seat (beside the cannon's breech, behind the machine gun). If the helm is closer, F takes the helm instead. You stay
-yourself: you stand at the gun, aim with your own camera, and enemies can still target you.
+seat (beside the cannon's breech, behind the machine gun). You stay yourself: you stand at the gun, aim with your own
+camera, and enemies can still target you. When you leave the gun you are put on the planks next to it.
 
 | Action | Keyboard / mouse | Gamepad |
 |---|---|---|
@@ -143,6 +147,32 @@ destroyed one burns, stops firing and throws its gunner off.
 * Sentinel bullets now hurt ships and machine guns too.
 * When the ship takes damage, its pilot and every gunner take a quarter of it. If that would kill someone, they are
   put on foot first and die there. Damage the pilot took while flying stays after leaving the helm.
+
+### Getting aboard, the helm, the deck
+
+Changed 2026-11-27 (your two points of 11-25, and "no need to make the character climb"). Built, not yet play-tested.
+
+* **The deck.** You walk on the planks now. Before, you stood on an invisible lid 1.2 to 2.9 m above them. The wheel,
+  its pedestal, the cannons, the winches and the searchlight posts are solid; the rails are not (you can walk off the
+  edge). A walking player no longer pushes the hovering ship.
+* **Taking the helm.** Stand behind or beside the wheel and press **F**. You must be within 1.5 m of the spot the pilot
+  stands on (55 cm behind the wheel) and at deck height (within 1 m). In front of the wheel does not count. Both numbers
+  are in Project Settings > Game > Airship (`HelmReach`, `HelmReachHeight`).
+* **Leaving the helm.** **F** leaves you where you stood while driving, behind the wheel, facing the bow, and you walk
+  with the ship. You are no longer moved 2.5 m to port, and you are not thrown. Only when the ship dies, or its damage
+  would kill you, are you thrown clear as before.
+* **Under or beside the hull, F does nothing.** There is no climb aboard. A hovering ship keeps its nozzles at least
+  4 m above the ground, so its main deck is never lower than about 12.5 m over flat ground: 18.7 m in `L_AirshipTest`
+  (the ship is placed 16 m up), 13.6 m for the ship in your StartupMap (at z 1097, the start floor's top at z -4). A
+  jump reaches 1.76 m and the air jump 3.5 m, and hover only holds your height, so you cannot jump aboard from the
+  ground. You get there by boost flight or the grapple, by stepping across from a platform the ship is parked beside at
+  deck height, or later with PR B's ship hook.
+* **The forward deck** (the machine guns) is 4.2 m above the main deck and has no stairs. The air jump does not reach
+  it from the main deck. Boost or the grapple do. Tell me if you want stairs or a ladder there: that is a model change.
+* **You can be shot on deck.** Guns, machine guns and sentinel bullets now hit a player standing on the planks. Before,
+  the invisible lid above the planks stopped them. Shots at the ship land on its hull, forward deck, pods, fans,
+  rudder, cannons, wheel, winches and searchlights. Open structure, such as the truss under the forward deck, has no
+  hit box: shots pass through it.
 
 ### After you leave the helm
 
@@ -255,7 +285,7 @@ until the next switch.
 | Command | Does |
 |---|---|
 | `Aura.Airship.Spawn` | A ship 60 m in front of and 15 m above player 0 |
-| `Aura.Airship.Board [player]` / `Aura.Airship.Exit [player]` | The player (default 0) takes the helm of the nearest free ship, any distance / leaves it |
+| `Aura.Airship.Board [player]` / `Aura.Airship.Exit [player]` | The player (default 0) takes the helm of the nearest free ship, from any distance (only the F key needs you at the wheel) / leaves it and stays at the wheel |
 | `Aura.Airship.Damage <n>` / `Aura.Airship.Kill` | Every living ship takes n damage (the crew takes a quarter) / dies (the crew is ejected unhurt) |
 | `Aura.Airship.Set <name> <value>` / `Aura.Airship.Get <name>` | Any ship property by name (the flight component; `Pawn.<name>`, `Anim.<name>`) |
 | `Aura.Airship.Input <throttle> <steer> [lift] [strafe] [boost] [brake]` / `Aura.Airship.InputClear` | Flies every ship with fixed controls. Classic-style in every scheme (no heading target); under Galleon the throttle is the order: 1 FULL, 0.67 HALF, 0.33 SLOW, 0 STOP, -1 ASTERN |

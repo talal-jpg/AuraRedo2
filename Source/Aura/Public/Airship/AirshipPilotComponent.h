@@ -22,10 +22,10 @@ struct FInputActionValue;
  * server (replicated, so the owning client has it too), no edit to the project's controller.
  *
  * Owning client: pushes its own input component and adds IMC_AirshipBoard (IA_AirshipBoard on F); a press sends
- * ServerRequestBoard. Server: the nearest of the helms of free living ships in range of the player's pawn
- * (UAirshipSettings BoardDistance / BoardHullDistance / BoardBelowDistance; AAirshipPawn::BoardPilot) and the free gunner
- * stations in range (StationMountDistance; AAirshipPawn::MountGunner) wins. Exit goes through ServerRequestExit (the
- * ship's own Exit key uses its RPC, same result).
+ * ServerRequestBoard. Server: the nearest of the helms of free living ships whose wheel the player's character stands at
+ * (AAirshipPawn::IsWithinHelmReach: UAirshipSettings HelmReach / HelmReachHeight; AAirshipPawn::BoardPilot) and the free
+ * gunner stations in range (StationMountDistance; AAirshipPawn::MountGunner) wins; F anywhere else does nothing. Exit
+ * goes through ServerRequestExit (the ship's own Exit key uses its RPC, same result): the character stays at the wheel.
  *
  * Gunner stations (Docs/Airship/round2/SPEC_A.md D5): the gunner stays possessed in its own character. The server tells
  * the owning machine (ClientMountChanged); it then pushes a gunner input component and IMC_Airship (Look, Fire, Aim,
@@ -44,7 +44,7 @@ public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	/** Local player: board the nearest ship in range, or man the nearest free gun station (sends the request). */
+	/** Local player: take the helm of the ship whose wheel the character stands at, or man the nearest free gun station (sends the request). */
 	UFUNCTION(BlueprintCallable, Category = "Airship")
 	void RequestBoard();
 
@@ -56,17 +56,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Airship")
 	void RequestDismount();
 
-	/** Any machine: the nearest free living ship the player's pawn could board now (for a "Press F" prompt). Null if none. */
+	/** Any machine: the free living ship whose helm the player's character could take now, standing at its wheel (for a "Press F" prompt). Null if none. */
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	AAirshipPawn* FindBoardableAirship() const;
 
-	/** Server: boards Ship (nearest in range when null). bIgnoreRange for console commands. */
+	/** Server: boards Ship (null: the one whose wheel the character stands at). bIgnoreRange for console commands: the nearest free living ship, from any distance. */
 	bool TryBoard(AAirshipPawn* Ship, bool bIgnoreRange);
 
 	/** Server: leaves the ship the player flies, if any. */
 	bool TryExit();
 
-	/** Server (F on foot): the nearest of the helms and the free gunner stations in range; a mounted gunner leaves its station. */
+	/** Server (F on foot): the helm when standing at its wheel, or the nearest free gunner station in range; a mounted gunner leaves its station. */
 	bool TryUseNearest();
 
 	/**
@@ -90,6 +90,14 @@ public:
 	 */
 	UFUNCTION(Client, Reliable)
 	void ClientMountChanged(AAirshipPawn* Ship, int8 Station, FVector_NetQuantize ExitHullLocal, FVector_NetQuantize LaunchVelocity);
+
+	/**
+	 * Server -> owning client, right after the possession went back to Pilot (ClientRestart is on the same channel, so it
+	 * has run): the pilot left Ship's helm with F and stays where it stood. This machine's copy does the same at once
+	 * (AAirshipPawn::PlaceLeftPilotLocal).
+	 */
+	UFUNCTION(Client, Reliable)
+	void ClientLeftHelm(AAirshipPawn* Ship, ACharacter* Pilot);
 
 	/** Optional: overrides Project Settings > Game > Airship. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Input")

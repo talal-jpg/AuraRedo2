@@ -96,6 +96,10 @@ The BP and input assets are referenced only from config/soft pointers: add
 
 ## 3. Boarding, exit, death
 
+**Changed 2026-11-27 (section 15.9):** F takes the helm only at the wheel, leaving keeps the character at the wheel, and
+characters walk on the planks (the Mesh's physics asset), not on the UCX lid. The Board and Exit bullets and the lid
+paragraph below describe v1 / round 2 as built until then; the rest of this section still holds.
+
 * Board (server, `BoardPilot`): the pawn must be a living ACharacter with a PlayerState, the ship alive without a pilot,
   the pawn within BoardDistance of the seat or BoardHullDistance of the hull. Then: cancel the pilot's active non-passive
   abilities (like AMyGameMode), stop + disable movement, collision off, attach to the hull root at
@@ -223,8 +227,8 @@ machine (pilot: local camera, others: replicated aim point); the other side rest
 | Command | Where | Does |
 |---|---|---|
 | `Aura.Airship.Spawn` | server | AirshipClass 60 m in front of / 15 m above player 0's pawn (plain AAirshipPawn if the class is missing) |
-| `Aura.Airship.Board [Player]` | server | player (default 0) boards the nearest free ship, any distance |
-| `Aura.Airship.Exit [Player]` | server | player leaves the helm |
+| `Aura.Airship.Board [Player]` | server | player (default 0) boards the nearest free ship, any distance (the F key path needs the wheel, 15.9; the console does not) |
+| `Aura.Airship.Exit [Player]` | server | player leaves the helm (and stays at the wheel, 15.9) |
 | `Aura.Airship.Damage <n>` | server | every living ship takes n through its damage effect |
 | `Aura.Airship.Kill` | server | Health 0 + Die on every living ship (`DebugKill` since round 2: no crew share, the crew is ejected alive) |
 | `Aura.Airship.Set <Name> <Value>` | any (forces: server) | sets a property on every ship by reflection: flight component by default, `Pawn.<Name>`, `Anim.<Name>`; any text-importable type; re-applies body settings |
@@ -286,7 +290,8 @@ and the ship's `GetPassengers()`. A rebuilt body logs `LogAirship: <character>: 
   fallback is overlap events off plus a PA_Airship that covers the whole hull.
 * A character on the ground next to / under the ship (not riding it: its base is the ground) keeps its physics
   capsule; a low ship coming down onto it rests on it like on a post. Only riders are query only.
-* Walking on deck happens on the UCX lid, not the planks (section 3, Exit) until SM_Airship's hulls are re-authored.
+* Walking on deck happened on the UCX lid, not the planks (section 3, Exit), until 2026-11-27: characters now walk on
+  PA_Airship's boxes at the planks and pass through the lid (15.9). SM_Airship's hulls did not have to be re-authored.
 * Grip at top speed with the tilt-rate fix (flight sim): slip 7/9/12/17 deg at 1/2/4/8 s against research 7/13/23/30.
   `GripALatMaxG` 2.2 gives 7/12/21/32 but the nose dips to -7 deg; kept 2.5.
 * Real COM / inertia of the 8 hulls: log `GetFlightTelemetry().MassKg`; loops use the runtime mass and inertia.
@@ -698,8 +703,8 @@ Turrets, Unpiloted).
 
 * Six stations (`EAirshipStation`): cannons L1, L2, R1, R2 and the two front turrets L, R. The helm stays the pilot's.
 * **F** near a station's seat (350 cm horizontal, -2..+6 m vertical) mans it. The server compares the nearest free
-  station with the helm (its old range rule, plus boarding from under the hull) and takes the closer one
-  (`UAirshipPilotComponent::TryUseNearest`).
+  station with the helm and takes the closer one (`UAirshipPilotComponent::TryUseNearest`). The helm counts only for a
+  character at the wheel (15.9; until 2026-11-27: the old range rule, plus boarding from under the hull).
 * The gunner **stays possessed** in its own character:
   * attached to HullCollision at the seat;
   * movement and its tick off, active abilities cancelled; the server ignores its move errors and the owner ignores
@@ -841,3 +846,137 @@ The decision record with file:line is `round2/SPEC_A.md` section 6. In short:
   deck. Needs PIE T5.15.
 * **Harnesses**: as_30 / as_43 / as_45 run with `CrewDamageShare` 0 (their v1 health checks predate D4); as_59 has
   T3.2 without the hull-Visibility switch, T6.9 (turret rounds at an enemy turret) and T5.15.
+
+### 15.9 Helm and deck (Talal 11-25; built 2026-11-27, not yet run in PIE)
+
+Talal, 2026-11-25: "the player should only be able to drive mount the ship when close enough to hold steering wheel",
+"when player exits, the character should keep its position in front of the steering wheel, as when driving", and "no
+need to make the character climb, if below hull, only be able to drive once close enough to grab the steering wheel".
+The decision record is `round2/SPEC_A.md` section 6.8. `build_r2.sh` EXIT 0, no new warning. PIE: as_59 `t8_below`,
+`t8_helm`, `t8_walk`, as_60 `g6_drift`.
+
+**The deck is the physics asset** (`AAirshipPawn::UpdateDeckCollision`, `AirshipPawn.cpp:1310`, BeginPlay on every
+machine; `bDeckOnPhysicsAsset`, `AirshipPawn.h:796`):
+
+* `HullCollision` (SM_Airship's UCX hulls, the simulating flight body) ignores `ECC_Pawn` and `ECC_Visibility`. Every
+  other response is as it was, so mass, inertia, ground and obstacle contacts, cannonball hits and the projectile
+  overlaps do not change.
+* `Mesh` (SK_Airship with PA_Airship, QueryOnly, object type Pawn, kinematic bodies) blocks `ECC_Pawn` as well as
+  Visibility. Characters walk on the hull boxes, whose tops are 2 cm under the lowest plank of their slab (a slab is
+  2 m long, so the feet sit 0 to 7 cm into the planks), and are stopped by the part boxes (wheel, pedestal, cannons,
+  winches, searchlight posts, turbines). Rails have no box.
+* A Mesh without physics bodies (a plain `AAirshipPawn`), or `bDeckOnPhysicsAsset` off: the hull blocks Pawn and
+  Visibility again and everything below falls back to v1 (`IsDeckOnPhysicsAsset()` false).
+* **PA_Airship must be rebuilt before PIE.** `as_11b_hull_boxes.py` was refitted on 11-25 13:33 for walking (the first
+  fit had two holes a walker fell through: the main deck's forward end and the bow well, hull x 1995..2255, and the
+  stern aft of x -1570). `Saved/Airship/pa_hull_boxes.json` has the new fit (96 hull boxes, checks clean; a dry run on
+  11-27 reproduces it). The saved asset still has the old one (79 boxes, built 02:16): run `as_11_physics_asset.py`,
+  then `as_13_cr_eval.py` and `as_58_verify_round2.py` (step 6b of NOTES_assets.md). The asset then has 35 bodies and
+  136 boxes.
+
+**Engine facts this rests on** (5.8 source, read, not run):
+
+* A floor hit on a skeletal mesh body gives the base `Mesh` + bone `Hull` (`SetBaseFromFloor`). The bone does not move
+  in the rig, so the base's transform is the hull's.
+* `MovementBaseUtility::IsSimulatedBase` asks `UPrimitiveComponent::IsPhysicsOwnerSimulatingPhysics`
+  (`PrimitiveComponentPhysics.cpp:1649`), which walks up the attach parents: `Mesh` under the simulating hull counts as a
+  simulated base, so the CMC follows it after the physics step exactly as it followed the hull
+  (`MaybeUpdateBasedMovement`, `CharacterMovementComponent.cpp:2476`). The kinematic bodies themselves are moved right
+  after the hull, in the same EndPhysics propagation (`USkeletalMeshComponent::OnUpdateTransform`, no deferral for a
+  move from the parent), and `SetKinematicTarget_AssumesLocked` updates the query transform at once.
+* A jump inherits the base's velocity from the `Hull` body instance (`GetMovementBaseVelocity`, `Character.cpp:891`:
+  the bone's body first). That is a kinematic body: its velocity is what the solver computed from the kinematic target
+  and reads back with the moving kinematics (`PBDRigidsSOAs.cpp:70-87`, `PullFromPhysicsState`), so it is the hull's
+  velocity one or two frames old. as_59 T8.7 measures a jump at 48 m/s. If it ever read zero the fix is an override of
+  `GetImpartedMovementBaseVelocity` in `UMyCharacterMovementComponent` (the simulating attach parent's point velocity).
+* The CMC's standing force and impact forces only act on a simulating base (`ApplyDownwardForce`,
+  `ApplyImpactPhysicsForces`), and the hull ignores Pawn bodies, so a rider no longer moves the ship at all (v1: 1.4 m of
+  drift in 8 s of walking, section 8). The QueryOnly passenger rule (section 3) is kept: it still covers a ship
+  without deck bodies, and a rider's other primitives.
+* `USkinnedMeshComponent::CanCharacterStepUpOn` is `ECB_Owner`; the owner is a pawn whose root says yes.
+* A character that is not riding (on a platform, on the ground) is no longer a post the hull rests on: the hull passes
+  through it, and the character's own CMC pushes it out of a PA box that moves into it (the floor check's
+  start-penetrating branch of `PhysWalking`). No impulse reaches the ship.
+
+**F only at the wheel** (`AAirshipPawn::IsWithinHelmReach`, `AirshipPawn.cpp:1270`; `TryUseNearest`, `TryBoard`,
+`FindBoardableAirship`, `AirshipPilotComponent.cpp:363`, `:291`, `:255`):
+
+* The character's feet (the capsule's bottom) within `HelmReach` (150 cm, horizontal, hull space) of the pilot's
+  standing spot (the PilotSeat point, 55 cm behind the wheel), within `HelmReachHeight` (100 cm) above or below it, and
+  not ahead of the wheel: hull x at most the `Helm_Wheel` bone's x plus the capsule's radius (beside the wheel counts
+  while the body still reaches its plane).
+* `BoardDistance`, `BoardHullDistance` and `BoardBelowDistance` are 0 = off by default (`AirshipSettings.h:127-138`;
+  v1 / round 2: 1200, 400, 1000). `IsWithinBoardRange` and the trace from below are still there and still count when a
+  harness sets a value. F under or beside the hull, or on the deck away from the wheel and the guns, does nothing (log:
+  "F refused").
+* The console `Aura.Airship.Board` (`TryBoard(nullptr, true)`) still seats a player from any distance; every harness
+  setup uses it. Gunner stations keep `StationMountDistance` 350.
+* There is no on-screen prompt. `FindBoardableAirship` (BlueprintPure, for one) answers only at the wheel.
+
+**Leaving keeps the place** (`AAirshipPawn::UnboardPilot`, `AirshipPawn.cpp:1481`):
+
+* Server: the character is detached at the transform it was attached at (the seat: feet + half height +
+  `PilotSeatClearance`), moved the least that clears the deck's part boxes (`ClearDeckBodies`, `:1360`; none for the
+  mech: its capsule is 8 cm behind the wheel's box), put in `MOVE_Walking` (which finds the deck box and sets the base at
+  once; the capsule settles 11 cm, the seat's clearance, onto the box), and is not launched. No walkable deck under the
+  seat (a capsized wreck): it falls with the ship's velocity as before.
+* An eject (ship death, a lethal crew share) keeps the old point and launch. So does a ship whose deck is the hull's
+  collision.
+* The owning client: `UAirshipPilotComponent::ClientLeftHelm` (reliable, the controller's channel, sent right after the
+  possession, so after `ClientRestart`) -> `AAirshipPawn::PlaceLeftPilotLocal` (`:1630`): the client's own copy is
+  detached, gets its collision back, is placed at the same hull-relative transform on the client's hull and enters
+  walking there. Why: `ClientRestart` sets the default movement mode while that copy's collision is still off (the
+  client restores it in the ship's tick), so it found no floor and fell with no base and no speed, 1.2 m behind per
+  frame at 35 m/s, until the server's correction pulled it back. That was round 1's 3 m snap.
+* Gunners: `DismountGunner` (`:2090`) puts them on the deck next to the seat (`TraceDeckBelow`, `:1333`: the planks'
+  boxes now, the lid before) and clears the part boxes; the rest is unchanged (falling 5 cm with the ship's velocity).
+
+**Shots** (D2). Every Visibility path now meets PA_Airship's bodies or a turret's HitBox instead of the UCX hulls, and a
+player on the planks, inside the lid, can be hit:
+
+| Path | What it meets now | Change |
+|---|---|---|
+| Character gun: the crosshair sweep, then `GA_GunShoot::MyFunc` | the ship (a PA box), a turret's HitBox directly, a player on deck | `FindTurretBehindHullHit` only runs when a PA box is hit first; kept |
+| Turret rounds (`AAirshipTurret::TraceShotLine`) | the same | none |
+| Sentinel bullets | Pawn sweep: players, and the PA boxes of a piloted ship (object type Pawn, as before); else the tagged Visibility line: a PA box or the HitBox | the hull itself is no longer a target: where the PA has no box (the open truss under the forward deck) a bullet passes |
+| Cannonballs | the UCX hull still blocks them (WorldDynamic), PA boxes overlap; splash by object type | none |
+| `AMyProjectile` | overlaps the hull and the PA boxes | none |
+| The ship's own aim (`TraceAimPoint`) | ignores its own ship, attachments and riders | none |
+| Beam and gun hit checks (`UMechSentinelCombatLibrary`) | pawns are looked past already | `GetMoveVelocityAt` (`MechSentinelCombatLibrary.cpp:268`) takes the velocity of the simulating body the base rides on: a deck rider's base is the kinematic Mesh, which has no velocity of its own (the slack for shots from and at a rider would have shrunk) |
+| Cameras | hull and Mesh ignore Camera, as before | none |
+
+**Reaching the deck** (D5, reported, nothing added). The flight model keeps the nozzle exits `MinClearance` (400 cm)
+above the ground and they are about 6 m under the hull origin, so the main deck (2.3-2.9 m above it) is never lower
+than about 12.5 m over flat ground under the pods. L_AirshipTest: the ship is placed at z 1600 over the start platform
+(top z 0) and holds 16.19 m, so the deck at the helm is 18.7 m up. StartupMap: the clone's map has no ship; Talal's
+local one has `BP_AirshipPawn_C_6` at z 1097 (SPEC_B.md B3.1) over the start floor (top z -4, decoded): 13.6 m. The mech
+jumps 176 cm (JumpZVelocity 588, gravity 980) and 353 cm with the air jump; hover holds height. So nobody jumps aboard
+from the ground: boost flight (GA_Boost flies along the view), the grapple (its trace is Visibility: it hooks the PA
+boxes), a platform at deck height, or PR B's ship hook.
+
+**The forward deck** (machine guns, top at hull z 653) is 419 cm above the main deck's forward end (234), more than the
+air jump. By jumps alone: the bow block under it (top 428, 194 cm up: needs the air jump, headroom 192 cm under the
+platform), then the 25 cm ledge beside the platform at x 2130..2245 (z 379), then an air jump up 274 cm onto the
+platform's edge. Not a route for play. Options for the lead: stairs or a ladder in the model with boxes from as_11b, or
+leave it to boost and grapple. No invisible ramp was added (the PA has no box where nothing is drawn).
+
+**Harnesses** (setups only; thresholds as they were):
+
+* as_59: `deck_point` traces the deck component. T3.1 keeps the Mesh's collision on and aims at the hull's side (it
+  switched the PA off to prove the hull alone took a bullet: the reverse is true now). T8.1 turned around (F under the
+  hull does nothing). New: T8.2 (F 2.5 m behind the wheel: no), T8.3 (F at the wheel: yes), T8.4 (leaving: hull xy within
+  10 cm of the driving pose, walking, based on the ship, feet within 5 cm of the deck box; the 11 cm settle in z is
+  reported), T8.5 (a walker in Classic flight at throttle 1 with a turn stays within 1 m, walking, on the deck), T8.6
+  (Visibility lines from above and from port meet the player on the planks first), T8.7 (a jump at speed lands within
+  4 m of the take-off point in hull space).
+* as_60: the same `deck_point`; the client that takes a helm with F stands 80 cm behind the standing spot; gun-seat
+  points are on the seat's helm side; the hull test bullets and g5_spent's ball aim at the hull's side with the Mesh's
+  collision on; new T8.4 L in `g6_drift` (client pilot leaves at 35 m/s: both copies within 10 cm, the client's own copy
+  never more than 1 m off). The offline mock (`_AirshipWork_logs/scratch/r2/mock60`) runs it with 0 script errors.
+* as_45: the players who press F for a helm are put 1 m beside the standing spot (it was 2.5 m, in the old hull range).
+  as_43: a4's square starts on open planks (from the seat it would start into the wheel). as_30: nothing but a comment.
+  v1 checks whose meaning changes on purpose: a0 (out of range now means "not at the wheel"), a1 / e2 / a5 (F at the
+  wheel), a3 / a4 / k2 / e1 / e4 (the deck is the planks' boxes, 2.6 m lower than the lid).
+* as_62 (swarm) is untouched: it boards and mounts through the console. Its texts still speak of the forward deck's
+  convex; with the hull out of the Visibility channel a bullet whose line crosses a turret reaches the HitBox directly.
+

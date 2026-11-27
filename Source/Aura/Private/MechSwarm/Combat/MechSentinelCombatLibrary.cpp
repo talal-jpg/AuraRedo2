@@ -279,7 +279,18 @@ FVector UMechSentinelCombatLibrary::GetMoveVelocityAt(const AActor& Actor, const
 	{
 		if (UPrimitiveComponent* Base = Cast<UPrimitiveComponent>(Character->GetMovementBaseObject()))
 		{
-			Velocity += Base->IsSimulatingPhysics() ? Base->GetPhysicsLinearVelocityAtPoint(Point) : Base->GetComponentVelocity();
+			// The base's own body, or the simulating body it rides on: an airship's deck is its skeletal mesh's kinematic
+			// boxes, attached to the simulating hull, and such a component has no velocity of its own.
+			const UPrimitiveComponent* Mover = nullptr;
+			for (USceneComponent* Link = Base; Link && !Mover; Link = Link->GetAttachParent())
+			{
+				const UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Link);
+				if (Primitive && Primitive->IsSimulatingPhysics())
+				{
+					Mover = Primitive;
+				}
+			}
+			Velocity += Mover ? Mover->GetPhysicsLinearVelocityAtPoint(Point) : Base->GetComponentVelocity();
 		}
 	}
 	return Velocity;

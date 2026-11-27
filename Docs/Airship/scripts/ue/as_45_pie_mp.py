@@ -25,13 +25,20 @@
 # the client's ship would fail k1_client_exit / d2_pilot_ejected, which compare the pilot's health with its value before
 # boarding). One TEMP_AS_Capture SceneCapture2D in the editor level (removed after PIE; the map is never saved). The
 # user's own Play is never stopped.
+# 2026-11-27 (Talal 11-25, helm and deck; SPEC_A.md 6.8). Setups only, every threshold as it was: deck_point traces the deck
+# the characters walk on (the Mesh's physics asset boxes at the planks, AAirshipPawn::IsDeckOnPhysicsAsset; it was the top
+# of the hull's collision, the lid, which characters now pass through), and a player who then presses F for the helm is put
+# 1 m beside the pilot's standing spot (board_tp: the client; deck2: the host), inside HelmReach 150 cm: F takes the helm
+# only at the wheel now (it was 2.5 m beside it, in the old 4 m hull range). a0's text names the new rule; the client that
+# only rides in deck2 stays 2.5 m to port. c_board2 (F right after the exit) now starts from the seat itself: leaving
+# keeps the place.
 import json, math, os, time, traceback  # unreal = inbox namespace
 
 AS45_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_30_pie_smoke.py'
 _as45_src = open(AS45_AS30).read()
 exec(compile(_as45_src[:_as45_src.index('\nclass AsRun')], AS45_AS30, 'exec'), globals())   # maths + tl_get/tl_set/gp/valid/parse_struct
 
-AS45_VERSION = 'as_45_pie_mp 2026-11-25'
+AS45_VERSION = 'as_45_pie_mp 2026-11-27 helm+deck'
 MP = os.path.join(OUT, 'mp')
 CAPS = os.path.join(OUT, 'captures', 'mp')
 XG = os.path.join(MP, 'xgrab')
@@ -535,12 +542,23 @@ class MpRun(object):
             return h['shown'] is True and len(h['ship_widgets']) == 1 and bool(h['overlay']) and all(o == 'COLLAPSED' for o in h['overlay'])
         return not h['shown'] and not h['ship_widgets'] and bool(h['overlay']) and all(o != 'COLLAPSED' for o in h['overlay'])
 
+    def deck_comp(self, ship):
+        """what characters stand on: the Mesh (PA_Airship's boxes at the planks) when the ship says so
+        (AAirshipPawn::IsDeckOnPhysicsAsset, Talal 11-25), else the hull's collision (v1: the UCX lid)"""
+        try:
+            f = getattr(ship, 'is_deck_on_physics_asset', None)
+            if f is not None and bool(f()):
+                return ship.get_editor_property('Mesh')
+        except Exception:  # noqa: BLE001
+            self.err('deck_comp')
+        return ship.get_editor_property('HullCollision')
+
     def deck_point(self, ship, side_y, char):
         seat = v3(ship.get_pilot_seat_location())
         rgt = v3(ship.get_actor_right_vector())
         up = v3(ship.get_actor_up_vector())
         p = [seat[i] + rgt[i] * side_y for i in range(3)]
-        hull = ship.get_editor_property('HullCollision')
+        hull = self.deck_comp(ship)
         hit = trace_loc(hull.line_trace_component(unreal.Vector(*[p[i] + up[i] * 400.0 for i in range(3)]),
                                                   unreal.Vector(*[p[i] - up[i] * 600.0 for i in range(3)]), False, False, False))
         caps = gp(char, 'capsule_component', 'CapsuleComponent')
@@ -908,16 +926,17 @@ class MpRun(object):
 
     def end_board_far(self):
         ok = not self.ship_s.has_pilot() and same(self.cpc.get_controlled_pawn(), self.cchar_c)
-        self.check('a0_board_out_of_range', 'PASS' if ok else 'FAIL', 'client F at %.1f m from the pilot seat (BoardDistance 12 m, '
-                   'hull 4 m): ship has no pilot %s, client still on foot %s' % (self.D['d_seat'], not self.ship_s.has_pilot(),
+        self.check('a0_board_out_of_range', 'PASS' if ok else 'FAIL', 'client F at %.1f m from the pilot seat (the helm is taken only at the '
+                   'wheel: HelmReach 1.5 m; v1: BoardDistance 12 m, hull 4 m): ship has no pilot %s, client still on foot %s' % (self.D['d_seat'], not self.ship_s.has_pilot(),
                                                                                  same(self.cpc.get_controlled_pawn(), self.cchar_c)))
 
-    # ---- teleport the client onto the deck (both copies)
+    # ---- teleport the client onto the deck (both copies): 1 m to port of the pilot's standing spot, at the wheel (F takes
+    # the helm only within HelmReach 150 cm of that spot; until the helm / deck change: 2.5 m to port, on the lid)
     def start_board_tp(self):
-        loc, traced = self.deck_point(self.ship_s, -250.0, self.cchar_s)
+        loc, traced = self.deck_point(self.ship_s, -100.0, self.cchar_s)
         self.D['tp'] = r(loc, 1)
         self.tp([self.cchar_s, self.cchar_c], loc, self.ship_s.get_actor_rotation().yaw)
-        self.line('INFO', 'client character teleported onto the deck at %s (lid trace %s), server + client copies' % (r(loc, 0), traced))
+        self.line('INFO', 'client character teleported onto the deck at %s (deck trace %s), server + client copies' % (r(loc, 0), traced))
 
     def end_board_tp(self):
         cs = self.char_info(self.cchar_s, self.ship_s)
@@ -1463,7 +1482,8 @@ class MpRun(object):
         yaw = self.ship2_s.get_actor_rotation().yaw
         loc, tr1 = self.deck_point(self.ship2_s, -250.0, self.cchar_s)
         self.tp([self.cchar_s, self.cchar_c], loc, yaw)
-        loc2, tr2 = self.deck_point(self.ship2_s, 250.0, self.hchar)
+        # the host takes the helm next (host_board, F): 1 m to starboard of the standing spot, inside HelmReach
+        loc2, tr2 = self.deck_point(self.ship2_s, 100.0, self.hchar)
         self.tp([self.hchar], loc2, yaw)
         self.line('INFO', 'client onto ship 2\'s deck at %s (trace %s), host at %s (trace %s)' % (r(loc, 0), tr1, r(loc2, 0), tr2))
 

@@ -964,6 +964,9 @@ Searchlights and other props stay as they are (lead decision).
 
 ### D8. Board from under the hull
 
+**Withdrawn 2026-11-25 (Talal, section 6.8):** F under the hull does nothing; `BoardBelowDistance` is 0 = off by default.
+The code below stays for a harness that sets the value.
+
 Port from the parked local branch `airship-anchor-wip` (1f3d2b7, `git show airship-anchor-wip`), boarding part only:
 
 * Settings (turret owner): `UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0")) float
@@ -1341,7 +1344,13 @@ checked where noted).
 | T7.1 | - | D7 | Blender `rig_all.sh` + `verify_all.sh` | PASS, 118 bones, 31 meshes |
 | T7.2 | S | D7 | Pilot at the helm, capture from the side | wheel hub near the character's chest; wheel about 140 cm across (bounds of Helm_Wheel's vertices from part_bounds.json 136-144 cm) |
 | T7.3 | S | D7 | Top capture of the deck | the 5 pieces gone; turrets at the forward deck edges |
-| T8.1 | L | D8 | Client 7 m below the hovering ship's belly, under the hull | F boards; 12 m below: refused |
+| T8.1 | S | 6.8 | The player on the ground 7 m and 12 m under the hovering ship's belly, F | not boarded, both (until 2026-11-25, D8: boards at 7 m) |
+| T8.2 | S | 6.8 | The player on the planks 2.5 m behind the wheel, F | not boarded |
+| T8.3 | S | 6.8 | The player on the planks at the pilot's standing spot, F | boarded, attached at the seat |
+| T8.4 | S, L | 6.8 | The pilot presses F at the helm. S: at rest. L: the client pilot at 35 m/s, both copies, each in its own hull's space | S: hull xy within 10 cm of the driving pose, walking, base = the ship, feet within 5 cm of the deck box, no falling. L: server copy within 10 cm; the client's own copy never more than 100 cm off and within 10 cm from 2 s on |
+| T8.5 | S | 6.8 | A player stands on the planks; Classic, throttle 1 for 8 s with a 3 s turn (48 m/s) | walking, a rider, base = the ship all the time; within 1 m of its spot; feet -6..12 cm over the deck box |
+| T8.6 | S | 6.8 | Visibility lines at a player on the planks from 10 m above and from 25 m to port; then from above past the player | the player first on both; then ship 1's Mesh (a deck box) |
+| T8.7 | S | 6.8 | The same player jumps at 48 m/s | back on the deck within 4 m of the take-off point (hull xy) |
 | T9.1 | S | D9 | P&F cruise 48 m/s, F exit | speed 2.5 +-0.3 m/s within 30 s; heading within 2 deg for 60 s; mode Drift |
 | T9.2 | S | D9 | Galleon and Classic: same | same (Galleon: no reverse; fans idle) |
 | T9.3 | S | D9 | Exit at rest | mode Hold; moves < 0.5 m in 30 s |
@@ -1566,13 +1575,60 @@ with the health before boarding. `as_30_pie_smoke.py` (`crew_share_set` / `crew_
 `restore`; as_43 inherits them) and `as_45_pie_mp.py` now set `CrewDamageShare` to 0 for the whole run and restore it.
 Section 4 lists it with the other switches.
 
+### 6.8 Helm and deck (Talal 11-25; built 2026-11-27)
+
+Talal, 2026-11-25 05:02 and 05:06 UTC: "1.the player should only be able to drive mount the ship when close enough to
+hold steering wheel , 2. when player exits , the character should keep its position in front of the steering wheel ,as
+when driving." and "no need to make the character climb, if below hull, only be able to drive once close enough to grab
+the steering wheel". This replaces D8 and the helm half of D5.3. Code and engine facts with file:line:
+`Docs/Airship/CPP_NOTES.md` section 15.9. Built clean (`build_r2.sh`), not yet run in PIE.
+
+* **D1. Walkable deck at plank height.**
+  * `HullCollision` ignores `ECC_Pawn`; the Mesh (PA_Airship: kinematic, QueryOnly) blocks it. Characters pass through
+    the UCX lid and walk on the hull boxes (tops at the planks) and are stopped by the part boxes. The hull stays the
+    flight body with every other response, so flight, mass and inertia do not change.
+  * A ship without physics asset bodies keeps the v1 deck (`bDeckOnPhysicsAsset`, `IsDeckOnPhysicsAsset()`).
+  * The based movement is the same as on the hull: the Mesh under a simulating root counts as a simulated base. A rider
+    no longer pushes the ship (the standing force only acts on a simulating base).
+  * PA_Airship needs the 11-25 refit of `as_11b` (96 hull boxes, no hole): **rebuild the asset in the editor stage**
+    (`as_11_physics_asset.py`, then as_13 and as_58).
+  * The forward deck is 419 cm above the main deck, more than the air jump (353 cm). No ramp was added: the PA has no box
+    where nothing is drawn. Open item for the lead and Talal.
+* **D2. Visibility.** `HullCollision` ignores `ECC_Visibility` too; the PA bodies and the turrets' HitBoxes are what
+  traces hit, so a player on the planks (inside the lid) can be shot. Checked path by path (CPP_NOTES 15.9 table). One
+  fix: `UMechSentinelCombatLibrary::GetMoveVelocityAt` reads the simulating body under a kinematic base.
+  `FindTurretBehindHullHit` stays as a fallback for a PA box in front of a turret. Sentinel bullets and shots pass where
+  the PA has no box (the open truss under the forward deck).
+* **D3. The helm only at the wheel.** `AAirshipPawn::IsWithinHelmReach`: feet within `HelmReach` 150 cm (horizontal,
+  hull space) of the pilot's standing spot and within `HelmReachHeight` 100 cm vertically, and not ahead of the wheel
+  (hull x up to the wheel hub's plus the capsule's radius, so "beside" counts). Used by `TryUseNearest`, `TryBoard`
+  (without `bIgnoreRange`) and `FindBoardableAirship` (the prompt's question).
+* **D4. Leaving keeps the place.** `UnboardPilot(false)`: detached at the seat transform, walking with the ship as the
+  base, no launch. The capsule clears the wheel's box by 8 cm, so nothing moves in the hull's xy; it settles 11 cm in z
+  (the seat's clearance onto the deck box). Ejects keep the old launch. The owning client places its own copy the same
+  way (`ClientLeftHelm` -> `PlaceLeftPilotLocal`): without it that copy fell with no base and no speed until the
+  server's correction (round 1's 3 m snap).
+* **D5. No climb.** `BoardDistance`, `BoardHullDistance`, `BoardBelowDistance` default to 0 = off; the code paths stay
+  for a harness. F under or near the hull does nothing. The main deck of a hovering ship is at least about 12.5 m above
+  flat ground (18.7 m in L_AirshipTest, 13.6 m for the ship in Talal's StartupMap); a jump reaches 1.76 m, the air jump
+  3.53 m. Players get aboard by boost flight, the grapple, a platform at deck height, or PR B's ship hook. Gunner
+  stations keep `StationMountDistance` 350; a gunner who leaves is put on the planks next to the seat.
+* **D6. Harnesses and docs.** as_59: T8.1 turned around, T8.2-T8.7 new, T3.1 with the Mesh's collision on; as_60: T8.4 L
+  in `g6_drift`, setups; as_45 / as_43: setups; as_30: unchanged. Console `Board` / `Exit` / `Mount` / `Dismount` are
+  unchanged (as_62 uses them). Section 4 has the rows; `HOW_TO_FLY.md` has the player's view.
+* **Deviations from the lead's brief.** (1) T8.4's 10 cm is measured in the hull's xy; in z the capsule settles 11 cm
+  from the driving pose onto the deck box, which is reported and checked as "feet within 5 cm of the deck box". (2) The
+  client RPC is an addition. (3) "Not ahead of the wheel" has the capsule's radius of tolerance.
+
 ---
 
 ## Appendix A. New settings (`UAirshipSettings`, all `UPROPERTY(Config, EditAnywhere)`)
 
 | Category | Name | Type | Default | Unit / meaning |
 |---|---|---|---|---|
-| Boarding | `BoardBelowDistance` | float | 1000 | cm: a pawn under the hull (trace straight up hits it) can board; 0 = off |
+| Boarding | `BoardBelowDistance` | float | 0 (was 1000) | cm: a pawn under the hull (trace straight up hits it) can board; 0 = off. Off since 6.8, like `BoardDistance` (was 1200) and `BoardHullDistance` (was 400) |
+| Boarding | `HelmReach` | float | 150 | cm, horizontal, hull space: F takes the helm with the feet this close to the pilot's standing spot (6.8); 0 = only the old ranges |
+| Boarding | `HelmReachHeight` | float | 100 | cm above or below the standing spot |
 | Stations | `StationMountDistance` | float | 350 | cm, horizontal radius around a station seat for F |
 | Stations | `StationMountHeightAbove` | float | 600 | cm the pawn may be above the seat (the lid, the gantry convex) |
 | Stations | `StationMountHeightBelow` | float | 200 | cm the pawn may be below the seat |

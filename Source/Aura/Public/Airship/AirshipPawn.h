@@ -132,9 +132,11 @@ public:
 	/**
 	 * Any machine: true if Character may take the helm from where it stands (F, Talal 11-25: "only be able to drive once
 	 * close enough to grab the steering wheel"). Its feet within UAirshipSettings::HelmReach (horizontal, hull frame) of the
-	 * helm's standing spot (the pilot seat), within HelmReachHeight above or below it, and not ahead of the wheel (the
-	 * Helm_Wheel bone's plane; behind or beside it). The old ranges (IsWithinBoardRange with the settings' BoardDistance /
-	 * BoardHullDistance / BoardBelowDistance, all 0 = off by default) still count when a harness sets them.
+	 * helm's standing spot (the pilot seat), within HelmReachHeight above or below it, and not ahead of the wheel: behind
+	 * it, or beside it while its capsule still reaches the wheel's plane (the Helm_Wheel bone's hull x + the capsule's
+	 * radius). The old ranges (IsWithinBoardRange with the settings' BoardDistance / BoardHullDistance /
+	 * BoardBelowDistance, all 0 = off by default) still count when a harness sets them. No other state is checked here
+	 * (CanBoard: alive, free helm, not a gunner).
 	 */
 	bool IsWithinHelmReach(const ACharacter* Character) const;
 
@@ -145,9 +147,18 @@ public:
 	 * Server: gives the pilot back their character. Leaving (F): where it stood while driving (the seat, feet on the
 	 * planks behind the wheel, facing the bow), walking with the ship as its movement base, no launch (the base carries
 	 * it); moved the least that clears it of the ship's bodies. bEject (death, a lethal crew share): 2.5 m to port and
-	 * thrown clear with the ship's velocity.
+	 * thrown clear with the ship's velocity. A ship whose deck is the hull's collision (no physics asset bodies,
+	 * IsDeckOnPhysicsAsset false) leaves like v1: 2.5 m to port on top of the hull, falling with the ship's velocity.
 	 */
 	void UnboardPilot(bool bEject);
+
+	/**
+	 * The owning client of a pilot who just left the helm with F (UAirshipPilotComponent::ClientLeftHelm, after
+	 * ClientRestart): its own copy of the character off the hull, its collision back, at the seat on this machine's hull,
+	 * walking with the ship as its base. So that copy never falls without a base (left behind at the ship's speed until
+	 * the server's correction: the snap of round 1).
+	 */
+	void PlaceLeftPilotLocal(ACharacter* Pilot);
 
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	ACharacter* GetPilot() const { return PilotCharacter; }

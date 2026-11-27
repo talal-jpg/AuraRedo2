@@ -457,6 +457,11 @@ from the swarm's own combat processor.
    `as_11a` (column survey of the round-2 rig) + `as_11b` fit: 35 bodies, 119 boxes (79 hull, 7 chain links), every
    bone with geometry covered, no box above the deck or in the open truss, nothing where the five removed pieces were.
    His local PA_Airship is empty; this one replaces it when he pulls (a conflict on that file: take ours).
+   **Rebuild needed (2026-11-27):** since the helm / deck change characters walk on these boxes
+   (`Docs/Airship/CPP_NOTES.md` 15.9). `as_11b` was refitted for that on 11-25 13:33 (no hole at the main deck's forward
+   end, the bow well or the stern: 96 hull boxes in `Saved/Airship/pa_hull_boxes.json`), but the saved asset is still
+   the 02:16 build with 79. Run step 6b again (`as_11_physics_asset.py`, `as_13_cr_eval.py`, `as_58_verify_round2.py`)
+   before any PIE on the deck: 35 bodies, 136 boxes after it.
 7. **Baked ink where the removed deck pieces stood (found 2026-11-25; fix written, run step 4b `as_61_hull_ink.py`).** The hull keeps Talal's baked comic texture
    (`/Game/Assets/MyShip/T_Airship_ComicLines`, 4096, in `M_Airship`, SK_Airship slot 0). It was baked with the five
    pieces in place, so the deck under each of them is solid ink: sampled on the rig copy (headless Blender, rays down on a
