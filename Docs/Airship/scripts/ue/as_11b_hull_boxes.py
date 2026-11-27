@@ -26,6 +26,21 @@
 # open truss level, z 428, like the bow wedge it joins: a 1.9 m step up from the planks), and the stern is its own region
 # with 50 cm slabs (SLAB_OF). Every other slab keeps its old x limits (Main starts at -1575, Bow at 2250: the same
 # boundaries as before, so their boxes are unchanged).
+# Review 2026-11-27 (should fix 4), two changes; every older box keeps its y / z limits and its name:
+#  * Seams. Every box was shrunk 5 cm on all four sides, so two neighbouring 2 m slabs left a 10 cm slot across the whole
+#    deck (19 on the main deck, 7 on the forward deck; one 30 cm behind the pilot's standing spot): a capsule stands across
+#    it, a line trace on it finds nothing. A side now keeps its shrink only where the hull ends there: where at least half
+#    of the survey columns just beyond that side are solid at the box's top (a hit at or above top - 12 cm and one below
+#    it), the box runs 0.5 cm past the cell edge instead, so neighbours overlap by 1 cm (overlapping boxes in one body are
+#    fine). No new column centre comes under a box (they are 12.5 cm from a cell edge), so check() is unchanged.
+#  * Deck props. The crates and barrels on the main deck are part of the hull mesh and had no box: players walked and
+#    shot through them. fit_props: columns between x -1575 and 2130 whose top hit in the band 200..560 stands 30 cm or
+#    more over the deck hit under it, at least 2 cells (50 cm) from any column without a deck (so the rails and their
+#    posts stay without boxes, as documented) and open to the sky (the top hit of the whole column: not the truss under
+#    the forward platform); 4-connected clusters whose hits under the top lie within 15 cm of the planks around the
+#    cluster (else that hit is something inside the hull and the top is the deck itself); per cluster up to 3 rectangles of raised cells (at
+#    least 2 x 2 cells), the largest volume first, top = the lowest column top - 2 cm, bottom = the deck boxes' top (the
+#    highest deck hit - 2 cm). Names Hull_Props_NN, region 'Props' (EXTRA_REGIONS: as_58 reads its band).
 #   AS11B_OUT=<path> python3 -B ... writes there instead of Saved/Airship/pa_hull_boxes.json (a dry run to compare).
 import json, os, sys
 
@@ -48,6 +63,14 @@ REGIONS = [('Stern', -1775.0, -1575.0, -1e9, 410.0),
            ('Platform', 1000.0, 3175.0, 560.0, 760.0)]
 # slab width per region (cm), SLAB when not listed: the stern's quarter galleries and transom slope around the rudder notch
 SLAB_OF = {'Stern': 50.0}
+OVERLAP = 0.5         # a side with hull beyond it runs this far past the cell edge (neighbours overlap by 1 cm)
+SOLID_BELOW_TOP = 12.0
+# deck props (crates, barrels): (name, x_min, x_max, z_lo, z_hi) like REGIONS, fitted by fit_props, not by slabs
+EXTRA_REGIONS = [('Props', -1575.0, 2130.0, 200.0, 560.0)]
+PROP_MIN_RISE = 30.0
+PROP_EDGE = 2         # cells from a column without a deck: nearer is rail / gunwale
+PROP_MAX_PICK = 3
+PROP_DECK_TOL = 15.0  # cm between the hits under a prop and the planks around it
 
 
 def load():
@@ -189,6 +212,98 @@ def merge(rc, slabs):
     return out
 
 
+def solid_at(cols, x, y, top):
+    """the survey column at (x, y) is hull at the height top: a hit at or above top - SOLID_BELOW_TOP and one below top"""
+    hits = cols.get((round(x, 1), round(y, 1)))
+    return bool(hits) and hits[0] >= top - SOLID_BELOW_TOP and hits[-1] < top
+
+
+def side_limits(cols, xs, ys, top):
+    """(x_min, x_max, y_min, y_max) of a box over the column centres xs x ys: SHRINK inside the cell edge on a side where
+    the hull ends, OVERLAP past it where at least half of the columns just beyond that side are solid at top"""
+    x0, x1, y0, y1 = min(xs) - STEP / 2, max(xs) + STEP / 2, min(ys) - STEP / 2, max(ys) + STEP / 2
+
+    def beyond(pts):
+        return sum(1 for (x, y) in pts if solid_at(cols, x, y, top)) * 2 >= len(pts)
+    return (x0 - OVERLAP if beyond([(x0 - STEP / 2, y) for y in ys]) else x0 + SHRINK,
+            x1 + OVERLAP if beyond([(x1 + STEP / 2, y) for y in ys]) else x1 - SHRINK,
+            y0 - OVERLAP if beyond([(x, y0 - STEP / 2) for x in xs]) else y0 + SHRINK,
+            y1 + OVERLAP if beyond([(x, y1 + STEP / 2) for x in xs]) else y1 - SHRINK)
+
+
+def fit_props(cols):
+    """boxes for what stands on the main deck (see the header): [{'name', 'region', 'min', 'max'}]"""
+    name, x0, x1, lo, hi = EXTRA_REGIONS[0]
+
+    def top_of(x, y):
+        """the column's top hit when it lies in the band (open to the sky: nothing of the forward platform or its truss
+        over it), else None"""
+        hits = cols.get((round(x, 1), round(y, 1)))
+        return hits[0] if hits and lo <= hits[0] < hi else None
+
+    def band(x, y):
+        hits = cols.get((round(x, 1), round(y, 1)))
+        return bool(hits) and any(lo <= z < hi for z in hits)
+    raised = {}
+    for (x, y), hits in cols.items():
+        if x0 <= x < x1:
+            top = top_of(x, y)
+            base = [z for z in hits if lo <= z < hi and top is not None and z <= top - PROP_MIN_RISE]
+            if base and all(band(x + i * STEP, y + j * STEP) for i in range(-PROP_EDGE, PROP_EDGE + 1) for j in range(-PROP_EDGE, PROP_EDGE + 1)):
+                raised[(x, y)] = (max(base), top)
+    left, clusters = set(raised), []
+    while left:
+        todo, cl = [left.pop()], []
+        while todo:
+            c = todo.pop()
+            cl.append(c)
+            for d in ((STEP, 0.0), (-STEP, 0.0), (0.0, STEP), (0.0, -STEP)):
+                n = (round(c[0] + d[0], 1), round(c[1] + d[1], 1))
+                if n in left:
+                    left.remove(n)
+                    todo.append(n)
+        clusters.append(sorted(cl))
+    out = []
+    for cl in sorted(clusters):
+        cells = set(cl)
+        # it stands on the deck around it: the planks next to the cluster (the tops of its 4-neighbours that are not raised)
+        # are at the height of the hits under it. Else the hit under it is something inside the hull and the top is the deck.
+        ring = set((round(c[0] + d[0], 1), round(c[1] + d[1], 1)) for c in cl for d in ((STEP, 0.0), (-STEP, 0.0), (0.0, STEP), (0.0, -STEP))) - cells
+        around = sorted(t for t in (top_of(*c) for c in ring) if t is not None)
+        under = sorted(raised[c][0] for c in cl)
+        if not around or abs(around[len(around) // 2] - under[len(under) // 2]) > PROP_DECK_TOL:
+            continue
+        for _ in range(PROP_MAX_PICK):
+            xs = sorted(set(c[0] for c in cells))
+            ys = sorted(set(c[1] for c in cells))
+            best = None
+            for i0 in range(len(xs)):
+                for i1 in range(i0 + 1, len(xs)):
+                    for j0 in range(len(ys)):
+                        for j1 in range(j0 + 1, len(ys)):
+                            rect = [(x, y) for x in xs[i0:i1 + 1] for y in ys[j0:j1 + 1]]
+                            if xs[i1] - xs[i0] != (i1 - i0) * STEP or ys[j1] - ys[j0] != (j1 - j0) * STEP or not all(c in cells for c in rect):
+                                continue
+                            bot = max(raised[c][0] for c in rect) - TOP_GAP
+                            top = min(raised[c][1] for c in rect) - TOP_GAP
+                            if top - bot < PROP_MIN_RISE - TOP_GAP:
+                                continue
+                            vol = len(rect) * (top - bot)
+                            if best is None or vol > best[0]:
+                                best = (vol, rect, bot, top)
+            if best is None:
+                break
+            _, rect, bot, top = best
+            rx, ry = sorted(set(c[0] for c in rect)), sorted(set(c[1] for c in rect))
+            # a prop stands free: its sides end at the cells' edges (shrunk); only the deck under it is hull beyond
+            out.append({'name': 'Hull_%s_%02d' % (name, len(out)), 'region': name,
+                        'min': [round(rx[0] - STEP / 2 + SHRINK, 1), round(ry[0] - STEP / 2 + SHRINK, 1), round(bot, 1)],
+                        'max': [round(rx[-1] + STEP / 2 - SHRINK, 1), round(ry[-1] + STEP / 2 - SHRINK, 1), round(top, 1)],
+                        'cells': len(rect), 'cluster_cells': len(cl)})
+            cells -= set(rect)
+    return out
+
+
 def check(cols, boxes, tol=2.0):
     """every box against every survey column it covers (all hits, every band): above the top hit, below the bottom hit,
     or a column without hull. Box min/max in cm."""
@@ -260,15 +375,19 @@ def main():
                         'coverage': round(cov / tot, 3) if tot else None, 'slabs': len(slabs)}
         for si, sl in enumerate(slabs):
             for bi, (Y0, Y1, b, t) in enumerate(sl['boxes']):
-                xa, xb = round(sl['x0'] + SHRINK, 1), round(sl['x1'] - SHRINK, 1)
+                n = int(round((Y1 - max(Y0, 0.0)) / STEP))
+                ay = [max(Y0, 0.0) + STEP / 2 + i * STEP for i in range(n)]
                 if Y0 <= 0:
-                    boxes.append({'name': 'Hull_%s_%02d_%d' % (r[0], si, bi), 'region': r[0],
-                                  'min': [xa, round(-Y1 + SHRINK, 1), round(b, 1)], 'max': [xb, round(Y1 - SHRINK, 1), round(t, 1)]})
+                    parts = [('', sorted([-y for y in ay] + ay))]
                 else:
-                    for side, sg in (('L', -1), ('R', 1)):
-                        ya, yb = sg * (Y0 + SHRINK), sg * (Y1 - SHRINK)
-                        boxes.append({'name': 'Hull_%s_%02d_%d%s' % (r[0], si, bi, side), 'region': r[0],
-                                      'min': [xa, round(min(ya, yb), 1), round(b, 1)], 'max': [xb, round(max(ya, yb), 1), round(t, 1)]})
+                    parts = [('L', sorted(-y for y in ay)), ('R', ay)]
+                for side, ys in parts:
+                    xa, xb, ya, yb = side_limits(cols, sl['xs'], ys, t)
+                    boxes.append({'name': 'Hull_%s_%02d_%d%s' % (r[0], si, bi, side), 'region': r[0],
+                                  'min': [round(xa, 1), round(ya, 1), round(b, 1)], 'max': [round(xb, 1), round(yb, 1), round(t, 1)]})
+    props = fit_props(cols)
+    report['Props'] = {'boxes': len(props), 'cells': sum(p['cells'] for p in props)}
+    boxes += props
     chk = check(cols, boxes)
     bad = [c for c in chk if c['above_top'] or c['below_bottom'] or c['no_hull']]
     chain = chain_boxes(s.get('chain_verts') or [])

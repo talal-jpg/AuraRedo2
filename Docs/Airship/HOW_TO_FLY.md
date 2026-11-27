@@ -140,6 +140,11 @@ characters, ships, other machine guns, enemy cannonballs and sentinels, never yo
 pilot fires both by holding the left mouse button with the camera within 50 deg of the bow. Each has 400 health; a
 destroyed one burns, stops firing and throws its gunner off.
 
+The sentinel swarm only goes for a ship that somebody drives, or for a player at one of its guns. On a driven ship one
+bullet in four is aimed at a machine gun that still works (Project Settings > Game > Airship > Crew, "Swarm Turret Aim
+Chance"; 0 = never), the rest at the middle of the hull. Every hit on the hull also costs the pilot and each gunner a
+quarter of it. A gunner on a ship nobody drives is the swarm's target himself: most bullets hit him or his gun.
+
 ### Damage
 
 * Cannonballs are 1 m across and have health: about 8 machine-gun bullets (or 30 character-gun hits) shoot one down in
@@ -169,6 +174,11 @@ Changed 2026-11-27 (your two points of 11-25, and "no need to make the character
   deck height, or later with PR B's ship hook.
 * **The forward deck** (the machine guns) is 4.2 m above the main deck and has no stairs. The air jump does not reach
   it from the main deck. Boost or the grapple do. Tell me if you want stairs or a ladder there: that is a model change.
+  One way works today by accident: jump under the forward deck near a machine gun and press F at the top of the jump.
+  The gun is then in range, you are put on it, and leaving it puts you on the forward deck.
+* **Jumping on deck in flight.** A jump or air jump on the deck stays with the ship: you come down where you took off,
+  at any speed, and a direction key turns only your own movement. Jump past the rail and you leave the ship with its
+  speed. Hovering does not hold you to the ship: it flies on without you (read from the code, not flown yet).
 * **You can be shot on deck.** Guns, machine guns and sentinel bullets now hit a player standing on the planks. Before,
   the invisible lid above the planks stopped them. Shots at the ship land on its hull, forward deck, pods, fans,
   rudder, cannons, wheel, winches and searchlights. Open structure, such as the truss under the forward deck, has no

@@ -1,5 +1,17 @@
 # Round 2, PR A: editor scripts (assets owner)
 
+Status 2026-11-27: step 6b run again (PA_Airship = the 96 hull boxes: 35 bodies, 136 boxes), as_13 145 PASS, step 4b
+`as_61_hull_ink.py` run (21 PASS; its first run FAILed at the slot assignment, see its section), as_58 54 PASS + compile
+all_ok, stills clean (`top_deck.png`: no black patches). as_59 standalone: 52 PASS, 0 FAIL, 4 INFO, 14 SKIP
+(`Saved/Airship/round2_final_sa/`; section "as_59 PIE run 2026-11-27"). as_60 listen the same day: 42 PASS, 0 FAIL,
+1 INFO, 9 SKIP on the build with the passenger fix (`Saved/Airship/round2_final_mp/`; section "as_60 PIE run
+2026-11-27").
+
+Status 2026-11-27, later: as_62 (real swarm) run for the first time: 17 PASS, 0 FAIL, 1 INFO, 2 SKIP on the build with
+the swarm's turret aim (`Saved/Airship/round2_final_swarm/`; section "as_62 PIE run 2026-11-27"). Regression on that
+build: as_43 Classic 24 of 25, as_45 listen 22 of 22 (Classic) and 18 of 22 (Point & Fly), follow-up checks 7 of 9 (9 of
+9 with the bow arc off), Scheme check 0 differences (`controls/RESULTS.md`).
+
 Status 2026-11-25: editor stage run in the clone editor; steps 1-11 PASS (as_58: 51 PASS, compile all_ok). Step 12
 (as_59 standalone PIE): 44 PASS, 0 FAIL, 0 WARN, 2 INFO, 14 SKIP after three harness fix rounds, no C++ change (section
 "as_59 PIE run 2026-11-25" below; results `Saved/Airship/round2_final_sa/`). Written
@@ -177,7 +189,11 @@ writes `Saved/Airship/as_51_compile.json` / `as_54_compile.json` / `as_58_compil
   else M_Airship, so a later as_56 / as_10 run keeps the drivable hull material. as_56's three patch targets are
   untouched (each still matches once).
 * Dry run against a mock `unreal` (Material path twice = re-run, missing skeletal-mesh flag, MI path, PIE refusal): no
-  script error, the expected PASS / FAIL lines. Not run in an editor yet.
+  script error, the expected PASS / FAIL lines.
+* Editor run 2026-11-27: the first run FAILed at the slot (it read back M_Airship, nothing saved). `sk.materials[0]`
+  hands out a copy of the struct; the script changed the copy and assigned the unchanged array. Fixed like as_10 (change
+  the element, write it back into the array, then assign). Second run in a restarted editor: 21 PASS, Talal's four assets
+  byte-equal. as_58 now checks the slots and the copy's texture.
 * Look check after the run: the round-2 stills (`_AirshipWork_logs/scratch/r2/stills/r2_stills.py`, `top_deck.png`,
   `top_fwd_deck.png`) or as_59's `t7_top_top.png`: no black rectangles / bar where the five pieces stood. The Blender
   renders of the same fix: `media/deck_ink_before_after.jpg`.
@@ -329,10 +345,54 @@ writes `Saved/Airship/as_51_compile.json` / `as_54_compile.json` / `as_58_compil
   T1.3 captures can't show the puffs (white smoke against the white hull from that camera); the component count is the
   measurement. The black rectangles of risk 7 show in `t7_top_top.png`.
 
+### as_59 PIE run 2026-11-27 (standalone, helm and deck)
+
+* Before it: PA_Airship rebuilt (as_11, 96 hull boxes), as_13, as_61, as_58 (54 PASS: it now also checks 35 bodies / 136
+  boxes / 96 hull boxes and SK_Airship's slots), stills. Final run: 52 PASS, 0 FAIL, 0 WARN, 4 INFO, 14 SKIP, no error
+  or ensure in the log.
+* Run 1: 49 PASS, 1 FAIL. T8.1 (measurement): since nobody boards in the first case any more, the player still stood
+  under the hull for the second case; the ground trace hit its head, the player was put 1.4 m up and fell while the
+  ship was placed (1265.7 cm instead of 1200). The trace ignores the player now.
+* T8.7 passed, but its end pose was the helm, 1.5 m forward of the landing: T8.8 (the 1.5 s after the landing) measured
+  a 167.6 cm slide. Cause and fix in C++ (`UMyCharacterMovementComponent`, CPP_NOTES 15.10); T8.9 covers the air jump.
+  t8_walk is 15 s now.
+* T5.16a / T5.16b (INFO) and `t5_gunner_cannonR1.png` / `t5_gunner_turret0.png`: the gunner's feet 8 cm over the deck
+  box at R1 and 7 cm at the port turret (the seat's clearance). The turret seat (x 2000) is over the 10 cm seam between
+  two 2 m deck slabs (the boxes are shrunk 5 cm each): a line trace there finds nothing, a capsule stands across it.
+* `t8_reach` (opt-in, `AS59_ONLY="t8_reach"`, INFO): jump 176.4 cm, jump + air jump 352.8 cm; F from the main deck under
+  the port turret does nothing standing (350 cm under the seat) and mans the turret at the top of a jump (175 cm under
+  it, limit 200); Dismount leaves the player on the forward deck. `deck_reach_probe.json` (editor world): deck heights.
+
+### as_60 PIE run 2026-11-27 (listen server, 2 players, helm and deck)
+
+Runner: `_AirshipWork_logs/run_r2_listen.sh` (it has no execute bit: start it with `bash`), ini in listen mode with 2
+players (`set_play_mode.sh listen 2`, editor closed). Results `Saved/Airship/round2_final_mp/` (report, result json,
+captures, the editor log, the runner logs of the first and the final run); the 11-25 results are kept beside it as
+`round2_final_mp_before_1127`.
+
+* Run 1 (the build of the standalone run): 38 PASS, 1 FAIL, 1 INFO, 9 SKIP. FAIL T5.12a: 1.04 deg against 1.0 (11-25:
+  0.99). The client's barrel is one frame ahead of the host's own barrel while it moves, so the frame pairing now tries
+  -1 as well as 0..4 frames; the limit is unchanged (0.03 deg at -1).
+* The 5 Hz series of run 1 showed ship 1 / ship 2 knocked 3 m down and up to 5 m sideways in g1_far, g2_walk, g3_r1,
+  g7_k1 and g7_k2, each time right after a character was teleported from the ground onto the planks (and three client
+  corrections of 21-27 cm while the client walked on the recovering deck). Cause and C++ fix: CPP_NOTES 15.11.
+* New in as_60: `deck_arrival_no_shove_L` (g1_far; it also lists the character's primitives before and after),
+  `T8.2_client_F_away_from_wheel_L` (g3_swap: the client's F 2.5 m behind the free wheel, then at the wheel), group
+  `g8_` with `T8.7_client_deck_jump_L` (the client jumps on the deck of the ship the host flies), T5.12a keeps every
+  aim sample. The offline mock (`_AirshipWork_logs/scratch/r2/mock60`) runs it with 0 script errors.
+* Final run (36 phases, 196.6 game s): 42 PASS, 0 FAIL, 1 INFO, 9 SKIP; no error, ensure or airship warning in the log
+  (the `GiveAbility ... on the client, not allowed` lines are the base game's, as on 11-25); every movement correction
+  in the log follows a harness teleport, an eject or a respawn.
+* Numbers: T8.4 L 6.5 cm (both copies, at 40 m/s), T5.13 0.0 cm at 100 ms lag with 0 client corrections, T8.7 L lands
+  3 cm from the take-off point, deck arrival 0.1 cm (554 before the fix), turret hits and crew shares as on 11-25.
+* as_59 standalone again on that build: 52 PASS, 0 FAIL, 4 INFO, 14 SKIP (`Saved/Airship/round2_final_sa/`; the run
+  before the passenger fix is in its `before_passenger_fix/`). The ship no longer drops 4 m in `t2_gun` when the player
+  is put on the deck.
+
 ### as_62_pie_swarm.py (+ as_62s_status.py, as_62x_stop.py): standalone PIE with a real swarm (2026-11-25)
 
-Written without an editor; not run in PIE yet (mock run only, below). It covers T3.5 and T6.7, which as_59 skips, and
-Talal's rule that the swarm only attacks a ship while it is driven. No `Aura.MechSentinel.TestBullet`: every bullet comes
+Written without an editor; first run in PIE on 2026-11-27 (section "as_62 PIE run 2026-11-27" below). It covers T3.5 and
+T6.7, which as_59 skips, and Talal's rule that the swarm only attacks a ship while it is driven. No `Aura.MechSentinel.TestBullet`: every bullet comes
 from the swarm's own combat processor.
 
 * The swarm: `TEMP_AS62_Spawner`, an `AMechSentinelWaveSpawner` placed in the editor level before PIE, because Python
@@ -365,15 +425,16 @@ from the swarm's own combat processor.
   * the turrets sit at hull x 2100, 21 m forward of the root;
   * a bullet aimed at the root never passes a point farther from it than the sentinel, so in a plain hover no aim line
     crosses a turret;
-  * an aim line from outside the forward-deck convex (UCX_01: x 10.2-31.2 m, |y| <= 3.6 m, z 3-10.8 m) through a HitBox
-    needs a sentinel about 25-31 m ahead, 4 m to the side and 9.5-10.5 m up. That is still inside the attack exit range
-    (31.25 m), but only a spot sentinels pass through.
+  * an aim line through a HitBox needs a sentinel about 25-31 m ahead, 4 m to the side and 9.5-10.5 m up. That is still
+    inside the attack exit range (31.25 m), but only a spot sentinels pass through. (When this was written the line also
+    had to enter the forward-deck convex UCX_01 first; since the helm and deck change the hull is out of Visibility and
+    the HitBox is the first thing on the line.)
 
   So for up to 4 s per sentinel the harness teleports the ship every frame (yaw 0) to keep one ATTACKING sentinel at hull
   `AS62_HOLD` = (2900, -395, 1001):
   * 3065 cm from the target point;
-  * its aim line meets UCX_01's port face about 2.7 m from the sentinel, then crosses turret 0's HitBox 19 cm inside its
-    outer face, at mid height.
+  * its aim line crosses turret 0's HitBox 19 cm inside its outer face, at mid height (measured 2026-11-27: the first
+    Visibility hit is the HitBox, 779 cm from the sentinel).
 
   Each hold records a Python trace of that line (the first Visibility hit, whether it crosses the HitBox) and how far the
   sentinel was off its spot. SW.d2 FAILs only when a hold had that geometry and the turret still took nothing.
@@ -393,6 +454,37 @@ from the swarm's own combat processor.
   * the user's Play.
 * Not covered: T2.8. There is no damage dummy with its own ASC: no enemy Blueprint, and an unpossessed BP_MyCharMech has
   no PlayerState. A gunner on a DRIVEN ship needs a second player (as_60).
+
+### as_62 PIE run 2026-11-27 (standalone, real swarm; runner `_AirshipWork_logs/run_r2_swarm.sh`)
+
+Two runs, 130.5 game s each, no script error, no error / ensure / LogMechSentinel warning in the editor log.
+
+* **Run 1** (the build of the as_60 run; only the texts changed for the hull that no longer blocks Visibility): 12 PASS,
+  0 FAIL, 3 WARN, 3 INFO, 2 SKIP. Kept in `Saved/Airship/round2_swarm_round1_before_aim/`.
+  * The three WARNs were the safety cut: the turret gunner fell from 104 to 29 health in 14 s, the swarm was removed, and
+    SW.b1 / SW.b2 / SW.c2 had no swarm left to measure. `s_empty` then spawned a wave and lost it at once, because the
+    player was still at 29.
+  * Turrets of the ship with only a pilot: 0 and 0 lost in 30 s (SW.a3) and in both fire windows (SW.d1).
+* **Harness fixes** (measurement only, no limit changed):
+  * inside `s_pilot` / `s_gunner` / `s_turret` the player is topped up below `AS62_TOPUP_HP` (55) and the amount is
+    added back to the phase's loss (`healed`, zeroed at the phase's baseline), so the crew-share and gunner sums still
+    count every point;
+  * `s_empty` tops up at its start;
+  * SW.a3 is a PASS / FAIL check when `SwarmTurretAimChance` > 0 (FAIL only when at least 5 bullets were due at a turret
+    and none landed).
+* **Run 2** (the build with `BulletAimRedirect`, CPP_NOTES 15.12): 17 PASS, 0 FAIL, 1 INFO, 2 SKIP.
+  `Saved/Airship/round2_final_swarm/` (report, result, log, 6 captures, the runner's log).
+
+  | Phase | Bullets (about) | Ship | Turrets L / R | Player |
+  |---|---|---|---|---|
+  | `s_pilot` 30 s, 5 sentinels, driven | 74 | -210 (Pawn sweep on the PA boxes) | -15 / -21 (11 tagged hits) | pilot -52.5 = 0.25 x 210 |
+  | `s_gunner` 22 s, 5 sentinels, gunner at turret L, undriven | 63 hits counted | -13.5 (4 tagged hits) | -72 / 0 (23 hits) | gunner -109.5 direct (36 hits) + 3.4 share; 2 top-ups |
+  | `s_empty` 20 s, nobody aboard | - | 0 (ship 2: 0) | 0 / 0 | far away; the swarm left (27 m -> 216 m) |
+  | `s_turret` 45 s, 8 sentinels at half health, driven | - | -349.5 | fire windows -3 / -3 and -10.5 / -10.5; hold -15 / -6 | pilot -87.4 = 0.25 x 349.5; 1 top-up |
+
+  T6.7: 106 turret rounds, 86 damage events on sentinels (270 health), 3 kills. The hold (one attacking sentinel kept at
+  hull (2900, -395, 1001) for 4 s): the Python trace's first Visibility hit is turret 0's HitBox.
+* Not covered, as before: T2.8, and a gunner on a driven ship under a real swarm (needs a second player).
 
 ## Numbers and geometry the harness uses (L_AirshipTest, `as_22_test_map.py`)
 

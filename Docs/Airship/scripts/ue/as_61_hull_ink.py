@@ -281,7 +281,9 @@ def as61_assign(eal, mat, mat_path):
         _o61('FAIL', 'SK_Airship slots %s: want 2 with slot 0 = the hull (M_Airship slot)' % AS61_R['sk_slots_before'])
         return False
     if before[0] != mat_path:
-        mats[0].set_editor_property('material_interface', mat)
+        m0 = mats[0]          # an unreal.Array of structs hands out COPIES: change the copy, then write it back (as as_10
+        m0.set_editor_property('material_interface', mat)   # does); mats[0].set_editor_property(..) alone changed nothing
+        mats[0] = m0          # (first editor run 2026-11-27: the slot read back as M_Airship)
         try:
             sk.materials = mats
         except Exception as e:  # noqa: BLE001

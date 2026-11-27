@@ -22,9 +22,10 @@ class UPrimitiveComponent;
  * Server: gives every PlayerController a UAirshipPilotComponent (on login and for the ones already there at
  * BeginPlay), so players can board without changes to the project's controller.
  * Every machine: the registry of living ship actors (they register in BeginPlay, leave in EndPlay), and the deck
- * passengers: a character a ship claims (AAirshipPawn::IsPassengerCandidate: standing on it, attached to it, or airborne
- * next to it) gets its kinematic physics collision switched off (QueryAndPhysics -> QueryOnly on the capsule and any
- * other non-simulating primitive that blocks the hull), checked every PassengerCheckInterval and on board / exit. CMC
+ * passengers: a character a ship claims (AAirshipPawn::IsPassengerCandidate: standing on it, attached to it, airborne
+ * next to it, or standing elsewhere inside the hull's own box) gets its kinematic physics collision switched off (QueryAndPhysics -> QueryOnly on the capsule and any
+ * other non-simulating primitive that blocks the hull), checked every PassengerCheckInterval, on board / exit, and each
+ * frame before physics for a character new to a ship's zone (CheckNewPassengers). CMC
  * sweeps still walk on the hull (on the QueryOnly body); the capsule no longer pushes the simulated hull every physics
  * step (the ship sank under a standing character). Restored when the character leaves, the ship goes away (EndPlay) or
  * the world ends. Never while the character's actor collision is off (the attached pilot): a physics on/off switch then
@@ -69,6 +70,14 @@ public:
 
 	/** Every machine: re-checks which characters ride a ship now (also runs on a timer while ships exist). */
 	void UpdatePassengers();
+
+	/**
+	 * Every machine, from each ship's tick (before the physics step): runs UpdatePassengers now if a character that is
+	 * not in the list yet is one of Airship's passenger candidates. The timed check alone is up to PassengerCheckInterval
+	 * late, and timers run after the frame's physics: a character whose kinematic bodies are inside the hull's convex
+	 * for even one step shoves the ship hard.
+	 */
+	void CheckNewPassengers(const AAirshipPawn* Airship);
 
 	/** True while Character rides a ship (this machine's passenger state). */
 	bool IsPassenger(const ACharacter* Character) const;

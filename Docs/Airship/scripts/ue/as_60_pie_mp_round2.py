@@ -98,6 +98,14 @@
 #                slow, Settings.DriftSpeed 0 (Drift -> Hold)  T8.4 L the client's character stays at the wheel on both
 #                                                            machines (hull space), walking, no snap on its own machine
 #   g6_hold 8    hold                                        hold on the server and the client (< 0.5 m), DriftSpeed back
+#  g8_  a client's jump on a flying deck (the host pilots ship 1, Classic, throttle 1)
+#   g8_jump 11   the client on the planks 1.5 m behind the     T8.7 L / T8.8 L both copies leave the deck, land within 4 m of the
+#                helm; at >= 30 m/s ACharacter::Jump on its    take-off point (hull space) and stay within 50 cm after it
+#                own copy
+#  g9_  a remote gunner leaves a gun when its move clock is old (review 2026-11-27, AAirshipPawn::DismountGunner)
+#   g9_clock <= 180 the client on ship 1's planks until its   T5.8b the client's F on L1, 3 s mounted, F again, W 1.5 s: the
+#                move time stamp (read from the server's log)  server's copy and its own copy walk >= 1 m (hull space), no
+#                is past 125 s, then F / F / W                "TimeStamp expired" in the server's log
 #  g7_  lethal crew share (D4)
 #   g7_k1 5.5    host pilots ship 2, client F on L1, both    T4.3 the client gunner dismounted first, then dead; T4.2 (host)
 #                at 10 health, a 100 test bullet in the hull the pilot ejected first, then dead; ship alive
@@ -118,13 +126,30 @@
 #    (its trace through the hidden ball runs 4 m on, to the box behind the hull's skin);
 #  * new: T8.4_client_exit_in_place_L in g6_drift (the client pilot leaves at speed: both copies stay at the wheel, hull
 #    space, the client's own copy never more than 1 m off: round 1 snapped it by 3 m).
-import json, math, os, time, traceback  # unreal = inbox namespace
+# 2026-11-27, first listen run after the helm / deck change (38 PASS, 1 FAIL: T5.12a at 1.04 deg). Changes, no limit moved:
+#  * T5.12a compares the client's barrel against the server's own -1..4 frames earlier (it was 0..4): the host shows its
+#    own gunner's aim a frame late (the aim reaches the ship after the Mesh's animation update), the client shows the
+#    replicated aim in the same frame, so the client is one frame AHEAD while the barrel moves (0.21 deg at -1, 1.03 at 0);
+#  * new deck_arrival_no_shove_L (g1_far): the run showed the ship knocked 3-5.5 m away every time a character was put on
+#    the planks from the ground (the mech's mesh and jet packs are kinematic WorldDynamic bodies inside the hull's convex
+#    until the passenger rule makes them query only; fixed in C++: AAirshipPawn::IsPassengerCandidate,
+#    UAirshipSubsystem::CheckNewPassengers);
+#  * new T8.2_client_F_away_from_wheel_L (g3_swap): the client's F 2.5 m behind a free wheel does nothing;
+#  * new group g8_ (T8.7_client_deck_jump_L): the client jumps on the deck of the ship the host flies.
+# 2026-11-27, review of the gunner dismount (must fix 1). New group g9_ (T5.8b_dismount_old_clock_L): a client's move time
+# stamp restarts only at a possession (ClientRestart) or every 240 s (MinTimeBetweenTimeStampResets) and stands still
+# while it is mounted. DismountGunner deleted the server's prediction state; a new one starts at 0 and takes a stamp more
+# than 120 s above its own for "a move from before the reset" (UCharacterMovementComponent::IsClientTimeStampValid), so the
+# server refused every move of that client until its clock wrapped: up to 2 minutes. Every earlier run dismounted the
+# client with a young clock. The phase reads the clock from the server's log (LogNetPlayerMovement VeryVerbose for 0.4 s:
+# "TimeStamp x Accepted!"), waits until it is past 125 s, and only then mounts and dismounts. It ends itself when done.
+import json, math, os, re as _re, time, traceback  # unreal = inbox namespace
 
 AS60_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_30_pie_smoke.py'
 _as60_src = open(AS60_AS30).read()
 exec(compile(_as60_src[:_as60_src.index('\nclass AsRun')], AS60_AS30, 'exec'), globals())   # OUT, MAP_NAME, v3, q4, r, dist, wrap180, tl_get/tl_set, gp, valid, find_log
 
-AS60_VERSION = 'as_60_pie_mp_round2 2026-11-27 helm+deck'
+AS60_VERSION = 'as_60_pie_mp_round2 2026-11-27 helm+deck, listen run'
 MP2 = os.path.join(OUT, 'round2_mp')
 CAPS60 = os.path.join(OUT, 'captures', 'round2_mp')
 TEMP60 = 'TEMP_AS60_'
@@ -163,6 +188,8 @@ GROUPS = [
     ('g4_', [('g4_setup', 3.5), ('g4_hull', 5.0), ('g4_turret', 5.0), ('g4_bullet', 3.0), ('g4_damage', 2.5)]),
     ('g5_', [('g5_down', 5.0), ('g5_spent', 4.0)]),
     ('g6_', [('g6_cruise', 4.0), ('g6_drift', 22.0), ('g6_hold', 8.0)]),
+    ('g8_', [('g8_jump', 11.0)]),
+    ('g9_', [('g9_clock', 180.0)]),      # ends itself as soon as it is done (about 12 s + the wait for the client's clock)
     ('g7_', [('g7_k1', 5.5), ('g7_resp', 9.0), ('g7_k2', 5.5)]),
 ]
 SKIPPED = {
@@ -566,6 +593,7 @@ class R60(object):
             ew = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
             unreal.SystemLibrary.execute_console_command(ew, 'p.NetShowCorrections 0')
             unreal.SystemLibrary.execute_console_command(ew, 'log LogAirshipPilot Log')
+            unreal.SystemLibrary.execute_console_command(ew, 'log LogNetPlayerMovement Log')
         except Exception:  # noqa: BLE001
             self.err('restore_cvar')
 
@@ -900,6 +928,25 @@ class R60(object):
         if valid(ship):
             d['rel'] = r(self.rel(ship, p), 1)
         return d
+
+    def prim_info(self, c):
+        """every primitive component of the character c: collision enabled, object type, its response to PhysicsBody (the
+        hull's object type) and to Pawn, simulating or not (what could push the hull's physics body)"""
+        out = []
+        try:
+            for pc in c.get_components_by_class(unreal.PrimitiveComponent):
+                try:
+                    par = pc.get_attach_parent()
+                    out.append({'name': pc.get_name(), 'cls': pc.get_class().get_name(), 'coll': en(pc.get_collision_enabled()),
+                                'obj': en(pc.get_collision_object_type()), 'profile': str(pc.get_collision_profile_name()),
+                                'to_physicsbody': en(pc.get_collision_response_to_channel(unreal.CollisionChannel.ECC_PHYSICS_BODY)),
+                                'to_pawn': en(pc.get_collision_response_to_channel(unreal.CollisionChannel.ECC_PAWN)),
+                                'sim': bool(pc.is_simulating_physics()), 'parent': par.get_name() if par else None})
+                except Exception:  # noqa: BLE001
+                    self.err('prim_info_one')
+        except Exception:  # noqa: BLE001
+            self.err('prim_info')
+        return out
 
     def deck_comp(self, ship):
         """what characters stand on and Visibility traces hit: the Mesh (PA_Airship's boxes, tops at the planks) when the
@@ -1529,11 +1576,29 @@ class R60(object):
         helm = self.helm_local(ship)
         return self.deck_point(ship, helm[0] - 80.0, helm[1], c)[0]
 
-    def client_to(self, role):
+    def client_to(self, role, far_first=False):
         """the client's role changes through its own machine: 'pilot2' (F on ship 2's deck away from the guns), 'foot'.
-        client_roles_tick does one step at a time (Exit / Dismount, teleport, F), 0.8 s apart (BoardCooldown 0.5 s)."""
-        self.croles = {'want': role, 'next': self.now, 'steps': [], 'tries': 0, 'tp': False}
+        client_roles_tick does one step at a time (Exit / Dismount, teleport, F), 0.8 s apart (BoardCooldown 0.5 s).
+        far_first (g3_swap, T8.2 L): before the step to the wheel the client is put on the planks 2.5 m behind the wheel
+        of the free ship 2 and presses F there; self.far_res gets what happened in the 0.8 s after it."""
+        self.croles = {'want': role, 'next': self.now, 'steps': [], 'tries': 0, 'tp': False, 'far': 'todo' if (far_first and role == 'pilot2') else None}
         self.client_roles_tick()
+
+    def far_point(self, ship, c):
+        """T8.2: on the planks 250 cm behind the wheel hub on the centre line (as as_59 T8.2 S): 195 cm behind the pilot's
+        standing spot, outside HelmReach (150 cm). Returns (world point, info)"""
+        helm = self.helm_local(ship)
+        try:
+            wheel = self.local_socket(ship, 'Helm_Wheel')
+        except Exception:  # noqa: BLE001
+            self.err('helm_wheel_socket')
+            wheel = [helm[0] + 55.0, helm[1], helm[2] + 96.0]
+        hx, hy = wheel[0] - 250.0, helm[1]
+        p, traced = self.deck_point(ship, hx, hy, c)
+        seats = [self.seat_local(ship, st) for st in range(6)]
+        return p, {'hull_xy': [r(hx, 1), r(hy, 1)], 'traced': traced, 'wheel_h_cm': 250.0, 'seat_h_cm': r(hdist((hx, hy), helm), 1),
+                   'min_gun_seat_cm': r(min(dist((hx, hy, helm[2]), x) for x in seats), 0), 'helm_reach': fnum(gp(self.settings(), 'HelmReach', 'helm_reach')),
+                   'station_mount_distance': fnum(gp(self.settings(), 'StationMountDistance', 'station_mount_distance'))}
 
     def client_roles_tick(self):
         cr = getattr(self, 'croles', None)
@@ -1562,6 +1627,32 @@ class R60(object):
                 self.inject('client', 'IA_AirshipExit')
                 cr['steps'].append('%s exit %.2f' % (w[0], self.now))
                 cr['next'] = self.now + 0.8
+            elif want == 'pilot2' and cr.get('far') == 'todo':
+                cr['tries'] -= 1
+                p, info = self.far_point(self.ship2_s, self.cchar_s)
+                self.far_res = {'point': info, 'free_helm': not self.ship2_s.has_pilot()}
+                self.tp_client(p, self.yaw(self.ship2_s))
+                cr['far'] = 'tp'
+                cr['steps'].append('far tp %.2f' % self.now)
+                cr['next'] = self.now + 0.3
+            elif want == 'pilot2' and cr.get('far') == 'tp':
+                cr['tries'] -= 1
+                self.far_res['at_F'] = {'server': self.char_info(self.cchar_s, self.ship2_s), 'client': self.char_info(self.cchar_c, self.ship2_c)}
+                self.log_mark('g3_far_F')
+                self.inject('client', 'IA_AirshipBoard')
+                cr['far'] = 'pressed'
+                cr['steps'].append('far F %.2f' % self.now)
+                cr['next'] = self.now + 0.8
+            elif want == 'pilot2' and cr.get('far') == 'pressed':
+                cr['tries'] -= 1
+                self.far_res['after'] = {'pilot': self.ship2_s.get_pilot().get_name() if self.ship2_s.get_pilot() else None,
+                                         'client_sees_pilot': bool(self.ship2_c.has_pilot()),
+                                         'client_pawn_is_char': same(self.cpc.get_controlled_pawn(), self.cchar_c),
+                                         'stations': [self.station_of(self.ship2_s, self.cchar_s), self.station_of(self.ship1_s, self.cchar_s)],
+                                         'server': self.char_info(self.cchar_s, self.ship2_s), 'client': self.char_info(self.cchar_c, self.ship2_c)}
+                cr['far'] = 'done'
+                cr['steps'].append('far result %.2f' % self.now)
+                cr['next'] = self.now
             elif want == 'pilot2' and not cr['tp']:
                 self.tp_client(self.board_point(self.ship2_s, self.cchar_s), self.yaw(self.ship2_s))
                 cr['tp'] = True
@@ -1728,9 +1819,21 @@ class R60(object):
         if pick is None:
             pick = (600.0, 0.0, self.deck_point(s, 600.0, 0.0, self.cchar_s)[0], min(hdist((600.0, 0.0), x) for x in seats))
         self.D['pt'] = {'hull_xy': [pick[0], pick[1]], 'world': r(pick[2], 0), 'min_seat_cm': r(pick[3], 0), 'helm_cm': r(hdist((pick[0], pick[1]), helm), 0)}
+        # deck_arrival (2026-11-27): the client comes from the ground (not a deck passenger: every primitive as the
+        # blueprint has it) straight onto the planks, which lie inside the hull's collision convex (the lid is 2.6 m above
+        # them). What the hovering ship does in the next second is recorded, and the character's primitives before / after.
+        self.D['arr'] = {'ship0': self.loc(s), 'from': r(self.loc(self.cchar_s), 0), 'prims_before': self.prim_info(self.cchar_s), 'trk': []}
         self.tp_client(pick[2], self.yaw(s))
 
     def ph_g1_far(self, el):
+        arr = self.D.get('arr')
+        if arr is not None and el <= 2.0:
+            p = self.loc(self.ship1_s)
+            ci = self.char_info(self.cchar_s, self.ship1_s) or {}
+            arr['trk'].append((r(el, 3), r(dist(p, arr['ship0']), 1), r(p[2] - arr['ship0'][2], 1), ci.get('coll'), ci.get('mode'),
+                               r(dist(self.loc(self.ship1_c), arr['ship0']), 1)))
+            if el >= 0.5 and 'prims_after' not in arr:
+                arr['prims_after'] = self.prim_info(self.cchar_s)
         if el >= 1.0 and 'f' not in self.D:
             self.D['f'] = True
             self.inject('client', 'IA_AirshipBoard')
@@ -1744,6 +1847,26 @@ class R60(object):
         self.check('T5.2_F_far_from_stations_L', 'PASS' if ok else 'FAIL', 'client F on ship 1\'s deck %s (>= 4.5 m from every seat), the '
                    'helm is the host\'s: station %s (want none), pilot still the host %s, client still on foot %s' % (
                        self.D.get('pt'), gs, same(s.get_pilot(), self.hchar), same(self.cpc.get_controlled_pawn(), self.cchar_c)), self.D.get('pt'))
+        # deck_arrival_no_shove_L: a character that appears on the planks must not move the ship. The hull ignores Pawn, so
+        # the capsule cannot; any other primitive of the character that blocks PhysicsBody with physics on is a kinematic
+        # body inside the hull's convex until the passenger rule (UAirshipSubsystem::UpdatePassengers) makes it query only.
+        # Limit 15 cm in the 2 s after the teleport (the hovering ship alone wanders about 1 cm).
+        arr = self.D.get('arr') or {}
+        trk = arr.get('trk') or []
+        dmax = max([x[1] for x in trk] or [None]) if trk else None
+        dzmin = min([x[2] for x in trk] or [None]) if trk else None
+        dcmax = max([x[5] for x in trk] or [None]) if trk else None
+        pb, pa = arr.get('prims_before') or [], arr.get('prims_after') or []
+        phys = lambda L: [(x['name'], x['cls'], x['coll'], x['obj'], x['to_physicsbody']) for x in L if 'PHYSICS' in str(x['coll']).upper() and not x['sim']]  # noqa: E731
+        changed = [(a['name'], a['coll'], b['coll']) for a in pb for b in pa if a['name'] == b['name'] and a['coll'] != b['coll']]
+        q_at = next((x[0] for x in trk if x[3] == 'QUERY_ONLY'), None)
+        okm = dmax is not None and dmax <= 15.0
+        self.check('deck_arrival_no_shove_L', 'PASS' if okm else 'FAIL', 'the client from the ground %s onto ship 1\'s planks at hull xy %s (the host holds '
+                   'the ship, no input): in the next 2 s the server\'s ship moved at most %s cm from where it was (want <= 15), lowest %s cm; the '
+                   'client\'s copy of the ship at most %s cm; the capsule query only from %s s; the character\'s kinematic primitives with physics '
+                   'collision before the teleport %s, after 0.5 s on deck %s; switched by the passenger rule %s' % (
+                       arr.get('from'), (self.D.get('pt') or {}).get('hull_xy'), dmax, dzmin, dcmax, q_at, phys(pb), phys(pa), changed),
+                   {'track': trk[::2], 'prims_before': pb, 'prims_after': pa})
 
     # ---- T5.1 / T5.14: F on the planks 2 m from L1's seat, on its helm side (the far side is the cannon itself: the deck
     # trace would put the player on its boxes; until the helm / deck change the player stood on the lid above it)
@@ -2368,8 +2491,9 @@ class R60(object):
         self.D['h_pre'] = self.health(self.hchar)
         self.D['host_was_pilot'] = valid(self.ship1_s) and same(self.ship1_s.get_pilot(), self.hchar)
         cw = self.where(self.cchar_s)
+        self.far_res = None
         if not (cw[0] == 'pilot' and same(cw[1], self.ship2_s)):
-            self.client_to('pilot2')
+            self.client_to('pilot2', far_first=True)
 
     def ph_g3_swap(self, el):
         if el >= 1.0 and 'x' not in self.D:
@@ -2397,6 +2521,30 @@ class R60(object):
                    'host on foot %s; ship 1 parked %.0f m ahead; ship 2 scheme %s' % (
                        self.ship2_s.get_pilot().get_name() if self.ship2_s.get_pilot() else None, same(self.cpc.get_controlled_pawn(), self.ship2_c),
                        same(self.hpc.get_controlled_pawn(), self.hchar), T6_AHEAD / 100.0, SCHEME_NAMES.get(self.cfg['aim_scheme'])))
+        # T8.2 L (Talal 11-25: "only be able to drive once close enough to grab the steering wheel"): the client's F on the
+        # planks 2.5 m behind the wheel of the free ship 2 goes to the server (ServerRequestBoard -> TryUseNearest ->
+        # AAirshipPawn::IsWithinHelmReach on the server's copy) and does nothing; the F at the wheel right after it is
+        # g3_setup_client_pilot above.
+        fr = getattr(self, 'far_res', None)
+        if fr is None:
+            self.check('T8.2_client_F_away_from_wheel_L', 'SKIP', 'the client was ship 2\'s pilot already at the start of g3_swap (AS60_ONLY run)')
+        else:
+            pt, af, at = fr.get('point') or {}, fr.get('after') or {}, (fr.get('at_F') or {})
+            refused = (self.log_between('g3_far_F', None) or '').count('F refused')
+            ok_far = (fr.get('free_helm') and pt.get('traced') and (pt.get('seat_h_cm') or 0) > (pt.get('helm_reach') or 1e9)
+                      and (pt.get('min_gun_seat_cm') or 0) > (pt.get('station_mount_distance') or 1e9)
+                      and (at.get('server') or {}).get('mode') == 'MOVE_WALKING' and bool(af) and af.get('pilot') is None and not af.get('client_sees_pilot')
+                      and af.get('client_pawn_is_char') and all(x is None for x in af.get('stations') or [0])
+                      and (af.get('server') or {}).get('att') is None and (af.get('client') or {}).get('att') is None and ok)
+            self.check('T8.2_client_F_away_from_wheel_L', 'PASS' if ok_far else 'FAIL', 'the client on ship 2\'s planks %s cm behind the wheel hub (hull xy %s, '
+                       'deck traced %s, %s cm from the pilot\'s standing spot: HelmReach %s; nearest gun seat %s cm: StationMountDistance %s; ship 2 '
+                       'without a pilot %s; server copy at F %s), F (IA_AirshipBoard on the client): 0.8 s later ship 2\'s pilot %s (want none), the '
+                       'client sees a pilot %s, its pawn still its character %s, stations %s (want none), attached server / client %s / %s (want '
+                       'none); "F refused" in the server log since that F: %s; then F at the wheel takes the helm: %s (g3_setup_client_pilot)' % (
+                           pt.get('wheel_h_cm'), pt.get('hull_xy'), pt.get('traced'), pt.get('seat_h_cm'), pt.get('helm_reach'), pt.get('min_gun_seat_cm'),
+                           pt.get('station_mount_distance'), fr.get('free_helm'), dict((k, (at.get('server') or {}).get(k)) for k in ('rel', 'mode')),
+                           af.get('pilot'), af.get('client_sees_pilot'), af.get('client_pawn_is_char'), af.get('stations'),
+                           (af.get('server') or {}).get('att'), (af.get('client') or {}).get('att'), refused, ok), fr)
         if self.D.get('host_was_pilot'):
             a, b = self.D.get('h_pre'), self.D.get('h_post')
             ok2 = a is not None and b is not None and abs(a - b) <= 0.5 and self.D.get('host_on_foot')
@@ -2541,21 +2689,29 @@ class R60(object):
         # window and the client's barrel, which follows the replicated aim, trails it by its replication delay: compared
         # frame for frame that delay x the slew rate (up to 45 deg/s, 1.5 deg a frame) reads as a disagreement. Compared
         # as the client against the server k frames earlier, k = 0..4 (the best k is reported), from 1.0 s.
+        # 2026-11-27 (first run after the helm / deck change: 1.04 deg at k = 0, 0.99 on 11-25): k = -1 is compared too. On
+        # the host the gunner's aim reaches StationAims in the pilot component's tick and the ship's own barrel shows it
+        # from the Mesh's next animation update, a frame later; the client gets the replicated aim before its frame's ticks
+        # and shows it in the same frame. So in one harness frame the client's barrel is up to ONE frame ahead of the
+        # server's own (the samples: at every frame of the swing back the client is ahead by the server's change of the
+        # next frame). That is the host's display order, not a disagreement; the 1 deg limit is unchanged.
         rows = [x for x in self.D['aims'] if None not in x[:4]]
         settled = [rows[i] for i in range(3, len(rows)) if rows[i][4] >= 1.0 and abs(rows[i][0] - rows[i - 3][0]) < 0.1 and abs(rows[i][1] - rows[i - 3][1]) < 0.1]
         best = None
-        for k in range(0, 5):
-            pr = [(rows[i - k], rows[i]) for i in range(k, len(rows)) if rows[i][4] >= 1.0]
+        per_k = {}
+        for k in range(-1, 5):
+            pr = [(rows[i - k], rows[i]) for i in range(max(k, 0), len(rows) + min(k, 0)) if rows[i][4] >= 1.0]
             if len(pr) < 5:
                 continue
             my = max(abs(a[0] - c[2]) for a, c in pr)
             me = max(abs(a[1] - c[3]) for a, c in pr)
+            per_k[k] = r(max(my, me), 2)
             if best is None or max(my, me) < max(best[1], best[2]):
                 best = (k, my, me, len(pr))
         aims = rows if best else []
         dy = best[1] if best else None
         de = best[2] if best else None
-        self.D['aim_all'] = {'frames': len(rows), 'best_lag_frames': best[0] if best else None, 'pairs': best[3] if best else None,
+        self.D['aim_all'] = {'frames': len(rows), 'best_lag_frames': best[0] if best else None, 'pairs': best[3] if best else None, 'max_diff_per_lag': per_k,
                              'same_frame_max_yaw_diff': r(max(abs(x[0] - x[2]) for x in rows if x[4] >= 1.0), 2) if rows else None,
                              'settled_frames': len(settled), 'settled_max_yaw_diff': r(max(abs(x[0] - x[2]) for x in settled), 2) if settled else None,
                              'server_yaw_first_last': (r(rows[0][0], 2), r(rows[-1][0], 2)) if rows else None}
@@ -2567,12 +2723,13 @@ class R60(object):
         self.check('T5.12a_host_gunner_R1', 'PASS' if ok else 'FAIL', 'Aura.Airship.Mount 0 2 on the client\'s ship: host at R1 on the server %s, '
                    'the client sees it there %s (host copy on the client attached to %s, %s cm from the server\'s seat point, hull space: want <= 10); '
                    'R1 aim server vs client max diff yaw %s elev %s deg, the client against the server best_lag_frames earlier (want <= 1 with a lag '
-                   'of at most 4 frames; %s); host LMB: server balls %d (from R1 %d: want 1 / 1), R1 recoil '
+                   'of -1 to 4 frames; -1 = the client one frame ahead of the host\'s own barrel, which shows the aim a frame late; %s); host LMB: '
+                   'server balls %d (from R1 %d: want 1 / 1), R1 recoil '
                    'peaks server / client %s (want 1 / 1), new muzzle FX server %s client %s (want >= 1 on the client)' % (
                        at.get('gunner_server'), at.get('gunner_client_seen'), cl.get('att'), r(dev, 1) if dev is not None else None,
                        r(dy, 2) if dy is not None else None, r(de, 2) if de is not None else None, self.D.get('aim_all'), len(b1), len(b1r1), pk1,
                        mz['server'], mz['client']),
-                   {'att': at, 'balls': b1, 'aims': self.D['aims'][::3]})
+                   {'att': at, 'balls': b1, 'aims': self.D['aims']})
         b2 = self.new_balls('server', f2, source=s.get_name())
         b2r1 = [b for b in b2 if dist(b['first'], mR1) <= 600.0]
         b2r2 = [b for b in b2 if dist(b['first'], mR2) <= 600.0]
@@ -3037,6 +3194,95 @@ class R60(object):
     def start_g6_hold(self):
         self.D['trk'] = []
 
+    # ================================================================ g8_: the client jumps on the deck of a flying ship
+    # T8.7 L / T8.8 L (added 2026-11-27). as_59 T8.7 / T8.8 are the standalone checks of UMyCharacterMovementComponent's
+    # "stay based on a vehicle in the air" (CPP_NOTES 15.10); here the jumper is the client's own (autonomous) character,
+    # so the jump is predicted on its machine and replayed by the server from its moves. ACharacter::Jump on the client's
+    # copy only sets its jump flag (no RPC): the move goes out with the client's next movement tick, as a key press does.
+    def start_g8_jump(self):
+        self.ensure_roles('pilot1', 'foot')
+        s = self.ship1_s
+        self.tship(s, SPAWN, 0.0)
+        self.set_scheme(s, self.cfg['aim_scheme'])
+        helm = self.helm_local(s)
+        # 1.5 m behind the standing spot: open planks (as as_59 t8_walk)
+        p, traced = self.deck_point(s, helm[0] - 150.0, helm[1], self.cchar_s)
+        self.D['pt'] = {'hull': r(self.rel(s, p), 0), 'traced': traced}
+        self.tp_client(p, self.yaw(s))
+        self.D['trk'] = []
+
+    def ph_g8_jump(self, el):
+        s, c = self.ship1_s, self.ship1_c
+        self.look('host', self.yaw(s), -8.0)
+        if el >= 1.0 and 'thr' not in self.D:
+            self.D['thr'] = True
+            s.debug_set_input(1.0, 0.0, 0.0, 0.0, False, False)
+            self.event('host_input', input='throttle 1.00')
+        v = fnum(self.tele(s).get('ForwardSpeedMS'), 0.0)
+        if 'j' not in self.D and el >= 3.0 and (v >= 30.0 or el >= 6.5):
+            self.D['j'] = el
+            self.D['j_v'] = r(v, 2)
+            self.D['j_rel'] = {'server': self.rel(s, self.loc(self.cchar_s)), 'client': self.rel(c, self.loc(self.cchar_c))}
+            self.D['j_info'] = {'server': self.char_info(self.cchar_s, s), 'client': self.char_info(self.cchar_c, c)}
+            try:
+                self.cchar_c.jump()
+            except Exception:  # noqa: BLE001
+                self.err('g8_jump')
+            self.event('client_jump', v=r(v, 1))
+        j = self.D.get('j')
+        if j is not None and el >= j + 0.15 and 'j_stop' not in self.D:
+            self.D['j_stop'] = True
+            try:
+                self.cchar_c.stop_jumping()
+            except Exception:  # noqa: BLE001
+                self.err('g8_stop_jumping')
+        if el >= 1.0:
+            cs, cc = self.char_info(self.cchar_s, s) or {}, self.char_info(self.cchar_c, c) or {}
+            self.D['trk'].append((r(el, 3), cs.get('rel'), cc.get('rel'), cs.get('mode'), cc.get('mode'), r(v, 2)))
+        if j is not None and el >= j + 3.2 and 'brk' not in self.D:
+            self.D['brk'] = True
+            s.debug_set_input(*BRAKE)
+
+    def end_g8_jump(self):
+        try:
+            self.ship1_s.debug_set_input(*BRAKE)
+        except Exception:  # noqa: BLE001
+            self.err('g8_brake')
+        trk, j, jr = self.D.get('trk') or [], self.D.get('j'), self.D.get('j_rel') or {}
+        res = {}
+        for name, ri, mi in (('server', 1, 3), ('client', 2, 4)):
+            rows = [x for x in trk if j is not None and x[0] >= j and x[0] <= j + 3.2 and x[ri]]
+            walk0 = [x for x in trk if j is not None and x[0] < j and x[ri]]
+            air = [x for x in rows if x[mi] == 'MOVE_FALLING']
+            land = next((x for x in rows if air and x[0] > air[-1][0] and x[mi] == 'MOVE_WALKING'), None)
+            j0 = jr.get(name)
+            miss = hdist(land[ri], j0) if land and j0 else None
+            post = [x for x in rows if land is not None and land[0] <= x[0] <= land[0] + 1.5]
+            slide = max([hdist(x[ri], land[ri]) for x in post] or [None]) if post else None
+            steps = [dist(rows[i][ri], rows[i - 1][ri]) for i in range(1, len(rows))]
+            before = max([hdist(x[ri], j0) for x in walk0] or [None]) if (walk0 and j0) else None
+            res[name] = {'air_frames': len(air), 'top_dz_cm': r(max([x[ri][2] for x in air] or [0.0]) - j0[2], 1) if (air and j0) else None,
+                         'air_s': r(land[0] - j, 3) if land else None, 'land_miss_cm': r(miss, 1) if miss is not None else None,
+                         'slide_cm': r(slide, 1) if slide is not None else None, 'post_frames': len(post),
+                         'post_walking': bool(post) and all(x[mi] == 'MOVE_WALKING' for x in post),
+                         'max_step_cm': r(max(steps), 1) if steps else None, 'walk_drift_before_cm': r(before, 1) if before is not None else None,
+                         'end': (rows[-1][ri], rows[-1][mi]) if rows else None}
+        both = [dist(x[1], x[2]) for x in trk if j is not None and j <= x[0] <= j + 3.2 and x[1] and x[2]]
+        seg = self.log_between('g8_jump', None) or ''
+        corr = {'client': seg.count('*** Client: Error for'), 'server': seg.count('*** Server: Error for')}
+        ok = (self.D.get('j_v') or 0.0) >= 15.0 and bool(self.D.get('pt', {}).get('traced'))
+        for name in ('server', 'client'):
+            q = res.get(name) or {}
+            ok = ok and q.get('air_frames', 0) >= 5 and q.get('land_miss_cm') is not None and q['land_miss_cm'] <= 400.0 \
+                and q.get('slide_cm') is not None and q['slide_cm'] <= 50.0 and q.get('post_frames', 0) >= 10 and q.get('post_walking')
+        self.check('T8.7_client_deck_jump_L', 'PASS' if ok else 'FAIL', 'the client on ship 1\'s planks 1.5 m behind the helm (hull %s, traced %s), the host '
+                   'flies it (Classic, throttle 1); at %s m/s the client jumps (ACharacter::Jump on its own copy). Each copy in its own hull\'s '
+                   'space: server copy %s; the client\'s own copy %s (want on both: in the air, back on the deck walking within 400 cm of the '
+                   'take-off point in xy (as T8.7 S), at most 50 cm from the landing point in the next 1.5 s (as T8.8 S)); the two copies %s cm '
+                   'apart during the jump; movement corrections logged in this phase (the teleport at its start included): %s' % (
+                       self.D.get('pt', {}).get('hull'), self.D.get('pt', {}).get('traced'), self.D.get('j_v'), res.get('server'), res.get('client'),
+                       stats(both), corr), {'res': res, 'jump': self.D.get('j_info'), 'track': [x for x in trk if j is not None and x[0] >= j - 0.1][:100]})
+
     def ph_g6_hold(self, el):
         s, c = self.ship2_s, self.ship2_c
         t = self.tele(s)
@@ -3109,6 +3355,148 @@ class R60(object):
                    'server vs client %s cm, final mode %s (want 3); DriftSpeed restored to %s' % (
                        g.get('ds0'), g.get('ds0_slow'), r(dt_hold, 2) if dt_hold is not None else None, r(mv_s, 1) if mv_s is not None else None,
                        r(mv_c, 1) if mv_c is not None else None, stats(err), win[-1][1] if win else None, orig), {'track': h[::6]})
+
+    # ================================================================ g9_: a gunner's dismount with an old move clock
+    def stamp_probe(self, tag, el, t0):
+        """the client's move time stamp as the server accepts it: LogNetPlayerMovement VeryVerbose in the server world from
+        t0 for 0.4 s, then the last "TimeStamp x Accepted! ... Pawn: <the client's character>" line. None while it runs,
+        then (stamp or None, the phase time of that line, lines found)"""
+        P = self.D.setdefault('probe_' + tag, {})
+        if el >= t0 and 'a' not in P:
+            P['a'] = el
+            self.log_mark(tag + '_a')
+            self.scmd('Log LogNetPlayerMovement VeryVerbose')
+        if 'a' in P and el >= P['a'] + 0.4 and 'b' not in P:
+            P['b'] = el
+            self.scmd('Log LogNetPlayerMovement Log')
+        if 'b' in P and el >= P['b'] + 0.6 and 'res' not in P:
+            self.log_mark(tag + '_b')
+            txt = self.log_between(tag + '_a', tag + '_b') or ''
+            name = self.cchar_s.get_name()
+            got = [float(m.group(1)) for m in _re.finditer(r'TimeStamp ([0-9.]+) Accepted! CurrentTimeStamp: [0-9.]+ Pawn: (\S+)', txt)
+                   if m.group(2) == name]
+            P['res'] = (got[-1] if got else None, P['b'], len(got))
+        return P.get('res')
+
+    def start_g9_clock(self):
+        self.ensure_roles('foot', 'foot')
+        self.D['st'] = 'roles'
+        self.D['modes'] = {'server': [], 'client': []}
+
+    def g9_rel(self):
+        return (self.rel(self.ship1_s, self.loc(self.cchar_s)), self.rel(self.ship1_c, self.loc(self.cchar_c)))
+
+    def ph_g9_clock(self, el):
+        s, D = self.ship1_s, self.D
+        st = D['st']
+        if st == 'roles':
+            if el >= 1.0 and (not self.croles or self.croles.get('done')):
+                self.tship(s, SPAWN, 0.0)
+                p, traced = self.near_seat_point(s, 0, self.cchar_s)
+                D['pt'] = {'hull': r(self.rel(s, p), 0), 'traced': traced}
+                self.tp_client(p, self.yaw(s) - 90.0)
+                D['st'], D['t'] = 'probe1', el + 0.5
+        elif st == 'probe1':
+            res = self.stamp_probe('g9_p1', el, D['t'])
+            if res is not None:
+                D['p1res'] = res
+                if res[0] is None:
+                    wait = 126.0
+                    self.line('WARN', 'g9: no "TimeStamp ... Accepted!" line for %s in 0.4 s of VeryVerbose: waiting 126 s blind' % self.cchar_s.get_name())
+                else:
+                    now_stamp = res[0] + (el - res[1])
+                    # past 125 s and at least 35 s before the wrap at 240 (the mount, 3 s on the gun, the walk)
+                    wait = (126.0 - now_stamp) if now_stamp < 126.0 else (0.0 if now_stamp <= 205.0 else (240.0 - now_stamp) + 126.0)
+                    self.line('INFO', 'g9: the client\'s move time stamp is %.1f s now (%d lines): mounting in %.1f s' % (now_stamp, res[2], wait + 2.5))
+                D['wait'] = r(wait, 1)
+                D['st'], D['t'] = 'wait', el + wait
+        elif st == 'wait':
+            if el >= D['t']:
+                D['st'], D['t'] = 'probe2', el
+        elif st == 'probe2':
+            res = self.stamp_probe('g9_p2', el, D['t'])
+            if res is not None:
+                D['stamp'] = r(res[0] + (el - res[1]), 1) if res[0] is not None else None
+                D['st'] = 'mount'
+        elif st == 'mount':
+            if 'f' not in D:
+                D['f'] = el
+                self.inject('client', 'IA_AirshipBoard')
+                self.event('inject', what='IA_AirshipBoard (client, near L1, move time stamp %s s)' % D.get('stamp'))
+            if same(self.gunner(s, 0), self.cchar_s):
+                D['mounted'] = el
+                D['st'] = 'mounted'
+            elif el >= D['f'] + 1.5:
+                D['fail'] = 'the client\'s F did not man L1 in 1.5 s'
+                D['st'] = 'done'
+        elif st == 'mounted':
+            if el >= D['mounted'] + 3.0:
+                self.log_mark('g9_exit')
+                self.inject('client', 'IA_AirshipExit')
+                self.event('inject', what='IA_AirshipExit (client gunner, old clock)')
+                D['x'] = el
+                D['st'] = 'exit'
+        elif st == 'exit':
+            if 'x_srv' not in D:
+                if self.gunner(s, 0) is None:
+                    D['x_srv'] = el
+                elif el >= D['x'] + 1.5:
+                    D['fail'] = 'the client\'s F did not leave L1 in 1.5 s'
+                    D['st'] = 'done'
+            else:
+                for key, c in (('server', self.cchar_s), ('client', self.cchar_c)):
+                    cm = gp(c, 'character_movement', 'CharacterMovement')
+                    if cm:
+                        md = en(cm.get_editor_property('movement_mode'))
+                        if not D['modes'][key] or D['modes'][key][-1] != md:
+                            D['modes'][key].append(md)
+                t = el - D['x_srv']
+                if t >= 1.0 and 'p0' not in D:
+                    D['p0'] = self.g9_rel()
+                if 'p0' in D and t < 2.5:
+                    self.look('client', self.yaw(s), -8.0)
+                    self.inject('client', 'IA_Move', (1.0, 0.0, 0.0))
+                if t >= 3.2:
+                    D['p1'] = self.g9_rel()
+                    D['fin'] = (self.char_info(self.cchar_s, s), self.char_info(self.cchar_c, self.ship1_c))
+                    D['st'] = 'done'
+        if D['st'] == 'done' and 'ended' not in D:
+            D['ended'] = el
+            self.phases[self.pi] = (self.phase, el)      # ends the phase in this tick
+
+    def end_g9_clock(self):
+        D = self.D
+        self.scmd('Log LogNetPlayerMovement Log')
+        p0, p1 = D.get('p0'), D.get('p1')
+        mv = (r(hdist(p0[0], p1[0]), 1), r(hdist(p0[1], p1[1]), 1)) if p0 and p1 else (None, None)
+        seg = self.log_between('g9_exit', None) or ''
+        # A move refused because of the clock: the reset branch ("Before TimeStamp Reset"), or a stamp more than 1 s from the
+        # server's copy of the clock. Not counted (first run on the fixed build, 2 lines, at the W press and its release): a
+        # stamp one frame (0.033 s) behind the server's copy. That is the engine's own resend of an important move it has
+        # already processed (the "old move" of a packed move goes through ServerMove_PerformMovement and is logged the same
+        # way, at Log level); nothing is lost with it, the two copies walked the same distance.
+        exp, near = [], []
+        for l in seg.splitlines():
+            if 'TimeStamp expired' not in l:
+                continue
+            m = _re.search(r'ServerMove: TimeStamp expired: ([0-9.]+), CurrentTimeStamp: ([0-9.]+)', l)
+            if 'Before TimeStamp Reset' in l or m is None or abs(float(m.group(1)) - float(m.group(2))) > 1.0:
+                exp.append(l.strip()[-150:])
+            else:
+                near.append(r(float(m.group(1)) - float(m.group(2)), 3))
+        stamp = D.get('stamp')
+        ok = (not D.get('fail') and stamp is not None and stamp >= 121.0 and mv[0] is not None and mv[0] >= 100.0 and mv[1] >= 100.0 and not exp)
+        self.check('T5.8b_dismount_old_clock_L', 'PASS' if ok else 'FAIL', 'the client on ship 1\'s planks near L1 (%s); its move time stamp %s s at the '
+                   'mount (read from the server\'s log; want >= 121: more than half of the 240 s between two resets; the phase waited %s s for '
+                   'it); F mans L1, 3 s on the gun, F again%s: station free on the server %s s after it; from 1 s later W for 1.5 s moved the '
+                   'server\'s copy %s cm and the client\'s own copy %s cm in hull space (want >= 100 both); movement modes after the dismount server '
+                   '%s client %s; moves the server refused because of the clock after the dismount ("TimeStamp expired" with the reset branch '
+                   'or a stamp more than 1 s off): %d (want 0)%s; resends of a move already processed (a stamp within 1 s behind, the engine\'s '
+                   'old-move path, not counted): %d %s' % (
+                       D.get('pt'), stamp, D.get('wait'), (' [%s]' % D['fail']) if D.get('fail') else '',
+                       r(D['x_srv'] - D['x'], 2) if 'x_srv' in D and 'x' in D else None, mv[0], mv[1], D['modes']['server'], D['modes']['client'],
+                       len(exp), (': ' + ' | '.join(exp[:2])) if exp else '', len(near), near[:6]),
+                   {'near_expired_s': near, 'stamp': stamp, 'probe1': D.get('p1res'), 'moved': mv, 'final': D.get('fin'), 'expired': exp[:6], 'expired_n': len(exp), 'modes': D['modes']})
 
     # ================================================================ g7_: lethal crew share
     def near_seat_point(self, ship, st, c, d_cm=200.0):

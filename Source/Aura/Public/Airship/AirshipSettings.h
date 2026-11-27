@@ -235,9 +235,18 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Stations", meta = (ClampMin = "0.0"))
 	float StationMountHeightAbove = 600.f;
 
-	/** How far (cm) the pawn may be below the seat. */
+	/** How far (cm) the pawn may be below a cannon's seat. */
 	UPROPERTY(Config, EditAnywhere, Category = "Stations", meta = (ClampMin = "0.0"))
 	float StationMountHeightBelow = 200.f;
+
+	/**
+	 * How far (cm) the pawn may be below a turret's seat. The turrets stand on the forward deck, 4.2 m above the main deck,
+	 * and the model has no stairs: a player standing on the main deck under a turret (capsule centre 3.5 m under the
+	 * seat) presses F and is put on the gun; Dismount leaves them on the forward deck. StationMountHeightBelow's value
+	 * here means "only from the forward deck or a jump".
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Stations", meta = (ClampMin = "0.0"))
+	float TurretMountHeightBelow = 450.f;
 
 	/**
 	 * Cannon seat from the carriage bone (cm): X along the hull, Y inboard (mirrored for starboard), Z up. The default
@@ -297,6 +306,14 @@ public:
 	/** Share of each loss of ship Health dealt to the pilot and to every mounted gunner (their own Health). 0 = off. */
 	UPROPERTY(Config, EditAnywhere, Category = "Crew", meta = (ClampMin = "0.0"))
 	float CrewDamageShare = 0.25f;
+
+	/**
+	 * Mech Sentinel swarm: the chance that a bullet fired at a driven ship is aimed at one of its living turrets instead
+	 * of the ship's root (which the swarm orbits; the turrets sit 21 m forward of it and would never be hit). A bullet
+	 * that meets the hull on its way damages the hull as usual. 0 = off: only the hull, and through it the crew.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Crew", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float SwarmTurretAimChance = 0.25f;
 
 
 	// -------------------------------------------------------------------------

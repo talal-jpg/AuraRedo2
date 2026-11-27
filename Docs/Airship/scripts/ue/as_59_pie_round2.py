@@ -59,9 +59,15 @@
 #                                                            the ship; T8.6 Visibility traces from above and from port
 #                                                            meet the player first (the UCX lid over the planks no
 #                                                            longer blocks), then the Mesh's deck box
-#  t8_walk 14   Classic, Aura.Airship.Input 1 0, a turn, a    T8.5 a walker on the planks is carried: walking, a rider, on
+#  t8_walk 15   Classic, Aura.Airship.Input 1 0, a turn, a    T8.5 a walker on the planks is carried: walking, a rider, on
 #               jump at speed                                 the deck, within 1 m of its spot; T8.7 a jump at speed
-#                                                            lands back on the deck (the base's velocity is inherited)
+#                                                            lands back on the deck (the base's velocity is inherited);
+#                                                            T8.8 no slide after that landing (<= 50 cm in 1.5 s); T8.9 a
+#                                                            second jump + the air jump with input to starboard keeps
+#                                                            the ship's speed (only the relative velocity turns)
+#  t8_reach 12  opt-in only (AS59_ONLY="t8_reach"), INFO      T8.R1 jump / jump + air jump heights on the main deck;
+#               the parked ship                              T8.R2 F under the port turret's seat from the main deck,
+#                                                            standing and at the top of a jump
 #  t9_drift_<s> 41 per scheme: 48 m/s, F exit                 T9.1 / T9.2 Drift, 2.5 +-0.3 m/s by 30 s, heading within
 #                                                            2 deg, no reverse (from 3 s after the exit); T9.5 board
 #                                                            while drifting: None, throttle
@@ -82,13 +88,18 @@
 # 2026-11-27 (Talal 11-25, helm and deck; SPEC_A.md 6.8; not run in PIE yet): deck_point traces the deck the characters
 # walk on (the Mesh's physics asset, AAirshipPawn::IsDeckOnPhysicsAsset) instead of the top of the hull's collision; T3.1
 # keeps the Mesh's collision on (the PA bodies are the Visibility target now); T8.1 turned around; t8_helm / t8_walk new.
+# PIE run 2026-11-27 (PA_Airship rebuilt with the 96 hull boxes, hull ink applied): 52 PASS, 0 FAIL, 4 INFO, 14 SKIP.
+# First run 49 PASS / 1 FAIL: T8.1's second case traced the ground through the player left there by the first case
+# (measurement, fixed). T8.7's numbers showed the walker 1.6 m forward of its landing point, at the wheel: T8.8 / T8.9
+# were added and UMyCharacterMovementComponent changed (CPP_NOTES.md 15.10). T5.16a/b (INFO) + two captures: the gunners'
+# feet over the deck at a cannon and at a turret.
 import json, math, os, time, traceback  # unreal = inbox namespace
 
 AS59_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_30_pie_smoke.py'
 _as59_src = open(AS59_AS30).read()
 exec(compile(_as59_src[:_as59_src.index('\nclass AsRun')], AS59_AS30, 'exec'), globals())   # OUT, MAP_NAME, v3, r, dist, tl_get/tl_set, gp, valid, find_log
 
-AS59_VERSION = 'as_59_pie_round2 2026-11-27 helm+deck'
+AS59_VERSION = 'as_59_pie_round2 2026-11-27 helm+deck, review fixes'
 R2DIR = os.path.join(OUT, 'round2')
 CAPS2 = os.path.join(OUT, 'captures', 'round2')
 TEMP59 = 'TEMP_AS59_'
@@ -114,7 +125,6 @@ SCHEME_NAMES = {0: 'CLASSIC', 1: 'GALLEON', 2: 'SKY_RACER', 3: 'POINT_FLY'}
 CMDS_T10 = ['Aura.Airship.Mount', 'Aura.Airship.Dismount', 'Aura.Airship.TurretFire', 'Aura.Airship.TurretDamage',
             'Aura.Airship.StationFire', 'Aura.Airship.Set', 'Aura.Airship.Telemetry', 'Aura.MechSentinel.TestBullet']
 SKIPPED = {'T2.7': 'listen server (client copy of a shot-down ball)',
-           'T2.8': 'needs a deck rider, a gunner and a pilot on ship 1 at once (3 characters): standalone has 1 player, as_60 has 2',
            'T3.4': 'L_AirshipTest has no untagged GAS enemy', 'T3.5': 'L_AirshipTest has no swarm spawner',
            'T4.3': 'listen server (a second player as gunner at 10 health)',
            'T4.5': 'needs ship 2 piloted (a real broadside) while ship 1\'s L1 is manned: 2 players at once; as_60 does not drive it either',
@@ -263,7 +273,7 @@ class R2Run(object):
         self.cmds_run = []
         self.prev_v = {}
         self.attrs = {}
-        for n in ('Health', 'MaxHealth'):
+        for n in ('Health', 'MaxHealth', 'Mana'):
             a = unreal.GameplayAttribute()
             a.import_text('(AttributeName="%s",Attribute=/Script/Aura.MyAttributeSet:%s,AttributeOwner="/Script/CoreUObject.Class\'/Script/Aura.MyAttributeSet\'")' % (n, n))
             self.attrs[n] = a
@@ -326,11 +336,14 @@ class R2Run(object):
         ph = [('settle', 3.0), ('spawn2', 3.0), ('board', 2.5), ('t1_port', 5.0), ('t1_cap0', 3.5), ('t2_ray', 5.0),
               ('t2_far', 7.5), ('t2_lead', 7.5), ('t4_crew', 2.5), ('t9_rest', 32.0), ('t5_cannon', 5.5), ('t6_hit', 4.0),
               ('t6_turret', 3.0), ('t6_own', 3.5), ('t5_turret', 10.0), ('t6_destroy', 3.5), ('t3_bullets', 7.0), ('t2_gun', 16.0),
-              ('t2_splash', 4.0), ('t8_below', 6.0), ('t8_helm', 8.0), ('t8_walk', 14.0)]
+              ('t2_splash', 4.0), ('t2_own', 7.0), ('t8_below', 6.0), ('t8_helm', 8.0), ('t8_walk', 15.0), ('t8_boost', 32.0),
+              ('t5_deck', 6.0), ('t8_lid', 5.0)]
         for s in self.cfg['drift_schemes']:
             ph.append(('t9_drift_%d' % s, 41.0))
         ph += [('t9_wall', 25.0), ('t9_input', 75.0), ('t7_caps', 4.0), ('t5_kill', 3.0), ('t4_kill', 5.0), ('t5_dead', 12.0)]
         only = self.cfg.get('only')
+        if only and any(o.startswith('t8_reach') for o in only):
+            ph.append(('t8_reach', 12.0))      # opt-in measurement (INFO only), never part of the full run
         if only:
             keep = set(['settle', 'spawn2', 'board'] + list(only))
             ph = [p for p in ph if p[0] in keep or any(p[0].startswith(o) for o in only)]
@@ -397,6 +410,8 @@ class R2Run(object):
         for n in ('IA_AirshipFire', 'IA_AirshipBoard', 'IA_AirshipExit', 'IA_AirshipLook'):
             self.act[n] = unreal.load_asset(IA + n)
         self.act['IA_LMB'] = unreal.load_asset(IA_LMB_PATH)
+        for n in ('IA_Shift', 'IA_Move'):       # the on-foot boost (GA_BoostBP, Input.Shift) and walking
+            self.act[n] = unreal.load_asset(IA_LMB_PATH.rsplit('/', 1)[0] + '/' + n)
         try:
             for a in eas.get_all_level_actors():
                 if a.get_actor_label().startswith(TEMP59):
@@ -1005,7 +1020,13 @@ class R2Run(object):
                          'stbd': ((-3200.0, 2600.0, 900.0), (-600.0, 650.0, 300.0)),
                          'helm': ((-650.0, -1500.0, 500.0), (-700.0, 0.0, 330.0)),
                          'top': ((0.0, 0.0, 7500.0), (0.0, 0.0, 300.0)),
-                         'bow': ((1200.0, -1400.0, 1300.0), (2300.0, 0.0, 700.0))}
+                         'bow': ((1200.0, -1400.0, 1300.0), (2300.0, 0.0, 700.0)),
+                         'cannonR1': ((350.0, 1500.0, 650.0), (-45.0, 640.0, 310.0)),      # the gunner beside R1's breech
+                         'turret0': ((1500.0, -900.0, 900.0), (2030.0, -245.0, 740.0)),    # the gunner behind the port turret
+                         'turret1': ((1500.0, 900.0, 900.0), (2030.0, 245.0, 740.0)),      # ... behind the starboard turret
+                         # T1.3: from off the port bow along the hull's side, aft: L1's muzzle 7.5 m and L2's 18.5 m away,
+                         # the smoke they blow outboard against the sky (the old 'port' view had it on the white hull)
+                         'muzzle': ((700.0, -900.0, 420.0), (-1143.0, -760.0, 360.0))}
                 if kind not in views:
                     return None
                 frm, to = at(*views[kind][0]), at(*views[kind][1])
@@ -1270,10 +1291,10 @@ class R2Run(object):
         dt = self.now - self.D['fire_t']
         if dt >= 0.3 and 'mz03' not in self.D:
             self.D['mz03'] = [c for c in self.muzzle_comps(self.ship) if c not in self.D['mz_old']]
-            self.capture('t1_muzzle_0.3s', 'port', self.ship)
+            self.capture('t1_muzzle_0.3s', 'muzzle', self.ship)
         if dt >= 1.2 and 'cap12' not in self.D:
             self.D['cap12'] = True
-            self.capture('t1_muzzle_1.2s', 'port', self.ship)
+            self.capture('t1_muzzle_1.2s', 'muzzle', self.ship)
         if dt >= 1.5 and 'mz15' not in self.D:
             self.D['mz15'] = self.muzzle_comps(self.ship)
 
@@ -1284,7 +1305,9 @@ class R2Run(object):
                    'life %s' % (len(mz03), None if mz15 is None else len(mz15), ' FALLBACK RequestFire' if self.D.get('fb') else '', self.smoke_life()),
                    {'at_0.3': mz03, 'at_1.5': mz15, 'smoke': self.smoke_life()})
         caps = [s['file'] for s in self.R['shots'] if s['label'].startswith('t1_muzzle')]
-        self.check('T1.3_muzzle_captures', 'INFO' if len(caps) == 2 else 'WARN', 'captures for the eye (puffs at 0.3 s, none at 1.2 s): %s' % caps)
+        self.check('T1.3_muzzle_captures', 'INFO' if len(caps) == 2 else 'WARN', 'two captures to look at, 0.3 s and 1.2 s after the port broadside, from '
+                   'off the port bow along the hull\'s side (the muzzles of L1 and L2 with the sky behind what they blow out). This line does not '
+                   'read the pictures; T1.1 is the measured part: %s' % caps)
         bs = [b for _, b in self.balls_since(self.D.get('fire_t', 1e9), 't1_port')]
         props, okp = [], len(bs) == 2
         for b in bs:
@@ -1544,6 +1567,10 @@ class R2Run(object):
         if el >= 0.6 and 'm' not in self.D:
             self.D['m'] = {'gunner': self.gunner(self.ship, 2), 'info': self.char_info(self.char, self.ship),
                            'mask': self.tele(self.ship).get('StationMask'), 'mode': self.mode(self.ship)}
+            rel = self.char_rel()
+            self.check('T5.16a_gunner_R1_pose', 'INFO', 'gunner at cannon R1: hull %s, feet %s cm over the deck box at hull z %s' % (
+                (r(rel, 1),) + tuple(self.feet_over_deck(rel))))
+            self.capture('t5_gunner', 'cannonR1', self.ship)
         if el >= 1.0 and 'f1' not in self.D:
             r1 = self.geo['R1']
             sl = v3(self.ship.get_actor_location())
@@ -1725,6 +1752,13 @@ class R2Run(object):
         self.D['trk'].append((r(el, 3), st.get('shots'), st.get('heat'), st.get('overheated')))
         if el >= 0.6 and 'm' not in self.D:
             self.D['m'] = {'gunner': self.gunner(self.ship, 4), 'att': (self.char_info(self.char, self.ship) or {}).get('att')}
+            rel = self.char_rel()
+            fod = self.feet_over_deck(rel)
+            if fod[0] is None:   # the seat (x 2000) is over the 10 cm seam between two 2 m deck slabs (1995 | 2005): beside it
+                fod = self.feet_over_deck([rel[0] - 20.0, rel[1], rel[2]])
+            self.check('T5.16b_gunner_turret_pose', 'INFO', 'gunner at the port turret: hull %s, feet %s cm over the deck box at hull z %s' % (
+                (r(rel, 1),) + tuple(fod)))
+            self.capture('t5_gunner', 'turret0', self.ship)
         if el >= 1.0 and 'f1' not in self.D:
             sl, fw = v3(self.ship.get_actor_location()), v3(self.ship.get_actor_forward_vector())
             self.D['Q'] = [sl[0] + fw[0] * 9000.0, sl[1] + fw[1] * 9000.0, sl[2] + 800.0]
@@ -1973,6 +2007,80 @@ class R2Run(object):
                    'splash measures to the actor\'s centre), so the on-foot player stands in' % (TEMP59, r(d, 0) if d else None, imp, r(drop, 2) if drop else drop,
                                                                                             r(exp, 2) if exp else None))
 
+    # ---- T2.8 (S, review 2026-11-27): the ship's own ball does not hurt its own crew. One player, so one role at a time, each
+    # inside the 6 m splash of a ball of ship 1 that bursts on the port wall 2.5 m off L1's muzzle: a deck rider beside the
+    # gun (a test ball of ship 1 from the muzzle), then the gunner of L1 (its own shot, Aura.Airship.StationFire). The pilot
+    # is not a case: the helm is more than 6 m from every point outside the hull. T2.5 is the control: the same splash takes
+    # 21 health from a player who is not crew at 5.5 m.
+    def start_t2_own(self):
+        if same(self.pawn(), self.ship):
+            self.cmd('Aura.Airship.Exit 0')
+        l1 = self.geo['L1']
+        self.teleport(self.ship, (SPAWN[0], PORT_FACE_Y + 250.0 - l1[1], SPAWN[2]), 0.0)
+
+    def own_case(self, t0):
+        bs = [b for _, b in self.balls_since(t0, 't2_own')]
+        imp = self.impact_of(bs[0]) if bs else None
+        ca = v3(self.char.get_actor_location())
+        d = dist(imp, ca) if imp else None
+        return {'balls': len(bs), 'impact': r(imp, 0) if imp else None, 'd_cm': r(d, 0) if d is not None else None,
+                'damage': bs[0].get('damage') if bs else None, 'health': self.health(self.char), 'ship_health': self.tele(self.ship).get('Health'),
+                'info': self.char_info(self.char, self.ship)}
+
+    def ph_t2_own(self, el):
+        D, s = self.D, self.ship
+        l1 = self.geo['L1']
+        mz = self.world_of(s, l1)
+        if el >= 0.4 and 'tp' not in D:
+            D['tp'] = True
+            loc, traced = self.deck_point(s, l1[0] + 150.0, l1[1] + 185.0)
+            D['rider_traced'] = traced
+            self.tp_char(loc, -90.0)
+        if el >= 1.4 and 'b1' not in D:
+            D['b1'] = self.now
+            D['h0'] = (self.health(self.char), self.tele(s).get('Health'))
+            D['rider0'] = self.char_info(self.char, s)
+            self.spawn_ball(mz, (0.0, -7000.0, 0.0), s, 60.0, 0.0)
+        if 'b1' in D and 'r1' not in D and self.now >= D['b1'] + 0.8:
+            D['r1'] = self.own_case(D['b1'])
+        if el >= 2.6 and 'm' not in D:
+            D['m'] = True
+            self.cmd('Aura.Airship.Mount 0 0')
+        if el >= 4.0 and 'b2' not in D and 'm' in D:
+            D['b2'] = self.now
+            D['h2'] = (self.health(self.char), self.tele(s).get('Health'))
+            D['gunner'] = same(self.gunner(s, 0), self.char)
+            self.cmd('Aura.Airship.StationFire 0 %.0f %.0f %.0f' % (mz[0], PORT_FACE_Y, mz[2]))
+        if 'b2' in D and 'r2' not in D and self.now >= D['b2'] + 1.0:
+            D['r2'] = self.own_case(D['b2'])
+            self.cmd('Aura.Airship.Dismount 0')
+        if 'r2' in D and self.now >= D['b2'] + 1.6:
+            D['phase_done'] = True
+
+    def end_t2_own(self):
+        D = self.D
+        h0, h2, r1, r2 = D.get('h0') or (None, None), D.get('h2') or (None, None), D.get('r1') or {}, D.get('r2') or {}
+
+        def good(h, q):
+            return (q.get('balls', 0) >= 1 and q.get('d_cm') is not None and q['d_cm'] < 600.0 and h[0] is not None and q.get('health') == h[0]
+                    and h[1] is not None and q.get('ship_health') == h[1])
+
+        def would(q):
+            return r((q.get('damage') or 60.0) * (1.0 - 0.7 * min(1.0, q['d_cm'] / 600.0)), 1) if q.get('d_cm') is not None else None
+        ok = good(h0, r1) and good(h2, r2) and bool(D.get('gunner')) and bool((D.get('rider0') or {}).get('rider'))
+        self.check('T2.8_own_crew_splash_S', 'PASS' if ok else 'FAIL', 'ship 1 with L1\'s muzzle 2.5 m from the port wall. Deck rider beside L1 (passenger '
+                   '%s, deck traced %s): a ball of ship 1 from the muzzle bursts on the wall %s cm from the rider (want < 600, the splash radius; a '
+                   'player who is not crew would lose %s there, T2.5): rider health %s -> %s, ship %s -> %s (want unchanged). Gunner of L1 (%s), '
+                   'its own shot (StationFire): bursts %s cm from the gunner (not crew, a 60 ball: -%s): gunner %s -> %s, ship %s -> %s (want '
+                   'unchanged). The pilot is not a case: the helm is more than 6 m from every point outside the hull' % (
+                       (D.get('rider0') or {}).get('rider'), D.get('rider_traced'), r1.get('d_cm'), would(r1), h0[0], r1.get('health'), h0[1],
+                       r1.get('ship_health'), D.get('gunner'), r2.get('d_cm'), would(r2), h2[0], r2.get('health'), h2[1],
+                       r2.get('ship_health')), {'rider': r1, 'gunner': r2, 'h0': h0, 'h2': h2})
+        if self.gunner(self.ship, 0) is not None:
+            self.cmd('Aura.Airship.Dismount 0')
+        self.tp_char(CHAR_FOOT, 0.0)
+        self.teleport(self.ship, SPAWN, 0.0)
+
     # ---- T8.1 (S): F under the hull does nothing (Talal 11-25: "if below hull, only be able to drive once close enough to
     # grab the steering wheel"; D8's BoardBelowDistance is 0 = off by default, the code path stays for a harness that sets it)
     def gap_up(self, ship, loc, reach=3000.0):
@@ -1996,7 +2104,15 @@ class R2Run(object):
         if el >= t0 and key + 'g' not in self.D:
             self.D[key + 'g'] = True
             com = v3(self.hull(self.ship).get_center_of_mass())
-            tr = self.trace(com, [com[0], com[1], com[2] - 5000.0], [self.ship] + self.turrets(self.ship))
+            # the player itself is ignored too: since T8.1 was turned around (nobody boards in the first case) the player still
+            # stands under the hull centre for the second case; the trace hit its head, the player was put 1.4 m up in the
+            # air and the ship was placed while it fell (first run 2026-11-27: the 12 m case measured 1265.7 cm)
+            own = [self.char]
+            try:
+                own += list(self.char.get_attached_actors())
+            except Exception:  # noqa: BLE001
+                self.err('attached_actors')
+            tr = self.trace(com, [com[0], com[1], com[2] - 5000.0], [self.ship] + self.turrets(self.ship) + own)
             if not tr or not tr.get('at'):
                 self.D[key] = {'error': 'no ground under the hull centre: %s' % tr}
                 return
@@ -2244,6 +2360,119 @@ class R2Run(object):
                    'first Visibility hit from 10 m above %s, from 25 m to port %s (want the player %s on both: the hull\'s collision ignores '
                    'Visibility); from above past the player %s (want ship 1\'s Mesh: the deck box of PA_Airship)' % (a, pt, tr.get('char'), past), tr)
 
+    # ---- t8_reach (opt-in: AS59_ONLY="t8_reach"; INFO only, 2026-11-27): what a player on foot reaches on the parked ship.
+    # Jump and jump + air jump heights on the main deck; F under the port turret's seat from the main deck, standing and
+    # near the top of a jump (AAirshipPawn::IsWithinStationRange: within StationMountDistance horizontally, the capsule
+    # centre StationMountHeightBelow under .. StationMountHeightAbove over the seat, hull space).
+    def start_t8_reach(self):
+        if same(self.pawn(), self.ship):
+            self.cmd('Aura.Airship.Exit 0')
+        self.teleport(self.ship, SPAWN, 0.0)
+        self.D['z'] = []
+
+    def ph_t8_reach(self, el):
+        yaw = self.ship.get_actor_rotation().yaw
+        if el >= 0.6 and 'tp1' not in self.D:
+            self.D['tp1'] = True
+            loc, _ = self.deck_point(self.ship, 300.0, 0.0)
+            self.tp_char(loc, yaw)
+        if el >= 1.6 and 'j1' not in self.D:
+            self.D['j1'] = el
+            self.D['z0'] = self.char_rel()[2]
+            self.char.jump()
+        if 'j1' in self.D and el >= self.D['j1'] + 0.1 and 'j1s' not in self.D:
+            self.D['j1s'] = True
+            self.char.stop_jumping()
+        if 'j1' in self.D and el < 3.4:
+            self.D['z'].append((r(el - self.D['j1'], 3), self.char_rel()[2] - self.D['z0'], (self.char_info(self.char) or {}).get('mode')))
+        if el >= 3.4 and 'j2' not in self.D:
+            self.D['j2'] = el
+            self.D['zz'] = []
+            self.D['z0b'] = self.char_rel()[2]
+            self.char.jump()
+        if 'j2' in self.D and el >= self.D['j2'] + 0.1 and 'j2s' not in self.D:
+            self.D['j2s'] = True
+            self.char.stop_jumping()
+        # the air jump at the top of the first one: the air jump sets the upward speed to JumpZVelocity, it does not add to it
+        if 'j2' in self.D and 'aj' not in self.D and el >= self.D['j2'] + 0.2 and float(self.char.get_velocity().z) <= 10.0:
+            self.D['aj'] = el
+            self.char.jump()
+        if 'aj' in self.D and el >= self.D['aj'] + 0.1 and 'ajs' not in self.D:
+            self.D['ajs'] = True
+            self.char.stop_jumping()
+        if 'j2' in self.D and el < 6.2:
+            self.D['zz'].append((r(el - self.D['j2'], 3), self.char_rel()[2] - self.D['z0b'], (self.char_info(self.char) or {}).get('mode')))
+        # F under the port turret's seat (station 4): standing on the main deck, then near the top of a jump
+        if el >= 6.2 and 'tp2' not in self.D:
+            self.D['tp2'] = True
+            seat = self.rel(self.ship, v3(self.ship.get_station_seat_location(4)))
+            self.D['seat'] = r(seat, 1)
+            # the main deck under the forward deck: at x 1900 its planks are 195 cm to each side (the forward deck overhangs
+            # the hull at the turrets), so 150 cm off the centre line: 1.4 m from the seat's spot in the hull's xy
+            hit = self.deck_hit(self.ship, seat[0] - 100.0, math.copysign(150.0, seat[1]), 500.0, -200.0)
+            self.D['under'] = r(self.rel(self.ship, hit), 1) if hit else None
+            if hit:
+                self.tp_char([hit[0], hit[1], hit[2] + self.char_hh() + 5.0], yaw)
+        if el >= 7.2 and 'f1' not in self.D and self.D.get('under'):
+            self.D['f1'] = {'rel': r(self.char_rel(), 1), 'mode': (self.char_info(self.char) or {}).get('mode')}
+            self.inject('IA_AirshipBoard')
+        if el >= 7.8 and 'r1' not in self.D and 'f1' in self.D:
+            self.D['r1'] = {'gunner': same(self.gunner(self.ship, 4), self.char), 'boarded': same(self.pawn(), self.ship)}
+            if self.D['r1']['gunner']:
+                self.cmd('Aura.Airship.Dismount 0')
+        if el >= 8.4 and 'j3' not in self.D and 'r1' in self.D and not self.D['r1']['gunner']:
+            self.D['j3'] = el
+            self.D['z0c'] = self.char_rel()[2]
+            self.char.jump()
+        if 'j3' in self.D and el >= self.D['j3'] + 0.1 and 'j3s' not in self.D:
+            self.D['j3s'] = True
+            self.char.stop_jumping()
+        if 'j3' in self.D and 'f2' not in self.D and el >= self.D['j3'] + 0.2 and float(self.char.get_velocity().z) <= 60.0:
+            self.D['f2'] = {'rel': r(self.char_rel(), 1), 'rise': r(self.char_rel()[2] - self.D['z0c'], 1), 't': r(el - self.D['j3'], 2),
+                            'mode': (self.char_info(self.char) or {}).get('mode')}
+            self.inject('IA_AirshipBoard')
+        if 'f2' in self.D and 'r2' not in self.D and el >= self.D['j3'] + 1.0:
+            par = self.char.get_attach_parent_actor()
+            self.D['r2'] = {'gunner': same(self.gunner(self.ship, 4), self.char), 'rel': r(self.char_rel(), 1),
+                            'att': par.get_name() if par else None}
+            if self.D['r2']['gunner']:
+                self.capture('t8_reach_turret', 'turret0', self.ship)
+                self.cmd('Aura.Airship.Dismount 0')
+        if 'r2' in self.D and 'r3' not in self.D and el >= self.D['j3'] + 2.2:
+            rel = self.char_rel()
+            fod = self.feet_over_deck(rel)
+            if fod[0] is None:
+                fod = self.feet_over_deck([rel[0] - 20.0, rel[1], rel[2]])
+            self.D['r3'] = {'rel': r(rel, 1), 'info': self.char_info(self.char, self.ship), 'feet_over_deck': fod}
+            self.D['phase_done'] = True
+
+    def end_t8_reach(self):
+        z1 = [x for x in self.D.get('z') or [] if x[2] == 'MOVE_FALLING']
+        z2 = [x for x in self.D.get('zz') or [] if x[2] == 'MOVE_FALLING']
+        a1, a2 = max((x[1] for x in z1), default=None), max((x[1] for x in z2), default=None)
+        cm = gp(self.char, 'character_movement', 'CharacterMovement')
+        jz, gs = float(cm.get_editor_property('jump_z_velocity')), float(cm.get_editor_property('gravity_scale'))
+        self.check('T8.R1_jump_heights', 'INFO', 'on the main deck of the parked ship: a jump lifts the feet %s cm (in the air %s s), a jump + '
+                   'the air jump at its top %s cm (air jump %s s after the jump; in the air %s s); JumpZVelocity %s, gravity scale %s -> '
+                   '%s cm per jump' % (r(a1, 1) if a1 is not None else None, r(z1[-1][0] - z1[0][0], 2) if z1 else None,
+                                       r(a2, 1) if a2 is not None else None,
+                                       r(self.D['aj'] - self.D['j2'], 2) if 'aj' in self.D and 'j2' in self.D else None,
+                                       r(z2[-1][0] - z2[0][0], 2) if z2 else None, jz, gs, r(jz * jz / (2.0 * 980.0 * gs), 1)),
+                   {'jump': z1[::3], 'air_jump': z2[::3]})
+        st = self.settings()
+        cfg = dict((n, r(float(st.get_editor_property(n)), 1)) for n in ('StationMountDistance', 'StationMountHeightAbove', 'StationMountHeightBelow'))
+        seat, f1, f2 = self.D.get('seat'), self.D.get('f1') or {}, self.D.get('f2') or {}
+        d1 = r(f1['rel'][2] - seat[2], 1) if f1.get('rel') and seat else None
+        d2 = r(f2['rel'][2] - seat[2], 1) if f2.get('rel') and seat else None
+        self.check('T8.R2_turret_from_main_deck', 'INFO', 'port turret seat (hull) %s, the main deck under it %s; settings %s. Standing on the '
+                   'main deck 1.4 m from the seat\'s spot in the hull\'s xy (hull %s, capsule centre %s cm from the seat in z), F: gunner %s. In a jump from '
+                   'there, F %s s after the take-off (feet %s cm up, capsule centre %s cm from the seat in z, %s): %s; after Dismount: %s' % (
+                       seat, self.D.get('under'), cfg, f1.get('rel'), d1, (self.D.get('r1') or {}).get('gunner'), f2.get('t'), f2.get('rise'), d2,
+                       f2.get('mode'), self.D.get('r2'), self.D.get('r3')),
+                   {'seat': seat, 'under': self.D.get('under'), 'f1': f1, 'r1': self.D.get('r1'), 'f2': f2, 'r2': self.D.get('r2'),
+                    'r3': self.D.get('r3'), 'settings': cfg})
+        self.tp_char(CHAR_FOOT, 0.0)
+
     # ---- T8.5 / T8.7 (S): a walker on the planks in flight. Its movement base is the Mesh's Hull body (kinematic, QueryOnly),
     # a child of the simulating hull: the CMC follows it after the physics step like the hull itself (IsSimulatedBase walks
     # up the attach parents), and a jump inherits the body's velocity (the kinematic target's, read back from the solver).
@@ -2296,7 +2525,45 @@ class R2Run(object):
                 self.char.stop_jumping()
             except Exception:  # noqa: BLE001
                 self.err('stop_jumping')
-        if el >= 12.5 and 'clr' not in self.D:
+        # T8.9: a second jump from the deck, then the air jump with the movement input held to starboard (the ship's right)
+        cm = gp(self.char, 'character_movement', 'CharacterMovement')
+        if el >= 12.4 and 'j2' not in self.D:
+            self.D['j2'] = el
+            self.D['j2_info'] = self.char_info(self.char, self.ship)
+            try:
+                self.char.jump()
+            except Exception:  # noqa: BLE001
+                self.err('jump2')
+        if 'j2' in self.D and self.D['j2'] + 0.35 <= el <= self.D['j2'] + 1.1:
+            try:
+                self.char.add_movement_input(self.ship.get_actor_right_vector(), 1.0, False)
+            except Exception:  # noqa: BLE001
+                self.err('add_movement_input')
+        if 'j2' in self.D and el >= self.D['j2'] + 0.5 and 'aj' not in self.D:
+            self.D['aj'] = el
+            try:
+                self.char.stop_jumping()
+                self.D['aj0'] = {'rel': self.char_rel(), 'mode': (self.char_info(self.char) or {}).get('mode'),
+                                 'count': int(cm.get_editor_property('AirJumpCount')), 'v': r(v3(self.ship.get_velocity()), 0),
+                                 'char_v': r(v3(self.char.get_velocity()), 0), 'max_walk': r(float(cm.get_editor_property('max_walk_speed')), 1)}
+                self.char.jump()
+            except Exception:  # noqa: BLE001
+                self.err('air_jump')
+        if 'aj' in self.D and el >= self.D['aj'] + 0.15 and 'aj_stop' not in self.D:
+            self.D['aj_stop'] = True
+            try:
+                self.char.stop_jumping()
+            except Exception:  # noqa: BLE001
+                self.err('stop_jumping2')
+        if 'aj' in self.D and el >= self.D['aj'] + 0.5 and 'aj1' not in self.D:
+            try:
+                self.D['aj1'] = {'rel': self.char_rel(), 'mode': (self.char_info(self.char) or {}).get('mode'),
+                                 'count': int(cm.get_editor_property('AirJumpCount')), 'char_v': r(v3(self.char.get_velocity()), 0),
+                                 'dt': r(el - self.D['aj'], 3)}
+            except Exception:  # noqa: BLE001
+                self.D['aj1'] = {}
+                self.err('air_jump_read')
+        if el >= 13.8 and 'clr' not in self.D:
             self.D['clr'] = True
             self.cmd('Aura.Airship.InputClear')
         if 'go' in self.D and int(el * 10) != self.D.get('_k'):
@@ -2337,7 +2604,8 @@ class R2Run(object):
                        r(rel0, 1) if rel0 else None, self.D.get('traced'), vmax, roll, yr, r(drift, 1) if drift is not None else None, modes, riders,
                        bases, min(fods) if fods else None, max(fods) if fods else None, len(walk)),
                    {'track': walk[::5]})
-        after = [x for x in trk if tj is not None and x['el'] >= tj]
+        tj2 = self.D.get('j2')       # T8.9's jumps come after T8.7 / T8.8's samples
+        after = [x for x in trk if tj is not None and x['el'] >= tj and (tj2 is None or x['el'] < tj2 - 0.05)]
         air = [x for x in after if x['mode'] == 'MOVE_FALLING']
         land = None
         if air:
@@ -2355,10 +2623,292 @@ class R2Run(object):
                                             r(land['el'] - tj, 2) if land else None, r(miss, 0) if miss is not None else None,
                                             r((self.D.get('jump_v') or 0.0) * 1.2, 0), dict((k, end.get(k)) for k in ('rel', 'mode', 'rider', 'base'))),
                    {'jump': self.D.get('jump_info'), 'air': air, 'land': land})
+        # T8.8 (added 2026-11-27 after the first deck run): the landing. The engine adds the base's velocity to the character
+        # when it leaves the deck and never takes it off again on landing, so the walker landed 18 cm from its take-off point
+        # and then slid ~1.5 m forward along the deck at 48 m/s until the wheel's box stopped it (T8.7's end pose was the
+        # helm). Measured over the 1.5 s after the first walking sample, in the hull's xy.
+        post = [x for x in after if land is not None and land['el'] <= x['el'] <= land['el'] + 1.5]
+        slide = max((math.hypot(x['rel'][0] - land['rel'][0], x['rel'][1] - land['rel'][1]) for x in post), default=None)
+        fwd = max((x['rel'][0] - land['rel'][0] for x in post), default=None)
+        ok = land is not None and len(post) >= 10 and slide is not None and slide <= 50.0 and all(x['mode'] == 'MOVE_WALKING' for x in post)
+        self.check('T8.8_deck_landing_no_slide_S', 'PASS' if ok else 'FAIL', 'after that landing (ship %s m/s): the walker moved at most %s cm '
+                   'from the landing point in the hull\'s xy over the next 1.5 s (want <= 50: the ship\'s velocity it got at the take-off must '
+                   'be taken off again on landing, else it slides along the deck at the ship\'s speed until the ground friction stops '
+                   'it, 2.7 m at 48 m/s); furthest forward %s cm; %d samples, landing %s, 1.5 s later %s' % (
+                       land.get('v') if land else None, r(slide, 1) if slide is not None else None, r(fwd, 1) if fwd is not None else None,
+                       len(post), land.get('rel') if land else None, post[-1]['rel'] if post else None),
+                   {'post': post})
+        # T8.9 (added 2026-11-27): the air jump on a flying deck. UMyCharacterMovementComponent turns the horizontal velocity
+        # toward the movement input on an air jump; in the air over the deck that velocity is the ship's 48 m/s plus the
+        # player's own, and all of it was turned (read in the code, before any run): a direction key + the second jump threw
+        # the player off the ship at the ship's speed. Only the part relative to the base the player left may turn.
+        a0, a1 = self.D.get('aj0') or {}, self.D.get('aj1') or {}
+        dx = dy = None
+        if a0.get('rel') and a1.get('rel'):
+            dx, dy = a1['rel'][0] - a0['rel'][0], a1['rel'][1] - a0['rel'][1]
+        mw, dt = a0.get('max_walk'), a1.get('dt') or 0.5
+        ok = (dx is not None and mw and a0.get('mode') == 'MOVE_FALLING' and a1.get('count') == (a0.get('count') or 0) + 1
+              and abs(dx) <= 150.0 and 0.25 * mw * dt <= dy <= 2.0 * mw * dt + 100.0)
+        self.check('T8.9_deck_air_jump_keeps_ship_speed_S', 'PASS' if ok else 'FAIL', 'a second jump from the planks, 0.5 s later the air jump '
+                   '(ACharacter::Jump while %s) with the movement input to starboard, ship %s cm/s, player %s cm/s: air jumps %s -> %s (want '
+                   '+1); %s s later the player is %s cm along the hull\'s x and %s cm to starboard of the air-jump point (want within 150 '
+                   'cm along x: the ship\'s speed is kept; %s .. %s cm to starboard: MaxWalkSpeed %s cm/s relative to the ship; turning the '
+                   'whole velocity leaves it %s m behind), player velocity then %s' % (
+                       a0.get('mode'), a0.get('v'), a0.get('char_v'), a0.get('count'), a1.get('count'), dt, r(dx, 0) if dx is not None else None,
+                       r(dy, 0) if dy is not None else None, r(0.25 * (mw or 0.0) * dt, 0), r(2.0 * (mw or 0.0) * dt + 100.0, 0), mw,
+                       r(math.hypot(*(a0.get('v') or [0.0, 0.0])[:2]) * dt / 100.0, 0), a1.get('char_v')),
+                   {'air_jump': a0, 'after': a1, 'start': self.D.get('j2_info')})
         # back for the drift phases: the walker to the start platform (the ship's teleport would leave it in the air)
         self.set_scheme(self.ship, self.cfg['scheme'])
         self.tp_char(CHAR_FOOT, 0.0)
         self.teleport(self.ship, SPAWN, 0.0)
+
+    # ---- T8.10 (S, review 2026-11-27, must fix 2): from the ground to the helm with a player's own input. F under the hull
+    # is gone (T8.1) and GA_GrappleSwing2 refuses the ship (its rope takes WorldStatic / WorldDynamic only and never a
+    # pawn), so the way aboard is the boost: GA_BoostBP, Shift held on the ground, MOVE_Flying along the control rotation.
+    # Injected: IA_Shift held, the control rotation (the mouse), IA_Move (W), IA_AirshipBoard (F). After the start on the
+    # ground 15 m to port of the helm nothing is teleported.
+    def mana(self):
+        try:
+            asc = unreal.AbilitySystemLibrary.get_ability_system_component(self.char)
+            x = asc.get_gameplay_attribute_value(self.attrs['Mana'])
+            return round(float(x[0] if isinstance(x, tuple) else x), 2)
+        except Exception:  # noqa: BLE001
+            self.err('mana')
+            return None
+
+    def look_to(self, target, pitch=None):
+        """the control rotation (the mouse) from the character toward the world point target"""
+        rot = unreal.MathLibrary.find_look_at_rotation(self.char.get_actor_location(), unreal.Vector(*target))
+        self.pc.set_control_rotation(unreal.Rotator(0.0, rot.pitch if pitch is None else float(pitch), rot.yaw))
+
+    def start_t8_boost(self):
+        if same(self.pawn(), self.ship):
+            self.cmd('Aura.Airship.Exit 0')
+        self.teleport(self.ship, SPAWN, 0.0)
+        self.D['st'] = 'ground'
+        self.D['trk'] = []
+
+    def ph_t8_boost(self, el):
+        D, s = self.D, self.ship
+        st = D['st']
+        info = self.char_info(self.char) or {}
+        rel = self.char_rel()
+        if st not in ('ground', 'done') and int(el * 5) != D.get('_k'):
+            D['_k'] = int(el * 5)
+            D['trk'].append((r(el, 2), st, r(rel, 0), info.get('mode'), r(v3(self.char.get_velocity()), 0)))
+        if st == 'ground':
+            if el >= 0.4 and 'g' not in D:
+                seat, _ = self.helm_geo()
+                D['seat'] = seat
+                top = self.world_of(s, [seat[0] - 100.0, -1500.0, 0.0])
+                own = [s, self.char] + self.turrets(s)
+                g = self.trace(top, [top[0], top[1], top[2] - 6000.0], own)
+                if not g or not g.get('at'):
+                    D['fail'] = 'no ground 15 m to port of the helm: %s' % g
+                    D['st'] = 'done'
+                else:
+                    D['g'] = g['at']
+                    self.tp_char([g['at'][0], g['at'][1], g['at'][2] + self.char_hh() + 2.0], 90.0)
+            if 'g' in D and el >= 1.4:
+                deck = self.deck_hit(s, D['seat'][0] - 100.0, -150.0)
+                D['deck_z'] = self.rel(s, deck)[2] if deck else D['seat'][2]
+                D['start'] = {'loc': r(v3(self.char.get_actor_location()), 0), 'mode': info.get('mode'), 'mana': self.mana(),
+                              'deck_above_cm': r(deck[2] - D['g'][2], 0) if deck else None}
+                # up outboard of the rail (3 m off the hull's side, 4.5 m over the planks), then in over the planks 1 m behind
+                # and 1.5 m to port of the pilot's standing spot
+                D['w1'] = self.world_of(s, [D['seat'][0] - 100.0, -1100.0, D['deck_z'] + 450.0])
+                D['w2'] = self.world_of(s, [D['seat'][0] - 100.0, -150.0, D['deck_z'] + 230.0])
+                D['st'], D['t_fly'] = 'fly1', el
+        elif st in ('fly1', 'fly2'):
+            tgt = D['w1'] if st == 'fly1' else D['w2']
+            loc = v3(self.char.get_actor_location())
+            self.look_to(tgt)
+            self.inject('IA_Shift')
+            D['vmax'] = max(D.get('vmax', 0.0), float(self.char.get_velocity().length()))
+            if info.get('mode') == 'MOVE_FLYING' and 't_flying' not in D:
+                D['t_flying'] = r(el - D['t_fly'], 2)
+            if st == 'fly1' and dist(loc, tgt) < 200.0:
+                D['st'] = 'fly2'
+                D['t_w1'] = r(el - D['t_fly'], 2)
+            elif st == 'fly2' and math.hypot(loc[0] - tgt[0], loc[1] - tgt[1]) < 100.0:
+                D['st'], D['t_rel'] = 'land', el
+                D['at_release'] = {'rel': r(rel, 0), 'mode': info.get('mode'), 'mana': self.mana(), 'fly_s': r(el - D['t_fly'], 2)}
+            elif el >= D['t_fly'] + 18.0:
+                D['fail'] = 'not over the planks after 18 s of Shift (stage %s, hull %s, %s, mana %s)' % (st, r(rel, 0), info.get('mode'), self.mana())
+                D['st'] = 'done'
+        elif st == 'land':
+            fod = self.feet_over_deck(rel)
+            if info.get('mode') == 'MOVE_WALKING' and fod[0] is not None and fod[0] < 15.0:
+                D['landed'] = {'rel': r(rel, 0), 'feet_over_deck': fod, 'base': self.char_base(), 't': r(el - D['t_rel'], 2)}
+                D['st'], D['t_walk'] = 'walk', el
+            elif el >= D['t_rel'] + 5.0:
+                D['fail'] = 'not walking on the planks 5 s after Shift was released (hull %s, %s, feet over the deck %s)' % (r(rel, 0), info.get('mode'), fod)
+                D['st'] = 'done'
+        elif st == 'walk':
+            d = math.hypot(rel[0] - D['seat'][0], rel[1] - D['seat'][1])
+            self.look_to(self.world_of(s, [D['seat'][0], D['seat'][1], rel[2]]), -8.0)
+            if d > 50.0:
+                self.inject('IA_Move')
+            if d <= 50.0 or el >= D['t_walk'] + 6.0:
+                D['at_wheel'] = {'rel': r(rel, 0), 'seat_h_cm': r(d, 0), 'walk_s': r(el - D['t_walk'], 2)}
+                D['st'], D['t_f'] = 'f', el + 0.3
+        elif st == 'f':
+            if el >= D['t_f'] and 'f' not in D:
+                D['f'] = el
+                self.inject('IA_AirshipBoard')
+                self.event('inject', what='IA_AirshipBoard (at the wheel after the boost flight)')
+            if 'f' in D and el >= D['f'] + 0.6:
+                D['boarded'] = same(self.pawn(), s)
+                self.capture('t8_boost', 'helm', s)
+                D['st'] = 'done'
+        if D['st'] == 'done':
+            D['phase_done'] = True
+
+    def end_t8_boost(self):
+        D = self.D
+        ok = bool(D.get('boarded')) and not D.get('fail') and bool(D.get('landed'))
+        self.check('T8.10_board_by_boost_S', 'PASS' if ok else 'FAIL', 'the player on the ground 15 m to port of the helm of the parked ship (%s; the '
+                   'planks %s cm above the ground). Shift held (GA_BoostBP) with the view at a point 3 m off the rail and 4.5 m over the '
+                   'planks, then at the planks behind the helm: flying %s s after the press, at the first point after %s s, over the planks '
+                   'and Shift released %s (top speed %s cm/s); on the planks %s; W toward the wheel: %s; F: at the helm %s (want True)%s' % (
+                       D.get('start'), (D.get('start') or {}).get('deck_above_cm'), D.get('t_flying'), D.get('t_w1'), D.get('at_release'),
+                       r(D.get('vmax'), 0) if D.get('vmax') is not None else None, D.get('landed'), D.get('at_wheel'), D.get('boarded'),
+                       ('; FAILED: ' + D['fail']) if D.get('fail') else ''),
+                   {'start': D.get('start'), 'release': D.get('at_release'), 'landed': D.get('landed'), 'wheel': D.get('at_wheel'),
+                    'fail': D.get('fail'), 'track': D.get('trk')})
+        if same(self.pawn(), self.ship):
+            self.cmd('Aura.Airship.Exit 0')
+        self.tp_char(CHAR_FOOT, 0.0)
+
+    # ---- T5.17 (S, review 2026-11-27, should fix 3): a turret is manned from the main deck. The forward deck is 4.2 m above the
+    # main deck and the model has no stairs, so F on the main deck under a turret puts the player on it
+    # (UAirshipSettings::TurretMountHeightBelow 450; the cannons keep StationMountHeightBelow 200). The starboard turret
+    # (station 5): the full run wrecked the port one in t6_destroy. F and Exit are the injected keys.
+    def start_t5_deck(self):
+        if same(self.pawn(), self.ship):
+            self.cmd('Aura.Airship.Exit 0')
+        self.teleport(self.ship, SPAWN, 0.0)
+
+    def ph_t5_deck(self, el):
+        D, s = self.D, self.ship
+        if el >= 0.5 and 'tp' not in D:
+            D['tp'] = True
+            seat = self.rel(s, v3(s.get_station_seat_location(5)))
+            D['seat'] = r(seat, 1)
+            hit = self.deck_hit(s, seat[0] - 100.0, math.copysign(150.0, seat[1]), 500.0, -200.0)
+            D['under'] = r(self.rel(s, hit), 1) if hit else None
+            if hit:
+                self.tp_char([hit[0], hit[1], hit[2] + self.char_hh() + 5.0], s.get_actor_rotation().yaw)
+        if el >= 1.6 and 'f1' not in D and D.get('under'):
+            rel = self.char_rel()
+            D['f1'] = {'rel': r(rel, 1), 'mode': (self.char_info(self.char) or {}).get('mode'), 'feet_over_deck': self.feet_over_deck(rel)}
+            self.inject('IA_AirshipBoard')
+            self.event('inject', what='IA_AirshipBoard (on the main deck under the starboard turret)')
+        if 'f1' in D and 'r1' not in D and el >= 2.3:
+            par = self.char.get_attach_parent_actor()
+            D['r1'] = {'gunner': same(self.gunner(s, 5), self.char), 'rel': r(self.char_rel(), 1), 'att': par.get_name() if par else None}
+            if D['r1']['gunner']:
+                self.capture('t5_deck', 'turret1', s)
+        if 'r1' in D and el >= 2.9 and 'x' not in D:
+            D['x'] = True
+            if D['r1']['gunner']:
+                self.inject('IA_AirshipExit')
+                self.event('inject', what='IA_AirshipExit (turret gunner)')
+        if 'x' in D and el >= 4.6 and 'r2' not in D:
+            rel = self.char_rel()
+            fod = self.feet_over_deck(rel)
+            if fod[0] is None:      # the forward deck's boxes meet at the seats' x: a trace exactly on the joint
+                fod = self.feet_over_deck([rel[0] - 20.0, rel[1], rel[2]])
+            D['r2'] = {'gunner': same(self.gunner(s, 5), self.char), 'rel': r(rel, 1), 'mode': (self.char_info(self.char) or {}).get('mode'),
+                       'feet_over_deck': fod}
+            D['phase_done'] = True
+
+    def end_t5_deck(self):
+        D = self.D
+        st = self.settings()
+        cfg = dict((n, r(float(st.get_editor_property(n)), 1)) for n in ('StationMountDistance', 'StationMountHeightAbove', 'StationMountHeightBelow',
+                                                                         'TurretMountHeightBelow'))
+        seat, f1, r1, r2 = D.get('seat'), D.get('f1') or {}, D.get('r1') or {}, D.get('r2') or {}
+        dz = r(f1['rel'][2] - seat[2], 1) if f1.get('rel') and seat else None
+        fod = r2.get('feet_over_deck') or (None, None)
+        ok = (dz is not None and dz < -cfg['StationMountHeightBelow'] and f1.get('mode') == 'MOVE_WALKING' and r1.get('gunner') is True
+              and r2.get('gunner') is False and r2.get('mode') == 'MOVE_WALKING' and fod[0] is not None and fod[0] <= 15.0 and fod[1] is not None and fod[1] >= 600.0)
+        self.check('T5.17_turret_from_main_deck_S', 'PASS' if ok else 'FAIL', 'starboard turret seat (hull) %s; the player stands on the main deck under '
+                   'the forward deck (hull %s, %s, capsule centre %s cm from the seat in z; a cannon\'s limit is -%s, the turrets\' -%s), F '
+                   '(IA_AirshipBoard): gunner %s at hull %s (want True); F again (IA_AirshipExit): gunner %s, %s at hull %s, feet %s cm over a deck '
+                   'box whose top is at hull z %s (want off the gun, walking on the forward deck: z >= 600)' % (
+                       seat, f1.get('rel'), f1.get('mode'), dz, cfg['StationMountHeightBelow'], cfg['TurretMountHeightBelow'], r1.get('gunner'),
+                       r1.get('rel'), r2.get('gunner'), r2.get('mode'), r2.get('rel'), fod[0], fod[1]),
+                   {'seat': seat, 'under': D.get('under'), 'f1': f1, 'r1': r1, 'r2': r2, 'settings': cfg})
+        if self.gunner(self.ship, 5) is not None:
+            self.cmd('Aura.Airship.Dismount 0')
+        self.tp_char(CHAR_FOOT, 0.0)
+
+    # ---- T8.11 (S, review 2026-11-27, should fix 6): the helm of a ship whose deck is the hull's collision (no physics asset
+    # bodies: an old or empty PA_Airship). Players then stand on the hull's lid, 1.2-2.9 m above the planks and the seat;
+    # IsWithinHelmReach measured the height from the seat, so F never took the helm there. AAirshipPawn::
+    # SetDeckOnPhysicsAsset(false) puts ship 1 in that state for the phase (the same code path as no bodies).
+    def start_t8_lid(self):
+        if same(self.pawn(), self.ship):
+            self.cmd('Aura.Airship.Exit 0')
+        self.teleport(self.ship, SPAWN, 0.0)
+
+    def ph_t8_lid(self, el):
+        D, s = self.D, self.ship
+        if el >= 0.4 and 'off' not in D:
+            D['off'] = True
+            D['was'] = bool(call(s, 'is_deck_on_physics_asset'))
+            try:
+                s.set_deck_on_physics_asset(False)
+            except Exception:  # noqa: BLE001
+                self.err('set_deck_on_physics_asset')
+            D['now'] = bool(call(s, 'is_deck_on_physics_asset'))
+        if el >= 0.7 and 'tp' not in D and 'off' in D:
+            D['tp'] = True
+            seat, _ = self.helm_geo()
+            D['seat'] = seat
+            loc, traced = self.deck_point(s, seat[0] - 80.0, seat[1])      # deck_comp: the hull's collision now
+            D['traced'] = traced
+            self.tp_char(loc, s.get_actor_rotation().yaw)
+        if el >= 2.0 and 'f' not in D and 'tp' in D:
+            rel = self.char_rel()
+            D['f'] = {'rel': r(rel, 1), 'feet_over_seat_cm': r(rel[2] - self.char_hh() - D['seat'][2], 1),
+                      'seat_h_cm': r(math.hypot(rel[0] - D['seat'][0], rel[1] - D['seat'][1]), 1),
+                      'mode': (self.char_info(self.char) or {}).get('mode'), 'base': self.char_base()}
+            self.inject('IA_AirshipBoard')
+            self.event('inject', what='IA_AirshipBoard (on the hull lid behind the wheel)')
+        if 'f' in D and el >= 2.7 and 'res' not in D:
+            D['res'] = {'boarded': same(self.pawn(), s)}
+            if D['res']['boarded']:
+                self.cmd('Aura.Airship.Exit 0')
+        if 'res' in D and el >= 3.5:
+            D['phase_done'] = True
+
+    def end_t8_lid(self):
+        D = self.D
+        back = None
+        try:
+            self.ship.set_deck_on_physics_asset(True)
+            back = bool(call(self.ship, 'is_deck_on_physics_asset'))
+        except Exception:  # noqa: BLE001
+            self.err('set_deck_on_physics_asset_back')
+        reach_h = None
+        try:
+            reach_h = float(self.settings().get_editor_property('HelmReachHeight'))
+        except Exception:  # noqa: BLE001
+            self.err('helm_reach_height')
+        f, res = D.get('f') or {}, D.get('res') or {}
+        ok = (D.get('was') is True and D.get('now') is False and bool(D.get('traced')) and f.get('feet_over_seat_cm') is not None and reach_h is not None
+              and f['feet_over_seat_cm'] > reach_h and res.get('boarded') is True and back is True)
+        self.check('T8.11_helm_on_hull_deck_S', 'PASS' if ok else 'FAIL', 'ship 1 with the deck on the hull\'s collision (SetDeckOnPhysicsAsset false: '
+                   'IsDeckOnPhysicsAsset %s -> %s), the player on the lid 80 cm behind the standing spot (traced %s): %s; the feet are %s cm '
+                   'above the seat (HelmReachHeight %s: measured from the seat F was refused); F: at the helm %s (want True); the deck back on '
+                   'the physics asset afterwards: %s' % (D.get('was'), D.get('now'), D.get('traced'), f, f.get('feet_over_seat_cm'), reach_h,
+                                                         res.get('boarded'), back), {'f': f, 'res': res})
+        if same(self.pawn(), self.ship):
+            self.cmd('Aura.Airship.Exit 0')
+        self.tp_char(CHAR_FOOT, 0.0)
 
     # ---- T9.1 / T9.2 / T9.5: drift after a moving exit, per scheme
     def start_t9_drift(self):

@@ -4,6 +4,10 @@
 # world ticks between inbox calls. No Aura.MechSentinel.TestBullet: every bullet comes from the swarm's own combat
 # processor (target = the PlayerState's pawn, ranged attack, FireSentinelBullet, TickBullets: Pawn sweep, then the
 # tagged-target Visibility fallback and UMechSentinelSwarmSubsystem::BulletTargetRedirect).
+# Since the helm / deck change (2026-11-25, SPEC_A.md 6.8) the hull's convexes ignore Pawn and Visibility: what a bullet
+# meets is the Mesh's physics-asset boxes (object type Pawn, block Visibility; actor = the ship), a turret's HitBox
+# (WorldDynamic, blocks Visibility; actor = the turret) or a character's capsule. A driven ship is "player controlled",
+# so the Pawn sweep damages it at its first PA box; an undriven one only through the tagged path.
 # Run (L_AirshipTest open, no PIE, the round-2 C++ built and as_51..as_57 run):
 #   Docs/Airship/scripts/harness/inbox.sh 62 Docs/Airship/scripts/ue/as_62_pie_swarm.py 60
 #   status: inbox.sh 62s Docs/Airship/scripts/ue/as_62s_status.py 30     stop: inbox.sh 62x Docs/Airship/scripts/ue/as_62x_stop.py 30
@@ -50,20 +54,29 @@
 #               29-44 s: the ship jumps AS62_JUMP_CM back along -X every          damage from real bullets in the holds
 #               AS62_JUMP_S, else the orbiting swarm stays behind the turrets).
 #               9-29 s, fire off: "holds": the harness keeps the ship placed
-#               (teleport every frame, yaw 0) so that one ATTACKING sentinel      (the redirect: the line meets the hull's
-#               stays at hull AS62_HOLD (2900, -395, 1001), just outside the      forward-deck convex first); SW.d4 pilot
-#               forward-deck convex's port face; its aim line toward the ship's   crew share again
-#               target point (root + TargetHeightOffset) crosses turret 0's
-#               HitBox. Why: the swarm orbits the ship's ROOT at 11-19 m and the
-#               turrets sit 21 m forward of it, so in a plain hover no aim line
-#               crosses a turret; one from outside the convex needs a sentinel
-#               25-31 m ahead (inside the attack exit range 31.25 m) at 9.5-10.5 m
-#               height, 4 m to the side: a spot sentinels only pass through.
+#               (teleport every frame, yaw 0) so that one ATTACKING sentinel      (the line meets the turret's
+#               stays at hull AS62_HOLD (2900, -395, 1001), ahead and to port of   HitBox directly now: the hull is out of
+#               turret 0; its aim line toward the ship's target point (root +      Visibility); SW.d4 pilot crew share again
+#               TargetHeightOffset) crosses turret 0's HitBox, which is the first
+#               thing on it that blocks Visibility. Why: the swarm orbits the
+#               ship's ROOT at 11-19 m and the turrets sit 21 m forward of it, so
+#               in a plain hover no aim line crosses a turret; one that does needs
+#               a sentinel 25-31 m ahead (inside the attack exit range 31.25 m) at
+#               9.5-10.5 m height, 4 m to the side: a spot sentinels only pass
+#               through. With Settings.SwarmTurretAimChance > 0 (C++, 2026-11-27)
+#               part of the bullets at a driven ship is aimed at a living turret
+#               instead: SW.a3 / SW.d1 then count real turret hits without holds.
+#  s_cannon 33  (e) DespawnAll, Board 0, ship 1 at P1, wave 1 from port. 9-19 s: 3     SW.e1 the flight sweep: OnSentinelDamaged with
+#               test balls of ship 1 (the cannonball class, source = the ship) from     ship 1 as instigator, the sentinel loses health;
+#               the nearest muzzle at a sentinel, led. 19-31 s: balls of ship 2 into    SW.e2 the burst's splash: events with ship 2 as
+#               ship 1's hull next to a sentinel 1.5-5.6 m off it.                      instigator at a part of the full damage
 #  end          log scan (errors, ensures, Accessed None, LogMechSentinel warnings), the tagged-hit counts per phase
 # Knobs (inbox globals read at arm time; they last for the editor session): AS62_ONLY (phase-name prefixes; settle /
 # spawn2 / board always run; s_empty expects to follow s_gunner), AS62_SCHEME (3), AS62_COUNT (5), AS62_COUNT_D (8),
 # AS62_D_HEALTH (0.5), AS62_STATION (4 = turret L), AS62_HOLD ((2900, -395, 1001)), AS62_HOLD_S (4.0), AS62_HOLD_HITS
-# (2; 0 = no holds), AS62_JUMP_CM (2000, 0 = off), AS62_JUMP_S (4.0), AS62_MIN_HP (30), AS62_CAPS (True).
+# (2; 0 = no holds), AS62_JUMP_CM (2000, 0 = off), AS62_JUMP_S (4.0), AS62_MIN_HP (30), AS62_TOPUP_HP (55; 0 = off: inside
+# s_pilot / s_gunner / s_turret the player is topped up below it and the amount is added back to the phase's loss, so a
+# phase is not cut short by the safety), AS62_CAPS (True).
 # Not here: T2.8 (own-crew splash immunity) needs damage dummies on the deck: only GAS characters with their own ASC have
 # health to measure; the project has no enemy Blueprint (AMyEnemyChar is C++ only, its attributes come from a BP class
 # info), and BP_MyCharMech without a PlayerState has no ASC. Listen-server swarm cases (a gunner on a DRIVEN ship) are
@@ -74,7 +87,7 @@ AS62_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts
 _as62_src = open(AS62_AS30).read()
 exec(compile(_as62_src[:_as62_src.index('\nclass AsRun')], AS62_AS30, 'exec'), globals())   # OUT, MAP_NAME, SHIP_CLS, DMG_GE, v3, r, dist, wrap180, tl_get/tl_set, gp, valid, find_log
 
-AS62_VERSION = 'as_62_pie_swarm 2026-11-25'
+AS62_VERSION = 'as_62_pie_swarm 2026-11-27, s_cannon'
 SWDIR = os.path.join(OUT, 'round2_swarm')
 CAPS62 = os.path.join(OUT, 'captures', 'round2_swarm')
 TEMP62 = 'TEMP_AS62_'
@@ -82,6 +95,8 @@ SETTINGS_CLS62 = '/Script/Aura.AirshipSettings'
 SPAWNER_CLS62 = '/Script/Aura.MechSentinelWaveSpawner'
 CONFIG62 = '/Game/MechSentinel/Data/DA_MechSentinelConfig'
 POTION62 = '/Game/Level/GAS/GameplayEffects/GE_HealthPotion.GE_HealthPotion_C'
+BALL_BP62 = '/Game/Assets/MyShip/Drivable/BP_AirshipCannonball.BP_AirshipCannonball_C'
+BALL_SPEED62, BALL_GRAVITY62 = 7000.0, 0.6     # the cannon's launch speed and the ball's gravity scale (as_59 T2.1)
 FIXED_FPS62 = 30.0
 MAX_CAPS62 = 10
 # L_AirshipTest (as_22_test_map.py): start platform 100 x 100 m at the origin (top z 0, PlayerStart (-2500, -2500)), cannon
@@ -99,8 +114,7 @@ MOUNTS_DEFAULT = [{'loc': [2100.0, -245.0, 655.0], 'ymin': -110.0, 'ymax': 30.0,
                   {'loc': [2100.0, 245.0, 655.0], 'ymin': -30.0, 'ymax': 110.0, 'pmin': -20.0, 'pmax': 40.0}]
 HITBOX_Z, HITBOX_EXT = 95.0, (60.0, 60.0, 95.0)  # AAirshipTurret: HitBox at (0, 0, 95), extent (60, 60, 95)
 SCHEME_NAMES62 = {0: 'CLASSIC', 1: 'GALLEON', 2: 'SKY_RACER', 3: 'POINT_FLY'}
-SKIPPED62 = {'T2.8': 'needs damage dummies on the deck with their own ASC (no enemy Blueprint in the project; an unpossessed '
-                     'BP_MyCharMech has no PlayerState, so no ASC): not covered by any harness',
+SKIPPED62 = {'T2.8': 'as_59 T2.8_own_crew_splash_S (a deck rider, then the gunner of L1, inside the splash of ship 1\'s own ball)',
              'SW.b_driven': 'a gunner on a DRIVEN ship needs a second player (listen server, as_60 territory)'}
 TAGGED_PAT = 'Sentinel bullet hit tagged target '
 
@@ -364,7 +378,7 @@ class SwarmRun(object):
 
     def build_phases(self):
         ph = [('settle', 3.0), ('spawn2', 3.0), ('board', 2.5), ('s_pilot', 30.0), ('s_gunner', 25.0), ('s_empty', 22.0),
-              ('s_turret', 45.0)]
+              ('s_turret', 45.0), ('s_cannon', 33.0)]
         only = self.cfg.get('only')
         if only:
             keep = set(['settle', 'spawn2', 'board'] + list(only))
@@ -390,6 +404,7 @@ class SwarmRun(object):
                     'hold': [float(x) for x in hold], 'hold_s': float(g.get('AS62_HOLD_S', 4.0) or 4.0),
                     'hold_hits': max(0, int(2 if g.get('AS62_HOLD_HITS') is None else g.get('AS62_HOLD_HITS'))),   # 0 = no holds
                     'min_hp': float(g.get('AS62_MIN_HP', 30.0) or 30.0),
+                    'topup_hp': float(55.0 if g.get('AS62_TOPUP_HP') is None else g.get('AS62_TOPUP_HP')),   # 0 = no top-ups inside a phase
                     'jump_cm': float(g.get('AS62_JUMP_CM', 2000.0) or 0.0), 'jump_s': max(1.0, float(g.get('AS62_JUMP_S', 4.0) or 4.0)),
                     'caps': bool(g.get('AS62_CAPS', True))}
         self.phases = self.build_phases()
@@ -456,6 +471,12 @@ class SwarmRun(object):
         except Exception:  # noqa: BLE001
             self.err('settings_snapshot')
         self.share = float((self.orig.get('settings') or {}).get('CrewDamageShare', 0.25))
+        self.aim_chance = None
+        try:
+            self.aim_chance = float(self.settings().get_editor_property('SwarmTurretAimChance'))
+        except Exception:  # noqa: BLE001
+            pass                                     # a build before 2026-11-27: every bullet aims at the root
+        self.R['setup']['SwarmTurretAimChance'] = self.aim_chance
         try:
             unreal.SystemLibrary.execute_console_command(None, 'log LogMechSentinel Verbose')
             self.orig['log_verbose'] = True
@@ -719,6 +740,8 @@ class SwarmRun(object):
             if h is None or not mx or h >= frac * mx:
                 return
             cls = unreal.load_class(None, POTION62)
+            if h <= 0.0:
+                return 0.0                           # dead: a potion is no revive
             pol = en(unreal.get_default_object(cls).get_editor_property('duration_policy')) if cls else None
             if pol != 'INSTANT':
                 self.line('WARN', 'GE_HealthPotion is %s (not instant): no top-up, health %s / %s' % (pol, h, mx))
@@ -735,8 +758,10 @@ class SwarmRun(object):
                 h = h1
             self.event('heal', before=h0, after=h, max=mx)
             self.line('INFO', 'player topped up with GE_HealthPotion: %s -> %s (max %s)' % (h0, h, mx))
+            return max(0.0, (h or h0) - h0)
         except Exception:  # noqa: BLE001
             self.err('heal')
+        return 0.0
 
     def hull(self, ship):
         return ship.get_editor_property('HullCollision')
@@ -924,6 +949,9 @@ class SwarmRun(object):
             d = self.R['damage_events'].setdefault(k, [0, 0.0])
             d[0] += 1
             d[1] = round(d[1] + float(damage), 2)
+            if self.phase == 's_cannon':        # every event of the cannonball phase, one by one
+                self.D.setdefault('dmg', []).append((r(self.now - self.p_t0, 3), self.D.get('win'), self.hkey(sentinel), round(float(damage), 3),
+                                                     instigator.get_name() if instigator is not None else None))
         except Exception:  # noqa: BLE001
             pass
 
@@ -1092,6 +1120,15 @@ class SwarmRun(object):
                 self.R['series'].append(s)
             # safety: never lose the player to the swarm (the phase's checks say so)
             hp = (s.get('C') or {}).get('hp')
+            # a top-up inside a phase (2026-11-27: 5 sentinels take a turret gunner from 104 to 30 in 14 s, and the crew
+            # share does the same to the pilot of a ship that lost 300): the amount is added back to the phase's loss
+            # (D['healed'], zeroed when the phase takes its baseline), so the checks still measure every point lost
+            if hp is not None and 0.0 < hp < self.cfg['topup_hp'] and self.phase in ('s_pilot', 's_gunner', 's_turret'):
+                got = self.heal_if_low(0.95) or 0.0
+                if got > 0.0:
+                    self.D['healed'] = round(self.D.get('healed', 0.0) + got, 3)
+                    self.D.setdefault('topups', []).append([r(self.now - self.p_t0, 2), hp, r(hp + got, 3)])
+                    hp = hp + got
             if hp is not None and 0.0 < hp < self.cfg['min_hp'] and pts and not self.D.get('safety'):
                 self.D['safety'] = r(self.now - self.p_t0, 2)
                 self.line('WARN', 'player health %s < AS62_MIN_HP %s: the swarm is removed for the rest of the phase' % (hp, self.cfg['min_hp']))
@@ -1287,6 +1324,7 @@ class SwarmRun(object):
         if el >= 0.4 and 'base' not in self.D:
             self.D['base'] = {'s1': self.ship_hp(self.ship), 's2': self.ship_hp(self.ship2), 'pilot': self.health(self.char),
                               't': self.thp(self.ship), 'pilot_tele': self.tele(self.ship).get('PilotHealth')}
+            self.D['healed'] = 0.0
         if el >= 0.5 and 'wave' not in self.D:
             self.D['wave'] = self.start_wave(SP_A, 1)
         if el >= 15.0 and 'cap' not in self.D:
@@ -1318,27 +1356,36 @@ class SwarmRun(object):
         tl, td = self.tagged('s_pilot', self.ship.get_name())
         other = r(loss - td, 2) if loss is not None else None
         self.check('T3.5_swarm_hull', 'PASS' if loss and loss > 0.0 else 'FAIL',
-                   'real swarm on the driven ship for 30 s (no TestBullet): ship 1 %s -> %s (loss %s); tagged path (Visibility on the hull, '
-                   'log) %d hits / %s damage; the rest %s came through the Pawn sweep (PA bodies of the driven, player-controlled ship); '
+                   'real swarm on the driven ship for 30 s (no TestBullet): ship 1 %s -> %s (loss %s); tagged path naming the ship (log) '
+                   '%d hits / %s damage; the rest %s came through the Pawn sweep (PA boxes of the driven, player-controlled ship); '
                    '%s attacking sentinel-seconds (~%s bullets at AttackSpeed %s)' % (
                        b.get('s1'), e['s1'], r(loss, 2) if loss is not None else None, tl, td, other, acc['attacking_sentinel_s'],
                        r(acc['attacking_sentinel_s'] * self.params.get('attack_speed', 0.6), 0), self.params.get('attack_speed')),
                    {'tagged_by_target': self.log_counts.get('s_pilot'), 'turrets': [b.get('t'), e['t']]})
-        pl = (b['pilot'] - e['pilot']) if b.get('pilot') is not None and e['pilot'] is not None else None
+        healed = self.D.get('healed', 0.0)
+        pl = (b['pilot'] - e['pilot'] + healed) if b.get('pilot') is not None and e['pilot'] is not None else None
         want = loss * self.share if loss is not None else None
         ok3 = loss and pl is not None and abs(pl - want) <= 0.5 + 0.03 * want and not self.D.get('safety')
         self.check('SW.a2_pilot_crew_share', 'PASS' if ok3 else ('WARN' if self.D.get('safety') else 'FAIL'),
-                   'pilot %s -> %s (loss %s) for a ship loss of %s: want %s x %s = %s (+-0.5 + 3 %%); the pilot has no collision of his '
-                   'own, so no direct hits%s' % (b.get('pilot'), e['pilot'], r(pl, 2) if pl is not None else None, r(loss, 2) if loss is not None else None,
-                                               self.share, r(loss, 2) if loss is not None else None, r(want, 2) if want is not None else None,
-                                               '; SAFETY CUT at %s s' % self.D['safety'] if self.D.get('safety') else ''))
+                   'pilot %s -> %s (+ %s topped up inside the phase: loss %s) for a ship loss of %s: want %s x %s = %s (+-0.5 + 3 %%); '
+                   'the pilot is not player controlled while he drives, so no bullet is his own%s' % (
+                       b.get('pilot'), e['pilot'], healed, r(pl, 2) if pl is not None else None, r(loss, 2) if loss is not None else None,
+                       self.share, r(loss, 2) if loss is not None else None, r(want, 2) if want is not None else None,
+                       '; SAFETY CUT at %s s' % self.D['safety'] if self.D.get('safety') else ''), {'topups': self.D.get('topups')})
         t0, t1 = b.get('t') or [None, None], e['t']
         self.D['a_end'] = e
         tloss = [r(t0[i] - t1[i], 2) if t0[i] is not None and t1[i] is not None else None for i in (0, 1)]
-        self.check('SW.a3_turrets_plain_hover', 'INFO', 'turret losses in the plain hover %s (tagged lines on turrets %s); the swarm orbits '
-                   'the ship\'s root at ~%s cm, the turrets sit %s cm forward of it' % (
-                       tloss, dict((k, v) for k, v in (self.log_counts.get('s_pilot') or {}).items() if 'Turret' in k), self.params['orbit_radius'],
-                       self.mounts[0]['loc'][0]))
+        tsum = sum(x for x in tloss if x)
+        bullets = acc['attacking_sentinel_s'] * self.params.get('attack_speed', 0.6)
+        if not self.aim_chance:
+            st3 = 'INFO'                             # no aim redirect in this build (or off): nothing can reach a turret
+        else:
+            st3 = 'PASS' if tsum > 0.0 else ('WARN' if bullets * self.aim_chance < 5.0 or self.D.get('safety') else 'FAIL')
+        self.check('SW.a3_turrets_plain_hover', st3, 'turret losses in the plain hover %s (tagged lines on turrets %s) of ~%s bullets; the '
+                   'swarm orbits the ship\'s root at ~%s cm and the turrets sit %s cm forward of it, so only bullets aimed at a turret '
+                   '(Settings.SwarmTurretAimChance %s: want > 0 when that is on) reach one; ship loss %s in the same time' % (
+                       tloss, dict((k, v) for k, v in (self.log_counts.get('s_pilot') or {}).items() if 'Turret' in k), r(bullets, 0),
+                       self.params['orbit_radius'], self.mounts[0]['loc'][0], self.aim_chance, r(loss, 2) if loss is not None else None))
         if valid(self.ship2):
             s2l = (b['s2'] - e['s2']) if b.get('s2') is not None and e['s2'] is not None else None
             n2, d2 = self.tagged('s_pilot', self.ship2.get_name())
@@ -1378,13 +1425,15 @@ class SwarmRun(object):
                               'gunner_ok': same(g, self.char), 'att': self.char.get_attach_parent_actor().get_name() if valid(self.char) and self.char.get_attach_parent_actor() else None,
                               'driven': self.ship.get_pilot() is not None, 'mode': self.tele(self.ship).get('UnpilotedMode')}
             self.D['tagged0'] = dict((k, list(v)) for k, v in (self.log_counts.get('s_gunner') or {}).items())
+            self.D['healed'] = 0.0
             self.line('INFO', 'gunner baseline %s' % self.D['base'])
         if el >= 14.0 and 'cap' not in self.D:
             self.D['cap'] = True
             self.capture('b_gunner_t14', 'gunner', self.ship)
         if el >= 24.3 and 'dm' not in self.D:
             self.D['dm'] = True
-            self.D['end'] = {'s1': self.ship_hp(self.ship), 't': self.thp(self.ship), 'g': self.health(self.char)}
+            self.D['end'] = {'s1': self.ship_hp(self.ship), 't': self.thp(self.ship), 'g': self.health(self.char),
+                             'healed': self.D.get('healed', 0.0)}
             self.cmd('Aura.Airship.Dismount 0')
 
     def end_s_gunner(self):
@@ -1407,7 +1456,8 @@ class SwarmRun(object):
                        r(median(dc), 0) if dc else None, r(median(d1), 0) if d1 else None, frac,
                        '; SAFETY CUT at %s s (no swarm left at the end)' % self.D['safety'] if self.D.get('safety') else ''), acc)
         sl = (b['s1'] - e['s1']) if b.get('s1') is not None and e.get('s1') is not None else None
-        gl = (b['g'] - e['g']) if b.get('g') is not None and e.get('g') is not None else None
+        healed = e.get('healed', self.D.get('healed', 0.0))
+        gl = (b['g'] - e['g'] + healed) if b.get('g') is not None and e.get('g') is not None else None
         t0, t1 = b.get('t') or [None, None], e.get('t') or [None, None]
         tl = [r(t0[i] - t1[i], 2) if t0[i] is not None and t1[i] is not None else None for i in (0, 1)]
         share = r(sl * self.share, 2) if sl is not None else None
@@ -1419,24 +1469,28 @@ class SwarmRun(object):
         total = sum(x for x in [sl, gl] + tl if x)
         ok2 = total > 0.0 and direct is not None and direct >= -0.5 - 0.03 * (share or 0.0) and not self.D.get('safety')
         self.check('SW.b2_gunner_damage', 'PASS' if ok2 else ('WARN' if self.D.get('safety') else 'FAIL'),
-                   'over ~22 s at the gun: ship 1 loss %s (the bullets aimed at the gunner meet the hull first: he sits inside its '
-                   'convex hulls, D4), turret losses %s, gunner loss %s = crew share %s (%s x ship loss) + direct %s (~%s hits of %s); '
-                   'tagged-path hits by target %s (want some damage, and the gunner at least his share)%s' % (
+                   'over ~22 s at the gun: ship 1 loss %s (undriven: only the tagged path, a PA box met before the gunner or the '
+                   'HitBox), turret losses %s, gunner loss %s = crew share %s (%s x ship loss) + direct %s (~%s hits of %s); '
+                   'tagged-path hits by target %s (want some damage, and the gunner at least his share); %s topped up inside the '
+                   'phase (%d times, counted in his loss)%s' % (
                        r(sl, 2) if sl is not None else None, tl, r(gl, 2) if gl is not None else None, share, self.share, direct,
                        r(direct / max(0.01, self.params.get('attack_damage', 3.0)), 1) if direct is not None else None, self.params.get('attack_damage'),
-                       tg, '; SAFETY CUT at %s s' % self.D['safety'] if self.D.get('safety') else ''), {'tagged': tg})
+                       tg, healed, len(self.D.get('topups') or []),
+                       '; SAFETY CUT at %s s' % self.D['safety'] if self.D.get('safety') else ''), {'tagged': tg, 'topups': self.D.get('topups')})
         ti = self.cfg['station'] - 4 if self.cfg['station'] >= 4 else None
         if ti is not None:
             tn = (self.turret(self.ship, ti).get_name() if self.turret(self.ship, ti) else None)
             v = tl[ti]
             self.check('SW.b3_turret_hits_real', 'PASS' if v and v > 0.0 else 'WARN',
                        'turret %d (the gunner\'s, %s): loss %s from real sentinel bullets aimed at its gunner; tagged lines naming it %s '
-                       '(the hull hit over the forward deck handed on by BulletTargetRedirect, or a line that met the HitBox first)' % (
+                       '(a line that met the HitBox first; the hull no longer blocks Visibility, so BulletTargetRedirect only acts on a PA '
+                       'box hit right before the HitBox)' % (
                            ti, tn, v, tg.get(tn)))
         self.D['tl_b'] = tl
 
     # ---- (c2): nobody aboard ship 1 (nor ship 2), the swarm around it, the player far away
     def start_s_empty(self):
+        self.heal_if_low()
         if same(self.pawn(), self.ship) or (valid(self.ship) and same(self.ship.get_pilot(), self.char)):
             self.cmd('Aura.Airship.Exit 0')
         elif any(same(self.gunner(self.ship, s), self.char) for s in range(6)):
@@ -1608,6 +1662,7 @@ class SwarmRun(object):
             self.D['wave'] = self.start_wave(SP_D, 2)
             self.D['base'] = {'s1': self.ship_hp(self.ship), 'pilot': self.health(self.char), 't': self.thp(self.ship),
                               'shots': self.tshots(self.ship), 'driven': same(self.pawn(), self.ship)}
+            self.D['healed'] = 0.0
         win = 'A' if 2.5 <= el < 9.0 else ('H' if 9.0 <= el < 29.0 else ('B' if 29.0 <= el < 44.0 else 'off'))
         if win != self.D.get('win'):
             self.window_edge(self.D.get('win'), win)
@@ -1685,9 +1740,9 @@ class SwarmRun(object):
                        len(kills_fire), [(k['t'], k['by']) for k in kills_fire][:8], len(kills), self.cfg['count_d'], self.cfg['d_health'],
                        shots, self.D.get('jumps', 0), self.cfg['jump_cm']), {'kills': kills})
         la, lb = tloss('A'), tloss('B')
-        self.check('SW.d1_turret_plain', 'INFO', 'turret losses from real bullets without a hold: approach window %s, late window %s; '
-                   'attacking sentinels ahead of the turret line inside the exit range: %s / %s sentinel-seconds' % (
-                       la, lb, (W.get('A') or {}).get('ahead_s'), (W.get('B') or {}).get('ahead_s')))
+        self.check('SW.d1_turret_plain', 'INFO', 'turret losses from real bullets without a hold: approach window %s, late window %s '
+                   '(Settings.SwarmTurretAimChance %s); attacking sentinels ahead of the turret line inside the exit range: %s / %s '
+                   'sentinel-seconds' % (la, lb, self.aim_chance, (W.get('A') or {}).get('ahead_s'), (W.get('B') or {}).get('ahead_s')))
         holds = self.D.get('holds') or []
         lh = tloss('H')
         hloss = sum(x for x in lh if x)
@@ -1695,21 +1750,175 @@ class SwarmRun(object):
                    and h['secs'] >= 1.8]
         st = 'PASS' if hloss > 0.0 else ('FAIL' if geom_ok else 'WARN')
         self.check('SW.d2_turret_redirect_hold', st, 'holds (%d, %s s in all): one ATTACKING sentinel kept at hull %s, ship driven %s: turret '
-                   'losses %s (want > 0: real bullets whose line meets the forward-deck convex first and continues through the HitBox, '
-                   'handed on by BulletTargetRedirect); holds with that geometry checked (Python trace: first Visibility hit outside the '
+                   'losses %s (want > 0: real bullets whose line meets the turret\'s HitBox before anything else that blocks Visibility; '
+                   'the hull no longer does); holds with that geometry checked (Python trace: first Visibility hit outside the '
                    'start, the line crosses the HitBox) and >= 1.8 s long: %d%s; tagged lines in the phase %s' % (
                        len(holds), r(sum(h['secs'] for h in holds), 1), r(self.cfg['hold'], 0), b.get('driven'), lh, len(geom_ok),
                        '' if st != 'WARN' else ' (WARN: no hold had the geometry, the harness could not set the line up)',
                        self.log_counts.get('s_turret')), {'holds': holds})
         e = {'s1': self.ship_hp(self.ship), 'pilot': self.health(self.char)}
         loss = (b['s1'] - e['s1']) if b.get('s1') is not None and e['s1'] is not None else None
-        pl = (b['pilot'] - e['pilot']) if b.get('pilot') is not None and e['pilot'] is not None else None
+        healed = self.D.get('healed', 0.0)
+        pl = (b['pilot'] - e['pilot'] + healed) if b.get('pilot') is not None and e['pilot'] is not None else None
         want = loss * self.share if loss is not None else None
         ok = loss is not None and pl is not None and abs(pl - want) <= 0.5 + 0.03 * want
         self.check('SW.d4_pilot_crew_share', ('PASS' if ok else 'FAIL') if loss and not self.D.get('safety') else 'INFO',
-                   'phase s_turret: ship 1 loss %s, pilot loss %s (want %s x = %s)%s' % (
-                       r(loss, 2) if loss is not None else None, r(pl, 2) if pl is not None else None, self.share,
-                       r(want, 2) if want is not None else None, '; SAFETY CUT at %s s' % self.D['safety'] if self.D.get('safety') else ''))
+                   'phase s_turret: ship 1 loss %s, pilot loss %s with %s topped up inside the phase (want %s x = %s)%s' % (
+                       r(loss, 2) if loss is not None else None, r(pl, 2) if pl is not None else None, healed, self.share,
+                       r(want, 2) if want is not None else None, '; SAFETY CUT at %s s' % self.D['safety'] if self.D.get('safety') else ''),
+                   {'topups': self.D.get('topups')})
+
+
+    # ---- (e) cannonballs against the real swarm (review 2026-11-27, should fix 8). AAirshipCannonball has its own path for
+    # sentinels, which have no collision: a sweep of SentinelHitRadius (1 m) along each flight segment (the ball's damage
+    # once, the ball flies on) and at the burst a query of SplashRadius (6 m) with the falloff. No earlier run met it with
+    # real sentinels. The balls are the ships' own class with the ship as source (AAirshipCannonball::SpawnTestCannonball
+    # -> InitCannonball, as a fired one) and the harness aims them: a pilot's broadside cannot be pointed at one orbiting
+    # sentinel from Python (the aim is the camera's ray; Point & Fly turns the hull for it).
+    #  flight  9-19 s: 3 balls of ship 1 from the muzzle nearest to a sentinel, led by its velocity, the drop compensated
+    #  splash 19-31 s: balls of SHIP 2 into ship 1's hull (a ball ignores its own ship) at the point nearest to a sentinel
+    #                  1.5-5.6 m off the hull, coming in 2 m above the hull and 3.5 m beside that point, so the path stays
+    #                  more than 1 m from the sentinel: what it takes is the burst's splash
+    def muzzles_w(self, ship):
+        m = ship.get_editor_property('Mesh')
+        out = {}
+        for c in ('L1', 'L2', 'R1', 'R2'):
+            try:
+                out[c] = v3(m.get_socket_location('Cannon_%s_Muzzle' % c))
+            except Exception:  # noqa: BLE001
+                self.err('muzzle_socket')
+        return out
+
+    def test_ball(self, loc, vel, source, damage=60.0):
+        try:
+            cls = unreal.load_class(None, BALL_BP62)
+            return unreal.AirshipCannonball.spawn_test_cannonball(self.w, cls, unreal.Vector(*loc), unreal.Vector(*vel), source, float(damage), -1.0)
+        except Exception:  # noqa: BLE001
+            self.err('test_ball')
+            return None
+
+    def hull_closest(self, ship, p):
+        """(cm, world point) of the hull collision's point nearest to p, or (None, None)"""
+        try:
+            res = self.hull(ship).get_closest_point_on_collision(unreal.Vector(*p))
+            vals = res if isinstance(res, tuple) else (res,)
+            d = next((float(x) for x in vals if isinstance(x, (int, float)) and not isinstance(x, bool)), None)
+            q = next((v3(x) for x in vals if isinstance(x, unreal.Vector)), None)
+            return d, q
+        except Exception:  # noqa: BLE001
+            self.err('hull_closest')
+            return None, None
+
+    def start_s_cannon(self):
+        self.despawn('s_cannon: a fresh wave')
+        if valid(self.ship2):
+            self.teleport(self.ship2, P2, 0.0)
+        self.D.update({'win': 'setup', 'prev': {}, 'vel': {}, 'shots': [], 'dmg': [], 'next': 0.0})
+
+    def ph_s_cannon(self, el):
+        D, s = self.D, self.ship
+        if el >= 0.3 and 'board' not in D:
+            D['board'] = True
+            if not same(self.pawn(), s):
+                self.cmd('Aura.Airship.Board 0')
+        if el >= 0.8 and 'placed' not in D:
+            D['placed'] = True
+            self.teleport(s, P1, 0.0)
+            self.heal_if_low()
+        if el >= 1.2 and 'wave' not in D:
+            D['wave'] = self.start_wave(SP_A, 1)
+            D['base'] = {'s1': self.ship_hp(s), 's2': self.ship_hp(self.ship2)}
+        if int(el / 3.0) != D.get('_h'):
+            D['_h'] = int(el / 3.0)
+            self.heal_if_low(0.6)
+        pts = self.snap()
+        for p in pts:
+            pv = D['prev'].get(p['k'])
+            if pv and self.now > pv[0] + 1e-4:
+                D['vel'][p['k']] = [(p['loc'][i] - pv[1][i]) / (self.now - pv[0]) for i in range(3)]
+            D['prev'][p['k']] = (self.now, p['loc'])
+        hp = dict((p['k'], p['hp']) for p in pts)
+        for sh in D['shots']:
+            if 'hp1' not in sh and el >= sh['el'] + 0.7:
+                sh['hp1'] = hp.get(sh['k'])                  # None: gone (killed)
+                if sh['win'] == 'splash':
+                    sh['ship_hp1'] = self.ship_hp(s)
+        win = 'flight' if 9.0 <= el < 19.0 else ('splash' if 19.0 <= el < 32.0 else 'off')
+        D['win'] = win
+        sl = v3(s.get_actor_location())
+        if win == 'flight' and el >= D['next'] and len([x for x in D['shots'] if x['win'] == 'flight']) < 3 and el < 18.0:
+            cand = [p for p in pts if p['k'] in D['vel'] and dist(p['loc'], sl) <= 4500.0]
+            mz = self.muzzles_w(s)
+            if cand and mz:
+                D['next'] = el + 1.2
+                d, p, name, m = min(((dist(p['loc'], m), p, name, m) for p in cand for name, m in mz.items()), key=lambda x: x[0])
+                v = D['vel'][p['k']]
+                aim = list(p['loc'])
+                for _ in range(3):
+                    t = dist(aim, m) / BALL_SPEED62
+                    aim = [p['loc'][0] + v[0] * t, p['loc'][1] + v[1] * t, p['loc'][2] + v[2] * t + 0.5 * 980.0 * BALL_GRAVITY62 * t * t]
+                dd = dist(aim, m) or 1.0
+                self.test_ball(m, [(aim[i] - m[i]) / dd * BALL_SPEED62 for i in range(3)], s)
+                D['shots'].append({'win': 'flight', 'el': r(el, 2), 'k': p['k'], 'muzzle': name, 'd_cm': r(d, 0), 'hp0': p['hp'],
+                                   'sentinel_cms': r(math.sqrt(sum(x * x for x in v)), 0), 'st': p['st']})
+        if win == 'splash' and el >= D['next'] and el < 31.0:
+            best = None
+            for p in pts:
+                d, q = self.hull_closest(s, p['loc'])
+                if d is not None and q is not None and 150.0 <= d <= 560.0 and (best is None or d < best[0]):
+                    best = (d, q, p)
+            D['near_hull'] = D.get('near_hull', 0) + (1 if best else 0)
+            if best and valid(self.ship2):
+                D['next'] = el + 1.3
+                d, q, p = best
+                n = [(p['loc'][i] - q[i]) / d for i in range(3)]
+                up = (0.0, 0.0, 1.0) if abs(n[2]) < 0.9 else (1.0, 0.0, 0.0)
+                t = [n[1] * up[2] - n[2] * up[1], n[2] * up[0] - n[0] * up[2], n[0] * up[1] - n[1] * up[0]]
+                tl = math.sqrt(sum(x * x for x in t)) or 1.0
+                start = [q[i] + n[i] * 200.0 + t[i] / tl * 350.0 for i in range(3)]
+                L = dist(start, q)
+                self.test_ball(start, [(q[i] - start[i]) / L * BALL_SPEED62 for i in range(3)], self.ship2)
+                D['shots'].append({'win': 'splash', 'el': r(el, 2), 'k': p['k'], 'd_cm': r(d, 0), 'hull_pt': r(self.hull_local(s, q), 0),
+                                   'hp0': p['hp'], 'ship_hp0': self.ship_hp(s), 'path_min_cm': r(350.0 * d / L, 0)})
+
+    def end_s_cannon(self):
+        D = self.D
+        s1, s2 = self.ship.get_name(), self.ship2.get_name() if valid(self.ship2) else None
+        ev = D.get('dmg') or []
+        fl = [e for e in ev if e[1] == 'flight' and e[4] == s1]
+        sp = [e for e in ev if e[1] == 'splash' and e[4] == s2]
+        fshots = [x for x in D['shots'] if x['win'] == 'flight']
+        sshots = [x for x in D['shots'] if x['win'] == 'splash']
+        kills = [k for k in self.R['kills'] if k.get('ph') == 's_cannon']
+        full = median([e[3] for e in fl]) if fl else None
+        dropped = [x for x in fshots if 'hp1' in x and (x['hp1'] is None or x['hp1'] < x['hp0'] - 1e-3)]
+        ok1 = len(fshots) >= 1 and len(fl) >= 1 and len(dropped) >= 1
+        self.check('SW.e1_cannonball_flight', 'PASS' if ok1 else 'FAIL', '%d balls of ship 1 (its own class and damage spec, source = the ship) from the '
+                   'muzzle nearest to a real sentinel, led by its velocity: %s. OnSentinelDamaged with ship 1 as instigator in that window: %d '
+                   'events %s (want >= 1: the flight sweep, 1 m around the ball); shots after which the sentinel aimed at lost health or was gone: '
+                   '%d (want >= 1); kills in the phase %s' % (len(fshots), fshots, len(fl), [(e[0], e[2], e[3]) for e in fl], len(dropped),
+                                                              [(k['t'], k['k'], k['by'], k.get('win')) for k in kills]),
+                   {'shots': fshots, 'events': fl})
+        res = []
+        for x in sshots:
+            es = [e for e in sp if x['el'] <= e[0] <= x['el'] + 0.6]
+            for e in es:
+                res.append({'shot_el': x['el'], 'sentinel': e[2], 'aimed_at': x['k'], 'd_cm_at_launch': x['d_cm'] if e[2] == x['k'] else None,
+                            'damage': e[3], 'of_full': r(e[3] / full, 3) if full else None,
+                            'expected_of_full': r(1.0 - 0.7 * min(1.0, x['d_cm'] / 600.0), 3) if e[2] == x['k'] else None})
+        burst = [x for x in sshots if x.get('ship_hp0') is not None and x.get('ship_hp1') is not None and x['ship_hp1'] < x['ship_hp0'] - 1e-3]
+        part = [q for q in res if q['of_full'] is not None and 0.25 <= q['of_full'] <= 0.98]
+        if not sshots:
+            st2 = 'WARN'
+        else:
+            st2 = 'PASS' if (len(sp) >= 1 and len(burst) >= 1 and (len(part) >= 1 or full is None)) else 'FAIL'
+        self.check('SW.e2_cannonball_splash', st2, '%d balls of ship 2 into ship 1\'s hull at the point nearest to a sentinel 1.5-5.6 m off it '
+                   '(frames with such a sentinel when a shot was due: %s): %s. Ship 1 lost health after %d of them (the ball burst on its hull). '
+                   'OnSentinelDamaged with ship 2 as instigator: %d events; per event against the full damage of a flight hit (%s): %s (want '
+                   '>= 1 event with a part of the full damage, 0.25-0.98: the falloff 1 -> 0.3 over 6 m; the expected part is for the launch '
+                   'distance, the sentinel moves on)' % (len(sshots), D.get('near_hull'), sshots, len(burst), len(sp), full, res),
+                   {'shots': sshots, 'events': sp, 'per_event': res})
+        self.despawn('s_cannon done')
 
 
 def write_sw_report(R):

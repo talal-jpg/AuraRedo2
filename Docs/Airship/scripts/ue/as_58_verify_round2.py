@@ -226,6 +226,17 @@ def check_ship(dm):
         pose = unreal.AnimPoseExtensions.get_reference_pose(skel)
         names = [str(n) for n in unreal.AnimPoseExtensions.get_bone_names(pose)]
         o('PASS' if len(names) == 118 else 'FAIL', 'SK_Airship %d bones (118)' % len(names))
+        # as_61 (2026-11-27): slot 0 = the drivable hull material (ink without the 5 removed deck pieces), slot 1 the props
+        try:
+            slots = [pth(m.get_editor_property('material_interface')) for m in sk.materials]
+            want = [D + '/Materials/M_AirshipDrivable.M_AirshipDrivable', D + '/Materials/M_AirshipProps.M_AirshipProps']
+            o('PASS' if slots == want else 'FAIL', 'SK_Airship material slots %s (want M_AirshipDrivable, M_AirshipProps)' % slots)
+            md = unreal.EditorAssetLibrary.load_asset(D + '/Materials/M_AirshipDrivable')
+            used = [pth(t) for t in unreal.MaterialEditingLibrary.get_used_textures(md)] if md else []
+            okt = any(u.endswith('T_AirshipDrivable_ComicLines') for u in used) and not any(u.endswith('.T_Airship_ComicLines') for u in used)
+            o('PASS' if okt else 'FAIL', 'M_AirshipDrivable textures %s (T_AirshipDrivable_ComicLines, not T_Airship_ComicLines)' % used)
+        except Exception as e:  # noqa: BLE001
+            o('FAIL', 'SK_Airship material slots not read (%s)' % e)
         for b, key in (('Helm_Wheel', 'helm_wheel_ue'), ('PilotSeat', 'pilot_seat_ue')):
             if b in names:
                 t = unreal.AnimPoseExtensions.get_ref_bone_pose(pose, b, unreal.AnimPoseSpaces.WORLD).translation
@@ -349,6 +360,30 @@ def check_pa():
             if d > 0.2:
                 diff.append((b, n, round(d, 2)))
     o('PASS' if not diff else 'FAIL', 'PA: %d boxes read back = as_11_physics_asset.json (centre / size within 0.2 cm)%s' % (nshape, '' if not diff else ': %s' % diff[:6]))
+    # the walkable-deck fit (as_11b refit 2026-11-25 13:33: no hole at hull x 1995..2255 or aft of x -1570): 35 bodies, 136 boxes
+    # (96 hull, 7 chain links); the 02:16 build had 119 / 79 with the two holes a walker fell through
+    # 2026-11-27 (review, should fix 4): as_11b adds 7 boxes for the crates and barrels on the main deck (Hull_Props_NN) and
+    # closes the 10 cm slots between the deck slabs (the same 96 boxes, their sides moved): 35 bodies, 143 boxes, 103 hull
+    nh = len(rb.get('Hull', []))
+    nprop = len([x for x in rb.get('Hull', []) if x[0].startswith('Hull_Props_')])
+    o('PASS' if len(names) == 35 and nshape == 143 and nh == 103 and nprop == 7 else 'FAIL', 'PA: %d bodies / %d boxes / %d hull boxes, %d of them deck '
+      'props (want 35 / 143 / 103 / 7)' % (len(names), nshape, nh, nprop))
+    # no slot between the deck slabs: along the centre line (y 12.5) every cm of x from -1600 to 2600 (main deck, well, bow
+    # wedge) and from 1060 to 3100 (forward deck) is under a Hull box of that level (as_11b closed 19 + 7 slots of 10 cm)
+    def _slots(xa, xb, zlo, zhi):
+        out, x, g0 = [], xa, None
+        while x <= xb:
+            cov = any(mn[0] <= x <= mx[0] and mn[1] <= 12.5 <= mx[1] and zlo <= mx[2] < zhi for _, mn, mx, _, _ in rb.get('Hull', []))
+            if not cov and g0 is None:
+                g0 = x
+            if cov and g0 is not None:
+                out.append((g0, x))
+                g0 = None
+            x += 1.0
+        return out + ([(g0, xb)] if g0 is not None else [])
+    sl = _slots(-1600.0, 2600.0, 150.0, 560.0) + _slots(1060.0, 3100.0, 560.0, 800.0)
+    o('PASS' if not sl else 'FAIL', 'PA: no slot between the deck boxes along the centre line (main deck x -1600..2600, forward deck x 1060..3100)%s' % (
+        '' if not sl else ': %d open stretches %s' % (len(sl), sl[:6])))
     # every bone with geometry has a body; part boxes fit their bones' part_bounds (+PAD)
     members = dict((b, v['bones']) for b, v in (r11.get('bodies_vs_part_bounds') or {}).items())
     members['Hull'] = ['Hull']
@@ -393,7 +428,7 @@ def check_pa():
     boxes = [{'name': n, 'min': mn, 'max': mx} for n, mn, mx, _, _ in hull]
     bad = [c for c in ns['check'](cols, boxes) if c['above_top'] or c['below_bottom'] or c['no_hull']]
     o('PASS' if not bad else 'FAIL', 'PA: no Hull box column above the hull\'s top hit or below its bottom hit (+-2 cm) or over no hull%s' % ('' if not bad else ': %s' % bad[:5]))
-    regs = dict((r[0], r) for r in ns['REGIONS'])
+    regs = dict((r[0], r) for r in list(ns['REGIONS']) + list(ns.get('EXTRA_REGIONS') or []))
     step = ns['STEP']
     band_bad = []
     for b in boxes:
@@ -403,7 +438,10 @@ def check_pa():
             continue
         _, x0, x1, lo, hi = reg
         mn, mx = b['min'], b['max']
-        if mn[0] < x0 - 1 or mx[0] > x1 + 1 or mn[2] < min(lo, 1e8) - 2 or mx[2] > hi + 2:
+        # x: a region owns the survey columns whose CENTRES lie in [x0, x1), and a box covers its columns' whole cells, so it
+        # may reach half a cell (12.5 cm) past the limit (the Well starts at 2130 between the columns 2112.5 and 2137.5: its
+        # cells start at 2125; as_11b's 5 cm shrink used to hide that, the boxes that now meet their neighbours do not)
+        if mn[0] < x0 - step / 2 - 1 or mx[0] > x1 + step / 2 + 1 or mn[2] < min(lo, 1e8) - 2 or mx[2] > hi + 2:
             band_bad.append((b['name'], 'outside region %s' % reg[0]))
         x = (int(mn[0] // step)) * step + step / 2
         while x < mx[0]:
@@ -413,7 +451,7 @@ def check_pa():
                     zs = [z for z in cols.get((round(x, 1), round(y, 1))) or [] if lo <= z < hi]
                     if not zs:
                         band_bad.append((b['name'], x, y, 'no hull in band'))
-                    elif mx[2] > max(zs) + 2.0 or mn[2] < min(zs) - 2.0:
+                    elif mx[2] > max(zs) + 2.05 or mn[2] < min(zs) - 2.05:      # 0.05: box limits are rounded to 0.1 cm (a prop's bottom is its deck hit - 2.0)
                         band_bad.append((b['name'], x, y, 'top %.1f / bottom %.1f vs band hull %.1f..%.1f' % (mx[2], mn[2], min(zs), max(zs))))
                 y += step
             x += step

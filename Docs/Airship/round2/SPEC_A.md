@@ -1311,7 +1311,8 @@ checked where noted).
 | T3.2 | S | D3 | `TestBullet` from 25 m outboard at turret 0's HitBox, the hull's Visibility left on (a real line: it meets the hull's forward deck convex first) | turret health -3, ship unchanged; the report names the first Visibility hit (the hull) |
 | T3.3 | S | D3 | `TestBullet` at the on-foot host character | character -3 via the Pawn sweep, as before |
 | T3.4 | S | D3 | `TestBullet` at an untagged GAS actor (an enemy character if the map has one, else skip) | no damage (unchanged behaviour) |
-| T3.5 | S | D3 | Swarm live (if the demo spawner is in the map): pilot hovers 30 s | ship health decreases; log shows tagged hits |
+| T3.5 | S | D3 | Swarm live (as_62 places a TEMP wave spawner): pilot hovers 30 s | ship health decreases (through the Pawn sweep on the PA boxes since 6.8; the log's tagged hits name the turrets) |
+| SW.a3 | S | D3 | The same 30 s | the turrets lose health too (`SwarmTurretAimChance` > 0) |
 | T4.1 | L | D4 | Host pilots, client mans L1; `Aura.Airship.Damage 100` | pilot -25, gunner -25 (+-0.5), next frame |
 | T4.2 | L | D4 | Pilot health set to 10 (harness, server ASC base); `Aura.Airship.Damage 100` | pilot ejected (PC pawn = character), then IsDead; ship alive without pilot |
 | T4.3 | L | D4 | Same for the gunner at 10 | gunner dismounted, then dead, station free |
@@ -1345,12 +1346,15 @@ checked where noted).
 | T7.2 | S | D7 | Pilot at the helm, capture from the side | wheel hub near the character's chest; wheel about 140 cm across (bounds of Helm_Wheel's vertices from part_bounds.json 136-144 cm) |
 | T7.3 | S | D7 | Top capture of the deck | the 5 pieces gone; turrets at the forward deck edges |
 | T8.1 | S | 6.8 | The player on the ground 7 m and 12 m under the hovering ship's belly, F | not boarded, both (until 2026-11-25, D8: boards at 7 m) |
-| T8.2 | S | 6.8 | The player on the planks 2.5 m behind the wheel, F | not boarded |
+| T8.2 | S, L | 6.8 | The player on the planks 2.5 m behind the wheel, F. L: the client on the free ship 2, its own F key | not boarded (L: no pilot on either machine, "F refused" in the server log; the F at the wheel right after it boards) |
 | T8.3 | S | 6.8 | The player on the planks at the pilot's standing spot, F | boarded, attached at the seat |
 | T8.4 | S, L | 6.8 | The pilot presses F at the helm. S: at rest. L: the client pilot at 35 m/s, both copies, each in its own hull's space | S: hull xy within 10 cm of the driving pose, walking, base = the ship, feet within 5 cm of the deck box, no falling. L: server copy within 10 cm; the client's own copy never more than 100 cm off and within 10 cm from 2 s on |
 | T8.5 | S | 6.8 | A player stands on the planks; Classic, throttle 1 for 8 s with a 3 s turn (48 m/s) | walking, a rider, base = the ship all the time; within 1 m of its spot; feet -6..12 cm over the deck box |
 | T8.6 | S | 6.8 | Visibility lines at a player on the planks from 10 m above and from 25 m to port; then from above past the player | the player first on both; then ship 1's Mesh (a deck box) |
-| T8.7 | S | 6.8 | The same player jumps at 48 m/s | back on the deck within 4 m of the take-off point (hull xy) |
+| T8.7 | S, L | 6.8 | The same player jumps at 48 m/s. L (`g8_jump`): the client jumps on the ship the host flies, at 30 m/s and accelerating; both copies, each in its own hull's space | back on the deck within 4 m of the take-off point (hull xy) |
+| T8.8 | S, L | 6.8 | The 1.5 s after that landing (L: part of T8.7 L) | within 50 cm of the landing point (hull xy), walking: no slide at the ship's speed |
+| deck_arrival | L | 6.8 | The client comes from the ground straight onto the planks of the hovering ship the host holds (`g1_far`) | the ship moves at most 15 cm in the next 2 s (first run: 554 cm, CPP_NOTES 15.11) |
+| T8.9 | S | 6.8 | A second jump at 48 m/s, 0.5 s later the air jump with the movement input to starboard | 0.5 s on: within 1.5 m along the hull's x (the ship's speed is kept), 0.75..7 m to starboard (MaxWalkSpeed relative to the ship) |
 | T9.1 | S | D9 | P&F cruise 48 m/s, F exit | speed 2.5 +-0.3 m/s within 30 s; heading within 2 deg for 60 s; mode Drift |
 | T9.2 | S | D9 | Galleon and Classic: same | same (Galleon: no reverse; fans idle) |
 | T9.3 | S | D9 | Exit at rest | mode Hold; moves < 0.5 m in 30 s |
@@ -1359,6 +1363,34 @@ checked where noted).
 | T9.6 | S | D9 | `Aura.Airship.Input 1 0` on an unpiloted ship, then InputClear at speed | None while active; Coast, then Hold below 3 m/s |
 | T9.7 | L | D9 | Client sees the drift | client copy's RepInput has the drift bit; Galleon cosmetics no reverse |
 | T10.1 | S/L | D10 | Every new console command runs and logs; Telemetry line 3 present | PASS |
+
+Swarm result 2026-11-27 (`as_62`, real sentinels, standalone; CPP_NOTES 15.12): 17 PASS, 0 FAIL, 1 INFO, 2 SKIP
+(`Saved/Airship/round2_final_swarm/`). T3.5: the driven ship lost 210 in 30 s under 5 sentinels, the pilot 52.5 (0.25 x).
+T6.7: 106 turret rounds, 86 damage events on sentinels, 3 kills. The first run (17 checks: 12 PASS, 3 WARN from the
+safety cut, 0 FAIL) showed that no real bullet could reach a turret of a ship with only a pilot (turrets 0 / 0 in 30 s):
+the swarm aims at the ship's root, 21 m behind them. `UAirshipSettings::SwarmTurretAimChance` (0.25) now aims that share
+of the bullets at a living turret: 15 and 21 lost in the same 30 s. An undriven, unmanned ship stays untouched (SW.c1,
+SW.c2).
+
+Regression result 2026-11-27 on the same build (`controls/RESULTS.md`, "Regression on the round 2 build"): as_43 under
+Classic 24 of 25 (`f2_boost_path` at +5.35 m/s, the documented v1 crash bump); as_45 listen 22 of 22 in Classic and 18
+of 22 in Point & Fly (the same four by-design v1-check fails); `Aura.Airship.Scheme 0` + `check`: 0 differences. The
+follow-up checks score 7 of 9 as shipped and 9 of 9 with `Settings.DriverTurretArcDeg 0`: `p4_firehold` and `p4_tap60`
+press Fire in the frame the camera leaves the bow, where D6 now drives the machine guns instead of a broadside
+(changed on purpose). as_59 and as_60, run once more on this build (the swarm's aim hook is its only C++ difference
+from the runs below): 52 PASS, 0 FAIL, 4 INFO, 14 SKIP and 42 PASS, 0 FAIL, 1 INFO, 9 SKIP
+(`Saved/Airship/round2_final_sa_t3_1127/`, `round2_final_mp_t3_1127/`).
+
+Listen result 2026-11-27 (`as_60`, helm and deck, the passenger fix of CPP_NOTES 15.11 built): 42 PASS, 0 FAIL, 1 INFO,
+9 SKIP (`Saved/Airship/round2_final_mp/`). The first run of the day, before the fix: 38 PASS, 1 FAIL (T5.12a at 1.04
+deg; a frame-pairing fix in the harness, the limit unchanged) and the ship knocked 3-5.5 m away each time a character was
+put on the planks. New checks since: `deck_arrival_no_shove_L`, `T8.2_client_F_away_from_wheel_L`,
+`T8.7_client_deck_jump_L`. T8.4 L: the client pilot leaves at 40 m/s, both copies 6.5 cm from the driving pose, the
+client's own copy never further, no correction.
+
+Standalone result 2026-11-27 (helm and deck, PA_Airship rebuilt, hull ink applied): 52 PASS, 0 FAIL, 4 INFO, 14 SKIP
+(`Saved/Airship/round2_final_sa/`). One harness fix (T8.1's ground trace hit the player), one C++ change found by
+T8.7's numbers (jumps on a flying deck, section 6.8 "Deck jumps"; T8.8 / T8.9 are its checks).
 
 Standalone result 2026-11-25 (`as_59`, runner `_AirshipWork_logs/run_r2_pie.sh`): 44 PASS, 0 FAIL, 14 SKIP, no C++
 change; T8.1 runs there as an S variant (phase `t8_below`). The fixes were measurement fixes (Python trace reader, recoil
@@ -1581,7 +1613,9 @@ Talal, 2026-11-25 05:02 and 05:06 UTC: "1.the player should only be able to driv
 hold steering wheel , 2. when player exits , the character should keep its position in front of the steering wheel ,as
 when driving." and "no need to make the character climb, if below hull, only be able to drive once close enough to grab
 the steering wheel". This replaces D8 and the helm half of D5.3. Code and engine facts with file:line:
-`Docs/Airship/CPP_NOTES.md` section 15.9. Built clean (`build_r2.sh`), not yet run in PIE.
+`Docs/Airship/CPP_NOTES.md` section 15.9. Built clean (`build_r2.sh`); run in standalone PIE 2026-11-27 (as_59: T8.1-T8.9
+PASS, 52 PASS / 0 FAIL in all) and in listen PIE the same day (as_60: 42 PASS / 0 FAIL; T8.2 L, T8.4 L, T8.7 L and
+`deck_arrival_no_shove_L` PASS after the passenger fix, CPP_NOTES 15.11).
 
 * **D1. Walkable deck at plank height.**
   * `HullCollision` ignores `ECC_Pawn`; the Mesh (PA_Airship: kinematic, QueryOnly) blocks it. Characters pass through
@@ -1616,6 +1650,30 @@ the steering wheel". This replaces D8 and the helm half of D5.3. Code and engine
 * **D6. Harnesses and docs.** as_59: T8.1 turned around, T8.2-T8.7 new, T3.1 with the Mesh's collision on; as_60: T8.4 L
   in `g6_drift`, setups; as_45 / as_43: setups; as_30: unchanged. Console `Board` / `Exit` / `Mount` / `Dismount` are
   unchanged (as_62 uses them). Section 4 has the rows; `HOW_TO_FLY.md` has the player's view.
+* **Deck jumps (found in the 2026-11-27 run, fixed in `UMyCharacterMovementComponent`; CPP_NOTES 15.10).** T8.7 passed
+  (the jump kept the ship's velocity) but its numbers showed two faults at 48 m/s: the walker slid 1.7 m forward after
+  landing until the wheel's box stopped it (the engine adds the base's velocity at the take-off and never takes it off
+  on landing), and in the air its capsule swept 1.6 m per frame ahead into the ship, which moves later in the frame
+  (it lost height on the wheel's box 1.5 m ahead). From the code: the air jump turned the whole velocity, the ship's
+  48 m/s included, toward the movement input. Now a jump from the deck of a vehicle (a pawn that simulates physics) stays on that base in the
+  air (the engine's `bStayBasedInAir`, set per jump; the ground, the hex platforms and collapsing bridge parts are not
+  such bases and behave as before): the jump is a clean arc in the hull's frame (176 cm up, back within 1 cm, no slide, T8.8) and the air jump
+  turns only the velocity relative to the deck (T8.9). Listen: a client's plain jump on the flying deck is T8.7 L (as_60
+  `g8_jump`, PASS); its air jump and jumps with lag are not covered.
+* **Characters shoved the ship (found in the 2026-11-27 listen run, fixed; CPP_NOTES 15.11).** The mech's mesh and its
+  two jet packs are kinematic WorldDynamic bodies, which the hull (it ignores only Pawn) still blocks, and the planks
+  lie inside the hull's convex. A character that came onto the planks while it still counted as standing elsewhere
+  knocked the hovering ship 3 to 5.5 m away. Now a character standing elsewhere inside the hull's own box + 3 m is a
+  passenger candidate (query-only collision), and each ship checks for new candidates before every physics step. After:
+  the ship moves 0.1 cm (`deck_arrival_no_shove_L`).
+* **Reaching the decks (measured 2026-11-27, `t8_reach` + `deck_reach_probe.json`; nothing changed).** L_AirshipTest:
+  the ship hangs at z 1600 over the start platform (top z 0); main deck 18.3-18.8 m over it (hull z 232-283), forward
+  deck 22.5 m (hull z 653). A jump lifts the feet 176 cm, a jump + the air jump at its top 353 cm; hover holds the
+  height. The forward deck is 416-421 cm over the main deck: not reachable on foot. A turret's seat is 350 cm over a
+  capsule standing on the main deck (`StationMountHeightBelow` 200): F does nothing. At the top of a jump under the
+  forward deck the capsule is 175 cm under the seat: F mans the turret, and Dismount then leaves the player on the
+  forward deck. That is the only way up on foot today, and it is an accident of the ranges. Open item for the lead and
+  Talal (stairs or a ladder in the model, or a deliberate rule).
 * **Deviations from the lead's brief.** (1) T8.4's 10 cm is measured in the hull's xy; in z the capsule settles 11 cm
   from the driving pose onto the deck box, which is reported and checked as "feet within 5 cm of the deck box". (2) The
   client RPC is an addition. (3) "Not ahead of the wheel" has the capsule's radius of tolerance.

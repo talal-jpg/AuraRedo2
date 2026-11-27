@@ -132,7 +132,8 @@ public:
 	/**
 	 * Any machine: true if Character may take the helm from where it stands (F, Talal 11-25: "only be able to drive once
 	 * close enough to grab the steering wheel"). Its feet within UAirshipSettings::HelmReach (horizontal, hull frame) of the
-	 * helm's standing spot (the pilot seat), within HelmReachHeight above or below it, and not ahead of the wheel: behind
+	 * helm's standing spot (the pilot seat), within HelmReachHeight above or below the deck there (the seat's height on
+	 * the physics asset's deck; the hull's lid over it on a ship without physics asset bodies), and not ahead of the wheel: behind
 	 * it, or beside it while its capsule still reaches the wheel's plane (the Helm_Wheel bone's hull x + the capsule's
 	 * radius). The old ranges (IsWithinBoardRange with the settings' BoardDistance / BoardHullDistance /
 	 * BoardBelowDistance, all 0 = off by default) still count when a harness sets them. No other state is checked here
@@ -181,6 +182,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	bool IsDeckOnPhysicsAsset() const { return bDeckIsMesh; }
 
+	/**
+	 * Sets bDeckOnPhysicsAsset after BeginPlay and applies it on this machine (UpdateDeckCollision): false puts the deck
+	 * and the Visibility target back on the hull's collision, as on a ship whose Mesh has no physics asset bodies. Not
+	 * replicated: a test or a level script calls it on every machine.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Airship")
+	void SetDeckOnPhysicsAsset(bool bOnPhysicsAsset);
+
 
 	// -------------------------------------------------------------------------
 	// Deck passengers (every machine)
@@ -189,14 +198,17 @@ public:
 	/**
 	 * True if Character rides this ship now: attached to it (the pilot), standing on it (movement base owned by the ship
 	 * or by an actor attached to it), or without a base (jumping, falling, flying) inside the hull's bounds grown by
-	 * PassengerZoneMargin. UAirshipSubsystem gives such characters query-only collision, while their actor collision is
+	 * PassengerZoneMargin. Also true for a character standing on something else inside the hull's own box (turned with
+	 * the ship) grown by PassengerZoneMargin: not a rider, but its mesh and jet packs (kinematic WorldDynamic bodies the
+	 * hull blocks; the hull ignores only the Pawn capsule) must not meet the hull's convex, which reaches 2.6 m above the
+	 * planks. UAirshipSubsystem gives such characters query-only collision, while their actor collision is
 	 * on (the attached pilot's capsule is switched right after Exit). A dead ship keeps its riders
 	 * until they leave it or the wreck goes (EndPlay): the wreck is still a simulated body, and a kinematic capsule given
 	 * back its physics mid-tumble (the ejected pilot, a rider on deck) would shove it like an immovable post.
 	 */
 	bool IsPassengerCandidate(const ACharacter* Character) const;
 
-	/** Characters riding this ship on this machine (their physics collision is off while aboard). */
+	/** This ship's passengers on this machine (IsPassengerCandidate: their physics collision is off meanwhile). */
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	TArray<ACharacter*> GetPassengers() const;
 
@@ -224,7 +236,7 @@ public:
 	 */
 	bool CanMount(const ACharacter* Candidate, int32 Station) const;
 
-	/** Within StationMountDistance (horizontal, hull frame) of the station's seat, StationMountHeightBelow..Above vertically. */
+	/** Within StationMountDistance (horizontal, hull frame) of the station's seat, StationMountHeightBelow (turrets: TurretMountHeightBelow)..Above vertically. */
 	bool IsWithinStationRange(int32 Station, const FVector& PawnLocation) const;
 
 	/** Server: attaches Gunner at Station's seat (it stays possessed by PC) and lists it. False if not allowed (CanMount). */
@@ -319,6 +331,13 @@ public:
 	 * hull over the forward deck hits the turret behind it (FindTurretBehindHullHit). Null for anything else.
 	 */
 	static AActor* RedirectBulletHitToTurret(const FHitResult& Block, const FVector& Direction, FVector& OutImpact);
+
+	/**
+	 * Bound to UMechSentinelSwarmSubsystem::BulletAimRedirect by UAirshipSubsystem: with
+	 * UAirshipSettings::SwarmTurretAimChance a sentinel bullet at a ship is aimed at the middle of a living turret's
+	 * HitBox (picked at random) instead of the ship's root. False (aim unchanged) for anything else.
+	 */
+	static bool RedirectBulletAimToTurret(const AActor* Target, const FVector& From, FVector& InOutAimPoint);
 
 	/**
 	 * The pilot's machine: Fire drives the unmanned turrets now (the camera within DriverTurretArcDeg of the bow and at
@@ -802,7 +821,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
 	bool bPassengersQueryOnly = true;
 
-	/** Characters without a movement base (jumping, falling) inside the hull's bounds grown by this (cm) count as passengers. */
+	/**
+	 * Characters without a movement base (jumping, falling) inside the hull's world bounds grown by this (cm) count as
+	 * passengers; so do characters standing on something else inside the hull's own box grown by this.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
 	float PassengerZoneMargin = 300.f;
 
@@ -1571,6 +1593,15 @@ private:
 
 	/** The Mesh's physics asset is the deck (UpdateDeckCollision, BeginPlay). */
 	bool bDeckIsMesh = false;
+
+	/**
+	 * Hull-space height (cm) of the surface a character stands on at the helm (IsWithinHelmReach measures the feet
+	 * against it): the seat's own height on the physics asset's deck, the hull collision's top over the seat without one.
+	 */
+	double HelmStandLocalZ = 0.0;
+
+	/** UpdateDeckCollision, RefreshCannonGeometry: HelmStandLocalZ for the deck in use. */
+	void UpdateHelmStandHeight();
 
 	/** BeginPlay: the deck and the Visibility target (bDeckOnPhysicsAsset): HullCollision's and Mesh's Pawn / Visibility responses. */
 	void UpdateDeckCollision();

@@ -80,6 +80,8 @@ void UAirshipSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		if (UMechSentinelSwarmSubsystem* Swarm = UMechSentinelSwarmSubsystem::Get(&InWorld))
 		{
 			Swarm->BulletTargetRedirect.BindStatic(&AAirshipPawn::RedirectBulletHitToTurret);
+			// The swarm aims at a ship's root; part of its bullets go for the turrets (SwarmTurretAimChance)
+			Swarm->BulletAimRedirect.BindStatic(&AAirshipPawn::RedirectBulletAimToTurret);
 		}
 	}
 }
@@ -414,6 +416,28 @@ void UAirshipSubsystem::RestorePassenger(FPassenger& Passenger)
 	}
 
 	Passenger.Primitives.Reset();
+}
+
+void UAirshipSubsystem::CheckNewPassengers(const AAirshipPawn* Airship)
+{
+	UWorld* World = GetWorld();
+
+	if (!World || !Airship || bUpdatingPassengers)
+	{
+		return;
+	}
+
+	// The characters of this world (the class list, not every actor); the full pass only when one is new to the zone
+	for (TActorIterator<ACharacter> It(World); It; ++It)
+	{
+		const ACharacter* Character = *It;
+
+		if (IsValid(Character) && !FindPassengerEntry(Character) && Airship->IsPassengerCandidate(Character))
+		{
+			UpdatePassengers();
+			return;
+		}
+	}
 }
 
 const UAirshipSubsystem::FPassenger* UAirshipSubsystem::FindPassengerEntry(const ACharacter* Character) const
