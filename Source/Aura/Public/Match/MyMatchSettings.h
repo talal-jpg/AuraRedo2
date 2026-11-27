@@ -94,7 +94,7 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Match", meta = (ClampMin = "0.0"))
 	float MatchStartDelay = 5.f;
 
-	/** Auto on a listen server without a Players URL option (listen PIE, a console-opened listen game): versus waits for this many. */
+	/** Auto on a listen server without a Players URL option (listen PIE, a console-opened listen game): versus waits for this many. 1 = such a game starts as practice at once (one-player listen PIE doesn't wait for a second player), and a player who joins turns it into versus. */
 	UPROPERTY(Config, EditAnywhere, Category = "Match", meta = (ClampMin = "1"))
 	int32 DefaultExpectedPlayers = 2;
 

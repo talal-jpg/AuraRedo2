@@ -89,9 +89,9 @@ public:
 	FVector GetRotorBoxExtent() const;
 
 	/**
-	 * Valid, not ship-borne (UAirshipSubsystem::IsShipBorne: a piloted ship, its pilot or gunners, a deck rider), and
-	 * not dead when it has the combat interface. bRequireCombatInterface: pawns without it (menu or spectator pawns)
-	 * don't count.
+	 * Valid, not ship-borne while a team match runs (UAirshipSubsystem::IsShipBorne: a piloted ship, its pilot or
+	 * gunners, a deck rider; with the match off a piloted free ship is a target as before), and not dead when it has
+	 * the combat interface. bRequireCombatInterface: pawns without it (menu or spectator pawns) don't count.
 	 */
 	static bool IsLivingTarget(APawn* Pawn, bool bRequireCombatInterface);
 

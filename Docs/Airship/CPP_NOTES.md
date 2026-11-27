@@ -865,8 +865,8 @@ match off every ship is team 255 and every path below gives the PR A answer.
   * `UAirshipSubsystem::FindNearestAirship(Location, bOnlyBoardable, ForUser)`: `TryBoard(nullptr, true)`, which
     `Aura.Airship.Board` uses, so a nearer enemy ship is skipped.
 * F that finds only an enemy helm or gun in range: `TryUseNearest` sends `ClientUseRefused(EAirshipUseRefusal)`
-  (unreliable) to the owner. That broadcasts the static `UAirshipPilotComponent::OnLocalUseRefused`, which the match HUD
-  turns into a toast. The log line is unchanged for "nothing in range".
+  (unreliable) to the owner. That broadcasts the static `UAirshipPilotComponent::OnLocalUseRefused(Player, Reason)`,
+  which the match HUD of that player turns into a toast (16.11). The log line is unchanged for "nothing in range".
 * Riders (SPEC_B 0.3, B6.3):
   * `IsRiding(Character)`: PR A's rider test (attached, standing on the ship, or no base inside the hull's own box up
     to `RiderZoneHeight` above it), team-blind. `UAirshipSubsystem::IsShipBorne` / `FindShipCarrying` (static, every
@@ -1015,3 +1015,37 @@ match off every ship is team 255 and every path below gives the PR A answer.
 * T3.4: the protection on the ship and its turrets, its end on the first board / mount and after 15 s.
 * M1.1: deck spots for 2-4 players on BP_AirshipPawn's real hull (the lid's height and width, the 260 cm spacing).
 * M5.2: a client pilot's window closing: the ship stays, LaneState Parked or Cruising.
+* The same for a kicked pilot (16.11): the host's pause menu Kick on a client at a team ship's helm; the ship stays,
+  no character is left behind.
+
+### 16.11 Review fixes (2026-11-25 to 11-27)
+
+The full list, with the match-side fixes, is `Docs/Airship/round2/SPEC_B.md` section 7.1. The ones in or around the
+airship classes (built, not yet run):
+
+* **A kicked or banned pilot** (`UMultiplayerSessionsSubsystem::KickPlayer`,
+  `Source/Aura/Private/EOS/MultiplayerSessionsSubsystem.cpp:1099-1124`). The engine's kick destroys the possessed
+  pawn before the controller, and the controller still has its connection, so `PawnLeavingGame` (16.7) never runs:
+  the ship died and its EndPlay handed the character back to a controller that was destroyed a moment later.
+  * Team ship: the pilot is put on foot first (`UnboardPilot(false)`), the kick takes his character, the ship stays.
+  * Free ship: it goes with the kick as in PR A, and the pilot's leftover character is destroyed after it (PR A left
+    it in the world with no controller).
+* **`SetTeamId` judges the seated pilot by the controller that flies the ship** (`PilotController`, else the ship's
+  controller), `Source/Aura/Private/Airship/AirshipPawn.cpp:808-820`. The seated character is unpossessed and attached,
+  so `UMyTeamLibrary::GetTeamId` on it returns the ship's team, which was just set: the old check could never put a
+  pilot of the other team on foot (a placed ship claimed by its `ShipTeam<id>` tag while someone flew it). Gunners
+  stay possessed and are still judged by their own character.
+* **`OnLocalUseRefused` carries the refused player's controller**: `TMulticastDelegate<void(const APlayerController*,
+  EAirshipUseRefusal)>` (`AirshipPilotComponent.h:108`, broadcast at `.cpp:482`). The delegate is process-wide, and in
+  single-process PIE every window's match HUD is bound to it; `UMyMatchHUDWidget::HandleUseRefused` now ignores other
+  players' refusals.
+* **A practice-to-versus countdown no longer stops the practice team's ship.** `AMyGameState::IsPlayGoingOn()` is true
+  for that countdown only, and `UAirshipLaneComponent::UpdateLane` treats it as InProgress
+  (`AirshipLaneComponent.cpp:573-575`): the ship keeps cruising, a recall keeps going and the recall clock keeps
+  running. Every other countdown still holds the ships (Clamp NotStarted).
+* **Lane sides** come from `AMyGameState::AreLaneSidesSwapped()` (odd versus rounds only, decided when the round's
+  countdown starts), read by `UMyLaneSubsystem::GetSideForTeam`. The lane component already re-chooses its state when
+  its side changes (`AirshipLaneComponent.cpp:615-622`).
+* **With the match off** two outside callers are PR A's again: the Burrower hunts a piloted free ship
+  (`ABurrowerCharacter::IsLivingTarget` skips ship-borne pawns only while a match runs), and GA_GrappleSwing2 never
+  anchors on a ship (`IsShipHookOn`; `UMyMatchSettings::bShipHookOutsideMatch` turns the hook on for free ships).

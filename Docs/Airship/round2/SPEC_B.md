@@ -1,7 +1,8 @@
 # Airship round 2, PR B: teams, ship lanes, ship lives, match rules (implementation spec)
 
 Status: contract for the parallel implementers (2026-11-25), **revision 2** after the critique (what changed and what was
-rejected: section 6, Critique log). Base: the clone
+rejected: section 6, Critique log). **Built on 2026-11-25 / 27: section 7 (Implementation notes) says where the code
+differs from the text below; nothing has run in the editor yet.** Base: the clone
 `/mnt/new_partition/UnrealProjects/_AirshipWork`, the thread's PR branch at **8c7e599** (PR A code + docs,
 merged with redo3 930c54f). Every `file:line` below is at 8c7e599 unless it says otherwise. PR A is still in its editor
 stage: if its fixes move lines, the function names stay the anchors. PR B is written on top of PR A's final commit.
@@ -27,7 +28,8 @@ Contents
 * 3. Editor steps (scripts, BP defaults, map changes)
 * 4. PIE test plan
 * 5. Risks, open questions for Talal, and the posted decisions that change
-* 6. Critique log (revision 2), the last section, after the appendices
+* 6. Critique log (revision 2), after the appendices
+* 7. Implementation notes (2026-11-27): review fixes, what the parts built differently, new settings and questions
 * Appendix A: settings. Appendix B: console commands. Appendix C: StartupMap numbers. Appendix D: hook point index.
 
 ---
@@ -260,12 +262,14 @@ or rides the other team's ship (UnboardPilot / DismountGunner), then sets the te
 * New `UMyMatchMemorySubsystem` (UGameInstanceSubsystem, host side; it survives the non-seamless ServerTravel the
   restart uses, B4.6): `TMap<FString, uint8>` from each player's unique net id (`FUniqueNetIdRepl::ToString`, from
   the player state) to his TeamId, written when the match ends, and `RoundIndex` (0 on a fresh map load from the menu,
-  +1 on every `RestartMatch`). `AssignTeam` reads it (B1.2), so friends stay together in 2v2. It is cleared when the
+  +1 on every `RestartMatch`; as built: +1 only after a versus round, 7.1 N6). `AssignTeam` reads it (B1.2), so friends stay together in 2v2. It is cleared when the
   host leaves to the menu. A player without a valid id (possible in PIE with the NULL online subsystem, not checked)
   falls back to join order.
 * `bAlternateSides` (default on): the side table used by `UMyLaneSubsystem::GetSideForTeam` is `TeamLaneSide` on even
   rounds and swapped on odd rounds (team 0 left, team 1 right). The game state replicates each team's side (FMyTeamState
-  `LaneSide`) for the HUD. The floor's side therefore alternates between the teams.
+  `LaneSide`) for the HUD. The floor's side therefore alternates between the teams. As built (7.1 F5): only odd
+  **versus** rounds swap, decided when the round's countdown starts (`AMyGameState::bLaneSidesSwapped`); a practice
+  round always uses round 0's sides, so its lone ship is on the floor's side.
 
 ---
 
@@ -749,7 +753,9 @@ would have started nearly every versus match as practice. So:
   rules are known from InitGame, and the wave spawners' and the path spawner's BeginPlay haven't run yet), then Super.
   Then:
   * **Practice** (TeamMode Practice, or Auto with ExpectedPlayers 1, or a standalone game): phase Countdown at once,
-    `MatchStartDelay` (5 s). Players spawn on the floor as today and may move (the race isn't gated for 5 s).
+    `MatchStartDelay` (5 s). Players spawn on the floor as today and may move (the race isn't gated for 5 s). As
+    built: ExpectedPlayers 1 is practice in every team mode (Play Solo with the Rules box on 1v1 / 2v2, 7.1 F3), and
+    a player who joins the empty team during this countdown waits for its end and starts aboard (7.1 F6).
   * **Versus** (Auto with ExpectedPlayers >= 2, OneVsOne, TwoVsTwo): phase **WaitingToStart** until the start condition
     holds: OneVsOne both teams have a player; TwoVsTwo both teams have two; Auto NumPlayers >= ExpectedPlayers. Then
     Countdown (5 s). `ExpectedPlayers` = the URL option `Players` (the host menu's Max Players, B5.2), else
@@ -795,7 +801,8 @@ fall death (B9.6).
 * Two active teams: a team whose LivesLeft is 0 and whose ship is dead is **eliminated**; the other team wins. Both in the
   same frame: Draw. A forfeit (B1.4): the other team wins.
 * **Time limit** (`Rules.TimeLimitMinutes`, default 15, 0 = none; versus only, Q17): when it runs out, the tie-break
-  decides at once: more ship lives left, then the higher hull health fraction of the living ships (a dead ship
+  decides at once: more ship lives left (as built: without the handicap's extra lives, so fewer ships lost wins,
+  7.1 F4, Q23), then the higher hull health fraction of the living ships (a dead ship
   counts 0), then the team front further along the path (largest u of the team's on-foot players; a team with nobody on
   foot counts its ranking leader's last platform; this gives the race a stake), else Draw. Reason: lanes are out of
   each other's range (flag 3), an undriven ship is safe from the swarm, and players respawn freely, so a match where
@@ -948,8 +955,11 @@ Presets (`UMyMatchSettings::SwarmDifficulties`, index = SwarmDifficulty; Normal 
 | MaxAlive (spawner cap) | 0.6 | 1.0 | 1.2 | 1.4 | 1.6 |
 | MaxAttackersPerPlayer | 6 | asset (10) | 12 | 14 | 16 |
 | Burrower SpawnInterval | x1.5 | x1 | x0.8 | x0.65 | x0.5 |
-| Burrower MaxAlivePerPlayer | config | config | config | 2 | 2 |
+| Burrower MaxAlivePerPlayer | config | config | config | at least 2 | at least 2 |
 | Burrower level | 1 | 1 | 2 | 3 | 4 |
+
+Burrower MaxAlivePerPlayer is a floor on `UBurrowerSettings`' value, never a cut (7.1 F10): with Talal's local 10
+every preset keeps 10.
 
 These stack on the wave curves (which already grow with the wave number: Count x1 to x5.5 over 40 waves, lanes_map) and
 on the player-count factor (Count only). The numbers are first guesses: Q13. Applied in StartPlay before Super, on every
@@ -960,6 +970,11 @@ rules change and when the player count changes; `Aura.Match.Swarm <n>` changes i
 `UMyMatchSettings::MatchMaps` (default `{ "StartupMap" }`, short map names without the PIE prefix, the UBurrowerSettings
 AllowedMaps pattern, `BurrowerSpawnSubsystem.cpp:90-104`). CVar `Aura.Match.Enable`: -1 = by MatchMaps (default), 0 = off,
 1 = on; read in InitGame. URL `?Match=0|1` wins over both. Only AMyGameMode runs a match.
+
+With the match off the game plays as PR A (7.1 F8, F9; 7.3 for B9.1 / B9.2): no ship hook, the Burrower hunts a
+piloted free ship, the lead pawn and path growth count ship-borne pawns, no lanes are built. One difference on
+purpose: a kicked pilot of a free ship no longer leaves his character behind (7.1 F1). What the default on StartupMap
+means for everyday Play and for older harnesses: 7.4.
 
 #### B5.6 Talal's local files
 
@@ -1069,7 +1084,8 @@ committed fire rate, B3.5) instead of 7 minutes or 0.2 s.
 
 ### B7. Grapple on ships (ship hook)
 
-Behind `Rules.bGrappleShips` (default true; with the match off: `UMyMatchSettings::DefaultRules.bGrappleShips`).
+Behind `Rules.bGrappleShips` (default true). With the match off the ship hook is off and the grapple is PR A's,
+unless `UMyMatchSettings::bShipHookOutsideMatch` (default false; then `DefaultRules.bGrappleShips` decides): 7.1 F9.
 
 #### B7.1 What the player does
 
@@ -1259,7 +1275,7 @@ It hunts each player's pawn with the combat interface (`BurrowerSpawnSubsystem.c
 `BurrowerCharacter.cpp:513-528`, `:550-580`), which includes a piloted ship (`AAirshipPawn` implements it,
 `AirshipPawn.h:80`). A Burrower chasing a ship 225 m out would carve through every platform in between (its rotor collapses
 the tiles it touches, `BurrowerCharacter.h:14-18`). Fix: `ABurrowerCharacter::IsLivingTarget` returns false for ship-borne
-pawns; the subsystem then treats the player like one without a pawn: no spawns, and his spawn countdown is paused while
+pawns while a match runs (with the match off it is PR A's, 7.1 F8); the subsystem then treats the player like one without a pawn: no spawns, and his spawn countdown is paused while
 he is aboard (`BurrowerSpawnSubsystem.cpp:252`). There is **no** respawn grace when he is back on foot (revision 1 said
 there was): the grace branch runs only for a new pawn (`:234-244`), and after unboarding `Entry.Pawn` is still the same
 character. Accepted: the countdown picks up where it paused.
@@ -1873,6 +1889,9 @@ and their absence on a client.
     from the pause menu [yes]?
 22. **Q22** A respawned ship can't be damaged until its team boards it, or for 15 s [yes]?
 
+Q23-Q25 came out of the implementation and its reviews: section 7.5. Q7 and Q19 each have a setting behind their
+answer now (`AutoMaxPlayersPerTeam`, `AutoCoopPlayers`, 7.2).
+
 ### 5.3 Decisions posted to Talal that can't work as posted (each is a question above, with the recommendation)
 
 | Posted decision | Why it can't work alone | Recommendation | Q |
@@ -1897,11 +1916,15 @@ console), no friendly fire, no use of the other team's ship, and the grapple on 
 | Match | MatchMaps | { StartupMap } | short names; empty = every map with AMyGameMode |
 | Match | DefaultRules | Auto, 3, 1, 15, false, true, true | B5.1 |
 | Match | MatchStartDelay | 5 | s (the countdown) |
-| Match | DefaultExpectedPlayers | 2 | Auto without a `Players` URL option on a listen server (B4.2) |
+| Match | DefaultExpectedPlayers | 2 | Auto without a `Players` URL option on a listen server (B4.2); 1 = practice at once, a joiner turns it versus (Q25) |
+| Match | AutoMaxPlayersPerTeam | 0 | Auto: cap per team, 0 = none (Q7; added by the fixes, 7.2) |
+| Match | AutoCoopPlayers | 0 | Auto with exactly this many expected players plays co-op practice; 0 = never (Q19; 7.2) |
 | Match | bStartAboard | true | versus: spawn each team on its own deck at the start (B4.2) |
 | Match | bRespawnAboard | false | B9.7, Q15 |
 | Match | bAlternateSides | true | B1.6 |
 | Match | bSmallTeamHandicap | true | B1.2 |
+| Match | bTimeLimitCountsHandicap | false | the time limit's lives step counts the handicap's lives (B4.4, Q23; 7.2) |
+| Match | bShipHookOutsideMatch | false | ship hook with the match off (B7, Q24; 7.2) |
 | Match | bSoloPracticeUnlimitedShips | true | B3.2 |
 | Match | ShipRespawnDelay | 10 | s |
 | Match | ShipSpawnProtection | 15 | s; 0 = off (B3.4) |
@@ -1985,7 +2008,7 @@ PlayerIndex = the server's player controller order (0 = host), as `Aura.Airship.
   (lanes_map) and re-checked in the clone's map for MaxYawDeviation, HexRadius, SegmentLength, ExtendDistance,
   PointsPerSegment.
 * u = x - 5441.6, v = y + 10000. H = 10000 x 2 = 20000 cm. Lane offset R = 20000 + 2500 = 22500: round 0 team 0 at
-  y = +12500, team 1 at y = -32500 (swapped on odd rounds); z = 0 + 200.
+  y = +12500, team 1 at y = -32500 (swapped on odd versus rounds, 7.1 F5); z = 0 + 200.
 * Path: 2 initial segments of 200 m (u 0..40000); a new one whenever a player is within 200 m (2D) of the end.
   CruiseEndU at the start = 40000 - 10000 = 30000 (x 35442). LaneStartU = -12000 (x -6558).
 * Match-start ships at (5442, 12500, 200) and (5442, -32500, 200), yaw 0.
@@ -2079,3 +2102,194 @@ Also changed while checking (not raised by the critics):
 * Size: revision 2 adds roughly 2,000 lines of C++ to revision 1's plan (recall and bypass in the lane component about
   450, waiting / countdown / start aboard / time limit / handicap / memory in the match code about 600, HUD additions
   about 400, the rest spread thin) and about 400 lines of harness Python (inferred).
+
+---
+
+## 7. Implementation notes (2026-11-27)
+
+What was built from this spec, and where the code differs from sections 0-5 and the appendices, with the reason.
+Where this section and the sections above disagree, this section is what the code does (the affected places above
+carry a pointer to here).
+
+`file:line` in this section is in the PR B worktree `/mnt/new_partition/UnrealProjects/_AirshipWorkB` (branch
+`airship-r2-prb`: the WIP commit 1853bc6 plus this pass's two comment edits and docs). Paths are under `Source/Aura/`
+unless they start with `Docs/`. Function names are the anchors if lines move.
+
+State: the parts, three reviews and the fix pass are done. `build_r2b.sh` ends with EXIT 0 (2026-11-27) three ways:
+the whole module in unity files, the 16 .cpp files the findings and their fixes touch compiled on their own
+(outside the unity files), and with adaptive unity off. **Nothing has been run in the editor or in PIE yet**: section 4 is still the plan,
+and every "fixed" below means "the code now does this and compiles", not "seen working".
+
+### 7.1 Review fixes
+
+The three reviews gave 12 findings and 8 nits. All 12 findings were checked against the code and were valid; each is
+fixed. The swarm-count finding was reported twice (F2).
+
+| # | What was wrong | What the code does now | Where | Spec text it changes |
+|---|---|---|---|---|
+| F1 | A host kick or ban of a team ship's pilot destroyed the ship and left his character in the world with no controller. The engine's `AGameSession::KickPlayer` destroys the possessed pawn before the controller (engine `GameSession.cpp:369-378`), and the controller still has its connection, so `PawnLeavingGame` (B1.4) never runs (engine `PlayerController.cpp:1635-1645`). | `UMultiplayerSessionsSubsystem::KickPlayer` puts a team ship's pilot on foot first (`UnboardPilot(false)`), so the kick takes his character and the ship stays (cruise or hold, as in B1.4). A free ship still goes with its pilot, as in PR A, and the pilot's leftover character is destroyed after the kick. | `Private/EOS/MultiplayerSessionsSubsystem.cpp:1099-1124` | B1.4: a second path next to `PawnLeavingGame` (`Private/PlayerInput/MyPlayerController2.cpp:419-441`) |
+| F2 | When a player left, the swarm's player-count factor stayed one player too high until the next join: `ApplySwarmDifficulty` counted the player array, which still holds the leaver during `Logout`. | It adds up the two teams' `NumPlayers`, which `RecountTeams(Leaving)` has just written without him. | `Private/MyGameMode.cpp:1727-1730` (compared at `:930-937`) | B5.4: none (the rule was right) |
+| F3 | Play Solo with the Rules box on 1v1 or 2v2 waited for players who can't come (Play Solo creates no session). | `IsPracticeStart` is true for `ExpectedPlayers <= 1` in every team mode (Play Solo sends `Players=1`, and so does a restart with only the host left). A player who joins later turns it into versus (B1.3). | `Private/MyGameMode.cpp:622-628` | B4.2 "Practice (... Auto with ExpectedPlayers 1 ...)": any team mode |
+| F4 | The smaller team's handicap lives decided the time-limit tie-break by themselves: a 2v1 nobody fought ended 4 lives against 3 for the one-player team. | The first tie-break step compares `LivesLeft - BonusLives` (= ShipLives - ShipsLost: fewer ships lost wins). `bTimeLimitCountsHandicap` (default off) gives the old rule back. The HUD says "Fewest ships lost after 15:00 wins." and "Time up: X lost fewer ships". | `UMyTeamLibrary::GetTimeLimitLives`, `Private/Match/MyTeamLibrary.cpp:177-182`; `ResolveTimeLimit`, `Private/MyGameMode.cpp:2743-2760`; `Private/Match/MyMatchHUDWidget.cpp:415-420`, `:567-572` | B4.4 first tie-break step; new question Q23 (7.5) |
+| F5 | A practice round played on an odd round put the lone ship on the left lane, about 274 m from the start floor and out of hook range (a versus round followed by practice). | The sides swap on odd **versus** rounds only. It is decided once, when the round's countdown starts, and replicated as `AMyGameState::bLaneSidesSwapped`; `UMyLaneSubsystem::GetSideForTeam` and the game mode's fallback read it. A ship left over from a countdown that went back to waiting is removed when the sides change. | `StartCountdown`, `Private/MyGameMode.cpp:1094-1110`; `Private/Match/MyLaneSubsystem.cpp:707-724`; `Private/MyGameMode.cpp:1007-1018`; `Public/MyGameState.h:129-131`, `:218` | B1.6, Appendix C ("swapped on odd rounds") |
+| F6 | A player who joined the empty team during a practice countdown (a host's early start with one player) got a pawn on the floor at once; the round then turned versus with the others on their decks and him 274 m from his lane. | `IsWaitingForTeamStart`: during a Countdown, a player whose team isn't active yet gets no pawn. When the countdown ends his team becomes active, the round is versus, and `SpawnWaitingPlayers` starts him aboard his own ship. Players who already had a pawn (the practice start of 7.3) keep it. | `Private/MyGameMode.cpp:675-689`, `:322-325`, `:1211-1215`, `:1376-1383` | B1.3 first sentence now holds for a practice countdown too |
+| F7 | Two open-question defaults couldn't be changed by a value: Q7 (more than 4 players) and Q19's alternative (3 players as co-op). | `AutoMaxPlayersPerTeam` (0 = no cap; with a cap, PreLogin refuses a join when both teams are full) and `AutoCoopPlayers` (0 = never; Auto with exactly that many expected players plays the round as TeamMode Practice, the next round decides again). | `Public/Match/MyMatchSettings.h:101-107`; `GetTeamCap`, `Private/MyGameMode.cpp:645-655`; `:206-218`; `ParseMatchOptions`, `:501-507` | Appendix A (7.2); Q7, Q19 |
+| F8 | With the match off, Burrowers ignored pilots, gunners and deck riders of free ships. In PR A the Burrower hunted the piloted ship. | `IsLivingTarget` skips ship-borne pawns only while `UMyTeamLibrary::IsMatchActive`. | `Private/Burrower/BurrowerCharacter.cpp:522-529` | B9.4: "while a match runs"; B5.5 |
+| F9 | With the match off, the ship hook was on (the rule's default is true): a crosshair on a free ship reeled the player onto its deck, and every grapple search fired an extra 120 m trace. | `IsShipHookOn`: the rule while a match runs; with no match it is off, unless `bShipHookOutsideMatch` (default off; then `DefaultRules.bGrappleShips` decides). | `Private/AbilitySystem/Abilities/GA_GrappleSwing2.cpp:1704-1713`; `Public/Match/MyMatchSettings.h:129-131` | B7 first line; B5.5 |
+| F10 | The difficulty's Burrower MaxAlivePerPlayer replaced UBurrowerSettings' value: with Talal's local 10, Very Hard and Nightmare cut it to 2. | The preset is a floor on the setting, never a cut: `max(preset, setting)`. With his 10, every preset keeps 10; with the committed 1, Very Hard and Nightmare give 2. | `Private/Burrower/BurrowerSpawnSubsystem.cpp:398-404` | B5.4 table row; B5.6 holds again |
+| F11 | `MatchMaps` = { StartupMap } puts every existing StartupMap harness inside a team match. The Burrower PIE harness (listen, 2 players) would wait for a countdown, start both players on ship decks, and find no Burrower target. | The Burrower harness turns the match off for its run: config key `match_enable` (default 0) sets `Aura.Match.Enable 0` at arm time and restores it at the end; the cleanup script restores it too. | `Docs/Burrower/scripts/pie/bw_pie_test.py:60`, `:1182-1192`, `:1255-1260`; `bw_pie_cleanup.py:49-50`; `README.md:158` | section 4: see 7.4 for harnesses outside this repo's Docs |
+
+Nits:
+
+| # | Nit | Outcome | Where |
+|---|---|---|---|
+| N1 | AssignTeam's spectator check never fired (it ran before the engine marks a `?SpectatorOnly=1` joiner). | Fixed: `InitNewPlayer` reads the option itself and skips AssignTeam; a player Super made a spectator after all is set back to team 255. | `Private/MyGameMode.cpp:708-724` |
+| N2 | `SetTeamId`'s pilot check could never fire (a seated pilot is unpossessed and attached, so his team read as the ship's new team). | Fixed: the pilot is judged by the controller that flies the ship. | `Private/Airship/AirshipPawn.cpp:808-820` |
+| N3 | `OnLocalUseRefused` is a process-wide static: in single-process PIE one player's refusal showed a toast in every window. (Reported twice.) | Fixed: the delegate carries the refused player's controller and the HUD ignores other players'. Signature: `(const APlayerController*, EAirshipUseRefusal)`. | `Public/Airship/AirshipPilotComponent.h:108`; `Private/Airship/AirshipPilotComponent.cpp:31`, `:477-483`; `Private/Match/MyMatchHUDWidget.cpp:270-276` |
+| N4 | The Burrower's ship-borne check wasn't gated on the match. | Same as F8. | |
+| N5 | During the practice-to-versus countdown the practice team's ship stopped and a recall in progress was cancelled; B1.3 says those players keep playing. | Fixed: `AMyGameState::bPlayGoesOn` (replicated, set by `SetMatchPhase(Countdown, End, true)` from `StartPracticeToVersus`); the lane component treats that countdown as InProgress. | `Private/MyGameMode.cpp:1319-1322`; `Public/MyGameState.h:133-135`, `:149-150`, `:221`; `Private/MyGameState.cpp:211-222`; `Private/Airship/AirshipLaneComponent.cpp:573-575` |
+| N6 | RoundIndex goes up only after a versus round, not on every RestartMatch as B1.6 says. | Kept and written down here: a practice restart keeps the round, so the next versus round still alternates. Together with F5 a practice ship is always on the floor's side. | `RestartMatch`, `Private/MyGameMode.cpp:1516-1532` |
+| N7 | One-player listen-server PIE on StartupMap leaves the host with no pawn, waiting for a second player (Esc > Start match gets him out). | **Not changed** (Appendix A designs it so, and the as_75 stages set `DefaultExpectedPlayers` themselves). It is a value change: `DefaultExpectedPlayers` 1 starts such a game as practice at once and a joiner turns it into versus. The setting's tooltip says so now. New question Q25 (7.5). | `Public/Match/MyMatchSettings.h:97-99` |
+
+Left as it is, noticed while checking F5: a practice countdown on an odd round that a joiner turns into versus (F6)
+keeps the unswapped sides for that one round, because the sides are decided when the countdown starts.
+
+### 7.2 Added by the fixes: settings, replicated state, API
+
+Settings (`UMyMatchSettings`, category Match; additions to Appendix A, all defaults keep the behaviour sections 0-5
+describe unless 7.1 says otherwise):
+
+| Name | Default | Meaning |
+|---|---|---|
+| AutoMaxPlayersPerTeam | 0 | Auto teams: at most this many per team, a join is refused when both are full. 0 = no cap (Q7) |
+| AutoCoopPlayers | 0 | Auto with exactly this many expected players plays co-op practice instead of versus. 3 = Q19's alternative. 0 = never |
+| bTimeLimitCountsHandicap | false | the time limit's first tie-break step counts the handicap's extra lives too (F4, Q23) |
+| bShipHookOutsideMatch | false | the ship hook also works with the match off (F9, Q24) |
+
+Replicated on `AMyGameState` (additions to B10): `bLaneSidesSwapped` (F5) and `bPlayGoesOn` (N5), both in
+`Aura.Match.Dump` as `sides_swapped` and `play_goes_on` (`Private/Match/MyMatchConsole.cpp:361-362`).
+
+API (additions to section 2): `UMyTeamLibrary::GetTimeLimitLives(const FMyTeamState&)`;
+`AMyGameState::AreLaneSidesSwapped()`, `IsPlayGoingOn()`, `SetLaneSidesSwapped(bool)`, a third parameter on
+`SetMatchPhase(Phase, EndTime, bInPlayGoesOn = false)`; `AMyGameMode::IsWaitingForTeamStart(Controller)`;
+`UAirshipPilotComponent::OnLocalUseRefused` gains the controller (N3);
+`UBurrowerSpawnSubsystem::GetMaxAlivePerPlayer()` returns the larger of the preset and the setting (F10).
+
+### 7.3 Deviations made by the parts
+
+Match (game mode, game state, memory, console):
+
+* **Listen PIE logs the host in before the listen port opens** (engine `GameInstance.cpp:538` against `:562`), so at
+  his login the net mode is Standalone and he gets a practice pawn. In a versus start `StartPlay` takes back any pawn
+  spawned before the wait (unpossess, destroy, one log line). A packaged `LoadMap` listens first and never needs it.
+  `Private/MyGameMode.cpp:786-802`.
+* **The countdown start and practice-to-versus are evaluated in `InitNewPlayer`**, after the team is assigned, not in
+  PostLogin (B1.2 only names AssignTeam there). Reason: the engine asks `PlayerCanRestart` for the new player's pawn
+  inside `Super::PostLogin`, so the phase has to be right before that. `Private/MyGameMode.cpp:733-735`.
+* **Restart URL**: `Players=<players in the match now>` (at least 1) instead of the host's Max Players, plus `Match=1`
+  and `Round=N` (B4.6 lists only the rules). Reason: clients reconnect after the non-seamless travel, so the next
+  round starts as soon as they are all back; the host's Start match covers anyone who doesn't return.
+  `Private/MyGameMode.cpp:1534-1547`.
+* **RoundIndex** +1 only after a versus round (N6). The URL's `Round` wins over the memory's count.
+  `Private/MyGameMode.cpp:1516-1532`, `:378-390`.
+* **Match memory**: `Reset` is called by `AMyGameMode::InitGame` whenever the URL has no `Round` option (a fresh
+  match from the menu or an open command); nothing else calls it (B1.6 said "cleared when the host leaves to the
+  menu": the same effect, from the other end). Added `SetRoundIndex` and `GetNumRemembered`.
+  `Private/MyGameMode.cpp:373-394`; `Public/Match/MyMatchMemorySubsystem.h:42-47`.
+* **Practice countdown** (the practice start, or a host start with one team): players aren't held, as B4.2 says.
+  A player who joins the empty team during it now waits for its end and starts aboard (F6); a join while practice is
+  InProgress uses the PracticeToVersus countdown (B1.3).
+* **Placed ships**: one claimed through its `ShipTeam<id>` tag is spawn-protected too (the spec didn't say).
+  `RemoveTeamShip` gives a claimed placed ship back as a free ship (team 255) instead of destroying it; a spawned team
+  ship has its pilot and gunners put on foot before it is destroyed, because the ship's EndPlay would otherwise take
+  the pilot's character with it. `Private/MyGameMode.cpp:1862-1866`, `:2060-2108`.
+* **`ApplyRules`** keeps the running round's TeamMode in `MatchRules` (so the HUD and the logic stay consistent) and
+  stores the new one as `NextTeamMode` for the restart. A changed TimeLimit restarts the clock; `Aura.Match.Rules`
+  with `TimeLimit=` given but unchanged calls `RestartTimeLimit()` itself. ShipLives changed while InProgress goes
+  through `SetTeamShipLives(ShipLives + BonusLives)`. `Private/MyGameMode.cpp:1609-1669`;
+  `Private/Match/MyMatchConsole.cpp:549`.
+* **Extra public `AMyGameMode` API** beyond 2.2: `GetMatchRules`, `GetNextTeamMode`, `IsVersusRound`,
+  `RestartTimeLimit`, `SetTeamShipLives` (for `Aura.Match.ShipLives`), `BuildRulesOptions`, static
+  `ParseRulesOptions` (shared by InitGame and `Aura.Match.Rules`). `Public/MyGameMode.h:126-165`.
+* **`GetNeededPlayers`** (the game state's ExpectedPlayers, for the HUD's "WAITING FOR PLAYERS n/m"): practice 1,
+  1v1 2, 2v2 4, Auto max(2, Players or DefaultExpectedPlayers). `Private/MyGameMode.cpp:630-643`.
+* **Fall death** compares the player's height with the lane point at his u (path height + LaneHeight) from
+  `UMyLaneSubsystem::GetLanePoint`; without lanes there is no fall death. `Private/MyGameMode.cpp:2591-2667`.
+* **Tie-break tolerances**: the hull fractions must differ by more than 0.1 %, race progress by more than 1 m. Race
+  progress is `UMyLaneSubsystem::GetTeamFrontU`, else the largest u of the team's players' last platforms.
+  `Private/MyGameMode.cpp:2709-2741`, `:2767`, `:2777`.
+* **ShipUnderAttack** fires only when the effect context's instigator is set and isn't the ship. Hull impacts,
+  `Aura.Match.DamageShip` (no instigator: the context is the ship) and DebugKill (no effect) don't send it. Sentinel
+  bullets do: their source is the swarm's GAS proxy ASC. `OnTeamShipHealthChanged`, `Private/MyGameMode.cpp:2383-2417`.
+* **Net cull distance**: `SetPlayerDefaults` sets the 600 m only on `ACharacter` pawns; ships are always relevant
+  already. `Private/MyGameMode.cpp:283-290`.
+* **`Aura.Match.Dump`** writes its JSON by hand (no Json module), so `Aura.Build.cs` is unchanged.
+  `Private/Match/MyMatchConsole.cpp:260`.
+* **`Aura.Match.Recall`** calls `UAirshipLaneComponent::StartRecall()`, which the lanes owner added for it (not in
+  2.4). `Private/Match/MyMatchConsole.cpp:803`; `Public/Airship/AirshipLaneComponent.h:69`.
+
+HUD (`UMyMatchHUDWidget`):
+
+* TEAMMATE under the crosshair shows only while the local pawn is a character (not for a pilot).
+  `Private/Match/MyMatchHUDWidget.cpp:913-916`.
+* Name tags sit 220 cm above the character's origin (property `NameTagHeight`, `Public/Match/MyMatchHUDWidget.h:73`).
+* The countdown reads "FIGHT STARTS IN n" for versus and "MATCH STARTS IN n" for practice (`.cpp:357`); assist reads
+  "SHIP: LANE AUTO, <name> AT THE HELM" (`.cpp:500`).
+* AIM + GRAPPLE uses a HUD property `ShipHookDistance` (12000) that mirrors GA_GrappleSwing2's MaxShipHookDistance
+  instead of reading the ability (`.h:67-69`, `.cpp:628`). Change both together.
+
+Lanes (`UMyLaneSubsystem`, `UAirshipLaneComponent`, the race hooks):
+
+* **B9.1 and B9.2 apply only while `UMyTeamLibrary::IsMatchActive`** (lead pawn selection, the GetLeadPathDistance
+  fallback, path growth). With the match off they are exactly PR A, as 0.3 and B5.5 require; the spec didn't say.
+  `Private/Actors/MyHexBridgeSubsystem.cpp:4795`, `:4839`; `Private/Actors/MyHexPathSpawner.cpp:273`.
+* **Lanes are built only when `AMyGameMode::IsMatchOn()`** at OnWorldBeginPlay (server). With the match off
+  `HasLanes()` is false and the `Aura.Lane.*` commands say so. `Private/Match/MyLaneSubsystem.cpp:74-81`.
+* **u_s is measured at the hull origin** (the zone's point, and what the altitude hold holds), not at the centre of
+  mass. To match, HoldPoint = lane point + (COM - origin).XY, so the hull origin follows the lane while the flight's
+  position law moves the COM. `Private/Airship/AirshipLaneComponent.cpp:246`, `:990`.
+* **The cap never pulls the target back.** On entry TargetU = clamp(u_s, LaneStartU, max(cap, u_s)), and each frame
+  u_t = min(u_t, max(cap, u_t_old)); B2.4 has clamp(u_s, LaneStartU, cap) and min(u_t, cap). The spec's form would fly
+  a ship parked ahead of its team (or one whose front drops back) backwards along the lane at the hold law's speed.
+  Now it waits where it is until the cap passes it. The lead clamp (u_s + LaneMaxTargetLead) still pulls the target
+  back toward a held-back ship, as specified. `Private/Airship/AirshipLaneComponent.cpp:403`, `:918`.
+* **Braking**: a target stopping for a blocker, the countdown or the match end brakes at max(LaneAccel, LaneAccelMax)
+  = 600 cm/s^2; every other change of the target speed ramps at LaneAccel (250). The look-ahead length uses the same
+  600. `Private/Airship/AirshipLaneComponent.cpp:790-791`, `:907-908`, recall `:1186`.
+* **The ShipReturning event** is sent by `UAirshipLaneComponent::EnterReturning`, not by the game mode; the HUD's
+  toast uses it. `Private/Airship/AirshipLaneComponent.cpp:479`, `:529`.
+
+Airship classes: `Docs/Airship/CPP_NOTES.md` 16.9 (the lateral grip's speed target in Lane mode, Point & Fly starting
+parked on a team ship's helm, the drive-intent bit on team ships only, the drift distance end, five more telemetry
+fields, the additions the contract didn't list) and 16.11 (the review fixes on the airship side). Ship hook:
+`Docs/GA_GrappleSwing2.md` section 10.
+
+### 7.4 What a match on StartupMap changes outside PR B
+
+`MatchMaps` defaults to { StartupMap } (B5.5), so with PR B merged:
+
+* **Play on StartupMap starts a match.** Standalone: practice (a 5 s countdown the player can move through, one ship
+  in the right lane, the match HUD). Listen server with 2 or more players: versus (no pawns until the countdown ends,
+  then each team on its own deck). Listen server with one player: it waits for a second (N7).
+  `Aura.Match.Enable 0` before the map loads, or `?Match=0`, gives the old race; so does removing StartupMap from
+  MatchMaps.
+* **Every PIE harness on StartupMap written before PR B runs inside that match** unless it turns it off. Only the
+  Burrower harness in this repo's Docs was changed (F11). Any other one lives outside this worktree (not checked
+  here; for example the hex collapse, Mech Sentinel demo and JumpHover PIE harnesses, where they load StartupMap):
+  each needs `Aura.Match.Enable 0` at arm time and the old value back at the end, the way `as_70_matchlib` and
+  `bw_pie_test.py` do it. as_76 proves "match off = PR A" on L_AirshipTest only.
+* With the match off, two things that an earlier build of PR B changed are PR A's again (F8, F9): the Burrower hunts
+  a piloted free ship, and the grapple never anchors on a ship.
+
+### 7.5 Questions these notes add (defaults in brackets, as in 5.2)
+
+23. **Q23** (touches Q17 and Q19) When the time runs out in a 2v1, should the smaller team's extra life count?
+    [No: the team that lost fewer ships wins, then hull, then the race; `bTimeLimitCountsHandicap`.]
+24. **Q24** Outside a match (other maps, or the match turned off), should the grapple reel onto free ships
+    [no, exactly as before PR B; `bShipHookOutsideMatch`]? And should Burrowers leave players on free ships alone
+    there [no, as before; no setting yet]?
+25. **Q25** Play in the editor as a listen server with one player on StartupMap waits for a second player (Esc >
+    Start match). Should it start as practice at once, and turn versus when someone joins
+    [not by default; `DefaultExpectedPlayers` 1 does it]?
+
+Q7 and Q19 now each have a setting behind their answer (F7).
