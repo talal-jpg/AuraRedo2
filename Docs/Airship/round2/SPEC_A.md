@@ -1305,7 +1305,9 @@ checked where noted).
 | T2.5 | S | D2 | Splash: dummy ship's hull 550 cm from a ball impact on a wall | dummy loses 60 x lerp(1, 0.3, d/600) +-15 % (d = centre distance) |
 | T2.6 | S | D2 | `SpawnTestCannonball` hovering (GravityScaleOverride 0, velocity 200 cm/s) 15 m in front of the host character; host fires GA_GunShoot at it (as as_45 'gun' phase) | ball health -1 per hit (server); after 30 hits bShotDown, no damage to a dummy 1 m away |
 | T2.7 | L | D2 | Same ball shot down by a turret (`TurretFire` at it) | server `bShotDown` within 1 s (8 bullets); client copy hidden and still within 0.5 s of the server |
-| T2.8 | S | D2 | Own crew: a deck rider and a gunner (L1) on ship 1; ship 1 fires L2 point-blank at a wall 8 m off the beam (splash reaches the deck) | rider, gunner, pilot and ship health unchanged |
+| T2.8 | S | D2 | Own crew, one role at a time (one player): L1's muzzle 1 m from the port wall; a ball of ship 1 bursts there with a deck rider beside L1, then L1's gunner fires it, then the pilot fires a real port broadside. as_62 `s_own`: the pilot aboard, a real starboard broadside and a test ball into ship 2's hull 4.5 m beside ship 1 | each time the ball's own splash query holds the player (the hull for the pilot's case) and rider, gunner, pilot and ship health are unchanged; ship 2 loses health |
+| SW.e1 | S | D2 | as_62 `s_cannon`: three balls of ship 1 from the nearest muzzle at a real sentinel, led | `OnSentinelDamaged` with ship 1 as instigator, the sentinel loses health (the flight sweep) |
+| SW.e2 | S | D2 | as_62 `s_cannon`: balls of ship 2 into ship 1's hull beside a sentinel 1.5-5.6 m off it | events with ship 2 as instigator at a part of the full damage (the burst's splash); ship 1 loses health |
 | T2.9 | S | D2 | Pilot aim trace with a ball crossing the camera ray (harness spawns a test ball on the ray) | `GetLocalAimPoint` stays on the wall (< 50 cm change) |
 | T3.1 | S | D3 | `TestBullet` from 25 m beside ship 1 at its hull centre, ship unpiloted, Mesh collision turned off by the harness (no PA bodies involved) | ship health -3 (AttackDamage of the test bullet) |
 | T3.2 | S | D3 | `TestBullet` from 25 m outboard at turret 0's HitBox, the hull's Visibility left on (a real line: it meets the hull's forward deck convex first) | turret health -3, ship unchanged; the report names the first Visibility hit (the hull) |
@@ -1354,6 +1356,10 @@ checked where noted).
 | T8.7 | S, L | 6.8 | The same player jumps at 48 m/s. L (`g8_jump`): the client jumps on the ship the host flies, at 30 m/s and accelerating; both copies, each in its own hull's space | back on the deck within 4 m of the take-off point (hull xy) |
 | T8.8 | S, L | 6.8 | The 1.5 s after that landing (L: part of T8.7 L) | within 50 cm of the landing point (hull xy), walking: no slide at the ship's speed |
 | deck_arrival | L | 6.8 | The client comes from the ground straight onto the planks of the hovering ship the host holds (`g1_far`) | the ship moves at most 15 cm in the next 2 s (first run: 554 cm, CPP_NOTES 15.11) |
+| T5.8b | L | 6.9 | as_60 `g9_clock`: the client's move clock past 121 s (the phase waits for it), F on L1, 3 s, F again, W for 1.5 s | both copies move at least 1 m; no move refused because of the clock |
+| T8.11 | S | 6.9 | Ship 1 with the deck on the hull's collision (`SetDeckOnPhysicsAsset(false)`: a ship without PA bodies), the player on the lid at the wheel, F | at the helm (the feet are 2.45 m above the seat: measured from the seat F was refused) |
+| T8.12 | S | 6.9 | A third ship with the player at its helm is destroyed (`K2_DestroyActor`) | 0.2 s later: the character possessed, falling, not attached, thrown up; health unchanged |
+| T8.B1 / T8.B2 | S, opt-in | 6.9 | `AS59_ONLY="t8_boost"`: from the ground to the helm with Space x 3, Shift + W, Space, W, F; the level gap with Space x 3 and W | INFO only: what was reached |
 | T8.9 | S | 6.8 | A second jump at 48 m/s, 0.5 s later the air jump with the movement input to starboard | 0.5 s on: within 1.5 m along the hull's x (the ship's speed is kept), 0.75..7 m to starboard (MaxWalkSpeed relative to the ship) |
 | T9.1 | S | D9 | P&F cruise 48 m/s, F exit | speed 2.5 +-0.3 m/s within 30 s; heading within 2 deg for 60 s; mode Drift |
 | T9.2 | S | D9 | Galleon and Classic: same | same (Galleon: no reverse; fans idle) |
@@ -1439,7 +1445,8 @@ mounted gunner (simulated by destroying the client's character: the station clea
    IMC_Airship doesn't map, a gunner can cast from the seat. Check IMC_PlayerMappings in the editor stage; if it
    matters, a follow-up adds those keys to IMC_Airship (an asset change, out of PR A's no-new-input rule).
 4. **User's local GE_GunShootDamage = 1000** (his uncommitted test value): turret bullets do 4000 in his tree and
-   one-shot a 2000 HP ship; balls are unaffected (gun units). Tell him.
+   one-shot a 2000 HP ship; one gun hit destroys a turret (400) and its crew share (250) kills a mech (110); balls are
+   unaffected (gun units). Known limit of PR A, no code change (lead 2026-11-28); PR B sets ship damage for matches.
 5. **User's empty local PA_Airship**: D3 doesn't need it. PR A rebuilds PA_Airship (step 6b, his "make a proper PA"),
    so his empty local copy conflicts with the committed one when he pulls: take the branch's.
 6. **Balls now block Visibility**: every Visibility trace in the project can hit a ball for the second it flies (beam,
@@ -1645,8 +1652,10 @@ PASS, 52 PASS / 0 FAIL in all) and in listen PIE the same day (as_60: 42 PASS / 
 * **D5. No climb.** `BoardDistance`, `BoardHullDistance`, `BoardBelowDistance` default to 0 = off; the code paths stay
   for a harness. F under or near the hull does nothing. The main deck of a hovering ship is at least about 12.5 m above
   flat ground (18.7 m in L_AirshipTest, 13.6 m for the ship in Talal's StartupMap); a jump reaches 1.76 m, the air jump
-  3.53 m. Players get aboard by boost flight, the grapple, a platform at deck height, or PR B's ship hook. Gunner
-  stations keep `StationMountDistance` 350; a gunner who leaves is put on the planks next to the seat.
+  3.53 m. Players get aboard by hover and boost (Space x 3, then Shift + W along the view; measured, section 6.9), from
+  a platform at deck height or above, or with PR B's ship hook. Not by the grapple: GA_GrappleSwing2 refuses the ship
+  (an earlier version of this line said it did). Gunner stations keep `StationMountDistance` 350; a gunner who leaves
+  is put on the planks next to the seat.
 * **D6. Harnesses and docs.** as_59: T8.1 turned around, T8.2-T8.7 new, T3.1 with the Mesh's collision on; as_60: T8.4 L
   in `g6_drift`, setups; as_45 / as_43: setups; as_30: unchanged. Console `Board` / `Exit` / `Mount` / `Dismount` are
   unchanged (as_62 uses them). Section 4 has the rows; `HOW_TO_FLY.md` has the player's view.
@@ -1679,6 +1688,48 @@ PASS, 52 PASS / 0 FAIL in all) and in listen PIE the same day (as_60: 42 PASS / 
   client RPC is an addition. (3) "Not ahead of the wheel" has the capsule's radius of tolerance.
 
 ---
+
+### 6.9 Second review (2026-11-27 / 28)
+
+Eight findings and one nit. Details and numbers: CPP_NOTES.md 15.13; runs: NOTES_assets.md, "PIE runs 2026-11-28".
+
+| # | Finding | What was done | Check |
+|---|---|---|---|
+| 1 | A remote gunner who leaves a gun with a move clock past 120 s stood still on the server for up to 2 minutes | `DismountGunner` keeps the server's prediction state, sets its clock to now and clears the forced-update state | as_60 `T5.8b_dismount_old_clock_L` |
+| 2 | The docs said the grapple takes you aboard; nothing showed a player reaching the deck | Docs corrected. Measured with the game's keys: hover + boost reaches the planks and the helm. No boarding rule, climb or ladder added | as_59 opt-in `t8_boost` (T8.B1, T8.B2, INFO) |
+| 3 | The machine guns cannot be manned by a player who walks | No code change, the station reach is not raised. Known limit below | none |
+| 4 | 10 cm slots between the deck boxes, no boxes for the deck's crates and barrels | as_11b: neighbours overlap, 7 prop boxes; PA_Airship rebuilt: 35 bodies / 143 boxes / 103 hull boxes | as_11, as_13, as_58 (55 PASS), T8.1-T8.9, stills |
+| 5 | Talal's local gun damage of 1000 | No code change. Known limit below | none |
+| 6 | A ship without PA bodies could never be boarded | Helm reach measured from the deck stood on; Warning in the log on the fallback | as_59 `T8.11_helm_on_hull_deck_S` |
+| 7 | The smoke captures showed no smoke | Camera off the port bow along the hull's side, the muzzles against the sky; frames at 0.1, 0.3 and 1.2 s read; the report line no longer claims what the pictures show. Final run: orange-brown puffs at both muzzles at 0.1 s, none at 0.3 s and 1.2 s. **Partly settled:** how much smoke is drawn differs between editor sessions (see the known limits) | as_59 T1.3 captures (INFO), T1.1 (components and their life) |
+| 8 | Cannonball splash was never tried on the real swarm; T2.8 skipped everywhere | as_62 `s_cannon` and `s_own`; as_59 `t2_own` | `SW.e1`, `SW.e2`, `T2.8_own_splash_pilot_aboard`, `T2.8_own_crew_splash_S` |
+| 9 | (nit) A ship removed under its pilot left him in place | `EndPlay(Destroyed)` ejects him | as_59 `T8.12_destroyed_ship_ejects_pilot_S` |
+
+Final runs on that build (2026-11-28, one full run each): as_59 standalone 55 PASS, 0 FAIL, 4 INFO, 13 SKIP; as_60
+listen 43 PASS, 0 FAIL, 1 INFO, 9 SKIP; as_62 real swarm 20 PASS, 0 FAIL, 1 INFO, 1 SKIP. No error or ensure in the
+editor logs. The older suites (as_43, as_45, the follow-up checks) were not run again after this review's two C++
+changes (the station reach back to one value, the eject of a destroyed ship's pilot).
+
+**Known limits of PR A**
+
+* **The turret stations are not reachable on foot.** The forward deck is 4.2 m above the main deck, the model has no
+  stairs, and F from the main deck is out of range (the capsule's centre is 3.5 m under the seat, the limit is 2 m).
+  A player gets there by hover and boost, or by the accidental jump + F under the forward deck. Stairs or a ladder come
+  with the model detail pass that follows PR A.
+* **Gun damage 1000 in Talal's tree** (his local `GE_GunShootDamage`): one turret bullet (4000) destroys a ship, one gun
+  hit a turret. The PIE suites must not be run there with that value. PR B sets ship damage for matches.
+* **The main deck of a hovering ship is 12.5 m or more above flat ground and F does nothing from below** (Talal 11-25).
+  The way up is the player's own flight: Space, Space, Space (hover), then Shift + W along the view. It is fast (26 m/s)
+  and has little braking of its own. From a platform beside the ship the hover alone is enough.
+* **Talal's StartupMap** (read from disk, not played): from the hex platform beside the placed ship the main deck is
+  7.9 m away and 3.5 m lower, inside a running jump (9.8 m for that drop). From the start floor it is 13.6 m up.
+* **How much cannon smoke is drawn differs between editor sessions.** "Stops within 1 s" is measured (T1.1: the
+  effect's components are gone 0.83 to 0.9 s after the shot). What the side camera shows, on the same build: in the
+  final run orange-brown puffs at both muzzles at 0.1 s and nothing at 0.3 s and 1.2 s; in one earlier session (11-27
+  13:54 UTC) a large grey cloud at 0.3 s and nothing at 1.2 s; in two short runs only sparks at 0.1 s. Never any
+  smoke at 1.2 s. Ruled out with one run each: Niagara's visibility culling, and spawning the effect once before the
+  shot. Not tried: a second broadside in the same session (if only the first shot after an editor start is thin, it
+  is the engine preparing the effect's shaders, not the asset). Someone should fire twice in PIE and look.
 
 ## Appendix A. New settings (`UAirshipSettings`, all `UPROPERTY(Config, EditAnywhere)`)
 

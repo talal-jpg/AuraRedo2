@@ -524,8 +524,10 @@ void AAirshipPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		}
 		else
 		{
-			// The ship goes away under its pilot (console, kill Z): give the character back
-			UnboardPilot(false);
+			// The ship goes away under its pilot (console, kill Z): give the character back, thrown clear like the crew of
+			// a ship shot down (EjectCrewAfterDeath). Not left in place at the wheel: that sets the character walking on
+			// planks that are gone a moment later and sends its machine a ship that is being destroyed (ClientLeftHelm).
+			UnboardPilot(true);
 		}
 	}
 
@@ -2098,10 +2100,7 @@ bool AAirshipPawn::IsWithinStationRange(int32 Station, const FVector& PawnLocati
 	const UAirshipSettings* Settings = UAirshipSettings::Get();
 	const FVector Delta = HullCollision->GetComponentTransform().InverseTransformPositionNoScale(PawnLocation) - StationSeatLocal[Station];
 
-	// The turrets stand on the forward deck, 4.2 m above the main deck, and the model has no stairs: F on the main deck
-	// under a turret takes the player up to it (TurretMountHeightBelow)
-	const float Below = Airship::IsCannonStation(Station) ? Settings->StationMountHeightBelow : Settings->TurretMountHeightBelow;
-	return Delta.Size2D() <= Settings->StationMountDistance && Delta.Z >= -Below && Delta.Z <= Settings->StationMountHeightAbove;
+	return Delta.Size2D() <= Settings->StationMountDistance && Delta.Z >= -Settings->StationMountHeightBelow && Delta.Z <= Settings->StationMountHeightAbove;
 }
 
 bool AAirshipPawn::MountGunner(ACharacter* Gunner, APlayerController* PC, int32 Station)

@@ -1,5 +1,11 @@
 # Round 2, PR A: editor scripts (assets owner)
 
+Status 2026-11-28 (second review, SPEC_A.md 6.9): PA_Airship rebuilt with closed deck seams and 7 deck prop boxes (35
+bodies, 143 boxes, 103 hull boxes), as_58 55 PASS + compile all_ok. One full run of each suite on the final build:
+as_59 standalone 55 PASS, 0 FAIL, 4 INFO, 13 SKIP (`Saved/Airship/round2_final_sa/`); as_60 listen 43 PASS, 0 FAIL,
+1 INFO, 9 SKIP (`Saved/Airship/round2_final_mp/`); as_62 real swarm 20 PASS, 0 FAIL, 1 INFO, 1 SKIP
+(`Saved/Airship/round2_final_swarm/`). No error or ensure in the three editor logs. Section "PIE runs 2026-11-28".
+
 Status 2026-11-27: step 6b run again (PA_Airship = the 96 hull boxes: 35 bodies, 136 boxes), as_13 145 PASS, step 4b
 `as_61_hull_ink.py` run (21 PASS; its first run FAILed at the slot assignment, see its section), as_58 54 PASS + compile
 all_ok, stills clean (`top_deck.png`: no black patches). as_59 standalone: 52 PASS, 0 FAIL, 4 INFO, 14 SKIP
@@ -343,7 +349,8 @@ writes `Saved/Airship/as_51_compile.json` / `as_54_compile.json` / `as_58_compil
 * Seen, not fixed: a gunner killed at the gun stays where he died in world space (CMC off, no physics), so on a moving
   ship the body hangs in the air while the ship moves on until the disintegration (1.6 s) and the respawn (5 s). The
   T1.3 captures can't show the puffs (white smoke against the white hull from that camera); the component count is the
-  measurement. The black rectangles of risk 7 show in `t7_top_top.png`.
+  measurement. (2026-11-28: the camera was moved, see "PIE runs 2026-11-28"; whether smoke shows is still open.) The
+  black rectangles of risk 7 show in `t7_top_top.png`.
 
 ### as_59 PIE run 2026-11-27 (standalone, helm and deck)
 
@@ -453,7 +460,8 @@ from the swarm's own combat processor.
   * as_62x stop;
   * the user's Play.
 * Not covered: T2.8. There is no damage dummy with its own ASC: no enemy Blueprint, and an unpossessed BP_MyCharMech has
-  no PlayerState. A gunner on a DRIVEN ship needs a second player (as_60).
+  no PlayerState. A gunner on a DRIVEN ship needs a second player (as_60). (2026-11-28: T2.8 is covered now, one role
+  at a time: as_62 `s_own` for the pilot, as_59 `t2_own` for a deck rider, a gunner and the pilot.)
 
 ### as_62 PIE run 2026-11-27 (standalone, real swarm; runner `_AirshipWork_logs/run_r2_swarm.sh`)
 
@@ -485,6 +493,47 @@ Two runs, 130.5 game s each, no script error, no error / ensure / LogMechSentine
   T6.7: 106 turret rounds, 86 damage events on sentinels (270 health), 3 kills. The hold (one attacking sentinel kept at
   hull (2900, -395, 1001) for 4 s): the Python trace's first Visibility hit is turret 0's HitBox.
 * Not covered, as before: T2.8, and a gunner on a driven ship under a real swarm (needs a second player).
+
+### PIE runs 2026-11-28 (second review; details CPP_NOTES.md 15.13, table SPEC_A.md 6.9)
+
+Assets stage first: `as_11b` (seams closed, 7 deck prop boxes), `as_11` 11 PASS, `as_13` 145 PASS, `as_58` 55 PASS
+with the compile check all_ok (35 bodies / 143 boxes / 103 hull boxes / 7 props; no slot along the centre line), the
+editor stills (`Saved/Airship/round2_final_sa/stills_assets_stage_1128/`: `top_deck.png` clean, the crates and barrels
+where the prop boxes are). as_58's band check got two measurement fixes with the new boxes: a box may reach half a
+survey cell past its region's x limit (the boxes now meet their neighbours instead of ending 5 cm short), and a
+prop's bottom is its deck hit minus 2.0 cm rounded to 0.1 (tolerance 2.05 instead of 2).
+
+**as_59 (standalone).** New default phases and checks:
+
+* `t2_own` / `T2.8_own_crew_splash_S`: L1's muzzle 1 m from the port wall; a deck rider, then L1's gunner, then the
+  pilot (a real port broadside) inside their own ship's splash: no health lost. "Inside" is the ball's own overlap
+  query repeated from Python (`in_splash`). The first version asked for less than 6 m to the character's centre: L1's
+  seat is 5 m inboard of its muzzle, the gunner's centre was 6.07 to 6.44 m from the burst and his capsule inside the
+  query all the same. The pilot's case first measured from the muzzles after the recoil had moved the ship 1.9 m.
+* `t8_lid` / `T8.11_helm_on_hull_deck_S`: the helm on a ship whose deck is the hull's collision.
+* `t8_gone` / `T8.12_destroyed_ship_ejects_pilot_S`: a third ship destroyed under its pilot.
+* `t1_port`: the T1.3 camera is off the port bow, frames at 0.1, 0.3 and 1.2 s plus the pilot's view at 0.2 s. Final
+  run: orange-brown puffs at both muzzles at 0.1 s, nothing at 0.3 s and 1.2 s. The amount of smoke differs between
+  editor sessions (CPP_NOTES.md 15.13, "Smoke captures").
+* Opt-in `t8_boost` (`AS59_ONLY="t8_boost"`, INFO, results kept in `Saved/Airship/round2_final_sa/t8_boost_1128/`):
+  `T8.B1` from the ground to the helm with Space x 3, Shift + W, Space, W, F (reached: the planks after 5.4 s of
+  flight, then the helm by F); `T8.B2` Space x 3 with W held: 353 cm up, 66 m level in 11 s until the harness ended
+  the hover, mana unchanged. Four runs to get there: Shift on the ground is a run, not a flight (run 1); with Shift +
+  W held all the way the player passes the ship at 26 m/s and leaves the platform (run 2); letting the keys go does
+  not stop the character in the air (run 3); steering against the motion lands it (run 4).
+* Removed again: `t5_deck` / T5.17 and the setting `TurretMountHeightBelow` from the first pass of this review (the
+  turret stations stay out of reach from the main deck: known limit, SPEC_A.md 6.9).
+
+**as_60 (listen).** New group `g9_` / `T5.8b_dismount_old_clock_L` (the client's move clock past 121 s when it
+leaves the gun). Before the C++ change, g9 alone: 186 refused moves, the server's copy did not move. After: both
+copies walk 833.6 cm; two lines are the engine's resend of a move it already has (a stamp 0.033 s behind), which the
+check does not count (the final full run had none: 833.7 cm, 0 refused). In the first full run the phase FAILed at its own setup: the client still stood on ship 1's
+deck from `g8_jump` (its movement base), ship and client were placed in the same frame, the based movement moved the
+client by the ship's jump as well and it fell to the ground, so its F found no gun. The ship is now placed first and
+the client a second later.
+
+**as_62 (real swarm).** New phases `s_own` (`T2.8_own_splash_pilot_aboard`) and `s_cannon` (`SW.e1_cannonball_flight`,
+`SW.e2_cannonball_splash`); both passed on their first run in the editor.
 
 ## Numbers and geometry the harness uses (L_AirshipTest, `as_22_test_map.py`)
 

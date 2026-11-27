@@ -236,7 +236,7 @@ public:
 	 */
 	bool CanMount(const ACharacter* Candidate, int32 Station) const;
 
-	/** Within StationMountDistance (horizontal, hull frame) of the station's seat, StationMountHeightBelow (turrets: TurretMountHeightBelow)..Above vertically. */
+	/** Within StationMountDistance (horizontal, hull frame) of the station's seat, StationMountHeightBelow..Above vertically. */
 	bool IsWithinStationRange(int32 Station, const FVector& PawnLocation) const;
 
 	/** Server: attaches Gunner at Station's seat (it stays possessed by PC) and lists it. False if not allowed (CanMount). */

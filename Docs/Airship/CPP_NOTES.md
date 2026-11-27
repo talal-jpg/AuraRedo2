@@ -955,14 +955,19 @@ than about 12.5 m over flat ground under the pods. L_AirshipTest: the ship is pl
 (top z 0) and holds 16.19 m, so the deck at the helm is 18.7 m up. StartupMap: the clone's map has no ship; Talal's
 local one has `BP_AirshipPawn_C_6` at z 1097 (SPEC_B.md B3.1) over the start floor (top z -4, decoded): 13.6 m. The mech
 jumps 176 cm (JumpZVelocity 588, gravity 980) and 353 cm with the air jump; hover holds height. So nobody jumps aboard
-from the ground: boost flight (GA_Boost flies along the view), the grapple (its trace is Visibility: it hooks the PA
-boxes), a platform at deck height, or PR B's ship hook.
+from the ground. What does work is the hover plus the boost (measured 2026-11-28, section 15.13): Space, Space, Space,
+then Shift + W flies along the view. Also a platform at deck height or above (hover across), or PR B's ship hook.
+**Not the grapple** (an earlier version of this paragraph said so): GA_GrappleSwing2 takes a hit only when its object
+type is in `RopeObjectTypes` (WorldStatic, WorldDynamic; the ship's Mesh is Pawn, the hull PhysicsBody) and refuses
+any pawn (`GA_GrappleSwing2.cpp:1240`).
 
 **The forward deck** (machine guns, top at hull z 653) is 419 cm above the main deck's forward end (234), more than the
 air jump. By jumps alone: the bow block under it (top 428, 194 cm up: needs the air jump, headroom 192 cm under the
 platform), then the 25 cm ledge beside the platform at x 2130..2245 (z 379), then an air jump up 274 cm onto the
-platform's edge. Not a route for play. Options for the lead: stairs or a ladder in the model with boxes from as_11b, or
-leave it to boost and grapple. No invisible ramp was added (the PA has no box where nothing is drawn).
+platform's edge. Not a route for play. **Known limit (lead, 2026-11-28):** nothing is changed in PR A, and the station
+reach stays 200 cm below the seat; stairs or a ladder come with the model detail pass, with boxes from as_11b. Until
+then the forward deck is reached by hover and boost. No invisible ramp was added (the PA has no box where nothing is
+drawn).
 
 **Harnesses** (setups only; thresholds as they were):
 
@@ -1109,3 +1114,78 @@ Results: `Saved/Airship/round2_final_swarm/`; the run before the C++ change: `Sa
 * Harness changes (as_62): texts for the new collision; the player is topped up inside a phase below 55 health and the
   amount is added back to that phase's loss (the first run lost the swarm to the safety cut in two phases, which left
   three checks at WARN); `s_empty` tops up at its start; `SW.a3` is a real check when the aim chance is on.
+
+### 15.13 Second review, 2026-11-27 / 28 (fixes and what was measured)
+
+* **A remote gunner's move clock (must fix 1).** `AAirshipPawn::DismountGunner` used to delete the server's
+  prediction state (`ResetPredictionData_Server`). A fresh state starts its copy of the client's clock at 0, and the
+  client's own clock is not reset by a dismount (only `ClientRestart` or the wrap at 240 s does that). A stamp more than
+  120 s above 0 reads as "a move from before the reset" (`IsClientTimeStampValid`), so the server refused every move
+  until the client's clock wrapped: up to two minutes of a gunner who walks on his own screen and stands still on the
+  server. Now the state is kept: `ServerTimeStamp` is set to the world time and `ResetForcedUpdateState()` is called
+  (the first forced update then covers a frame, not the whole mount), then `ForceClientAdjustment()`. Measured in as_60
+  `g9_clock` (`T5.8b`), the client's clock at 127 s when it mounts: before, 186 "TimeStamp expired ... CurrentTimeStamp:
+  0.000000" lines and the server's copy did not move; after, both copies walk 833.6 cm in 1.5 s. Two "expired" lines
+  remained in that run, each one frame (0.033 s) behind the server's clock: the engine's resend of a move it already
+  has (the old-move path logs the same text). The check counts only stamps more than 1 s off or the reset branch. The
+  final full run: the clock at 127.1 s, 833.7 cm on both machines, no expired line at all.
+* **Helm on a ship without physics-asset bodies (should fix 6).** `UpdateHelmStandHeight` traces the deck actually
+  stood on at the seat (`TraceDeckBelow`) and `IsWithinHelmReach` measures the height from it (`HelmStandLocalZ`).
+  With PA bodies that is the seat itself; on the fallback (the hull's lid, 2.45 m above the seat at the wheel) F works
+  again. `UpdateDeckCollision` logs a Warning when a ship with a skeletal mesh falls back to the hull's collision.
+  as_59 `T8.11`: `SetDeckOnPhysicsAsset(false)`, feet 245 cm above the seat, F takes the helm.
+* **A ship removed under its pilot (nit 9).** `EndPlay(Destroyed)` calls `UnboardPilot(true)`: thrown clear like the
+  crew of a ship shot down. Leaving in place would set the character walking on planks that are gone a moment later
+  and send its machine a ship that is being destroyed. as_59 `T8.12`: a third ship destroyed under the player; 0.2 s
+  later the character is possessed, falling, thrown up at 1068 cm/s, health unchanged, lands on the platform.
+* **Station reach (should fix 3): no change.** The first pass of this review added `TurretMountHeightBelow` (450) so
+  that F on the main deck reached a machine gun. It was taken out again on the lead's decision: every station uses
+  `StationMountHeightBelow` (200), and the turret stations are a known limit until the model has stairs.
+* **Deck boxes (should fix 4).** as_11b no longer shrinks a deck box where the hull goes on beyond that side:
+  neighbours overlap by 1 cm, so the 19 + 7 slots of 10 cm across the decks are closed. Seven boxes for the crates
+  and barrels on the main deck (`Hull_Props_00..06`, region Props). PA_Airship: 35 bodies, 143 boxes, 103 hull boxes.
+* **Getting aboard, measured with the game's own keys (must fix 2; as_59 opt-in phase `t8_boost`, INFO).** Shift on the
+  ground starts GA_BoostBP but the character stays `MOVE_Walking`: a run at 1200 cm/s. The boost flies only while the
+  character is `MOVE_Flying`, which is the hover (the third Space; `GA_Boost::CanActivateAbility` refuses a falling
+  character, not a hovering one). Hover: 353 cm above the take-off, level at 600 cm/s, 66 m in 11 s until the harness
+  ended it, mana 96 -> 96. Hover + Shift + W: up to 26 m/s along the view, 20.8 m above the ground after 1.43 s, mana
+  unchanged. In the air the character barely brakes by itself (13.9 m/s one second after the keys were let go), so the
+  harness steers against the motion. Run 4: from the ground 15 m to port of the helm to the planks in 5.4 s of flight
+  (W on in 96 frames), Space to drop, W to the wheel, F: at the helm. Nothing was added to the game for this.
+* **Talal's StartupMap, read from disk** (his local file of 11-26, a small package reader, no editor): the ship
+  "Airship" (`BP_AirshipPawn_C_6`) at (3700, 555, 1097), yaw -90, so its port side faces -X. `BP_MyHexPlatform1`:
+  112 tiles (HexPillar, scale 2, the mesh's pivot at its top) with their tops at z 1678.5; the nearest tile's edge is at
+  x 2265.5. The main deck's boxes there (`Hull_Main_08` / `09`, top at hull z 233.5 = world 1330.5) are 7.9 m away and
+  3.48 m lower. A running jump at 600 cm/s is in the air 0.6 s up and 1.03 s down for that drop: 9.8 m, so it lands
+  1.9 m inside the deck's edge (the rails have no collision). Worked out, not played. The forward deck (world z 1750)
+  is 0.7 m above the platform's top and 11.5 m away: hover across. From the start floor (top z -4) the deck is 13.6 m
+  up: hover and boost.
+* **Cannonballs and the real swarm (should fix 8).** as_62 `s_cannon`, final run: three balls of ship 1 from the muzzle
+  nearest to a sentinel, led by its velocity: three `OnSentinelDamaged` events with ship 1 as instigator, 48.39, 48.39
+  and 42.25 (the flight sweep, 1 m around the ball; all three 42.25 in the first run). Seven balls of ship 2 into ship
+  1's hull beside a sentinel 1.5 to 5.6 m off it: all seven burst on the hull (ship 1 lost health each time), ten
+  events with ship 2 as instigator, two sentinels killed. For the sentinel aimed at, the damage is 0.62 to 0.92 of 48.39
+  where the falloff for the distance at launch gives 0.62 to 0.82; the sentinels move, so the distance at the burst is
+  not the one at launch. A full hit is 42.25 or 48.39 depending on the sentinel: 60 x 100 / 142 and 60 x 100 / 124,
+  which fits two armour values in the base game's damage formula (inferred from the numbers, the formula was not
+  read), so these fractions are approximate. The balls are the ships' own class with the ship as source
+  (`SpawnTestCannonball`), aimed by the harness: a pilot's broadside has no lead and cannot be pointed at one
+  orbiting sentinel from Python. `s_own` (T2.8 with the pilot aboard): ship 2 parked 4.5 m beside ship 1; a real
+  starboard broadside costs ship 2 120 and a test ball 60 more, the burst 5 m from ship 1's hull; ship 1 and its
+  pilot lose 0. as_59 `T2.8`: a deck rider, L1's gunner and the pilot (a real port broadside 1 m from a wall) inside
+  their own ship's splash lose nothing; "inside" is the ball's own overlap query, repeated from Python.
+* **Smoke captures (should fix 7): partly settled.** T1.3's camera now looks from off the port bow along the hull's
+  side, the muzzles against the sky, with frames at 0.1, 0.3 and 1.2 s and the pilot's own view at 0.2 s (the pilot's
+  camera is 60 m off the starboard side there: too far to show a puff). Read, all on the same build with the same
+  harness: the final run has orange-brown puffs at both muzzles with the sparks and a ball in flight at 0.1 s, and
+  nothing at 0.3 s and 1.2 s; one earlier session (11-27 13:54 UTC) has a large grey cloud at 0.3 s and nothing at
+  1.2 s; two short runs have only sparks at L2 at 0.1 s, the cannons not yet in recoil. No frame of any run has smoke
+  at 1.2 s. Ruled out with one run each: `fx.Niagara.Scalability.VisibilityCulling 0`, and spawning the effect once
+  out of view before the broadside. Particle counts cannot be read from Python in 5.8
+  (`GetNiagaraParticlePositions_DebugOnly` is gone). So "nothing emits after 1 s" stands on T1.1 (2 components at
+  0.3 s, 0 at 1.5 s, life 0.83 to 0.9 s) and on the 1.2 s frames. Why the amount of smoke differs between editor
+  sessions is open; my guess, not tested, is the first shot after an editor start being drawn before the effect's
+  shaders are ready. A second broadside in the same session would tell.
+* **Known limit: the gun's damage in Talal's tree.** His local `GE_GunShootDamage` gives 1000 per hit (the clone: 1).
+  Turret bullets are 4 x that and ship and turret health are fixed numbers, so there one turret bullet (4000) destroys
+  a ship (2000) and one gun hit a turret (400). No code change in PR A; PR B sets ship damage for matches.

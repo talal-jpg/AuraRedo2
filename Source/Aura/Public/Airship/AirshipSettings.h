@@ -235,18 +235,14 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Stations", meta = (ClampMin = "0.0"))
 	float StationMountHeightAbove = 600.f;
 
-	/** How far (cm) the pawn may be below a cannon's seat. */
-	UPROPERTY(Config, EditAnywhere, Category = "Stations", meta = (ClampMin = "0.0"))
-	float StationMountHeightBelow = 200.f;
-
 	/**
-	 * How far (cm) the pawn may be below a turret's seat. The turrets stand on the forward deck, 4.2 m above the main deck,
-	 * and the model has no stairs: a player standing on the main deck under a turret (capsule centre 3.5 m under the
-	 * seat) presses F and is put on the gun; Dismount leaves them on the forward deck. StationMountHeightBelow's value
-	 * here means "only from the forward deck or a jump".
+	 * How far (cm) the pawn may be below the seat (cannons and turrets alike). Known limit: the turrets stand on the
+	 * forward deck, 4.2 m above the main deck, and the model has no stairs yet, so a player standing on the main deck
+	 * (capsule centre 3.5 m under a turret's seat) cannot man a turret with F. Not raised for that on purpose: stairs or a
+	 * ladder come with the model detail pass (Docs/Airship/round2/SPEC_A.md, known limits).
 	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Stations", meta = (ClampMin = "0.0"))
-	float TurretMountHeightBelow = 450.f;
+	float StationMountHeightBelow = 200.f;
 
 	/**
 	 * Cannon seat from the carriage bone (cm): X along the hull, Y inboard (mirrored for starboard), Z up. The default

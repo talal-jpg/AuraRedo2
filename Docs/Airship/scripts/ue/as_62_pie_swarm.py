@@ -66,6 +66,10 @@
 #               through. With Settings.SwarmTurretAimChance > 0 (C++, 2026-11-27)
 #               part of the bullets at a driven ship is aimed at a living turret
 #               instead: SW.a3 / SW.d1 then count real turret hits without holds.
+#  s_own 9      (f) no swarm. Board 0, Classic, ship 2 beside ship 1 (the hulls' sides      T2.8 the pilot aboard: ship 1's own balls burst on
+#               about 3 m apart, ship 2 1.5 m higher). 3.5 s: a real starboard         ship 2's hull inside their splash radius of ship
+#               broadside (RequestFire on the camera's side), 4.7 s: a test ball of     1's hull: ship 2 loses health, ship 1 and its pilot
+#               ship 1 from R1's muzzle at the nearest point of ship 2's hull.         lose none
 #  s_cannon 33  (e) DespawnAll, Board 0, ship 1 at P1, wave 1 from port. 9-19 s: 3     SW.e1 the flight sweep: OnSentinelDamaged with
 #               test balls of ship 1 (the cannonball class, source = the ship) from     ship 1 as instigator, the sentinel loses health;
 #               the nearest muzzle at a sentinel, led. 19-31 s: balls of ship 2 into    SW.e2 the burst's splash: events with ship 2 as
@@ -77,17 +81,16 @@
 # (2; 0 = no holds), AS62_JUMP_CM (2000, 0 = off), AS62_JUMP_S (4.0), AS62_MIN_HP (30), AS62_TOPUP_HP (55; 0 = off: inside
 # s_pilot / s_gunner / s_turret the player is topped up below it and the amount is added back to the phase's loss, so a
 # phase is not cut short by the safety), AS62_CAPS (True).
-# Not here: T2.8 (own-crew splash immunity) needs damage dummies on the deck: only GAS characters with their own ASC have
-# health to measure; the project has no enemy Blueprint (AMyEnemyChar is C++ only, its attributes come from a BP class
-# info), and BP_MyCharMech without a PlayerState has no ASC. Listen-server swarm cases (a gunner on a DRIVEN ship) are
-# as_60 territory.
+# T2.8 here is the pilot's case (s_own); a deck rider and a gunner inside their own ship's splash are as_59 T2.8 (one
+# player, one role at a time). Listen-server swarm cases (a gunner on a DRIVEN ship) are as_60 territory.
+# Full run 2026-11-28 (s_own and s_cannon for the first time): 20 PASS, 0 FAIL, 1 INFO, 1 SKIP.
 import json, math, os, time, traceback  # unreal = inbox namespace
 
 AS62_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_30_pie_smoke.py'
 _as62_src = open(AS62_AS30).read()
 exec(compile(_as62_src[:_as62_src.index('\nclass AsRun')], AS62_AS30, 'exec'), globals())   # OUT, MAP_NAME, SHIP_CLS, DMG_GE, v3, r, dist, wrap180, tl_get/tl_set, gp, valid, find_log
 
-AS62_VERSION = 'as_62_pie_swarm 2026-11-27, s_cannon'
+AS62_VERSION = 'as_62_pie_swarm 2026-11-28, s_own + s_cannon'
 SWDIR = os.path.join(OUT, 'round2_swarm')
 CAPS62 = os.path.join(OUT, 'captures', 'round2_swarm')
 TEMP62 = 'TEMP_AS62_'
@@ -114,8 +117,7 @@ MOUNTS_DEFAULT = [{'loc': [2100.0, -245.0, 655.0], 'ymin': -110.0, 'ymax': 30.0,
                   {'loc': [2100.0, 245.0, 655.0], 'ymin': -30.0, 'ymax': 110.0, 'pmin': -20.0, 'pmax': 40.0}]
 HITBOX_Z, HITBOX_EXT = 95.0, (60.0, 60.0, 95.0)  # AAirshipTurret: HitBox at (0, 0, 95), extent (60, 60, 95)
 SCHEME_NAMES62 = {0: 'CLASSIC', 1: 'GALLEON', 2: 'SKY_RACER', 3: 'POINT_FLY'}
-SKIPPED62 = {'T2.8': 'as_59 T2.8_own_crew_splash_S (a deck rider, then the gunner of L1, inside the splash of ship 1\'s own ball)',
-             'SW.b_driven': 'a gunner on a DRIVEN ship needs a second player (listen server, as_60 territory)'}
+SKIPPED62 = {'SW.b_driven': 'a gunner on a DRIVEN ship needs a second player (listen server, as_60 territory)'}
 TAGGED_PAT = 'Sentinel bullet hit tagged target '
 
 
@@ -378,7 +380,7 @@ class SwarmRun(object):
 
     def build_phases(self):
         ph = [('settle', 3.0), ('spawn2', 3.0), ('board', 2.5), ('s_pilot', 30.0), ('s_gunner', 25.0), ('s_empty', 22.0),
-              ('s_turret', 45.0), ('s_cannon', 33.0)]
+              ('s_turret', 45.0), ('s_own', 9.0), ('s_cannon', 33.0)]
         only = self.cfg.get('only')
         if only:
             keep = set(['settle', 'spawn2', 'board'] + list(only))
@@ -1808,6 +1810,90 @@ class SwarmRun(object):
         except Exception:  # noqa: BLE001
             self.err('hull_closest')
             return None, None
+
+    # ---- (f) T2.8, the pilot aboard (review 2026-11-27, should fix 8): the ship's own balls do not hurt it or its pilot. A
+    # ball ignores its own ship while it flies, so it cannot burst on its own hull: ship 2 is the wall, parked beside ship 1
+    # with the hulls' sides about 3 m apart and 1.5 m higher (a level ball meets its hull's side, not the air over its
+    # deck). The burst's splash (6 m, an overlap of Pawn / PhysicsBody / WorldDynamic bodies) then holds ship 1's own hull:
+    # a ship that is not the source loses 0.3 x the ball's damage there (the falloff is clamped past the radius) and its
+    # pilot the crew's share of that. First a real starboard broadside (AAirshipPawn::RequestFire: the camera's side,
+    # Classic so that no scheme logic turns the hull), then a test ball of ship 1 from R1's muzzle at the nearest point
+    # of ship 2's hull (the same class, damage spec and source as a fired one). No swarm in this phase.
+    OWN_GAP = 1950.0
+
+    def start_s_own(self):
+        self.despawn('s_own: no swarm in this phase')
+        self.D.update({'win': 'own'})
+
+    def own_state(self):
+        return {'s1': self.ship_hp(self.ship), 's2': self.ship_hp(self.ship2), 'pilot': self.health(self.char)}
+
+    def ph_s_own(self, el):
+        D, s, s2 = self.D, self.ship, self.ship2
+        if el >= 0.3 and 'board' not in D:
+            D['board'] = True
+            if not same(self.pawn(), s):
+                self.cmd('Aura.Airship.Board 0')
+        if el >= 0.8 and 'placed' not in D:
+            D['placed'] = True
+            self.set_scheme(s, 0)
+            self.teleport(s, P1, 0.0)
+            if valid(s2):
+                self.teleport(s2, (P1[0], P1[1] + self.OWN_GAP, P1[2] + 150.0), 0.0)
+            self.heal_if_low()
+        if el < 2.0 or not valid(s2):
+            return
+        if 'fired' not in D:
+            try:
+                self.pc.set_control_rotation(unreal.Rotator(0.0, -5.0, s.get_actor_rotation().yaw + 90.0))
+            except Exception:  # noqa: BLE001
+                self.err('own_view')
+            if el >= 3.5:
+                D['h0'] = dict(self.own_state(), piloting=same(self.pawn(), s))
+                mz = self.muzzles_w(s)
+                D['muzzle_to_ship2_cm'] = dict((c, r(self.hull_closest(s2, mz[c])[0], 0)) for c in ('R1', 'R2') if c in mz)
+                D['hulls_apart_cm'] = r(self.hull_closest(s2, self.hull_closest(s, v3(s2.get_actor_location()))[1] or mz.get('R1'))[0], 0)
+                D['fired'] = el
+                try:
+                    s.request_fire()
+                except Exception:  # noqa: BLE001
+                    self.err('request_fire')
+            return
+        if 'r1' not in D and el >= D['fired'] + 1.2:
+            D['r1'] = self.own_state()
+            mz = self.muzzles_w(s).get('R1')
+            d, q = self.hull_closest(s2, mz) if mz else (None, None)
+            if q is not None and d and d > 1.0:
+                self.test_ball(mz, [(q[i] - mz[i]) / d * BALL_SPEED62 for i in range(3)], s)
+                d1, _ = self.hull_closest(s, q)
+                D['tb'] = {'flight_cm': r(d, 0), 'burst_to_ship1_hull_cm': r(d1, 0) if d1 is not None else None}
+            D['t2'] = el
+        if 'r1' in D and 'r2' not in D and el >= D['t2'] + 1.0:
+            D['r2'] = self.own_state()
+            D['phase_done'] = True
+
+    def end_s_own(self):
+        D = self.D
+        h0, r1, r2 = D.get('h0') or {}, D.get('r1') or {}, D.get('r2') or {}
+
+        def lost(a, b, k):
+            return r(a[k] - b[k], 2) if a.get(k) is not None and b.get(k) is not None else None
+        real2, test2 = lost(h0, r1, 's2'), lost(r1, r2, 's2')
+        s1, pilot = lost(h0, r2, 's1'), lost(h0, r2, 'pilot')
+        tb = D.get('tb') or {}
+        near = tb.get('burst_to_ship1_hull_cm') is not None and tb['burst_to_ship1_hull_cm'] < 600.0
+        burst = (real2 or 0.0) > 0.0 or ((test2 or 0.0) > 0.0 and near)
+        ok = bool(h0.get('piloting')) and burst and s1 == 0.0 and pilot == 0.0
+        self.check('T2.8_own_splash_pilot_aboard', 'PASS' if ok else 'FAIL', 'ship 1 driven (%s), Classic, ship 2 parked beside it: the hulls %s cm apart, '
+                   'the starboard muzzles %s cm from ship 2\'s hull. A real starboard broadside (RequestFire): ship 2 lost %s. A test ball of ship 1 '
+                   'from R1\'s muzzle at the nearest point of ship 2\'s hull (%s): ship 2 lost %s (want > 0 from at least one: the ball burst '
+                   'there, inside the 6 m splash radius of ship 1\'s own hull). Over both: ship 1 lost %s, its pilot %s (want 0 and 0; a ship '
+                   'that is not the source loses 0.3 x the ball\'s damage inside the radius and its pilot %s x that)' % (
+                       h0.get('piloting'), D.get('hulls_apart_cm'), D.get('muzzle_to_ship2_cm'), real2, tb, test2, s1, pilot, self.share),
+                   {'h0': h0, 'r1': r1, 'r2': r2, 'test_ball': tb})
+        self.set_scheme(self.ship, self.cfg['scheme'])
+        if valid(self.ship2):
+            self.teleport(self.ship2, P2, 0.0)
 
     def start_s_cannon(self):
         self.despawn('s_cannon: a fresh wave')

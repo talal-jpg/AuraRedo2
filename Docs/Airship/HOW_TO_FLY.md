@@ -158,24 +158,38 @@ quarter of it. A gunner on a ship nobody drives is the swarm's target himself: m
 Changed 2026-11-27 (your two points of 11-25, and "no need to make the character climb"). Built, not yet play-tested.
 
 * **The deck.** You walk on the planks now. Before, you stood on an invisible lid 1.2 to 2.9 m above them. The wheel,
-  its pedestal, the cannons, the winches and the searchlight posts are solid; the rails are not (you can walk off the
-  edge). A walking player no longer pushes the hovering ship.
+  its pedestal, the cannons, the winches, the searchlight posts and the crates and barrels on the main deck are solid;
+  the rails are not (you can walk off the edge). A walking player no longer pushes the hovering ship.
 * **Taking the helm.** Stand behind or beside the wheel and press **F**. You must be within 1.5 m of the spot the pilot
   stands on (55 cm behind the wheel) and at deck height (within 1 m). In front of the wheel does not count. Both numbers
   are in Project Settings > Game > Airship (`HelmReach`, `HelmReachHeight`).
 * **Leaving the helm.** **F** leaves you where you stood while driving, behind the wheel, facing the bow, and you walk
-  with the ship. You are no longer moved 2.5 m to port, and you are not thrown. Only when the ship dies, or its damage
-  would kill you, are you thrown clear as before.
+  with the ship. You are no longer moved 2.5 m to port, and you are not thrown. Only when the ship dies or is removed
+  under you, or its damage would kill you, are you thrown clear as before.
 * **Under or beside the hull, F does nothing.** There is no climb aboard. A hovering ship keeps its nozzles at least
   4 m above the ground, so its main deck is never lower than about 12.5 m over flat ground: 18.7 m in `L_AirshipTest`
   (the ship is placed 16 m up), 13.6 m for the ship in your StartupMap (at z 1097, the start floor's top at z -4). A
-  jump reaches 1.76 m and the air jump 3.5 m, and hover only holds your height, so you cannot jump aboard from the
-  ground. You get there by boost flight or the grapple, by stepping across from a platform the ship is parked beside at
-  deck height, or later with PR B's ship hook.
+  jump reaches 1.76 m and the air jump 3.5 m, so you cannot jump aboard from the ground.
+* **How you get aboard: fly.** Space, Space at the top, Space again: you hover 3.5 m up. Now hold **Shift + W**: the
+  boost flies you where you look, up as well. Fly up beside the ship, come in over the planks, let go, and press Space
+  once more to drop out of the hover onto the deck. Then walk to the wheel and press F. Measured in PIE with these keys
+  and nothing else: from the ground 15 m beside the parked ship to the helm, 5.4 s in the air, no mana used.
+  * Shift on the ground does not fly: there the boost is a run at twice the walking speed. It flies only while you
+    hover.
+  * The flight is fast (up to 26 m/s) and you keep your speed when you let go. Steer against your motion to stop.
+  * Hover alone moves level at 6 m/s for as long as you like (66 m in the test, no mana used), so from a platform at
+    deck height or above you can also cross to the deck with Space, Space, Space and W.
+  * The grapple does **not** take you aboard. Its rope refuses the ship (it hooks only world geometry, never a pawn).
+    An earlier version of this page said it did.
+  * In your StartupMap the hex platform beside the ship (`BP_MyHexPlatform1`) has its top 3.5 m above the main deck
+    and 7.9 m from it. A running jump from its edge lands on the deck: 9.8 m of reach for that drop, worked out from
+    the measured jump and walking speed. I read your map from disk and did not play it. Back up to the platform needs
+    the hover and the boost.
 * **The forward deck** (the machine guns) is 4.2 m above the main deck and has no stairs. The air jump does not reach
-  it from the main deck. Boost or the grapple do. Tell me if you want stairs or a ladder there: that is a model change.
-  One way works today by accident: jump under the forward deck near a machine gun and press F at the top of the jump.
-  The gun is then in range, you are put on it, and leaving it puts you on the forward deck.
+  it from the main deck, and F does not reach a machine gun from the main deck either. **Known limit:** on foot you
+  get there only by hover and boost (as above). Stairs or a ladder come with the model detail pass after this PR. One
+  way works today by accident: jump under the forward deck near a machine gun and press F at the top of the jump. The
+  gun is then in range, you are put on it, and leaving it puts you on the forward deck.
 * **Jumping on deck in flight.** A jump or air jump on the deck stays with the ship: you come down where you took off,
   at any speed, and a direction key turns only your own movement. Jump past the rail and you leave the ship with its
   speed. Hovering does not hold you to the ship: it flies on without you (read from the code, not flown yet).

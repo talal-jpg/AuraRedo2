@@ -143,6 +143,9 @@
 # server refused every move of that client until its clock wrapped: up to 2 minutes. Every earlier run dismounted the
 # client with a young clock. The phase reads the clock from the server's log (LogNetPlayerMovement VeryVerbose for 0.4 s:
 # "TimeStamp x Accepted!"), waits until it is past 125 s, and only then mounts and dismounts. It ends itself when done.
+# Full run 2026-11-28 on the fixed build: 43 PASS, 0 FAIL, 1 INFO, 9 SKIP (T5.8b: the clock at 127.1 s, both copies walk
+# 833.7 cm, no move refused). The first full run that day failed T5.8b in its own setup (the ship and the client standing
+# on it were placed in the same frame; see ph_g9_clock).
 import json, math, os, re as _re, time, traceback  # unreal = inbox namespace
 
 AS60_AS30 = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_30_pie_smoke.py'
@@ -200,7 +203,7 @@ SKIPPED = {
     'T5.15': 'standalone (as_59 T5.15 S); the ragdoll rule runs on every machine but is not driven here',
     'T4.5': 'not in as_60 (a ship firing at another ship\'s manned station)',
     'T8.1': 'not in as_60 (F under the hull: as_59 T8.1 S; the helm at the wheel and the exit in place: as_59 T8.2-T8.7, here T8.4 L)',
-    'T2.8': 'needs 3 players (a rider, a gunner and the pilot)',
+    'T2.8': 'all three roles at once need 3 players; one role at a time: as_59 T2.8_own_crew_splash_S and as_62 T2.8_own_splash_pilot_aboard',
     'T3.5': 'L_AirshipTest has no swarm spawner', 'T6.7': 'L_AirshipTest has no swarm spawner',
     'T7.x': 'Blender / captures: as_59 and the Blender checks',
 }
@@ -3391,11 +3394,19 @@ class R60(object):
         st = D['st']
         if st == 'roles':
             if el >= 1.0 and (not self.croles or self.croles.get('done')):
-                self.tship(s, SPAWN, 0.0)
-                p, traced = self.near_seat_point(s, 0, self.cchar_s)
-                D['pt'] = {'hull': r(self.rel(s, p), 0), 'traced': traced}
-                self.tp_client(p, self.yaw(s) - 90.0)
-                D['st'], D['t'] = 'probe1', el + 0.5
+                # The ship first, the client a second later. In the full run the client still stands on ship 1's deck
+                # from g8 (its movement base), 200 m from SPAWN: placed in the same frame as the ship, the based movement
+                # then moved it by the ship's own jump as well, to 217 m beside the ship, and it fell to the ground (first
+                # full run 2026-11-28: "F refused (no free helm or gun in range)" 83 s later). The g9-only runs had the
+                # ship at SPAWN already.
+                if 'ship_tp' not in D:
+                    D['ship_tp'] = el
+                    self.tship(s, SPAWN, 0.0)
+                elif el >= D['ship_tp'] + 1.0:
+                    p, traced = self.near_seat_point(s, 0, self.cchar_s)
+                    D['pt'] = {'hull': r(self.rel(s, p), 0), 'traced': traced}
+                    self.tp_client(p, self.yaw(s) - 90.0)
+                    D['st'], D['t'] = 'probe1', el + 0.5
         elif st == 'probe1':
             res = self.stamp_probe('g9_p1', el, D['t'])
             if res is not None:
