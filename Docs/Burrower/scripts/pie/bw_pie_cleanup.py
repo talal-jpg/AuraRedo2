@@ -46,8 +46,10 @@ else:
                 unreal.ToolsetLibrary.set_object_properties(unreal.get_default_object(unreal.load_class(None, '/Script/UnrealEd.LevelEditorPlaySettings')), json.dumps(
                     {'PlayNetMode': str(pl.get('PlayNetMode')), 'PlayNumberOfClients': int(pl.get('PlayNumberOfClients', 1)), 'RunUnderOneProcess': bool(pl.get('RunUnderOneProcess', True))}))
             unreal.SystemLibrary.execute_console_command(None, 'Aura.Burrower.DebugRotorBox %d' % int(_bwc_o.get('cvar_debug_rotor_box', 0) or 0))
+            if 'cvar_match_enable' in _bwc_o:
+                unreal.SystemLibrary.execute_console_command(None, 'Aura.Match.Enable %d' % int(_bwc_o['cvar_match_enable']))
             os.replace(_bwc_rp, _bwc_rp + '.restored')
-            print('PASS: restored settings, fixed frame rate, play settings and CVar from the file')
+            print('PASS: restored settings, fixed frame rate, play settings and CVars from the file')
         except Exception as e:
             print('FAIL: restore from %s raised %r (restart the editor: all of it is in memory only)' % (_bwc_rp, e))
     else:

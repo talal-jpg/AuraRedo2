@@ -12,21 +12,28 @@ class UPrimitiveComponent;
 struct FHitResult;
 
 /**
- * Server: what an unpiloted ship does this frame (UAirshipFlightComponent::UpdateUnpilotedMode). A later lane cruise
- * fills the same target (a moving hold point with its own velocity), so the force and heading hooks in ApplyForces
- * don't change.
+ * Server: what an unpiloted ship does this frame (UAirshipFlightComponent::UpdateUnpilotedMode). A team ship's lane
+ * (round 2 PR B, UAirshipLaneComponent) fills the same target in Lane mode: a moving hold point with its own velocity
+ * and acceleration, and a height.
  */
 struct FAirshipUnpilotedTarget
 {
 	EAirshipUnpilotedMode Mode = EAirshipUnpilotedMode::None;
 	/** Drift: target speed along HeadingYaw (cm/s). */
 	float ForwardSpeed = 0.f;
-	/** Drift / Hold: world yaw to hold (deg). */
+	/** Drift / Hold / Lane: world yaw to hold (deg). */
 	float HeadingYaw = 0.f;
-	/** Hold: centre of mass target (world XY, cm). */
+	/** Hold / Lane: centre of mass target (world XY, cm). */
 	FVector2D HoldPoint = FVector2D::ZeroVector;
-	/** Hold: target velocity (cm/s), 0 when parked. */
+	/** Hold / Lane: target velocity (cm/s), 0 when parked. */
 	FVector2D HoldVelocity = FVector2D::ZeroVector;
+	/** Lane: the altitude loop follows HoldZ (world Z of the hull origin, cm) at ClimbRate. */
+	bool bHasHoldZ = false;
+	float HoldZ = 0.f;
+	/** Lane: how fast the held altitude follows HoldZ (cm/s); 0 = UMyMatchSettings::LaneClimbRate. A recall over the field sets its own. */
+	float ClimbRate = 0.f;
+	/** Lane: the target's own acceleration (cm/s^2), fed forward so the ship doesn't trail a ramping target. */
+	FVector2D HoldAccel = FVector2D::ZeroVector;
 };
 
 /**
@@ -116,6 +123,35 @@ public:
 
 	/** Server, every hull contact (AAirshipPawn::OnHullHit): a drift ends on a contact at the bow. */
 	void NotifyHullContact(const AActor* Other, const FHitResult& Hit);
+
+	/**
+	 * Server, every frame before UpdateFlight (UAirshipLaneComponent, round 2 PR B): this frame's lane target (Mode is
+	 * forced to Lane). It wins over drift / hold when flight is on, the ship is alive, no debug input is active, and
+	 * there is no pilot or bAssist (lane assist: the pilot's aim and fire bits pass, his drive is cleared). A frame
+	 * without a call leaves Lane through None (hold if slow, else coast; a drift asked for by an exit still starts).
+	 */
+	void SetLaneTarget(const FAirshipUnpilotedTarget& Target, bool bAssist);
+
+	/** Server: the drift's distance limit (cm from the exit point) instead of UAirshipSettings::DriftMaxDistance; 0 = the setting's. */
+	void SetDriftMaxDistanceOverride(float Distance) { DriftMaxDistanceOverride = FMath::Max(0.f, Distance); }
+
+	float GetDriftMaxDistanceOverride() const { return DriftMaxDistanceOverride; }
+
+	/**
+	 * Server: the pilot drove this frame (the drive-intent bit, or a drive axis / button of the controls used:
+	 * |axis| > 0.05, boost, brake, a Galleon order other than STOP). False without a pilot. The lane assist reads it.
+	 */
+	bool HasPilotDriveInput() const { return bPilotDriveInput; }
+
+	/** Server: the lane target of this frame won and came with bAssist (the pilot's drive is cleared this frame). */
+	bool IsLaneAssistActive() const { return bLaneAssistThisFrame; }
+
+	/**
+	 * Server: the hull's box (the drift look-ahead's, inset and lifted off the ground) swept Distance (cm) along the
+	 * world yaw HeadingYaw. True if something the hull would bump into is in the way (the drift's rules: characters,
+	 * cannonballs, pawns that aren't ships and the ship's own attachments don't count). OutHit: the first such hit.
+	 */
+	bool SweepHullAhead(float HeadingYaw, float Distance, FHitResult* OutHit) const;
 
 	UFUNCTION(BlueprintPure, Category = "Airship|Flight")
 	float GetBoostFuel() const { return BoostFuel; }
@@ -1121,6 +1157,9 @@ private:
 	 */
 	bool SweepDriftAhead(UPrimitiveComponent* Body, float ForwardSpeed, float& OutDistance) const;
 
+	/** The box sweep of SweepDriftAhead / SweepHullAhead along HeadingYaw. LogContext: the log line's reason (null = no log). */
+	bool SweepHullBox(const UPrimitiveComponent* Body, float HeadingYaw, float Distance, FHitResult* OutHit, const TCHAR* LogContext) const;
+
 	/** The drift's look-ahead length (cm) at ForwardSpeed (cm/s along the drift heading): see SweepDriftAhead. */
 	float GetDriftLookAheadDistance(float ForwardSpeed) const;
 
@@ -1223,6 +1262,15 @@ private:
 	float DriftSpeedLimit = 0.f;
 	/** A bow contact or the look-ahead sweep: the drift ends next evaluation. */
 	bool bDriftBlocked = false;
+
+	// Lane (server, round 2 PR B): SetLaneTarget's target and the frame it was set, the drift limit override, the
+	// pilot's drive this frame (HasPilotDriveInput) and whether the lane assist cleared it
+	FAirshipUnpilotedTarget LaneTarget;
+	uint64 LaneTargetFrame = 0;
+	bool bLaneTargetAssist = false;
+	bool bLaneAssistThisFrame = false;
+	float DriftMaxDistanceOverride = 0.f;
+	bool bPilotDriveInput = false;
 	double NextDriftSweepTime = 0.0;
 	bool bBrakeWasHeld = false;
 	float HoldZ = 0.f;

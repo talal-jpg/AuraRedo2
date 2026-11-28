@@ -18,10 +18,21 @@
 #include "Interfaces/MyPlayerInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Match/MyTeamLibrary.h"
+#include "NativeGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "PlayerInput/MyPlayerController.h"
 #include "PlayerInput/MyPlayerController2.h"
 #include "StaticLib/MyBPFuncLib.h"
+
+// Named, not anonymous: the unity build compiles this file together with others
+namespace MyAttributeSetPrivate
+{
+	// Loose tag a new team ship puts on its own ASC and its turrets' (AAirshipPawn::SetSpawnProtected, server) until its
+	// team first boards it or the protection time runs out. Registered here too, so this gate never depends on the
+	// airship code having registered it first (a native tag defined twice is one tag).
+	UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_MyAttributeSet_SpawnProtected, "Airship.State.SpawnProtected");
+}
 
 UMyAttributeSet::UMyAttributeSet()
 {
@@ -65,7 +76,13 @@ void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 	{
 		const float LocalIncomingDamage=GetIncomingDamage();
 		SetIncomingDamage(0.f);
-		if (LocalIncomingDamage>0.f)
+		// Spawn protection: a freshly spawned team ship (and its turrets) takes no damage at all, whatever the source
+		// (gun, beam, splash, cannonballs, turret rounds, sentinel bullets, hull impacts all end here). No Health loss
+		// also means no crew share
+		const bool bSpawnProtected=Data.Target.HasMatchingGameplayTag(MyAttributeSetPrivate::TAG_MyAttributeSet_SpawnProtected);
+		// The lobby and its countdown: no damage at all (SPEC_B_LOBBY 3.3), unless UMyMatchSettings::bLobbyDamage
+		const bool bLobbyNoDamage=UMyTeamLibrary::IsDamageOff(GetOwningActor());
+		if (LocalIncomingDamage>0.f && !bSpawnProtected && !bLobbyNoDamage)
 		{
 			const float NewHealth=GetHealth()-LocalIncomingDamage;
 			SetHealth(FMath::Clamp(NewHealth,0.0f,GetMaxHealth()));

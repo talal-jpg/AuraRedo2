@@ -8,6 +8,8 @@ A Spider-Man style grapple swing, written as a predicted Gameplay Ability plus a
 
 In one sentence: **press** (in the air) to search for an anchor above and ahead and fire a short hook flight; **hold** to swing on a real pendulum that keeps your momentum; **let go** for a vault that depends on where in the arc you release; **keep holding** to let go automatically at the end of each arc and fire the next web at the apex.
 
+**Ship hook** (round 2 PR B, `Docs/Airship/round2/SPEC_B.md` B7): with the crosshair on an airship's hull within 120 m, the same press reels you in onto its deck instead of swinging. See section 10.
+
 ---
 
 ## 1. Mind map
@@ -133,7 +135,8 @@ mindmap
 |---|---|---|
 | `UGA_GrappleSwing2` | The ability: input, anchor search, network messages, starting and ending the swing, the rope cue. Instanced per actor, **Local Predicted**. | Owning client and server |
 | `FRootMotionSource_GrappleSwing2` | The swing simulation. The CharacterMovementComponent (CMC) runs it every move, so it is predicted, saved, replayed on corrections and checked by the server like normal movement. | Inside the CMC on owning client and server |
-| `FGameplayAbilityTargetData_GrappleSwing2` | Everything both machines build the swing from. The owning client sends it once per swing. | Client to server |
+| `FRootMotionSource_GrappleReel2` | The ship hook reel (section 10): a moving, deterministic anchor on a ship's deck, run by the CMC like the swing. | Inside the CMC on owning client and server |
+| `FGameplayAbilityTargetData_GrappleSwing2` | Everything both machines build the swing (or the ship reel) from. The owning client sends it once per swing. | Client to server |
 | `FGrappleSwing2Tuning` | Every number the simulation reads. The ability hands a shared, read-only copy to each source, so client and server simulate with the same values without sending them. | Both |
 | `FGS2MoveCtx` | Per-move context for the simulation (position, up, gravity, input, jump, dt). | Inside `PrepareRootMotion` |
 | `FGS2AnchorCandidate`, `FGS2SearchCtx` | Search result and search inputs. | Owning client |
@@ -154,10 +157,10 @@ stateDiagram-v2
     Searching --> Hooked: anchor found, committed, StartSwing
     Searching --> Rejected: CommitAbility fails (client) / ServerValidate fails (server)
     Searching --> Idle: button released, or nothing found with bSearchWhileHeld off
-    Hooked --> Releasing: button released (RequestEnd)
-    Hooked --> Rejected: server rejected the hook (OnServerRejected), button held
+    Hooked --> Releasing: button released (RequestEnd; a ship reel just runs on)
+    Hooked --> Rejected: server rejected the hook or dropped the ship reel (OnServerRejected), button held
     Hooked --> Idle: Released/AutoReleased/Snapped/TooClose/Forced, or released with no source (EndLocal)
-    Hooked --> Spent: Landed / JumpReleased / Timeout, button still held
+    Hooked --> Spent: Landed / JumpReleased / Timeout / Arrived (ship reel), button still held
     Releasing --> Idle: source finished, or server rejected (EndLocal)
     Spent --> Idle: button released, or walked off a ledge after landing (refire)
     Spent --> Rejected: late server rejection
@@ -363,6 +366,8 @@ All in Class Defaults of `GA_BPGrappleSwing2`.
 
 **Grapple | Network**: `ServerStartTolBase` 200, `ServerStartTolSpeedTime` 0.25, `ServerRangeTolerance` 300, `ServerFloorTolerance` 25, `ServerLOSAnchorSlack` 30, `MaxStartLead` 1, `MaxReleaseLead` 1, `RootMotionPriority` 500.
 
+**Grapple | ShipHook** (section 10): `MaxShipHookDistance` 12000 (0 = off), `bShipHookOwnTeamOnly` true, `ShipReelSpeed` 3000, `ShipReelArriveDistance` 250, `ShipReelMaxTime` 5, `ShipReelLiftFraction` 0.25, `ShipReelLiftMax` 800, `ShipReelTargetHeight` 150, `ShipReelDeckHalfWidth` 300, `ShipReelDeckInset` 300, `ShipReelDeckBoxMargin` 200, `ShipReelLeaveUpSpeed` 200, `ShipHookMaxShipSpeed` 3000, `ShipHookMaxDrift` 600, `ShipHookLatencyAllowance` 0.3, `ShipHookMaxVelocityError` 500.
+
 **Grapple | Visuals**: `RopeCueTag` GameplayCue.GrappleRope, `bDrawDebug` false.
 
 **Grapple | Swing** (`FGrappleSwing2Tuning`):
@@ -416,3 +421,67 @@ Shift is shared with `GA_Boost`. Boost's `CanActivateAbility` refuses while Fall
 - The search needs a PlayerController, so an AI-controlled character never finds an anchor.
 - Fired while looking against the motion, a short press while rising fast backward at a low hook can pull less than a plain attach, and a tap during a slow backward drift keeps some of that drift.
 - Not yet play-tested in a real client/server session (only in the editor). The look-against-the-motion attach is checked only in simulation so far.
+- The ship hook (section 10) is built and compiles but has not run in PIE yet (SPEC_B tests T6.1-T6.4, M7.2).
+
+---
+
+## 10. Ship hook (reel onto an airship)
+
+Round 2 PR B, `Docs/Airship/round2/SPEC_B.md` B7. Lane ships sit 14-84 m beyond the nearest platform edge and move, so the swing can't reach them: its anchors are static geometry only, at most 40 m away, at least 2.5 m above the attach point, and fixed in the world. The ship hook is a separate **reel** with its own range and a moving anchor that both machines compute the same way.
+
+### 10.1 What the player does
+
+Aim the crosshair at a ship's hull, or a turret on it, within `MaxShipHookDistance` (120 m), in the air, and press the grapple. The hook flies there (the same `TravelTime` as a swing hook, at most 0.16 s), then the rope reels you in at `ShipReelSpeed` (30 m/s on top of the ship's own velocity) and drops you onto the deck. There's no pendulum.
+
+- **A tap is enough.** Letting go of the button does not end a reel. **Jump** lets go mid-reel (`bJumpReleases`), keeping the reel velocity.
+- With the button still held when you land, the ability goes to **Spent** (no re-fire until the button goes up), as after a swing landing.
+- Who you can hook: the match rule `bGrappleShips` (`UMyTeamLibrary::GetRules`). With no match running the ship hook is off and the grapple is exactly the one before it (a ship is a pawn and never an anchor), unless `UMyMatchSettings::bShipHookOutsideMatch` (default off) lets free ships be hooked outside a match too (then `DefaultRules.bGrappleShips` decides). With `bShipHookOwnTeamOnly` (default on, open question Q1) only your own team's ship and free ships (`UMyTeamLibrary::CanUseShip`). Off: any ship, the enemy's deck included.
+- What can't be hooked: a dead ship; a ship faster than `ShipHookMaxShipSpeed` (30 m/s, above the lane's top speed of 28 m/s, so a lane ship is never refused); a deck target closer than 5 m (you're already there); a hull that is right above you (the reel would only push into its bottom); a rope blocked by static geometry (the ship and everything attached to it don't count, so the turrets' WorldDynamic hit boxes don't block it).
+
+### 10.2 Search (owning client)
+
+1. Before the usual search, and before the auto-chain's apex wait: one crosshair ray, on `GrappleTraceChannel`, `max(MaxGrappleDistance, MaxShipHookDistance)` long. If it hits an `AAirshipPawn`, or an actor attached to one (up to 4 parents: the turrets), `EvaluateShipHit` decides. A valid ship hit wins at once, since aiming at a ship is deliberate. The aim assist cone and the fan never pick ships.
+2. If the ship hit is refused, the normal search runs as before: its crosshair ray still sees the ship as a pawn and rejects it, so the swing behaves exactly as it did.
+3. **Deck target** (`FindShipDeckTarget`, in the hull's space, from the hidden hull body's own bounds): the aimed point's X clamped to `ShipReelDeckInset` inside the bow and stern, Y clamped to `ShipReelDeckHalfWidth` of the centre line. Then a line trace on the hull only, straight down from hull Z `max(1500, top + 100)`, the way `AAirshipPawn::UnboardPilot` finds the deck. It needs an upward-facing hit (the walkable lid, `Docs/Airship/CPP_NOTES.md` section 3); where the hull is narrower than its box, it tries nearer the centre line, then the middle. The target is that point plus `ShipReelTargetHeight` (1.5 m).
+   - Why near the centre line: the reel ends 2.5 m short of the target, on the side it came from. The deck is 3.8-8.4 m half-width (`research_blender.md` 4.1), so a target 3 m from the centre line or closer keeps that arrival over the deck.
+4. The target data carries `bShipReel`, `AnchorActor` (the ship, through the package map), `TargetHullLocal`, `AnchorVelocity` (the ship's velocity at the target: linear plus angular x r) and `Anchor` (the world target now, at `ClientStartTime`). A reel sends no chain count, no look-against-the-motion direction and no floor.
+
+### 10.3 The reel (`FRootMotionSource_GrappleReel2`, both machines)
+
+The same pattern as the swing: an Override source the CMC runs every move, predicted, saved and replayed, started on the server at the client's `ClientStartTime`, and ended at a time on the source clock. The anchor moves at a constant velocity, so the client and the server compute the same point at every move without seeing the ship at the same time:
+
+```
+A(t)   = AnchorStart + AnchorVelocity * t          t = the source clock (0 at ClientStartTime)
+Aim(t) = A(t) + Up * min(ShipReelLiftMax, ShipReelLiftFraction * |A(t) - X|)    over the gunwale, not into the side
+V      = AnchorVelocity + ShipReelSpeed * normalize(Aim(t) - X)                  (AnchorVelocity alone once within the arrive distance)
+```
+
+V depends only on the position and the time, so replays after a correction converge. With the lift, the reel settles onto a line about 14 degrees above the target, so it comes down onto the deck.
+
+Each move, in this order:
+
+| Order | Reason | Condition | Velocity out |
+|---|---|---|---|
+| a | `Forced` / `Released` | `EndTime` reached (only the ability ending sets it) | The reel velocity |
+| b | `JumpReleased` | Jump pressed, after `MinSwingTimeAfterAttach` | The reel velocity |
+| c | `Arrived` | Within `ShipReelArriveDistance` of A(t); or standing on the ship (the base is the hull or attached to it); or over the deck (hull space: the deck strip `ShipReelDeckHalfWidth` + margin wide, within `ShipReelDeckBoxMargin` of the target's height, and the hull within half height + margin straight below) | `AnchorVelocity + Up * ShipReelLeaveUpSpeed` |
+| d | `Timeout` | `ShipReelMaxTime` (5 s) after the hook arrived | The same as c |
+
+The checks in c that read the ship use this machine's view of it, so client and server may end a move apart: the CMC corrects the last metres. Otherwise the source moves in substeps of at most `MaxSubstepDt` (the swing's tuning), and outputs the displacement as its velocity, like the swing. The leave velocity is kept (`MaintainLastRootMotionVelocity`), so the player falls onto the lid and becomes a rider.
+
+### 10.4 Server
+
+- **Validation** (`ServerValidateReel`, after the usual start-location check): the ship valid, alive, the rule on, the team rule; the ship no faster than `ShipHookMaxShipSpeed + ShipHookMaxVelocityError`; `TargetHullLocal` inside the hull's own box (plus the target height); the server's own hull point (its hull transform times `TargetHullLocal`) within `ShipHookMaxDrift` (6 m) + ship speed x `ShipHookLatencyAllowance` (0.3 s) of A at the server's source time; `AnchorVelocity` within `ShipHookMaxVelocityError` (5 m/s) of the ship's velocity there; range within `MaxShipHookDistance` plus the usual tolerances; the rope line of sight past the ship and everything attached to it. Each rejection logs one line (`LogGrappleSwing2`, "ship hook N rejected by the server: why").
+- **The ship holds still**: on a valid reel (and for the listen server's own reel) the server calls `AAirshipPawn::NotifyIncomingReel(Character, true)`, and `(Character, false)` when the reel ends: finished, dropped, the ability ended, or at the latest `MaxHookTravelTime + ShipReelMaxTime + 1 s` after it started (a timer; the ship also expires the entry by itself after `IncomingReelSafetySeconds`). While a reel is registered the lane keeps its speed and heading, so the reel's straight anchor line stays on the hull.
+- **During the reel** (`Poll`, every frame): the same drift allowance between the server's hull point and A(t). Beyond it, or with the ship dead or gone, the reel is dropped (`DropReel`, one log line "ship reel N ended by the server: why"): for a remote client the server finishes its own copy on the next move with the velocity kept and sends the existing reject (`OnServerRejected` removes the client's source and the rope; the player falls, the CMC corrects the moves in between); for the listen server's own player a forced end on the next move, then **Spent** while the button stays held. A piloted ship that turns or brakes leaves the anchor line by design.
+
+### 10.5 Rope and animation
+
+- `GetGrappleSwing2State` returns the moving anchor A(t) during a reel, the distance to it as the rope length, and taut. The rope cue's `Location` is still the start point: on machines that only have the cue (other clients) the rope end may lag the ship (cosmetic).
+- `GetGrappleSwing2Phase` returns -1 (the pose where the rope pulls) during the hook flight and the whole reel; a reel has no arc.
+- `bDrawDebug`: the ship ray is cyan when it is taken, magenta when refused (the reason goes to the screen and the log like the other search rejects); during the reel the debug rope runs to A(t).
+
+### 10.6 What the ship hook reads from other code
+
+- `UMyTeamLibrary::IsMatchActive`, `GetRules` (`bGrappleShips`), `CanUseShip`; `UMyMatchSettings::DefaultRules`.
+- `AAirshipPawn::GetHull`, `IsAirshipDead`, `NotifyIncomingReel`. The hull's velocity from its physics body (`GetPhysicsLinearVelocity`, `GetPhysicsLinearVelocityAtPoint`).

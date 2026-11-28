@@ -7,7 +7,9 @@
 #include "AbilitySystemInterface.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Components/SphereComponent.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Match/MyTeamLibrary.h"
 
 
 // Sets default values
@@ -34,6 +36,12 @@ AMyProjectile::AMyProjectile()
 void AMyProjectile::BeginPlay()
 {
 	Super::BeginPlay();
+	// GA_Projectile spawns it without an instigator and the spec doesn't replicate: the caster from the spec's context
+	// becomes the (replicated) instigator, so clients make the same team decision on overlap as the server
+	if (HasAuthority() && !GetInstigator())
+	{
+		SetInstigator(Cast<APawn>(DamageEffectSpec.GetContext().GetInstigator()));
+	}
 	CollisionSphere->OnComponentBeginOverlap.AddDynamic(this,&ThisClass::OnSphereBeginOverlapCallback);
 }
 
@@ -41,6 +49,13 @@ void AMyProjectile::OnSphereBeginOverlapCallback(UPrimitiveComponent* Overlapped
 {
 	if (IAbilitySystemInterface* AbilityIF= Cast<IAbilitySystemInterface>(OtherActor))
 	{
+		// Match: a teammate (or his team's ship) is flown through, neither damaged nor stopping the fireball (no burst
+		// either). The caster: the instigator (set in BeginPlay), else the spec's context
+		const AActor* Caster=GetInstigator()?GetInstigator():DamageEffectSpec.GetContext().GetInstigator();
+		if (UMyTeamLibrary::IsFriendlyFireBlocked(Caster,OtherActor))
+		{
+			return;
+		}
 		UAbilitySystemComponent* ASC=AbilityIF->GetAbilitySystemComponent();
 		ASC->ApplyGameplayEffectSpecToSelf(DamageEffectSpec);
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(),BurstNiagaraSystem,GetActorLocation());

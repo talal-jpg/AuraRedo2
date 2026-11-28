@@ -6,10 +6,12 @@
 #include "Engine/NetSerialization.h"
 #include "Engine/TimerHandle.h"
 #include "GameFramework/PlayerController.h"
+#include "Match/MyMatchTypes.h"
 #include "MyPlayerController2.generated.h"
 
 class UMainMenu;
 class UPauseMenu3;
+class IMyLobbyPanel;
 class UGA_Beam;
 class UMaterialInterface;
 class UCameraComponent;
@@ -33,6 +35,9 @@ class UMechSentinelSwarmSubsystem;
  */
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMenuButtonPressedDelegateSignature, bool, bIsAttribMenuButton);
+
+/** AMyPlayerController2::OnLobbyMessage: a lobby refusal, the zone's "stay in the lobby", a swap notice (SPEC_B_LOBBY 4.8). */
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnLobbyMessage, const FText& /*Message*/);
 
 // One damage number for a hit on a Mech Sentinel, sent from the server to the player who dealt it
 USTRUCT()
@@ -99,8 +104,63 @@ public:
 	UPROPERTY(EditAnywhere, Category="Menu")
 	TSubclassOf<UPauseMenu3> PauseMenuClass;
 	
+	// Esc. In the lobby (with the pause menu closed) it opens / closes the registered lobby panel instead (SPEC_B_LOBBY 6.1)
 	UFUNCTION(BlueprintCallable, Category="Menu")
 	void TogglePauseMenu();
+	
+	// Opens the pause menu (the lobby panel's MENU button). Local controllers only
+	UFUNCTION(BlueprintCallable, Category="Menu")
+	void OpenPauseMenu();
+	
+	UFUNCTION(BlueprintPure, Category="Menu")
+	bool IsPauseMenuOpen() const;
+	
+	// Opens the pause menu on its Leave Session confirm (the lobby panel's LEAVE), so the host-left kick stays in one place
+	void OpenLeaveSessionConfirm();
+	
+	// -------------------------------------------------------------------------
+	// Lobby (Docs/Airship/round2/SPEC_B_LOBBY.md 4.8): the lobby widget's requests. All Server, Reliable, checked on the
+	// server (AMyGameMode); the host-only ones refuse everybody else. A refusal (or a pending swap) answers with
+	// ClientLobbyMessage. On a listen server the host's own calls run locally, so his widget takes the same route.
+	// -------------------------------------------------------------------------
+	
+	/** A client's ready flag (the host has none). */
+	UFUNCTION(Server, Reliable)
+	void ServerLobbySetReady(bool bReady);
+	
+	/** Ask for a team: a move when the teams stay within one, a swap with a player who asked for the opposite, else pending. 255 (or the own team) cancels a request. */
+	UFUNCTION(Server, Reliable)
+	void ServerLobbyRequestTeam(uint8 TeamId);
+	
+	/** Host: the rules and Max Players (AMyGameMode::ApplyLobbyRules). The widget sends one 0.75 s after the last edit. */
+	UFUNCTION(Server, Reliable)
+	void ServerLobbySetRules(const FMyMatchRules& Rules, int32 MaxPlayers);
+	
+	/** Host: start the lobby countdown. bForce = the second click (soft blocks ignored). */
+	UFUNCTION(Server, Reliable)
+	void ServerLobbyStart(bool bForce);
+	
+	/** Host: cancel the lobby countdown. */
+	UFUNCTION(Server, Reliable)
+	void ServerLobbyCancelStart();
+	
+	/** Host: move TargetPlayer to TeamId (a swap with one of that team when it is full). (Not "Player": UHT refuses a name APlayerController has.) */
+	UFUNCTION(Server, Reliable)
+	void ServerLobbyMovePlayer(APlayerState* TargetPlayer, uint8 TeamId);
+	
+	/** Server -> this player: a lobby message (logged on the receiving machine, then OnLobbyMessage). Reliable: refusals and
+	 *  the pending-swap notice are the only answer a request gets, and they are rare (player actions, the zone's put-back). */
+	UFUNCTION(Client, Reliable)
+	void ClientLobbyMessage(const FText& Text);
+	
+	/** Local machine: every ClientLobbyMessage (the lobby widget shows it for 3 s). */
+	FOnLobbyMessage OnLobbyMessage;
+	
+	/** The lobby widget registers itself (an IMyLobbyPanel) in NativeConstruct, null in NativeDestruct. */
+	void SetLobbyPanel(UObject* Panel);
+	
+	/** The registered lobby panel, or null (no lobby widget: Esc opens the pause menu). */
+	IMyLobbyPanel* GetLobbyPanel() const;
 	
 	UPROPERTY(BlueprintReadOnly)
 	FVector2D FlyBoostingMoveInput=FVector2D::ZeroVector;
@@ -223,10 +283,21 @@ public:
 	// Sent by AGameSession::KickPlayer. Keeps the reason for the main menu and goes back to it
 	virtual void ClientWasKicked_Implementation(const FText& KickReason) override;
 	
+	// Server, the controller is going away (logout, disconnect). The engine destroys the possessed pawn: a pilot's pawn is
+	// his team's ship, which would cost the team a ship for a disconnect. A team ship is given back unpiloted instead (it
+	// cruises or holds) and only the pilot's character goes (SPEC_B B1.4). Free ships: the engine's (PR A)
+	virtual void PawnLeavingGame() override;
+	
 	private:
 	
 	UPROPERTY()
 	TObjectPtr<UPauseMenu3> PauseMenu;
+	
+	// SetLobbyPanel's widget (an IMyLobbyPanel)
+	TWeakObjectPtr<UObject> LobbyPanel;
+	
+	// Creates PauseMenu on first use; false without PauseMenuClass
+	bool EnsurePauseMenu();
 	
 	// Options > Gameplay > Field of View, added on top of the camera's own FOV like the hit impact kick
 	void TickFieldOfViewSetting();

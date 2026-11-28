@@ -214,6 +214,47 @@ quarter of it. A gunner on a ship nobody drives is the swarm's target himself: m
 * At rest: it holds its spot and heading, without the slow creep it had before.
 * Gunners on board don't change this.
 
+## Team match: your team's ship on its lane
+
+In a team match (StartupMap, or any map with `Aura.Match.Enable 1`) each team has one ship. It flies a lane just
+outside the platforms, one on each side of the path. Ships you spawn with `Aura.Airship.Spawn`, and every ship outside
+a match, work as above.
+
+### Your ship and the other team's
+
+* Only your team can take your ship's helm or man its guns. F next to the other team's ship does nothing, and the HUD
+  tells you whose ship it is. The "Press F" prompt and `Aura.Airship.Board` pick your own ship even when the other one
+  is nearer.
+* Anyone can still stand on any deck. Your ship's guns and cannonballs spare your teammates, never an enemy on your
+  deck.
+* Your team's guns, cannonballs and splash don't hurt your teammates, your ship or its guns (unless the host turns
+  friendly fire on). A pilot still takes his quarter of the ship's damage.
+* In a match a character-gun hit does 5 to a team ship or its machine guns, and a machine-gun bullet 4, whatever the
+  gun's own damage is.
+* Sentinels only shoot at a ship somebody drives. An undriven ship takes no sentinel damage, also on its machine guns.
+
+### The lane
+
+* Nobody at the helm: the ship cruises along its lane at 6 m/s, faster (up to 28 m/s) when it has to catch up with
+  your team, and waits ahead of the team or short of the end of the path.
+* Take the helm of a cruising ship and leave the drive keys alone: the lane keeps flying it (**LANE AUTO**). You aim
+  and fire the broadside and the machine guns as usual. In Point & Fly the camera is in its free look; the first drive
+  key (W/S, A/D, Q/E, Space/Ctrl, Shift, X) gives you the helm, and the ship turns to where you look.
+* Flying in the lane and back to a stop with no keys for 1 s (Point & Fly: with the camera parked): the lane takes over
+  again.
+* Leave the helm while the ship is in its lane and slower than 8 m/s: it cruises on. Leave it anywhere else: it drifts
+  and holds as above, and after 20 s it flies itself back to its lane.
+* The pilot's panel has a LANE row: your team, the shield while the ship is protected, your team's ship lives, and what
+  the ship does now or what leaving the helm would do (`IN LANE - EXIT = CRUISE`, `IN LANE - SLOW DOWN TO PARK (8 m/s)`,
+  `LANE 35 m <- - EXIT = DRIFT + HOLD, BACK IN 20 s`). Gunners see the same row, with `RETURNS TO LANE IN n s`.
+
+### Ship lives
+
+* A new ship is protected (no damage) until your team takes its helm or mans a gun, or for 15 s.
+* A destroyed ship throws its crew off; over the void they die by the fall and respawn as usual. The next ship comes
+  in your lane 10 s later, as long as your team has lives left.
+* A pilot who leaves the game leaves the ship behind: it is not destroyed.
+
 ## The other schemes
 
 Classic, Galleon and Sky Racer share one key layout: A/D turn, Q/E strafe, and the mouse only looks. Only what
@@ -331,5 +372,8 @@ until the next switch.
 | `Aura.Airship.TurretFire <0/1> [x y z]` | **Round 2.** The unmanned machine guns fire at the point (default 100 m ahead) / stop |
 | `Aura.Airship.TurretDamage <0/1> <n>` / `Aura.Airship.StationFire <player> [x y z] [seconds]` | **Round 2.** Damage a machine gun / fire a player's gun at a point |
 | `Aura.Airship.Set Settings.<name> <value>` | **Round 2.** A project setting of the airship on this machine (for example `Settings.DriftSpeed 0`) |
+| `Aura.Airship.Telemetry` (a fourth line) | **Team match.** Each ship's team, lane state, progress, distance from its lane, target speed, what holds it back, the recall and protection timers |
 
-`Docs/Airship/CPP_NOTES.md` section 6 lists the arguments, section 14 the control-scheme code.
+The team match's own commands (`Aura.Match.*`, `Aura.Lane.*`) are in `Docs/Airship/round2/SPEC_B.md` Appendix B.
+`Docs/Airship/CPP_NOTES.md` section 6 lists the arguments, section 14 the control-scheme code, section 16 the team
+match's ship code.

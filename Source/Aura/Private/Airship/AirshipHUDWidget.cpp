@@ -13,10 +13,15 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/World.h"
 #include "Fonts/FontMeasure.h"
 #include "Framework/Application/SlateApplication.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
+#include "Match/MyMatchSettings.h"
+#include "Match/MyMatchTypes.h"
+#include "Match/MyTeamLibrary.h"
+#include "MyGameState.h"
 #include "Rendering/DrawElements.h"
 #include "Rendering/SlateRenderer.h"
 #include "Styling/CoreStyle.h"
@@ -152,15 +157,24 @@ void UAirshipHUDWidget::SetAirship(AAirshipPawn* InAirship)
 
 FVector2D UAirshipHUDWidget::GetPanelSize() const
 {
+	// Team ships (round 2 PR B): the LANE row in both panels
+	const float LaneExtra = IsTeamShipLayout() ? LaneRowHeight : 0.f;
+
 	if (GunnerStation >= 0)
 	{
-		return GunnerPanelSize;
+		return GunnerPanelSize + FVector2D(0.0, LaneExtra);
 	}
 
 	// Every scheme: the PILOT and GUNS rows (round 2)
 	const float Extra = (LayoutScheme == EAirshipControlScheme::Galleon ? GalleonExtraHeight
-		: (LayoutScheme == EAirshipControlScheme::SkyRacer ? SkyRowHeight : 0.f)) + PilotRowHeight + GunsRowHeight;
+		: (LayoutScheme == EAirshipControlScheme::SkyRacer ? SkyRowHeight : 0.f)) + PilotRowHeight + GunsRowHeight + LaneExtra;
 	return PanelSize + FVector2D(0.0, Extra);
+}
+
+bool UAirshipHUDWidget::IsTeamShipLayout() const
+{
+	const AAirshipPawn* Ship = Airship.Get();
+	return Ship && Ship->GetTeamId() != MyMatch::NoTeam;
 }
 
 void UAirshipHUDWidget::SetGunnerStation(AAirshipPawn* InAirship, int32 InStation)
@@ -243,6 +257,7 @@ void UAirshipHUDWidget::RefreshValues(float DeltaSeconds, bool bForceAltitude)
 	}
 
 	RefreshCrewValues(Ship);
+	RefreshLaneValues(Ship, Telemetry, true);
 
 	// The ground under the ship: a trace every AltitudeTraceInterval
 	AltitudeTimer -= DeltaSeconds;
@@ -790,6 +805,12 @@ int32 UAirshipHUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Al
 			Box(FVector2f(DotX, GunsY), FVector2f(DotSize, DotSize), bManned ? TagBrush : TrackBrush, FLinearColor::White, Layer);
 			DotX += DotSize + 3.f;
 		}
+
+		// ---- LANE (round 2 PR B, team ships): team, shield, lives; what the lane does or what an exit does
+		if (bLaneRow)
+		{
+			PaintLaneRow(AllottedGeometry, OutDrawElements, Layer, InWidgetStyle, FVector2f(Pad, GunsY + GunsRowHeight), Panel.X - 2.f * Pad);
+		}
 	}
 
 	// Sky Racer: the panel outline flashes the tier colour on a mini-turbo release
@@ -1069,6 +1090,7 @@ void UAirshipHUDWidget::RefreshGunnerValues()
 	const FAirshipFlightTelemetry Telemetry = Ship->GetFlightTelemetry();
 	Health = Telemetry.Health;
 	HealthAlpha = Telemetry.MaxHealth > 0.f ? FMath::Clamp(Telemetry.Health / Telemetry.MaxHealth, 0.f, 1.f) : 0.f;
+	RefreshLaneValues(Ship, Telemetry, false);
 
 	// Where the gun points now (this machine's barrel or turret): a turret 100 m along its barrel, a cannon where its ball
 	// would come down at the aim's distance (its arc lifts the barrel above the crosshair)
@@ -1177,7 +1199,8 @@ int32 UAirshipHUDWidget::PaintGunner(const FGeometry& AllottedGeometry, FSlateWi
 	// ---- The panel, bottom-left ----------------------------------------------------------------------------------------
 	const float Pad = 12.f;
 	const float ShadowOffset = 5.f;
-	const FVector2f PanelSizeF(GunnerPanelSize);
+	// Team ships: the LANE row under the hull (round 2 PR B)
+	const FVector2f PanelSizeF(GunnerPanelSize + FVector2D(0.0, bLaneRow ? LaneRowHeight : 0.f));
 	const FVector2f Origin(24.f, Size.Y - 24.f - PanelSizeF.Y);
 	const FVector2f Panel(PanelSizeF.X - ShadowOffset, PanelSizeF.Y - ShadowOffset);
 	Layer += 4;
@@ -1261,5 +1284,177 @@ int32 UAirshipHUDWidget::PaintGunner(const FGeometry& AllottedGeometry, FSlateWi
 		Text(FVector2f(ValueX - MeasureWidth(Value, ValueFont), Y - 1.f), Value, ValueFont, InkColor, Layer);
 	}
 
+	// Team ships: the LANE row (read only: the gunner sees what the ship does and when it flies itself home)
+	if (bLaneRow)
+	{
+		Y += BarHeight + 8.f;
+		Layer = PaintLaneRow(AllottedGeometry, OutDrawElements, Layer, InWidgetStyle, FVector2f(Origin.X + Pad, Y), Panel.X - 2.f * Pad);
+	}
+
 	return Layer + 3;
+}
+
+void UAirshipHUDWidget::RefreshLaneValues(const AAirshipPawn* Ship, const FAirshipFlightTelemetry& Telemetry, bool bForPilot)
+{
+	bLaneRow = Ship && Ship->GetTeamId() != MyMatch::NoTeam;
+
+	if (!bLaneRow)
+	{
+		return;
+	}
+
+	const uint8 Team = Ship->GetTeamId();
+	const UMyMatchSettings* Settings = UMyMatchSettings::Get();
+	TeamTag = UMyTeamLibrary::GetTeamName(Team).ToString();
+	TeamTagColor = UMyTeamLibrary::GetTeamColor(Team);
+	ShieldSeconds = Telemetry.ProtectionLeftS;
+
+	// Ship lives (the match bar has both teams'; this is the own one): lives left once the match runs, the start value
+	// before; solo practice counts the lost ships instead (unlimited ships)
+	LivesText.Reset();
+	const UWorld* World = Ship->GetWorld();
+	const AMyGameState* GameState = World ? World->GetGameState<AMyGameState>() : nullptr;
+
+	if (GameState && GameState->GetMatchPhase() != EMyMatchPhase::None)
+	{
+		const FMyTeamState& Own = GameState->GetTeamState(Team);
+		const FMyTeamState& Other = GameState->GetTeamState(static_cast<uint8>(1 - FMath::Min<int32>(Team, 1)));
+		const EMyMatchPhase Phase = GameState->GetMatchPhase();
+		const bool bSolo = Settings->bSoloPracticeUnlimitedShips && Own.bActive && !Other.bActive && Own.NumPlayers <= 1;
+		const bool bRunning = Phase == EMyMatchPhase::InProgress || Phase == EMyMatchPhase::Ended;
+		const int32 Lives = bRunning ? Own.LivesLeft : GameState->GetMatchRules().ShipLives + Own.BonusLives;
+
+		LivesText = bSolo ? FString::Printf(TEXT("SHIPS LOST %d"), Own.ShipsLost) : FString::Printf(TEXT("LIVES %d"), Lives);
+	}
+
+	// The lane line, from the replicated lane state and hint (SPEC_B B8.6): what the lane does, and on the pilot's
+	// panel what an exit does now
+	const EMyLaneState State = static_cast<EMyLaneState>(Telemetry.LaneState);
+	const EMyLaneClamp Clamp = static_cast<EMyLaneClamp>(Telemetry.LaneClamp);
+	const float HorizontalMS = FMath::Sqrt(FMath::Square(Telemetry.ForwardSpeedMS) + FMath::Square(Telemetry.LateralSpeedMS));
+	const float ParkMS = Settings->LaneParkSpeed * 0.01f;
+	bLaneAlert = false;
+
+	switch (State)
+	{
+	case EMyLaneState::Assist:
+		LaneText = bForPilot ? TEXT("LANE AUTO - W/S/A/D TAKE THE HELM") : TEXT("LANE AUTO (PILOT AIMS)");
+		break;
+
+	case EMyLaneState::PilotedInLane:
+		if (!bForPilot)
+		{
+			LaneText = TEXT("IN LANE - PILOT FLIES");
+		}
+		else if (HorizontalMS <= ParkMS)
+		{
+			LaneText = TEXT("IN LANE - EXIT = CRUISE");
+		}
+		else
+		{
+			LaneText = FString::Printf(TEXT("IN LANE - SLOW DOWN TO PARK (%d m/s)"), FMath::RoundToInt(ParkMS));
+		}
+		break;
+
+	case EMyLaneState::OutOfLane:
+	{
+		// Which side of the hull the lane is on: the hint's sideways error is along the lane's right (start frame)
+		const float Relative = FMath::DegreesToRadians(Telemetry.LaneYawDeg - Telemetry.YawDeg);
+		const bool bLaneToRight = -FMath::Sign(Telemetry.LaneLateralErrorM) * FMath::Cos(Relative) > 0.f;
+		const FString Where = FString::Printf(TEXT("LANE %d m %s"), FMath::RoundToInt(FMath::Abs(Telemetry.LaneLateralErrorM)), bLaneToRight ? TEXT("->") : TEXT("<-"));
+
+		if (bForPilot)
+		{
+			LaneText = Settings->bShipRecall
+				? FString::Printf(TEXT("%s - EXIT = DRIFT + HOLD, BACK IN %d s"), *Where, FMath::RoundToInt(Settings->ShipRecallDelay))
+				: FString::Printf(TEXT("%s - EXIT = DRIFT + HOLD"), *Where);
+		}
+		else
+		{
+			LaneText = FString::Printf(TEXT("%s - PILOT FLIES"), *Where);
+		}
+		bLaneAlert = true;
+		break;
+	}
+
+	case EMyLaneState::Cruising:
+		LaneText = Clamp == EMyLaneClamp::Bypass ? FString(TEXT("LANE - GOING ROUND A BLOCKER"))
+			: FString::Printf(TEXT("LANE CRUISE %d m/s"), FMath::RoundToInt(HorizontalMS));
+		break;
+
+	case EMyLaneState::Waiting:
+		switch (Clamp)
+		{
+		case EMyLaneClamp::TeamPace: LaneText = TEXT("LANE - WAITING FOR THE TEAM"); break;
+		case EMyLaneClamp::PathEnd: LaneText = TEXT("LANE - AT THE PATH END"); break;
+		case EMyLaneClamp::Blocked: LaneText = TEXT("LANE - BLOCKED AHEAD"); break;
+		case EMyLaneClamp::NotStarted: LaneText = TEXT("LANE - MATCH STARTS SOON"); break;
+		case EMyLaneClamp::Ended: LaneText = TEXT("LANE - MATCH OVER"); break;
+		case EMyLaneClamp::Reel: LaneText = TEXT("LANE - HOLDING FOR A HOOK"); break;
+		default: LaneText = TEXT("LANE - WAITING"); break;
+		}
+		break;
+
+	case EMyLaneState::Parked:
+		LaneText = Telemetry.RecallInS > 0.f
+			? FString::Printf(TEXT("PARKED - RETURNS TO LANE IN %d s"), FMath::CeilToInt(Telemetry.RecallInS))
+			: FString(TEXT("PARKED OUT OF LANE"));
+		bLaneAlert = true;
+		break;
+
+	case EMyLaneState::Returning:
+		LaneText = TEXT("RETURNING TO LANE");
+		break;
+
+	default:
+		LaneText = TEXT("NO LANE");
+		break;
+	}
+}
+
+int32 UAirshipHUDWidget::PaintLaneRow(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 Layer, const FWidgetStyle& InWidgetStyle,
+	const FVector2f& TopLeft, float Width) const
+{
+	using namespace AirshipHUDPrivate;
+
+	const FLinearColor Opacity = InWidgetStyle.GetColorAndOpacityTint();
+	const FVector2f Size(AllottedGeometry.GetLocalSize());
+	const FSlateFontInfo LabelFont = FCoreStyle::GetDefaultFontStyle(TEXT("Black"), 11);
+	const FSlateFontInfo ValueFont = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 11);
+	const FSlateFontInfo SmallFont = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 9);
+	const FSlateFontInfo TinyFont = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 8);
+
+	auto Box = [&](const FVector2f& Position, const FVector2f& BoxSize, const FSlateBrush& Brush, const FLinearColor& Tint, int32 InLayer)
+	{
+		FSlateDrawElement::MakeBox(OutDrawElements, InLayer, AllottedGeometry.ToPaintGeometry(BoxSize, FSlateLayoutTransform(Position)), &Brush,
+			ESlateDrawEffect::None, Brush.GetTint(InWidgetStyle) * Tint * Opacity);
+	};
+
+	auto Text = [&](const FVector2f& Position, const FString& String, const FSlateFontInfo& Font, const FLinearColor& Color, int32 InLayer)
+	{
+		FSlateDrawElement::MakeText(OutDrawElements, InLayer, AllottedGeometry.ToPaintGeometry(FVector2f(Size.X, Font.Size * 1.6f), FSlateLayoutTransform(Position)),
+			String, Font, ESlateDrawEffect::None, Color * Opacity);
+	};
+
+	// The team's tag in its colour (ink text: both team colours are light), the shield while protected, the lives
+	const FString Tag = TeamTag.IsEmpty() ? FString(TEXT("TEAM")) : TeamTag;
+	const float TagWidth = MeasureWidth(Tag, LabelFont) + 10.f;
+	Box(TopLeft + FVector2f(-4.f, -2.f), FVector2f(TagWidth, 18.f), FillBrush, TeamTagColor, Layer);
+	Text(TopLeft + FVector2f(1.f, -1.f), Tag, LabelFont, InkColor, Layer + 1);
+
+	if (ShieldSeconds > 0.f)
+	{
+		Text(TopLeft + FVector2f(TagWidth + 4.f, 1.f), FString::Printf(TEXT("SHIELD %d s"), FMath::CeilToInt(ShieldSeconds)), SmallFont, BoostColor, Layer);
+	}
+
+	if (!LivesText.IsEmpty())
+	{
+		Text(FVector2f(TopLeft.X + Width - MeasureWidth(LivesText, ValueFont), TopLeft.Y - 1.f), LivesText, ValueFont, InkColor, Layer);
+	}
+
+	// The lane line: 9 pt, 8 pt when that doesn't fit the panel
+	const FSlateFontInfo& LineFont = MeasureWidth(LaneText, SmallFont) <= Width ? SmallFont : TinyFont;
+	Text(TopLeft + FVector2f(0.f, 20.f), LaneText, LineFont, bLaneAlert ? HullColor : InkColor, Layer);
+
+	return Layer + 2;
 }

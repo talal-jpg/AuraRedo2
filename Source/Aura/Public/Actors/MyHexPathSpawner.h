@@ -158,6 +158,25 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Sentinel Waves")
 	int32 GetFirstSegmentWithSentinelWave() const { return FirstSegmentWithSentinelWave; }
 
+	// -------------------------------------------------------------------------
+	// Path frame for the team lanes (UMyLaneSubsystem). Server values: StartYaw and StartZ are set in BeginPlay on the
+	// server only, so read them once the first segment has spawned.
+	// -------------------------------------------------------------------------
+
+	/** World yaw (deg) of the start heading: the path wanders around it by up to MaxYawDeviation. */
+	float GetStartYaw() const { return StartYaw; }
+
+	/** World Z of the path's first point. */
+	double GetStartZ() const { return StartZ; }
+
+	/** Reach of the platform field across the path on each side (cm, world): SegmentBoundsHalfWidth x layout scale. */
+	float GetPathHalfWidth() const { return SegmentBoundsHalfWidth * GetLayoutScale(); }
+
+	float GetMaxYawDeviation() const { return MaxYawDeviation; }
+
+	/** A player on foot this close (cm, world, 2D) to the end of the path grows it. */
+	float GetExtendDistanceWorld() const { return ExtendDistance * GetLayoutScale(); }
+
 protected:
 
 	virtual void BeginPlay() override;

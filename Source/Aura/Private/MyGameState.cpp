@@ -7,16 +7,53 @@
 #include "MyPlayerState.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
+#include "Actors/MyEffectActor.h"
 #include "Actors/MyHexPlatform.h"
+#include "Match/MyMatchSettings.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
+
+AMyGameState::AMyGameState()
+{
+	for (int32 Index = 0; Index < MyMatch::NumTeams; ++Index)
+	{
+		Teams[Index].TeamId = static_cast<uint8>(Index);
+	}
+}
 
 void AMyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMyGameState, PlayerRanking);
+
+	DOREPLIFETIME(AMyGameState, MatchPhase);
+	DOREPLIFETIME(AMyGameState, MatchRules);
+	DOREPLIFETIME(AMyGameState, Teams);
+	DOREPLIFETIME(AMyGameState, MatchResult);
+	DOREPLIFETIME(AMyGameState, EndReason);
+	DOREPLIFETIME(AMyGameState, WinningTeam);
+	DOREPLIFETIME(AMyGameState, PhaseEndServerTime);
+	DOREPLIFETIME(AMyGameState, MatchEndServerTime);
+	DOREPLIFETIME(AMyGameState, ExpectedPlayers);
+	DOREPLIFETIME(AMyGameState, RoundIndex);
+	DOREPLIFETIME(AMyGameState, bLaneSidesSwapped);
+	DOREPLIFETIME(AMyGameState, bPlayGoesOn);
+	DOREPLIFETIME(AMyGameState, bLobbyRound);
+	DOREPLIFETIME(AMyGameState, bInLobby);
+	DOREPLIFETIME(AMyGameState, LobbyStartBlock);
+	DOREPLIFETIME(AMyGameState, LobbyConfirmBlock);
+	DOREPLIFETIME(AMyGameState, LobbyNotReady);
+	DOREPLIFETIME(AMyGameState, bLobbyRematch);
+}
+
+void AMyGameState::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// A client's first replicated state may already say InProgress (a late joiner) or the lobby
+	ApplyLobbyActorState();
 }
 
 void AMyGameState::AddPlayerState(APlayerState* PlayerState)
@@ -166,5 +203,288 @@ void AMyGameState::MulticastPlayRespawnFX_Implementation(UNiagaraSystem* System,
 	if (System && GetNetMode() != NM_DedicatedServer)
 	{
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, System, Location, Rotation);
+	}
+}
+
+const FMyTeamState& AMyGameState::GetTeamState(uint8 TeamId) const
+{
+	static const FMyTeamState NoTeamState;
+	return TeamId < MyMatch::NumTeams ? Teams[TeamId] : NoTeamState;
+}
+
+void AMyGameState::MulticastMatchEvent_Implementation(EMyMatchEvent Event, uint8 TeamId, int32 Value)
+{
+	// One line on every machine, so the harnesses (as_70_matchlib MB_EVENT_RE) can see a client's receipt, not just the send
+	const ENetMode NetMode = GetNetMode();
+	const TCHAR* Role = NetMode == NM_Client ? TEXT("client") : NetMode == NM_Standalone ? TEXT("standalone") : TEXT("server");
+	const UEnum* EventEnum = StaticEnum<EMyMatchEvent>();
+	UE_LOG(LogMatch, Log, TEXT("event %s team %d value %d (%s %s)"),
+		EventEnum ? *EventEnum->GetNameStringByValue(static_cast<int64>(Event)) : TEXT("?"), TeamId, Value, Role, *GetNameSafe(GetWorld()));
+
+	OnMatchEvent.Broadcast(Event, TeamId, Value);
+}
+
+void AMyGameState::SetMatchPhase(EMyMatchPhase NewPhase, double NewPhaseEndServerTime, bool bInPlayGoesOn)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchPhase = NewPhase;
+	PhaseEndServerTime = NewPhaseEndServerTime;
+	bPlayGoesOn = NewPhase == EMyMatchPhase::Countdown && bInPlayGoesOn;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetLaneSidesSwapped(bool bSwapped)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bLaneSidesSwapped = bSwapped;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetMatchRules(const FMyMatchRules& NewRules)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchRules = NewRules;
+	NotifyMatchWritten();
+}
+
+FMyTeamState& AMyGameState::EditTeam(uint8 TeamId)
+{
+	if (!ensureMsgf(HasAuthority() && TeamId < MyMatch::NumTeams, TEXT("EditTeam(%d): server only, team 0 or 1"), TeamId))
+	{
+		ScratchTeam = FMyTeamState();
+		return ScratchTeam;
+	}
+
+	return Teams[TeamId];
+}
+
+void AMyGameState::SetResult(EMyMatchResult NewResult, uint8 NewWinningTeam, EMyMatchEndReason NewEndReason)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchResult = NewResult;
+	WinningTeam = NewResult == EMyMatchResult::TeamWon ? NewWinningTeam : MyMatch::NoTeam;
+	EndReason = NewEndReason;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetMatchEndServerTime(double NewMatchEndServerTime)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchEndServerTime = NewMatchEndServerTime;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetExpectedPlayers(int32 NewExpectedPlayers)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	ExpectedPlayers = NewExpectedPlayers;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::SetRoundIndex(int32 NewRoundIndex)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	RoundIndex = NewRoundIndex;
+	NotifyMatchWritten();
+}
+
+void AMyGameState::MarkTeamsDirty()
+{
+	if (HasAuthority())
+	{
+		NotifyMatchWritten();
+	}
+}
+
+void AMyGameState::NotifyMatchWritten()
+{
+	ForceNetUpdate();
+	ApplyLobbyActorState();
+	OnMatchChanged.Broadcast();
+}
+
+void AMyGameState::OnRep_Match()
+{
+	ApplyLobbyActorState();
+	OnMatchChanged.Broadcast();
+}
+
+// -----------------------------------------------------------------------------
+// Lobby (SPEC_B_LOBBY 3.4, 4.3)
+// -----------------------------------------------------------------------------
+
+void AMyGameState::SetLobbyRound(bool bNewLobbyRound)
+{
+	if (HasAuthority() && bLobbyRound != bNewLobbyRound)
+	{
+		bLobbyRound = bNewLobbyRound;
+		NotifyMatchWritten();
+	}
+}
+
+void AMyGameState::SetInLobby(bool bNewInLobby)
+{
+	if (HasAuthority() && bInLobby != bNewInLobby)
+	{
+		bInLobby = bNewInLobby;
+		NotifyMatchWritten();
+	}
+}
+
+void AMyGameState::SetLobbyStartBlock(EMyLobbyStartBlock NewBlock, int32 NewNotReady, EMyLobbyStartBlock NewConfirmBlock)
+{
+	const uint8 NotReady = static_cast<uint8>(FMath::Clamp(NewNotReady, 0, 255));
+
+	if (HasAuthority() && (LobbyStartBlock != NewBlock || LobbyNotReady != NotReady || LobbyConfirmBlock != NewConfirmBlock))
+	{
+		LobbyStartBlock = NewBlock;
+		LobbyNotReady = NotReady;
+		LobbyConfirmBlock = NewConfirmBlock;
+		NotifyMatchWritten();
+	}
+}
+
+void AMyGameState::SetLobbyRematch(bool bNewRematch)
+{
+	if (HasAuthority() && bLobbyRematch != bNewRematch)
+	{
+		bLobbyRematch = bNewRematch;
+		NotifyMatchWritten();
+	}
+}
+
+int32 AMyGameState::CountArrivingPlayers() const
+{
+	int32 Count = 0;
+
+	for (const APlayerState* PlayerState : PlayerArray)
+	{
+		const AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(PlayerState);
+		Count += (MyPlayerState && MyPlayerState->IsArriving()) ? 1 : 0;
+	}
+
+	return Count;
+}
+
+void AMyGameState::ApplyLobbyActorState()
+{
+	UWorld* World = GetWorld();
+
+	// Not before the world plays (BeginPlay applies it), never in an editor world
+	if (!World || !World->IsGameWorld() || !HasActorBegunPlay())
+	{
+		return;
+	}
+
+	const UMyMatchSettings* Settings = UMyMatchSettings::Get();
+
+	// Q-L1: actors Talal tags LobbyOnly are there only while there is no match or the lobby runs. A state, not an edge, so
+	// a late joiner's first InProgress hides them too (critique m5)
+	const bool bShow = MatchPhase == EMyMatchPhase::None || bInLobby;
+
+	if (bShow != bLobbyActorsShown)
+	{
+		bLobbyActorsShown = bShow;
+
+		if (!bShow)
+		{
+			HiddenLobbyActors.Reset();
+
+			if (!Settings->LobbyOnlyActorTag.IsNone())
+			{
+				for (TActorIterator<AActor> It(World); It; ++It)
+				{
+					AActor* Actor = *It;
+
+					if (IsValid(Actor) && Actor->ActorHasTag(Settings->LobbyOnlyActorTag) && !Actor->IsHidden())
+					{
+						Actor->SetActorHiddenInGame(true);
+						Actor->SetActorEnableCollision(false);
+						HiddenLobbyActors.Add(Actor);
+					}
+				}
+			}
+
+			if (HiddenLobbyActors.Num() > 0)
+			{
+				UE_LOG(LogMatch, Log, TEXT("Lobby: %d %s actor(s) hidden for the match"), HiddenLobbyActors.Num(), *Settings->LobbyOnlyActorTag.ToString());
+			}
+		}
+		else
+		{
+			for (const TWeakObjectPtr<AActor>& WeakActor : HiddenLobbyActors)
+			{
+				if (AActor* Actor = WeakActor.Get())
+				{
+					Actor->SetActorHiddenInGame(false);
+					Actor->SetActorEnableCollision(true);
+				}
+			}
+
+			HiddenLobbyActors.Reset();
+		}
+	}
+
+	// Pickups: nothing to collect in the lobby, so round 1 starts like every later round (critique m11). Their overlap
+	// runs on clients too (MyEffectActor.cpp OnOverlap has no authority test), hence every machine
+	if (bInLobby != bPickupsOff)
+	{
+		bPickupsOff = bInLobby;
+
+		if (bPickupsOff)
+		{
+			DisabledPickups.Reset();
+
+			for (TActorIterator<AMyEffectActor> It(World); It; ++It)
+			{
+				if (IsValid(*It) && It->GetActorEnableCollision())
+				{
+					It->SetActorEnableCollision(false);
+					DisabledPickups.Add(*It);
+				}
+			}
+		}
+		else
+		{
+			for (const TWeakObjectPtr<AActor>& WeakActor : DisabledPickups)
+			{
+				if (AActor* Actor = WeakActor.Get())
+				{
+					Actor->SetActorEnableCollision(true);
+				}
+			}
+
+			DisabledPickups.Reset();
+		}
+
+		UE_LOG(LogMatch, Verbose, TEXT("Lobby: pickups %s"), bPickupsOff ? TEXT("off") : TEXT("on"));
 	}
 }

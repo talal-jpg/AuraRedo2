@@ -143,6 +143,50 @@ struct AURA_API FMechSentinelWaveCurves
 	FRuntimeFloatCurve SelfBuffChance;
 };
 
+/**
+ * Runtime difficulty on top of the waves as designed (AMechSentinelWaveSpawner::SetDifficultyScale; the match's swarm
+ * difficulty, SPEC_B B5.4). All 1 = the waves as designed. Each field multiplies the matching one of every resolved wave
+ * (after the curves or the hand-made entry and the repeat growth, before the runtime clamps); Count goes next to
+ * CountMultiplier, MaxAlive multiplies the spawner's own MaxAlive as placed.
+ */
+USTRUCT(BlueprintType)
+struct AURA_API FMechSentinelDifficultyScale
+{
+	GENERATED_BODY()
+
+	/** x every wave count (with CountMultiplier). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
+	float Count = 1.f;
+
+	/** x HealthMultiplier. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
+	float Health = 1.f;
+
+	/** x ArmorMultiplier. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
+	float Armor = 1.f;
+
+	/** x DamageMultiplier. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
+	float Damage = 1.f;
+
+	/** x AttackSpeedMultiplier. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
+	float AttackSpeed = 1.f;
+
+	/** x MoveSpeedMultiplier. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
+	float MoveSpeed = 1.f;
+
+	/** x SelfBuffChanceMultiplier (which already scales the rules' SelfBuffChance: scale only here, not the rules too). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
+	float SelfBuffChance = 1.f;
+
+	/** x the spawner's MaxAlive as placed (0 = unlimited stays unlimited). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Difficulty", meta = (ClampMin = "0"))
+	float MaxAlive = 1.f;
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMechSentinelWaveStarted, int32, WaveNumber, int32, SentinelCount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMechSentinelWaveCleared, int32, WaveNumber);
 
@@ -184,6 +228,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void StopWaves();
 
+	/** StopWaves ran (or, external mode, bAutoStart was off at BeginPlay) and nothing started the waves since. The match's lobby resumes only the spawners that were running. */
+	UFUNCTION(BlueprintPure, Category = "Mech Sentinels|Waves")
+	bool IsStopped() const { return bStopped; }
+
 	/**
 	 * Skips the countdown / the rest of the current wave and starts the next one now. External mode: starts the next
 	 * wave number at the spawner (inside SpawnExtent), without a countdown.
@@ -198,6 +246,19 @@ public:
 	/** Changes the count of one wave (0 based). The waves in progress are re-planned. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void SetWaveCount(int32 WaveIndex, int32 NewCount);
+
+	/**
+	 * Runtime difficulty (the match's swarm difficulty) on top of the waves, the curves and CountMultiplier, which stay
+	 * as designed. Sentinels spawned from now on get the new stats, the ones of waves already counting down or spawning
+	 * included; alive sentinels keep theirs. Count re-plans the waves like SetCountMultiplier. MaxAlive scales the
+	 * spawner's own MaxAlive as placed. Safe before BeginPlay: the scale is stored and BeginPlay applies it, so the waves
+	 * the path's first segments queue in their own BeginPlay already spawn with it.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
+	void SetDifficultyScale(const FMechSentinelDifficultyScale& Scale);
+
+	/** The scale SetDifficultyScale set (all 1 until then). */
+	const FMechSentinelDifficultyScale& GetDifficultyScale() const { return DifficultyScale; }
 
 	/**
 	 * Spawns sentinels outside the wave flow (they still count as alive for the current wave). They are created by the
@@ -259,7 +320,8 @@ public:
 
 	/**
 	 * What wave WaveNumber (1 based) spawns with: the curves, or the hand-made entry and the repeat growth, with the
-	 * runtime clamps and the repeat stat scale folded into the multipliers. Count is before CountMultiplier.
+	 * difficulty's stat scales (SetDifficultyScale), the runtime clamps and the repeat stat scale folded into the
+	 * multipliers. Count is before CountMultiplier and the difficulty's Count.
 	 */
 	UFUNCTION(BlueprintPure, Category = "Mech Sentinels|Waves")
 	FMechSentinelWave GetWaveDefinition(int32 WaveNumber) const;
@@ -372,9 +434,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mech Sentinels|Waves|Path", meta = (ClampMin = "0"))
 	int32 MaxActiveWaves = 0;
 
-	/** Alive sentinels of this spawner at most (0 = only the global MaxAliveSentinels rule). Spawning waits while full. */
+	/**
+	 * Alive sentinels of this spawner at most (0 = only the global MaxAliveSentinels rule). Spawning waits while full.
+	 * During play: the placed value x the difficulty's MaxAlive (SetDifficultyScale).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mech Sentinels|Spawning", meta = (ClampMin = "0"))
 	int32 MaxAlive = 0;
+
+	/** Runtime difficulty (SetDifficultyScale). All 1 = the waves as designed. */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "Mech Sentinels|Difficulty")
+	FMechSentinelDifficultyScale DifficultyScale;
 
 	/** Max entities created per frame (smooths the cost of big waves). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mech Sentinels|Spawning", meta = (ClampMin = "1"))
@@ -469,6 +538,15 @@ private:
 
 	/** Runtime clamps of a resolved wave (the ClampMin metadata only binds the editor). */
 	void ClampWave(FMechSentinelWave& Wave) const;
+
+	/** MaxAlive = the placed value x DifficultyScale.MaxAlive. Remembers the placed value the first time (BeginPlay). */
+	void ApplyDifficultyMaxAlive();
+
+	/** The scaling multipliers of From (health .. self-buff chance) into To; count and timing stay. */
+	static void CopyWaveStats(const FMechSentinelWave& From, FMechSentinelWave& To);
+
+	/** MaxAlive as placed, before DifficultyScale.MaxAlive; INDEX_NONE until ApplyDifficultyMaxAlive first runs. */
+	int32 BaseMaxAlive = INDEX_NONE;
 
 	/** True when the regular (not External) wave flow has a wave WaveNumber. */
 	bool HasWave(int32 WaveNumber) const;

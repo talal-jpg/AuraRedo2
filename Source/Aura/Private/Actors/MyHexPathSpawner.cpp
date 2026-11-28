@@ -6,6 +6,7 @@
 #include "Actors/MyHexAtmosphereFX.h"
 #include "Actors/MyHexBridgeSubsystem.h"
 #include "Actors/MyHexPathSegment.h"
+#include "Airship/AirshipSubsystem.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/SplineComponent.h"
 #include "Engine/ExponentialHeightFog.h"
@@ -15,6 +16,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Match/MyTeamLibrary.h"
 #include "TimerManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHexPath, Log, All);
@@ -265,10 +267,20 @@ void AMyHexPathSpawner::CheckPlayers()
 
 	const FVector PathEnd = PathSpline->GetLocationAtSplinePoint(LastIndex, ESplineCoordinateSpace::World);
 
+	// In a team match only players on foot grow the path: a pilot racing ahead (his pawn is the ship), a gunner or a
+	// rider on a deck would add segments, and a sentinel wave with each, that nobody on the platforms needs yet. The
+	// lane ships then wait at the cruise end until a runner catches up. Match off: every pawn, as before.
+	const bool bOnFootOnly = UMyTeamLibrary::IsMatchActive(this);
+
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
 		const APlayerController* PlayerController = It->Get();
 		const APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+
+		if (Pawn && bOnFootOnly && UAirshipSubsystem::IsShipBorne(Pawn))
+		{
+			continue;
+		}
 
 		if (Pawn && FVector::DistSquared2D(Pawn->GetActorLocation(), PathEnd) <= FMath::Square(ExtendDistance * GetLayoutScale()))
 		{

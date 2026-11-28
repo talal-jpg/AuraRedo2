@@ -15,12 +15,17 @@
 #include "Misc/CommandLine.h"
 #include "Engine/Engine.h"
 #include "Engine/NetDriver.h"
+#include "Engine/NetConnection.h"
 #include "Kismet/GameplayStatics.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameSession.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/OnlineReplStructs.h"
+#include "GameFramework/Character.h"
+#include "Airship/AirshipPawn.h"
+#include "Match/MyMatchTypes.h"
+#include "EOS/MainMenu3.h"
 
 UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete)),
@@ -29,7 +34,8 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete)),
 	StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete)),
 	UpdateSessionCompleteDelegate(FOnUpdateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnUpdateSessionComplete)),
-	CancelFindSessionsCompleteDelegate(FOnCancelFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnCancelFindSessionsComplete))
+	CancelFindSessionsCompleteDelegate(FOnCancelFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnCancelFindSessionsComplete)),
+	EndSessionCompleteDelegate(FOnEndSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnEndSessionComplete))
 {
 }
 
@@ -391,6 +397,31 @@ void UMultiplayerSessionsSubsystem::StartSession()
 		return;
 	}
 
+	// A team match restart reloads the map with ServerTravel and the session survives it, so the host's PostLogin
+	// asks again for a session that already runs. EOS would only log "Can't start an online session in state
+	// InProgress" and report a failure. One still starting reports back through the first call's delegate (binding
+	// it a second time would leave a stale binding behind).
+	const EOnlineSessionState::Type SessionState = SessionInterface->GetSessionState(NAME_GameSession);
+	if (SessionState == EOnlineSessionState::InProgress)
+	{
+		UE_LOG(LogTemp, Log, TEXT("MultiplayerSessionsSubsystem::StartSession - the session is already in progress, not starting it again"));
+		MultiplayerOnStartSessionComplete.Broadcast(true);
+		return;
+	}
+	if (SessionState == EOnlineSessionState::Starting)
+	{
+		return;
+	}
+	// Steam's EndSession is asynchronous (Ending until its task completes) and a start then would fail: start when it
+	// has ended (OnEndSessionComplete). A return to the lobby ends the session just before the next round starts it
+	if (SessionState == EOnlineSessionState::Ending)
+	{
+		UE_LOG(LogTemp, Log, TEXT("MultiplayerSessionsSubsystem::StartSession - the session is still ending, starting it when it has ended"));
+		bStartSessionAfterEnd = true;
+		return;
+	}
+	bStartSessionAfterEnd = false;
+
 	// Bind the completion delegate
 	StartSessionCompleteDelegateHandle = SessionInterface->AddOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegate);
 
@@ -400,6 +431,75 @@ void UMultiplayerSessionsSubsystem::StartSession()
 		SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
 		MultiplayerOnStartSessionComplete.Broadcast(false);
 	}
+}
+
+void UMultiplayerSessionsSubsystem::EndSession()
+{
+	if (!SessionInterface.IsValid())
+	{
+		return;
+	}
+
+	// Steam and EOS end only from InProgress (a lobby that never started, a second end)
+	const EOnlineSessionState::Type SessionState = SessionInterface->GetSessionState(NAME_GameSession);
+	if (SessionState != EOnlineSessionState::InProgress)
+	{
+		UE_LOG(LogMatch, Log, TEXT("Session: EndSession skipped (state %s)"), EOnlineSessionState::ToString(SessionState));
+		return;
+	}
+
+	// Only one end in flight: a second Add without a Clear would leave a stale binding behind
+	SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteDelegateHandle);
+	EndSessionCompleteDelegateHandle = SessionInterface->AddOnEndSessionCompleteDelegate_Handle(EndSessionCompleteDelegate);
+	UE_LOG(LogMatch, Log, TEXT("Session: EndSession (InProgress -> Ended)"));
+
+	if (!SessionInterface->EndSession(NAME_GameSession))
+	{
+		SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteDelegateHandle);
+		UE_LOG(LogMatch, Warning, TEXT("Session: EndSession failed to start"));
+	}
+}
+
+void UMultiplayerSessionsSubsystem::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	if (SessionInterface)
+	{
+		SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteDelegateHandle);
+	}
+
+	UE_LOG(LogMatch, Log, TEXT("Session: EndSession complete (%s)%s"), bWasSuccessful ? TEXT("ok") : TEXT("failed"),
+		bStartSessionAfterEnd ? TEXT(", starting it again") : TEXT(""));
+
+	if (bStartSessionAfterEnd)
+	{
+		bStartSessionAfterEnd = false;
+		StartSession();
+	}
+}
+
+void UMultiplayerSessionsSubsystem::AdvertiseMatch(EMyTeamMode TeamMode, int32 Difficulty, int32 MaxPlayers, bool bInMatch)
+{
+	FAuraHostSettings Settings;
+
+	if (!IsHostingSession() || !GetCurrentHostSettings(Settings))
+	{
+		UE_LOG(LogMatch, Log, TEXT("Session: no hosted session to advertise"));
+		return;
+	}
+
+	// What the browse filters and rows read: the menu's rule set name for the mode, the swarm difficulty, the slots (a
+	// 1v1 or 2v2 only what its teams hold, as the host panel does), IN LOBBY / IN MATCH
+	Settings.Rules = UMainMenu3::GetRuleSetForTeamMode(TeamMode);
+	Settings.Difficulty = Difficulty;
+	if (MaxPlayers > 0)
+	{
+		Settings.NumPublicConnections = MaxPlayers;
+	}
+	Settings.bInMatch = bInMatch;
+
+	UE_LOG(LogMatch, Log, TEXT("Session: advertise %s, swarm %d, %d slots, %s"), *Settings.Rules, Settings.Difficulty, Settings.NumPublicConnections,
+		bInMatch ? TEXT("IN MATCH") : TEXT("IN LOBBY"));
+	UpdateHostSettings(Settings);
 }
 
 void UMultiplayerSessionsSubsystem::LeaveSession()
@@ -885,6 +985,7 @@ bool UMultiplayerSessionsSubsystem::GetCurrentHostSettings(FAuraHostSettings& Ou
 	OutSettings.JoinCode = Info.JoinCode;
 	OutSettings.LobbyName = Info.LobbyName;
 	OutSettings.bAllowJoinInProgress = Info.bAllowJoinInProgress;
+	OutSettings.bInMatch = Info.bInMatch;
 	return true;
 }
 
@@ -1076,8 +1177,34 @@ bool UMultiplayerSessionsSubsystem::KickPlayer(APlayerController* Player, const 
 		BannedPlayerIds.Add(Player->PlayerState->GetUniqueId().ToString());
 	}
 
+	// The engine's kick destroys the possessed pawn before the controller (AGameSession::KickPlayer), and the controller
+	// still has its net connection, so APlayerController::Destroyed only unpossesses (PawnLeavingGame never runs). For a
+	// pilot that pawn is his ship: its EndPlay finds the controller alive and gives the character back, which then stays
+	// in the world with nobody controlling it. A team ship stays, as for a pilot who logs out (round 2 PR B, B1.4): put
+	// him on foot first, so the kick takes his character. A free ship goes, as before, and its pilot's character with it
+	ACharacter* LeftoverPilot = nullptr;
+
+	if (AAirshipPawn* Ship = Cast<AAirshipPawn>(Player->GetPawn()); Ship && Cast<UNetConnection>(Player->Player))
+	{
+		if (Ship->GetTeamId() != MyMatch::NoTeam)
+		{
+			Ship->UnboardPilot(false);
+		}
+		else
+		{
+			LeftoverPilot = Ship->GetPilot();
+		}
+	}
+
 	// Sends ClientWasKicked(Reason) to them, then removes their controller
-	return GameMode->GameSession->KickPlayer(Player, Reason);
+	const bool bKicked = GameMode->GameSession->KickPlayer(Player, Reason);
+
+	if (bKicked && IsValid(LeftoverPilot) && !LeftoverPilot->GetController())
+	{
+		LeftoverPilot->Destroy();
+	}
+
+	return bKicked;
 }
 
 bool UMultiplayerSessionsSubsystem::IsPlayerBanned(const FUniqueNetIdRepl& PlayerId) const
@@ -1133,6 +1260,7 @@ void UMultiplayerSessionsSubsystem::ApplyHostSettings(FOnlineSessionSettings& Se
 	// CodeOnly is still advertised (so a typed code resolves) but Listed=0 tells the
 	// browse UI to filter it out - see FindSessionsFiltered / OnFindSessionsComplete.
 	Settings.Set(AuraSessionKeys::Listed, HostSettings.Privacy == EAuraSessionPrivacy::CodeOnly ? 0 : 1, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	Settings.Set(AuraSessionKeys::InMatch, HostSettings.bInMatch ? 1 : 0, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 }
 
 FAuraSessionInfo UMultiplayerSessionsSubsystem::MakeSessionInfo(const FOnlineSession& Session, int32 PingInMs, int32 ResultIndex)
@@ -1152,6 +1280,10 @@ FAuraSessionInfo UMultiplayerSessionsSubsystem::MakeSessionInfo(const FOnlineSes
 	Info.MaxSlots = Settings.NumPublicConnections;
 	Info.ResultIndex = ResultIndex;
 	Info.bAllowJoinInProgress = Settings.bAllowJoinInProgress;
+
+	int32 InMatch = 0;
+	Settings.Get(AuraSessionKeys::InMatch, InMatch);
+	Info.bInMatch = InMatch != 0;
 
 	int32 Listed = 1;
 	Settings.Get(AuraSessionKeys::Listed, Listed);
