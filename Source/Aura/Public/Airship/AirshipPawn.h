@@ -45,9 +45,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAirshipPilotChangedSignature, AA
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnAirshipStationsChangedSignature, AAirshipPawn*, Airship, int32, Station, ACharacter*, Gunner);
 
 /**
- * The drivable airship (Docs/Airship/CPP_NOTES.md). A player walks up to it and presses F (UAirshipPilotComponent):
- * the server attaches their character at the helm (PilotSeat), possesses the ship, and F again gives the character
- * back next to the helm.
+ * The drivable airship (Docs/Airship/CPP_NOTES.md). A player on deck walks up to the wheel and presses F
+ * (UAirshipPilotComponent, IsWithinHelmReach): the server attaches their character at the helm (PilotSeat), possesses the
+ * ship, and F again gives the character back where it stood, behind the wheel.
+ *
+ * Deck (Talal 11-25, round2/SPEC_A.md 6.8): characters walk on the Mesh's physics asset (PA_Airship, box tops at the
+ * planks) and Visibility traces hit it; HullCollision ignores Pawn and Visibility (GetDeckComponent, bDeckOnPhysicsAsset).
  *
  * Root = HullCollision, SM_Airship's 8 convex hulls, simulating physics on every machine and hidden in game. The
  * server applies the flight forces (UAirshipFlightComponent) and the hull replicates through the engine's physics
@@ -130,15 +133,42 @@ public:
 
 	/**
 	 * Distance (cm) from Location to the ship for boarding: within SeatDistance of the pilot seat, within HullDistance of
-	 * the hull's collision, or under the hull (a trace straight up from Location hits it within BelowDistance; 0 = off).
+	 * the hull's collision, or under the hull (a trace straight up from Location hits it within BelowDistance). 0 = that
+	 * range off. The old (v1 / round 2) rule: since Talal 11-25 the settings' values are 0, see IsWithinHelmReach.
 	 */
 	bool IsWithinBoardRange(const FVector& Location, float SeatDistance, float HullDistance, float BelowDistance = 0.f) const;
+
+	/**
+	 * Any machine: true if Character may take the helm from where it stands (F, Talal 11-25: "only be able to drive once
+	 * close enough to grab the steering wheel"). Its feet within UAirshipSettings::HelmReach (horizontal, hull frame) of the
+	 * helm's standing spot (the pilot seat), within HelmReachHeight above or below the deck there (the seat's height on
+	 * the physics asset's deck; the hull's lid over it on a ship without physics asset bodies), and not ahead of the wheel: behind
+	 * it, or beside it while its capsule still reaches the wheel's plane (the Helm_Wheel bone's hull x + the capsule's
+	 * radius). The old ranges (IsWithinBoardRange with the settings' BoardDistance / BoardHullDistance /
+	 * BoardBelowDistance, all 0 = off by default) still count when a harness sets them. No other state is checked here
+	 * (CanBoard: alive, free helm, not a gunner).
+	 */
+	bool IsWithinHelmReach(const ACharacter* Character) const;
 
 	/** Server: puts Pilot at the helm and gives PC the ship. False if not allowed (CanBoard). */
 	bool BoardPilot(ACharacter* Pilot, APlayerController* PC);
 
-	/** Server: gives the pilot back their character next to the helm. bEject: thrown clear (death). */
+	/**
+	 * Server: gives the pilot back their character. Leaving (F): where it stood while driving (the seat, feet on the
+	 * planks behind the wheel, facing the bow), walking with the ship as its movement base, no launch (the base carries
+	 * it); moved the least that clears it of the ship's bodies. bEject (death, a lethal crew share): 2.5 m to port and
+	 * thrown clear with the ship's velocity. A ship whose deck is the hull's collision (no physics asset bodies,
+	 * IsDeckOnPhysicsAsset false) leaves like v1: 2.5 m to port on top of the hull, falling with the ship's velocity.
+	 */
 	void UnboardPilot(bool bEject);
+
+	/**
+	 * The owning client of a pilot who just left the helm with F (UAirshipPilotComponent::ClientLeftHelm, after
+	 * ClientRestart): its own copy of the character off the hull, its collision back, at the seat on this machine's hull,
+	 * walking with the ship as its base. So that copy never falls without a base (left behind at the ship's speed until
+	 * the server's correction: the snap of round 1).
+	 */
+	void PlaceLeftPilotLocal(ACharacter* Pilot);
 
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	ACharacter* GetPilot() const { return PilotCharacter; }
@@ -149,6 +179,25 @@ public:
 	/** World location of the pilot seat (where the pilot stands). */
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	FVector GetPilotSeatLocation() const;
+
+	/**
+	 * What characters walk on and what Visibility traces hit (Talal 11-25, SPEC_A.md 6.8): the Mesh's physics asset
+	 * (PA_Airship: hull boxes with their tops at the planks, part boxes) when it has bodies and bDeckOnPhysicsAsset, else
+	 * the hull's collision (the v1 deck: SM_Airship's UCX lid, 1.2-2.9 m above the planks).
+	 */
+	UPrimitiveComponent* GetDeckComponent() const;
+
+	/** True if the deck is the Mesh's physics asset (GetDeckComponent): HullCollision then ignores Pawn and Visibility. */
+	UFUNCTION(BlueprintPure, Category = "Airship")
+	bool IsDeckOnPhysicsAsset() const { return bDeckIsMesh; }
+
+	/**
+	 * Sets bDeckOnPhysicsAsset after BeginPlay and applies it on this machine (UpdateDeckCollision): false puts the deck
+	 * and the Visibility target back on the hull's collision, as on a ship whose Mesh has no physics asset bodies. Not
+	 * replicated: a test or a level script calls it on every machine.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Airship")
+	void SetDeckOnPhysicsAsset(bool bOnPhysicsAsset);
 
 
 	// -------------------------------------------------------------------------
@@ -217,14 +266,17 @@ public:
 	/**
 	 * True if Character rides this ship now: attached to it (the pilot), standing on it (movement base owned by the ship
 	 * or by an actor attached to it), or without a base (jumping, falling, flying) inside the hull's bounds grown by
-	 * PassengerZoneMargin. UAirshipSubsystem gives such characters query-only collision, while their actor collision is
+	 * PassengerZoneMargin. Also true for a character standing on something else inside the hull's own box (turned with
+	 * the ship) grown by PassengerZoneMargin: not a rider, but its mesh and jet packs (kinematic WorldDynamic bodies the
+	 * hull blocks; the hull ignores only the Pawn capsule) must not meet the hull's convex, which reaches 2.6 m above the
+	 * planks. UAirshipSubsystem gives such characters query-only collision, while their actor collision is
 	 * on (the attached pilot's capsule is switched right after Exit). A dead ship keeps its riders
 	 * until they leave it or the wreck goes (EndPlay): the wreck is still a simulated body, and a kinematic capsule given
 	 * back its physics mid-tumble (the ejected pilot, a rider on deck) would shove it like an immovable post.
 	 */
 	bool IsPassengerCandidate(const ACharacter* Character) const;
 
-	/** Characters riding this ship on this machine (their physics collision is off while aboard). */
+	/** This ship's passengers on this machine (IsPassengerCandidate: their physics collision is off meanwhile). */
 	UFUNCTION(BlueprintPure, Category = "Airship")
 	TArray<ACharacter*> GetPassengers() const;
 
@@ -265,7 +317,7 @@ public:
 	/** Server: attaches Gunner at Station's seat (it stays possessed by PC) and lists it. False if not allowed (CanMount). */
 	bool MountGunner(ACharacter* Gunner, APlayerController* PC, int32 Station);
 
-	/** Server: frees Station and puts its gunner on the hull top next to the seat (bEject: thrown clear, ship death). */
+	/** Server: frees Station and puts its gunner on the deck next to the seat (GetDeckComponent; bEject: thrown clear, ship death). */
 	void DismountGunner(int32 Station, bool bEject);
 
 	/** Server: a manned station's aim point (world, cm). Ignored if not finite or farther than GunnerMaxAimDistance from the seat. */
@@ -354,6 +406,13 @@ public:
 	 * hull over the forward deck hits the turret behind it (FindTurretBehindHullHit). Null for anything else.
 	 */
 	static AActor* RedirectBulletHitToTurret(const FHitResult& Block, const FVector& Direction, FVector& OutImpact);
+
+	/**
+	 * Bound to UMechSentinelSwarmSubsystem::BulletAimRedirect by UAirshipSubsystem: with
+	 * UAirshipSettings::SwarmTurretAimChance a sentinel bullet at a ship is aimed at the middle of a living turret's
+	 * HitBox (picked at random) instead of the ship's root. False (aim unchanged) for anything else.
+	 */
+	static bool RedirectBulletAimToTurret(const AActor* Target, const FVector& From, FVector& InOutAimPoint);
 
 	/**
 	 * The pilot's machine: Fire drives the unmanned turrets now (the camera within DriverTurretArcDeg of the bow and at
@@ -816,9 +875,28 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
 	float PilotSeatClearance = 5.f;
 
-	/** Hull-space offset (cm) from the seat where the pilot steps off (then dropped onto the deck by a trace). */
+	/**
+	 * Hull-space offset (cm) from the seat where an ejected pilot (death, lethal crew share) is put before it is thrown
+	 * clear (then dropped onto the top of the hull's collision by a trace). Leaving with F keeps the seat (UnboardPilot).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
 	FVector ExitOffset = FVector(0.0, -250.0, 0.0);
+
+	/** Bone of the steering wheel (rest pose): F at the helm must not come from ahead of its plane (IsWithinHelmReach). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
+	FName HelmWheelBone = TEXT("Helm_Wheel");
+
+	/** Hull-space wheel hub (cm) when the mesh has no HelmWheelBone (round 2 helm, SourceArt/Airship/turret_dims.json helm_wheel_ue). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
+	FVector HelmWheelFallback = FVector(-685.0, 0.0, 360.5);
+
+	/**
+	 * Characters walk on the Mesh's physics asset (PA_Airship) and Visibility traces hit it, while HullCollision (the
+	 * flight body) ignores Pawn and Visibility (Talal 11-25, SPEC_A.md 6.8). Off, or a Mesh without physics bodies (a
+	 * plain AAirshipPawn): the hull's collision is the deck and the target (v1). Applied at BeginPlay.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
+	bool bDeckOnPhysicsAsset = true;
 
 	/**
 	 * Off: characters on the deck keep their physics collision (their kinematic capsules push the simulated hull: the
@@ -827,7 +905,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot")
 	bool bPassengersQueryOnly = true;
 
-	/** Characters without a movement base (jumping, falling) inside the hull's bounds grown by this (cm) count as passengers. */
+	/**
+	 * Characters without a movement base (jumping, falling) inside the hull's world bounds grown by this (cm) count as
+	 * passengers; so do characters standing on something else inside the hull's own box grown by this.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
 	float PassengerZoneMargin = 300.f;
 
@@ -1624,6 +1705,37 @@ private:
 
 	/** Hull-space seat (cm), from the PilotSeat bone or PilotSeatFallback. */
 	FVector PilotSeatLocal = FVector::ZeroVector;
+
+	/** Hull-space wheel hub (cm), from HelmWheelBone or HelmWheelFallback. */
+	FVector HelmWheelLocal = FVector::ZeroVector;
+
+	/** The Mesh's physics asset is the deck (UpdateDeckCollision, BeginPlay). */
+	bool bDeckIsMesh = false;
+
+	/**
+	 * Hull-space height (cm) of the surface a character stands on at the helm (IsWithinHelmReach measures the feet
+	 * against it): the seat's own height on the physics asset's deck, the hull collision's top over the seat without one.
+	 */
+	double HelmStandLocalZ = 0.0;
+
+	/** UpdateDeckCollision, RefreshCannonGeometry: HelmStandLocalZ for the deck in use. */
+	void UpdateHelmStandHeight();
+
+	/** BeginPlay: the deck and the Visibility target (bDeckOnPhysicsAsset): HullCollision's and Mesh's Pawn / Visibility responses. */
+	void UpdateDeckCollision();
+
+	/**
+	 * Down the hull's up axis from Point (world), the first deck surface (GetDeckComponent) between Above and Below cm of
+	 * it; a trace that starts inside a body is skipped and the next one starts higher (+300 cm, twice).
+	 */
+	bool TraceDeckBelow(const FVector& Point, double Above, double Below, FVector& OutDeck) const;
+
+	/**
+	 * Moves Character's capsule placed at InOutCentre (world) the least that clears it of the ship's deck bodies (the
+	 * Mesh's physics asset: the wheel, the pedestal, rails): up to 4 steps of their minimum translation, at most MaxPush cm
+	 * in all. Returns the distance moved (0: it was clear, or the deck is the hull's collision).
+	 */
+	double ClearDeckBodies(const ACharacter* Character, FVector& InOutCentre, double MaxPush = 100.0) const;
 
 	/** The pilot last seen by OnRep_PilotCharacter (every machine), for the change event and the collision restore. */
 	TWeakObjectPtr<ACharacter> KnownPilot;

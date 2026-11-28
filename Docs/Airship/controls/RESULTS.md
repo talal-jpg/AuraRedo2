@@ -283,6 +283,31 @@ the code: `../CPP_NOTES.md` 14.12.
 * **Not covered:** F-A and F-B were tested standalone, with the host at the helm. Both run only on the pilot's machine
   and the server code did not change, so no client-pilot run at 100 ms was made.
 
+## Regression on the round 2 build (2026-11-27)
+
+The same harnesses on the airship round 2 build (turrets, gunner stations, crew damage, helm only at the wheel, the deck
+on the physics asset's boxes, the swarm's turret aim). Their setups were adapted to the helm rule beforehand and run
+with the crew share off; no threshold changed.
+
+| Harness | Round 1 | Round 2 build |
+|---|---|---|
+| as_43 under Classic | 24 of 25 (`f2_boost_path`) | **24 of 25**, `f2_boost_path` again at +5.35 m/s against 5.0 (the v1 crash bump), 0 script errors |
+| as_45 listen, Classic | 22 of 22 | **22 of 22** |
+| as_45 listen, Point & Fly | 18 of 22 (`b1`, `e3`, `a3`, `c_cannons`, by design) | **18 of 22**, the same four |
+| Follow-up checks | 9 of 9 | **7 of 9** as shipped, **9 of 9** with round 2's bow arc off |
+| `Aura.Airship.Scheme 0` + `check` | 0 differences | **0 differences** (Classic = v1) |
+
+The two follow-up fails are `p4_firehold` and `p4_tap60`, and they come from a round 2 change made on purpose: a Fire
+press with the camera within `DriverTurretArcDeg` (50 deg) of the bow drives the two machine guns and fires no
+broadside. Both runs swing the camera 60 deg to port and press Fire in the same frame: 0 balls, and in the tap run no
+gun lock either. The likely reason, read from the code and not traced in PIE: `IsDriverTurretArc` asks for the player's
+view point, and the press is handled before that frame's camera update, so it still sees the camera on the bow. With
+`Settings.DriverTurretArcDeg 0` (the arc off, set in memory for one run) both pass as in round 1: one broadside of 2
+balls on frame 0, the lock on after 0.233 s. A player cannot turn the camera 60 deg and click in one frame, so in play
+this is the rule "look ahead and Fire = machine guns, look to a side and Fire = that side's cannons". Results:
+`Saved/Airship/controls_followup_t3_arc_on_1127/` and `controls_followup_t3_arc_off_1127/`, `val_t3_classic_1127/`,
+`mp_t3_pf_1127/`, `mp_t3_classic_1127/`.
+
 ## Known limits
 
 | # | Limit | Note |

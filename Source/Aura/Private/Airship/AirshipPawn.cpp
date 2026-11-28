@@ -53,6 +53,8 @@
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "TimerManager.h"
 #include "UI/Settings/MyGameUserSettings.h"
@@ -319,6 +321,12 @@ AAirshipPawn::AAirshipPawn()
 	HullCollision->SetCollisionResponseToAllChannels(ECR_Block);
 	// Spring arms (also other players') pass through the hull
 	HullCollision->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	// Talal 11-25 (SPEC_A.md 6.8): the UCX lid stands 1.2-2.9 m above the planks, so characters walk through it onto the
+	// Mesh's physics asset (box tops at the planks) and traces hit those bodies, not the lid. The hull stays the flight
+	// body: mass, inertia, every other contact unchanged. UpdateDeckCollision (BeginPlay) puts both back when the Mesh has
+	// no physics bodies.
+	HullCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	HullCollision->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
 	HullCollision->SetSimulatePhysics(true);
 	HullCollision->SetNotifyRigidBodyCollision(true);
 	// AMyProjectile (fireballs) damages on overlap: the hull counts even where PA_Airship has no body
@@ -333,12 +341,14 @@ AAirshipPawn::AAirshipPawn()
 	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(HullCollision);
 	Mesh->SetSimulatePhysics(false);
-	// Hits for the aim, Electrocute, Shards (Visibility) and projectiles (overlap) on the physics asset bodies
+	// Hits for the aim, Electrocute, Shards (Visibility) and projectiles (overlap) on the physics asset bodies. The deck:
+	// characters (Pawn) walk on its kinematic bodies, query only, so nothing pushes the hull (SPEC_A.md 6.8).
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Mesh->SetCollisionObjectType(ECC_Pawn);
 	Mesh->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 	Mesh->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
 	Mesh->SetGenerateOverlapEvents(true);
 	Mesh->SetCanEverAffectNavigation(false);
 
@@ -399,6 +409,7 @@ AAirshipPawn::AAirshipPawn()
 	}
 
 	PilotSeatLocal = PilotSeatFallback;
+	HelmWheelLocal = HelmWheelFallback;
 
 	// Gunner stations (replicated, fixed size) and the turrets the server spawns at BeginPlay
 	StationGunners.SetNum(Airship::NumStations);
@@ -459,6 +470,9 @@ void AAirshipPawn::BeginPlay()
 	{
 		HullCollision->SetHiddenInGame(false);
 	}
+
+	// Every machine, before anything walks or shoots: the deck is the physics asset (or the hull without one)
+	UpdateDeckCollision();
 
 	RefreshCannonGeometry();
 	ZoomTarget = CameraArmLength;
@@ -536,8 +550,10 @@ void AAirshipPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		}
 		else
 		{
-			// The ship goes away under its pilot (console, kill Z): give the character back
-			UnboardPilot(false);
+			// The ship goes away under its pilot (console, kill Z): give the character back, thrown clear like the crew of
+			// a ship shot down (EjectCrewAfterDeath). Not left in place at the wheel: that sets the character walking on
+			// planks that are gone a moment later and sends its machine a ship that is being destroyed (ClientLeftHelm).
+			UnboardPilot(true);
 		}
 	}
 
@@ -624,6 +640,16 @@ void AAirshipPawn::Tick(float DeltaSeconds)
 	if (Flight)
 	{
 		Flight->UpdateFlight(DeltaSeconds);
+	}
+
+	// Every machine, before this frame's physics step: a character that came into the passenger zone since the timed
+	// check (0.1 s) is switched now. One step with its kinematic bodies inside the hull's convex is a hard shove.
+	if (bPassengersQueryOnly)
+	{
+		if (UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(this))
+		{
+			Subsystem->CheckNewPassengers(this);
+		}
 	}
 
 	UpdateCannonAim();
@@ -1712,6 +1738,179 @@ bool AAirshipPawn::IsWithinBoardRange(const FVector& Location, float SeatDistanc
 	return false;
 }
 
+bool AAirshipPawn::IsWithinHelmReach(const ACharacter* Character) const
+{
+	if (!Character || !HullCollision)
+	{
+		return false;
+	}
+
+	const UAirshipSettings* Settings = UAirshipSettings::Get();
+
+	// The old ranges (v1 / round 2: seat 12 m, hull 4 m, from below 10 m), 0 = off since Talal 11-25; a harness may set them
+	if (IsWithinBoardRange(Character->GetActorLocation(), Settings->BoardDistance, Settings->BoardHullDistance, Settings->BoardBelowDistance))
+	{
+		return true;
+	}
+
+	if (Settings->HelmReach <= 0.f)
+	{
+		return false;
+	}
+
+	// "Close enough to grab the steering wheel": the feet (the capsule's bottom) near the spot the pilot stands on, in the
+	// hull's frame (a heeled ship), and not on the wheel's far side. Beside the wheel counts as long as the body still
+	// reaches the wheel's plane (the capsule's radius): from there on it is ahead of it, on the pedestal's side.
+	const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
+	const double HalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 90.0;
+	const double Radius = Capsule ? Capsule->GetScaledCapsuleRadius() : 34.0;
+	const FTransform HullTM = HullCollision->GetComponentTransform();
+	const FVector Feet = HullTM.InverseTransformPositionNoScale(Character->GetActorLocation() - FVector(0.0, 0.0, HalfHeight));
+	const FVector Delta = Feet - PilotSeatLocal;
+
+	// The height against the surface a character stands on at the wheel (HelmStandLocalZ): the seat itself on the planks
+	// (the physics asset's deck), the hull's lid over it on a ship without physics asset bodies (1.2-2.9 m above the
+	// seat: measured from the seat nobody on that deck could ever take the helm)
+	return Delta.SizeSquared2D() <= FMath::Square(static_cast<double>(Settings->HelmReach))
+		&& FMath::Abs(Feet.Z - HelmStandLocalZ) <= Settings->HelmReachHeight
+		&& Feet.X <= HelmWheelLocal.X + Radius;
+}
+
+UPrimitiveComponent* AAirshipPawn::GetDeckComponent() const
+{
+	return bDeckIsMesh ? static_cast<UPrimitiveComponent*>(Mesh) : static_cast<UPrimitiveComponent*>(HullCollision);
+}
+
+void AAirshipPawn::UpdateDeckCollision()
+{
+	if (!HullCollision || !Mesh)
+	{
+		return;
+	}
+
+	// Bodies to stand on: a physics asset with bodies and the Mesh's query collision on (the rebuilt PA_Airship has 35)
+	const UPhysicsAsset* PhysicsAsset = Mesh->GetPhysicsAsset();
+	bDeckIsMesh = bDeckOnPhysicsAsset && PhysicsAsset && PhysicsAsset->SkeletalBodySetups.Num() > 0
+		&& CollisionEnabledHasQuery(Mesh->GetCollisionEnabled());
+
+	// The hull keeps every other response (WorldStatic, WorldDynamic, PhysicsBody, ...): flight, contacts and overlaps as
+	// before. Without PA bodies it is the deck and the target again (v1).
+	HullCollision->SetCollisionResponseToChannel(ECC_Pawn, bDeckIsMesh ? ECR_Ignore : ECR_Block);
+	HullCollision->SetCollisionResponseToChannel(ECC_Visibility, bDeckIsMesh ? ECR_Ignore : ECR_Block);
+	Mesh->SetCollisionResponseToChannel(ECC_Pawn, bDeckIsMesh ? ECR_Block : ECR_Ignore);
+
+	UE_LOG(LogAirshipPawn, Log, TEXT("%s: deck = %s"), *GetName(), bDeckIsMesh
+		? *FString::Printf(TEXT("the Mesh's physics asset %s (%d bodies); the hull ignores Pawn and Visibility"), *GetNameSafe(PhysicsAsset), PhysicsAsset->SkeletalBodySetups.Num())
+		: TEXT("the hull's collision (no physics asset bodies, or bDeckOnPhysicsAsset off)"));
+
+	// A ship with a skeletal mesh that was meant to have the deck on its physics asset and has no bodies to stand on: the
+	// asset is missing or empty (an old or locally changed PA_Airship). It still flies and can be boarded on the lid, but
+	// players stand 1.2-2.9 m above the planks and shots stop at the lid.
+	if (!bDeckIsMesh && bDeckOnPhysicsAsset && Mesh->GetSkeletalMeshAsset())
+	{
+		UE_LOG(LogAirshipPawn, Warning, TEXT("%s: the Mesh's physics asset %s has no bodies to stand on (or the Mesh has no query collision): "
+			"the deck falls back to the hull's collision, 1.2-2.9 m above the planks. Rebuild PA_Airship (Docs/Airship/scripts/ue/as_11_physics_asset.py)."),
+			*GetName(), *GetNameSafe(PhysicsAsset));
+	}
+
+	UpdateHelmStandHeight();
+}
+
+void AAirshipPawn::SetDeckOnPhysicsAsset(bool bOnPhysicsAsset)
+{
+	bDeckOnPhysicsAsset = bOnPhysicsAsset;
+	UpdateDeckCollision();
+}
+
+void AAirshipPawn::UpdateHelmStandHeight()
+{
+	HelmStandLocalZ = PilotSeatLocal.Z;
+
+	// The fallback deck (the hull's collision) lies over the seat: somebody at the wheel stands on it
+	if (!bDeckIsMesh && HullCollision)
+	{
+		const FTransform HullTM = HullCollision->GetComponentTransform();
+		FVector Deck;
+
+		if (TraceDeckBelow(HullTM.TransformPositionNoScale(PilotSeatLocal), 400.0, 100.0, Deck))
+		{
+			HelmStandLocalZ = HullTM.InverseTransformPositionNoScale(Deck).Z;
+		}
+	}
+}
+
+bool AAirshipPawn::TraceDeckBelow(const FVector& Point, double Above, double Below, FVector& OutDeck) const
+{
+	UPrimitiveComponent* Deck = GetDeckComponent();
+
+	if (!Deck || !HullCollision)
+	{
+		return false;
+	}
+
+	const FVector Up = HullCollision->GetComponentTransform().GetUnitAxis(EAxis::Z);
+	const FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipDeckTrace), false);
+
+	for (const double Extra : { 0.0, 300.0, 600.0 })
+	{
+		FHitResult Hit;
+
+		// A skeletal mesh traces each body of its physics asset (USkeletalMeshComponent::LineTraceComponent)
+		if (Deck->LineTraceComponent(Hit, Point + Up * (Above + Extra), Point - Up * Below, Params) && !Hit.bStartPenetrating && Hit.Distance > 1.f)
+		{
+			OutDeck = Hit.ImpactPoint;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+double AAirshipPawn::ClearDeckBodies(const ACharacter* Character, FVector& InOutCentre, double MaxPush) const
+{
+	const UCapsuleComponent* Capsule = Character ? Character->GetCapsuleComponent() : nullptr;
+
+	if (!bDeckIsMesh || !Mesh || !Capsule)
+	{
+		return 0.0;
+	}
+
+	// The capsule as the CMC sweeps it (upright in the world), 1 cm larger so what it touches counts too
+	const FCollisionShape Shape = FCollisionShape::MakeCapsule(Capsule->GetScaledCapsuleRadius() + 1.f, Capsule->GetScaledCapsuleHalfHeight() + 1.f);
+	const FVector Start = InOutCentre;
+
+	for (int32 Step = 0; Step < 4; ++Step)
+	{
+		FVector Push = FVector::ZeroVector;
+
+		for (const FBodyInstance* Body : Mesh->Bodies)
+		{
+			FMTDResult MTD;
+
+			if (Body && Body->IsValidBodyInstance() && Body->OverlapTest(InOutCentre, FQuat::Identity, Shape, &MTD) && MTD.Distance > 0.f)
+			{
+				// The deepest way out of each body; several bodies add up (a corner between the wheel and the pedestal)
+				Push += MTD.Direction * MTD.Distance;
+			}
+		}
+
+		if (Push.IsNearlyZero(0.01))
+		{
+			break;
+		}
+
+		InOutCentre += Push;
+
+		if (FVector::Dist(InOutCentre, Start) > MaxPush)
+		{
+			InOutCentre = Start + (InOutCentre - Start).GetClampedToMaxSize(MaxPush);
+			break;
+		}
+	}
+
+	return FVector::Dist(InOutCentre, Start);
+}
+
 void AAirshipPawn::CancelPilotAbilities(ACharacter* Pilot)
 {
 	// Like AMyGameMode's respawn: the ASC is on the PlayerState and stays with the player (the pilot at the helm, a
@@ -1818,17 +2017,38 @@ void AAirshipPawn::UnboardPilot(bool bEject)
 	const FVector Up = HullTM.GetUnitAxis(EAxis::Z);
 	const FVector ShipVelocity = HullCollision->IsSimulatingPhysics() ? HullCollision->GetPhysicsLinearVelocity() : GetVelocity();
 	const float HalfHeight = Pilot->GetCapsuleComponent() ? Pilot->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 90.f;
+	FVector Exit;
 
-	// Next to the seat, dropped onto the deck (a trace on the hull only)
-	FVector Exit = HullTM.TransformPosition(PilotSeatLocal + ExitOffset);
-	FHitResult DeckHit;
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipExit), false);
+	// Leaving with F keeps the place at the wheel (Talal 11-25). Not an eject, and not a ship whose deck is the hull's
+	// collision (no physics asset bodies: the seat is inside the UCX lid there, so that one keeps the v1 exit point)
+	const bool bLeaveInPlace = !bEject && bDeckIsMesh;
 
-	if (HullCollision->LineTraceComponent(DeckHit, Exit + Up * 300.f, Exit - Up * 600.f, Params))
+	if (!bLeaveInPlace)
 	{
-		Exit = DeckHit.ImpactPoint;
+		// Thrown clear (below), or the v1 exit: from next to the seat, on top of the hull's collision there (a trace on the
+		// hull only)
+		Exit = HullTM.TransformPosition(PilotSeatLocal + ExitOffset);
+		FHitResult DeckHit;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipExit), false);
+
+		if (HullCollision->LineTraceComponent(DeckHit, Exit + Up * 300.f, Exit - Up * 600.f, Params))
+		{
+			Exit = DeckHit.ImpactPoint;
+		}
+		Exit += FVector(0.0, 0.0, HalfHeight + PilotSeatClearance);
 	}
-	Exit += FVector(0.0, 0.0, HalfHeight + PilotSeatClearance);
+	else
+	{
+		// Where it stood while driving, behind the wheel (the seat transform it is attached at), then the least move that
+		// clears the wheel / pedestal bodies (none for the mech's capsule: radius 34, 8 cm behind the wheel's box)
+		Exit = (GetPilotSeatRelativeTransform(Pilot) * HullTM).GetLocation();
+		const double Cleared = ClearDeckBodies(Pilot, Exit);
+
+		if (Cleared > 0.5)
+		{
+			UE_LOG(LogAirshipPawn, Log, TEXT("%s: %s leaves the helm %.1f cm from the seat (cleared of the deck bodies)"), *GetName(), *Pilot->GetName(), Cleared);
+		}
+	}
 
 	Pilot->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	Pilot->SetActorLocationAndRotation(Exit, FRotator(0.0, GetActorRotation().Yaw, 0.0), false, nullptr, ETeleportType::TeleportPhysics);
@@ -1838,9 +2058,31 @@ void AAirshipPawn::UnboardPilot(bool bEject)
 	// Safety net: a body something destroyed while the collision was off (the movement sweeps need it)
 	UAirshipSubsystem::RepairPhysicsState(Pilot);
 
+	// Leaving: walking on the planks with the ship as its movement base, which carries it (no launch). Entering walking
+	// finds the floor and the base at once (UCharacterMovementComponent::OnMovementModeChanged: FindFloor,
+	// AdjustFloorHeight, SetBaseFromFloor): the seat's clearance above the deck boxes (about 13 cm) is within the floor
+	// sweep (MaxStepHeight), so the capsule settles onto them right here. No walkable floor under the seat (a capsized
+	// wreck): falling with the ship's velocity, as before.
+	bool bLaunch = true;
+
 	if (UCharacterMovementComponent* Move = Pilot->GetCharacterMovement())
 	{
-		Move->SetMovementMode(MOVE_Falling);
+		if (bLeaveInPlace)
+		{
+			Move->SetMovementMode(MOVE_Walking);
+			const AActor* BaseActor = Move->CurrentFloor.IsWalkableFloor() ? APawn::GetMovementBaseActor(Pilot) : nullptr;
+			bLaunch = !(Move->IsMovingOnGround() && BaseActor && (BaseActor == this || BaseActor->IsAttachedTo(this)));
+
+			if (bLaunch)
+			{
+				UE_LOG(LogAirshipPawn, Warning, TEXT("%s: %s left the helm with no deck under the seat: falling with the ship's velocity"), *GetName(), *Pilot->GetName());
+			}
+		}
+
+		if (bLaunch)
+		{
+			Move->SetMovementMode(MOVE_Falling);
+		}
 	}
 
 	// Before the next physics step: on the deck (or thrown clear next to it) it is a passenger, its capsule query only
@@ -1874,15 +2116,29 @@ void AAirshipPawn::UnboardPilot(bool bEject)
 		}
 	}
 
-	FVector Launch = ShipVelocity;
-
-	if (bEject)
+	if (bLaunch)
 	{
-		const FVector Side = HullTM.TransformVectorNoScale(FVector(0.0, ExitOffset.Y >= 0.0 ? 1.0 : -1.0, 0.0));
-		Launch += FVector(0.0, 0.0, EjectUpSpeed) + Side * EjectSideSpeed;
-	}
+		FVector Launch = ShipVelocity;
 
-	Pilot->LaunchCharacter(Launch, true, true);
+		if (bEject)
+		{
+			const FVector Side = HullTM.TransformVectorNoScale(FVector(0.0, ExitOffset.Y >= 0.0 ? 1.0 : -1.0, 0.0));
+			Launch += FVector(0.0, 0.0, EjectUpSpeed) + Side * EjectSideSpeed;
+		}
+
+		Pilot->LaunchCharacter(Launch, true, true);
+	}
+	else if (bPossessed && PC && !PC->IsLocalController())
+	{
+		// A remote pilot's own machine: after ClientRestart (same channel, sent by the possession above) its copy takes
+		// the same place on its own hull at once (PlaceLeftPilotLocal). Left to replication, that copy starts falling with
+		// no base and no speed (its collision is still off when ClientRestart looks for a floor) and stays behind in the
+		// world until the server corrects it: round 1's 3 m snap at speed.
+		if (UAirshipPilotComponent* PilotComponent = PC->FindComponentByClass<UAirshipPilotComponent>())
+		{
+			PilotComponent->ClientLeftHelm(this, Pilot);
+		}
+	}
 
 	OnRep_PilotCharacter();
 
@@ -1898,6 +2154,61 @@ void AAirshipPawn::UnboardPilot(bool bEject)
 	{
 		Lane->NotifyPilotChanged(false);
 	}
+}
+
+void AAirshipPawn::PlaceLeftPilotLocal(ACharacter* Pilot)
+{
+	// The owning client's copy only: the server placed its own in UnboardPilot
+	if (HasAuthority() || !IsValid(Pilot) || !HullCollision || Pilot->IsActorBeingDestroyed())
+	{
+		return;
+	}
+
+	// The detach (the character's channel) and PilotCharacter (the ship's) replicate on their own and may come later:
+	// this copy leaves the hull now. Its next attachment update is the detach itself, a no-op then.
+	if (Pilot->IsAttachedTo(this))
+	{
+		Pilot->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	}
+
+	// Its collision back (this machine turned it off while it was the pilot: OnRep_PilotCharacter, UpdatePassengerCollision)
+	PassengersWithCollisionOff.RemoveAll([Pilot](const TWeakObjectPtr<ACharacter>& Weak)
+	{
+		return Weak.Get() == Pilot;
+	});
+	Pilot->SetActorEnableCollision(true);
+	UAirshipSubsystem::RepairPhysicsState(Pilot);
+
+	// The same hull-relative place as the server's copy, on this machine's hull (which trails the server's)
+	const FTransform HullTM = HullCollision->GetComponentTransform();
+	FVector Location = (GetPilotSeatRelativeTransform(Pilot) * HullTM).GetLocation();
+	ClearDeckBodies(Pilot, Location);
+	Pilot->SetActorLocationAndRotation(Location, FRotator(0.0, GetActorRotation().Yaw, 0.0), false, nullptr, ETeleportType::TeleportPhysics);
+
+	if (UCharacterMovementComponent* Move = Pilot->GetCharacterMovement())
+	{
+		// Walking on the deck with the ship as its base, like the server's copy. ClientRestart left it walking on a floor
+		// found from the old place, or falling without a base (its collision was off): from no movement mode, entering
+		// walking looks for the floor and the base here (UCharacterMovementComponent::OnMovementModeChanged), as on the server
+		Move->StopMovementImmediately();
+		Move->DisableMovement();
+		Move->SetMovementMode(MOVE_Walking);
+
+		const AActor* BaseActor = Move->CurrentFloor.IsWalkableFloor() ? APawn::GetMovementBaseActor(Pilot) : nullptr;
+
+		if (!(Move->IsMovingOnGround() && BaseActor && (BaseActor == this || BaseActor->IsAttachedTo(this))))
+		{
+			// No deck under it on this machine (never expected while the server's copy walks): at least not left behind
+			Move->SetMovementMode(MOVE_Falling);
+			Move->Velocity = HullCollision->IsSimulatingPhysics() ? HullCollision->GetPhysicsLinearVelocityAtPoint(Location) : GetVelocity();
+		}
+	}
+
+	// On the deck it is a passenger: its capsule query only before the next physics step
+	RefreshPassengers();
+
+	UE_LOG(LogAirshipPawn, Log, TEXT("%s: %s left the helm on this machine: at the seat, %s"), *GetName(), *Pilot->GetName(),
+		(Pilot->GetCharacterMovement() && Pilot->GetCharacterMovement()->MovementMode == MOVE_Walking) ? TEXT("walking") : TEXT("falling"));
 }
 
 void AAirshipPawn::OnRep_PilotCharacter()
@@ -2004,7 +2315,27 @@ bool AAirshipPawn::IsPassengerCandidate(const ACharacter* Character) const
 	if (Character->GetMovementBaseObject())
 	{
 		const AActor* BaseActor = APawn::GetMovementBaseActor(Character);
-		return BaseActor && (BaseActor == this || BaseActor->IsAttachedTo(this));
+
+		if (BaseActor && (BaseActor == this || BaseActor->IsAttachedTo(this)))
+		{
+			return true;
+		}
+
+		// Elsewhere (a platform the hull reaches, the step from a platform onto the planks, a character put on the deck
+		// that has not found its floor yet): inside the hull's own box, turned with the ship, grown by the margin. The
+		// hull ignores Pawn, so the capsule is no obstacle to it, but the mech's mesh and jet packs are kinematic
+		// WorldDynamic bodies it blocks, and the planks lie inside its convex (the lid is 2.6 m above them): left with
+		// their physics such a character knocked the hovering ship 5 m away in two steps (as_60 deck_arrival, 2026-11-27).
+		// The tight box, not the world box below: a bystander 20 m from a turned ship keeps its physics collision.
+		const FBox Local = HullCollision->CalcBounds(FTransform::Identity).GetBox();
+
+		if (!Local.IsValid)
+		{
+			return false;
+		}
+
+		const FVector P = HullCollision->GetComponentTransform().InverseTransformPosition(Character->GetActorLocation());
+		return Local.ExpandBy(PassengerZoneMargin).IsInsideOrOn(P);
 	}
 
 	// No base (jumping on deck, stepping off, falling onto it, the ejected pilot): near the hull. Query only changes
@@ -2263,10 +2594,12 @@ bool AAirshipPawn::IsWithinStationRange(int32 Station, const FVector& PawnLocati
 		return false;
 	}
 
-	// In the hull's frame (a heeled ship), from the seat (the feet) to the pawn's capsule centre: standing on the
-	// walkable lid or the forward deck's convex puts it StationMountHeightAbove at most above the planks
+	// In the hull's frame (a heeled ship), from the seat (the feet) to the pawn's capsule centre: on the planks that is
+	// the capsule's half height above the seat; StationMountHeightAbove also covers a jump, or a ship whose deck is the
+	// hull's collision (the lid over the planks)
 	const UAirshipSettings* Settings = UAirshipSettings::Get();
 	const FVector Delta = HullCollision->GetComponentTransform().InverseTransformPositionNoScale(PawnLocation) - StationSeatLocal[Station];
+
 	return Delta.Size2D() <= Settings->StationMountDistance && Delta.Z >= -Settings->StationMountHeightBelow && Delta.Z <= Settings->StationMountHeightAbove;
 }
 
@@ -2368,13 +2701,12 @@ void AAirshipPawn::DismountGunner(int32 Station, bool bEject)
 
 	const UAirshipSettings* Settings = UAirshipSettings::Get();
 	const FTransform HullTM = HullCollision->GetComponentTransform();
-	const FVector Up = HullTM.GetUnitAxis(EAxis::Z);
 	const FVector ShipVelocity = HullCollision->IsSimulatingPhysics() ? HullCollision->GetPhysicsLinearVelocity() : GetVelocity();
 	const float HalfHeight = Gunner->GetCapsuleComponent() ? Gunner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 90.f;
 
-	// Next to the seat (cannons: inboard, mirrored like the seat; turrets: behind), then onto the top of the hull's
-	// collision there: the walkable lid, or the forward deck's convex (a trace that starts inside a convex is skipped,
-	// the next one starts higher)
+	// Next to the seat (cannons: inboard, mirrored like the seat; turrets: behind), then onto the deck there
+	// (GetDeckComponent: the physics asset's boxes at the planks, or the hull's collision without them; a trace that
+	// starts inside a body is skipped, the next one starts higher), clear of the part bodies (a carriage, a winch)
 	FVector ExitLocal = StationSeatLocal[Station];
 
 	if (Airship::IsCannonStation(Station))
@@ -2389,19 +2721,14 @@ void AAirshipPawn::DismountGunner(int32 Station, bool bEject)
 	}
 
 	FVector Exit = HullTM.TransformPosition(ExitLocal);
-	const FCollisionQueryParams Params(SCENE_QUERY_STAT(AirshipGunnerExit), false);
+	FVector DeckPoint;
 
-	for (const double StartHeight : { 300.0, 600.0, 900.0 })
+	if (TraceDeckBelow(Exit, 300.0, 600.0, DeckPoint))
 	{
-		FHitResult DeckHit;
-
-		if (HullCollision->LineTraceComponent(DeckHit, Exit + Up * StartHeight, Exit - Up * 600.0, Params) && !DeckHit.bStartPenetrating && DeckHit.Distance > 1.f)
-		{
-			Exit = DeckHit.ImpactPoint;
-			break;
-		}
+		Exit = DeckPoint;
 	}
 	Exit += FVector(0.0, 0.0, HalfHeight + PilotSeatClearance);
+	ClearDeckBodies(Gunner, Exit);
 
 	if (Gunner->IsAttachedTo(this))
 	{
@@ -2430,6 +2757,34 @@ void AAirshipPawn::DismountGunner(int32 Station, bool bEject)
 		// Before the launch: the client's moves from here on are checked again
 		Move->bIgnoreClientMovementErrorChecksAndCorrection = bWasIgnoringCorrections;
 		Move->SetComponentTickEnabled(true);
+
+		// A remote gunner's move clock. Its machine sent no moves for the whole mount (its movement was off there), so its
+		// next move carries the time stamp of its last one before the mount. The server's forced position updates
+		// (APlayerController::TickActor) skip a MOVE_None character, so the first one after this would see no move for
+		// the whole mount and add all of that time to the server's copy of the clock at once: every move the client then
+		// sends is rejected as expired ("ServerMove: TimeStamp expired") for as long as it was mounted, and its character
+		// walks on its own screen while it stands still on the server (PIE as_60 T5.8: 12 s). So the server's clock is
+		// brought to now and the forced-update state is cleared: the first forced update then covers a frame, not the mount.
+		// The state itself is kept. A fresh one (ResetPredictionData_Server, as a possession does) starts its copy of the
+		// client's clock at 0, and the client's own clock is not reset here (only ClientRestart or the wrap every
+		// MinTimeBetweenTimeStampResets, 240 s, does that): a stamp more than half of that above 0 reads as "a move from
+		// before the reset" (IsClientTimeStampValid) and every move was refused until the client's clock wrapped, up to
+		// 2 minutes (as_60 T5.8b: a client 126 s after its last restart). The kept state still holds the stamp of the
+		// client's last move before the mount, which is exactly where its clock stood still.
+		if (PC && !PC->IsLocalController())
+		{
+			if (Move->HasPredictionData_Server())
+			{
+				if (FNetworkPredictionData_Server* ServerData = Move->GetPredictionData_Server())
+				{
+					ServerData->ServerTimeStamp = GetWorld() ? GetWorld()->GetTimeSeconds() : ServerData->ServerTimeStamp;
+					ServerData->ResetForcedUpdateState();
+				}
+			}
+
+			// As the reset did: the server's position goes to the client with its next move
+			Move->ForceClientAdjustment();
+		}
 
 		if (!bDead)
 		{
@@ -2758,6 +3113,39 @@ AActor* AAirshipPawn::RedirectBulletHitToTurret(const FHitResult& Block, const F
 	return Turret;
 }
 
+bool AAirshipPawn::RedirectBulletAimToTurret(const AActor* Target, const FVector& From, FVector& InOutAimPoint)
+{
+	const AAirshipPawn* Ship = Cast<AAirshipPawn>(Target);
+	const float Chance = UAirshipSettings::Get()->SwarmTurretAimChance;
+
+	if (!Ship || Chance <= 0.f || FMath::FRand() >= Chance)
+	{
+		return false;
+	}
+
+	// The living turrets; a wreck takes no damage, so nothing aims at it
+	TArray<const UBoxComponent*, TInlineAllocator<Airship::NumTurrets>> Boxes;
+
+	for (int32 Index = 0; Index < Ship->Turrets.Num(); ++Index)
+	{
+		const AAirshipTurret* Turret = Ship->GetTurret(Index);
+		const UBoxComponent* Box = Turret && !Turret->IsTurretDestroyed() ? Turret->GetHitBox() : nullptr;
+
+		if (Box)
+		{
+			Boxes.Add(Box);
+		}
+	}
+
+	if (Boxes.IsEmpty())
+	{
+		return false;
+	}
+
+	InOutAimPoint = Boxes[FMath::RandHelper(Boxes.Num())]->GetComponentLocation();
+	return true;
+}
+
 void AAirshipPawn::SpawnTurrets()
 {
 	UWorld* World = GetWorld();
@@ -2986,6 +3374,14 @@ void AAirshipPawn::RefreshCannonGeometry()
 	{
 		PilotSeatLocal = PilotSeatFallback;
 	}
+
+	if (!GetMeshRestLocation(HelmWheelBone, HelmWheelLocal))
+	{
+		HelmWheelLocal = HelmWheelFallback;
+	}
+
+	// The seat may have moved (the bone's rest pose replaces the fallback)
+	UpdateHelmStandHeight();
 
 	// Gunner seats. Cannons: beside the breech, CannonSeatOffset from the carriage (Y inboard: mirrored per side), clear
 	// of the 60 cm recoil. Turrets: behind the gun, TurretSeatOffset from the mount.

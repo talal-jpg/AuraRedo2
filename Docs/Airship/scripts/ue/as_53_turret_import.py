@@ -7,8 +7,12 @@
 # object's own space), material slot 0 = /Game/Assets/MyShip/Drivable/Materials/M_AirshipProps (the props ink atlas, the
 # same material the helm and cannons use; re-import the atlas textures with as_02 when Blender repacked it).
 # Bounds checked against SourceArt/Airship/turret_dims.json (+-2 cm where the file gives a number to compare with).
-# Re-runnable: re-imports over its own two assets; refuses to touch an asset of the same name that isn't a static mesh or
-# was imported from another file. Saves only these two meshes.
+# Re-runnable: re-imports over its own two assets (a mesh with legacy FBX import data gets its stored options set like this
+# run first; one with Interchange import data is re-imported through the Interchange manager with its stored pipeline:
+# importing over an existing mesh uses the stored options, not the task's); refuses to touch an asset of the same name
+# that isn't a static mesh or was imported from another file. Saves only these two meshes.
+# Editor stage 2026-11-25: transform_vertex_to_absolute is True (False dropped the Y-up -> Z-up conversion: the meshes
+# came in rotated 90 deg about X); the bounds checks below are what proves the orientation and the pivot.
 # Run (no PIE): Docs/Airship/scripts/harness/inbox.sh 53 Docs/Airship/scripts/ue/as_53_turret_import.py 300
 # Report: Saved/Airship/as_53_turret_import.json
 import json, os, time, traceback  # unreal = inbox namespace
@@ -94,8 +98,12 @@ def import_ui():
     ok &= setp(smd, 'combine_meshes', True)
     ok &= setp(smd, 'auto_generate_collision', False)
     ok &= setp(smd, 'normal_import_method', en('FBXNormalImportMethod', 'FBXNIM_IMPORT_NORMALS'))
-    # the pivot stays at the object origin (yaw axis / trunnion axis): the node's transform is not baked in
-    ok &= setp(smd, 'transform_vertex_to_absolute', False)
+    # transform_vertex_to_absolute True (editor stage 2026-11-25; it was False): export_turret.py writes Y-up data under an
+    # identity node at the scene origin, and convert_scene turns the file's Y-up into Unreal's Z-up by changing the NODE
+    # transform. With False that node transform was dropped: both meshes came in rotated 90 deg about X (base 1.88 m along
+    # -Y, bottom at z -42). With True the conversion is baked into the vertices; the node sits at the origin, so the pivot
+    # still is the object origin (yaw axis on the deck / trunnion axis), which the bounds checks below confirm.
+    ok &= setp(smd, 'transform_vertex_to_absolute', True)
     ok &= setp(smd, 'bake_pivot_in_vertex', False)
     setp(smd, 'build_nanite', False, False)
     setp(smd, 'generate_lightmap_u_vs', False, False)
@@ -141,6 +149,33 @@ def import_one(name, fbx):
             o('FAIL', '%s was imported from %s, not %s: not ours, not touched' % (path, src, os.path.basename(fbx)))
             return None
         o('INFO', 're-importing over %s (was from %s)' % (path, src))
+        # Importing over an existing mesh goes through the re-import handler, which uses the options STORED in the
+        # asset, not this task's (2026-11-25: a re-run with the fixed option kept the rotated mesh). Put the ones that
+        # matter into the stored import data first.
+        ad = old.get_editor_property('asset_import_data')
+        if ad is not None and type(ad).__name__ == 'FbxStaticMeshImportData':
+            for k, v in (('transform_vertex_to_absolute', True), ('bake_pivot_in_vertex', False), ('convert_scene', True),
+                         ('force_front_x_axis', False), ('convert_scene_unit', False), ('combine_meshes', True),
+                         ('auto_generate_collision', False),
+                         ('normal_import_method', en('FBXNormalImportMethod', 'FBXNIM_IMPORT_NORMALS'))):
+                setp(ad, k, v, False)
+            o('INFO', 'stored import options of %s set like this run (transform_vertex_to_absolute %s)' % (
+                name, ad.get_editor_property('transform_vertex_to_absolute')))
+        elif ad is not None and type(ad).__name__ == 'InterchangeAssetImportData':
+            # imported through Interchange before (it bakes the axis conversion): re-import the same way, with the
+            # pipeline stored in the asset; the bounds checks below verify the result as for a first import
+            params = unreal.ImportAssetParameters()
+            params.set_editor_property('is_automated', True)
+            params.set_editor_property('replace_existing', True)
+            t0 = time.time()
+            r = unreal.InterchangeManager.get_interchange_manager_scripted().reimport_asset(old, params)
+            okr = bool(r[0]) if isinstance(r, tuple) else bool(r)
+            o('PASS' if okr else 'FAIL', 're-imported %s through the Interchange manager (stored pipeline) in %.1f s: %s' % (
+                name, time.time() - t0, okr))
+            sm = eal.load_asset(path)
+            return sm if okr and isinstance(sm, unreal.StaticMesh) else None
+        elif ad is not None:
+            o('WARN', '%s has %s import data: its stored options were not changed' % (name, type(ad).__name__))
     ui, ok = import_ui()
     if not ok:
         o('FAIL', 'import options incomplete: %s not imported' % name)

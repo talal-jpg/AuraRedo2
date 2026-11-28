@@ -119,7 +119,7 @@ def as51_probe(S, seen=None):
                 e = as51_enum(v)
                 if e and e[0]:
                     seen.setdefault(e[0], {})[e[2]] = e[1]
-            for k in ('Life Cycle Mode', 'Loop Behavior', 'Loop Duration'):
+            for k in ('Life Cycle Mode', 'Loop Behavior', 'Loop Duration Mode', 'Loop Duration'):
                 if k in ins:
                     e = as51_enum(ins[k])
                     d[k] = {'display': e[2], 'enumName': e[1], 'enum': e[0]} if e else as51_short(ins[k])
@@ -175,9 +175,39 @@ def as51_find_enum(S, em, scr, mod, inp, want_display, seen, rep):
 
 
 # ------------------------------------------------------------------------------------------------ edits
+def as51_never_ends(d):
+    """True when a probed stack (as51_probe's per-emitter dict) never completes: Loop Behavior not Once, or Once with
+    Loop Duration Mode Infinite (EmitterState: the loop then never ends, and Loop Duration is hidden by that switch)."""
+    lb = d.get('Loop Behavior') if isinstance(d.get('Loop Behavior'), dict) else {}
+    ldm = d.get('Loop Duration Mode') if isinstance(d.get('Loop Duration Mode'), dict) else {}
+    if lb and (lb.get('display') or '').strip().lower() != 'once':
+        return True
+    return bool(ldm) and (ldm.get('display') or '').strip().lower() != 'fixed'
+
+
+def as51_fixed_duration(S, em, scr, mod, who, seen, rep):
+    """Loop Duration Mode -> Fixed when the stack has that input and it isn't Fixed (found by display name like Once).
+    Must run after Loop Behavior Once and before Loop Duration is set: with Loop Duration Mode Infinite the Loop
+    Duration input is hidden (SetStackInputData refuses it) and a Once loop never ends. Returns True if changed,
+    False if already Fixed / no such input, None if Fixed could not be set."""
+    ldm = as51_enum(as51_inputs(S, em, scr, mod).get('Loop Duration Mode', {}))
+    if ldm is None or (ldm[2] or '').strip().lower() == 'fixed':
+        return False
+    path, fixed = as51_find_enum(S, em, scr, mod, 'Loop Duration Mode', 'Fixed', seen, rep)
+    if fixed is None:
+        return None
+    set_input(S, em, scr, mod, ['Loop Duration Mode'], fx_enum(path, fixed))
+    b = as51_enum(as51_inputs(S, em, scr, mod).get('Loop Duration Mode', {}))
+    ok = b is not None and (b[2] or '').strip().lower() == 'fixed'
+    rep.append('%s: %s: Loop Duration Mode %s (%s) -> %s (%s)' % ('PASS' if ok else 'FAIL', who, ldm[2], ldm[1], b and b[2], b and b[1]))
+    return True if ok else None
+
+
 def as51_one_shot(S, rep, loop_s=AS51_LOOP_S, seen=None):
-    """Every emitter whose own life cycle (Self) loops: Loop Behavior Once + Loop Duration loop_s. Emitters in Life Cycle
-    Mode System follow the system state, which gets the same if it isn't Once. Returns the number of changed stacks."""
+    """Every emitter whose own life cycle (Self) loops: Loop Behavior Once + Loop Duration Mode Fixed (when the module has
+    it) + Loop Duration loop_s. A stack already Once but with Loop Duration Mode Infinite gets Fixed + loop_s too (it
+    would never end). Emitters in Life Cycle Mode System follow the system state, which gets the same if it isn't Once.
+    Returns the number of changed stacks."""
     seen = seen if seen is not None else {}
     as51_probe(S, seen)
     n = 0
@@ -198,13 +228,26 @@ def as51_one_shot(S, rep, loop_s=AS51_LOOP_S, seen=None):
             rep.append('WARN: %s: Loop Behavior not readable as an enum (%s): left as it is' % (who, as51_short(ins.get('Loop Behavior', {}))))
             continue
         if (lb[2] or '').strip().lower() == 'once':
-            rep.append('INFO: %s: Loop Behavior already Once (%s), Loop Duration %s: unchanged' % (
-                who, lb[1], as51_short(ins.get('Loop Duration', {}))))
+            fd = as51_fixed_duration(S, em, scr, mod, who, seen, rep)
+            if fd is None:
+                continue
+            if not fd:
+                rep.append('INFO: %s: Loop Behavior already Once (%s), Loop Duration %s: unchanged' % (
+                    who, lb[1], as51_short(ins.get('Loop Duration', {}))))
+                continue
+            set_input(S, em, scr, mod, ['Loop Duration'], f_float(loop_s))
+            b_ld = as51_float(as51_inputs(S, em, scr, mod).get('Loop Duration', {}))
+            ok = b_ld is not None and abs(b_ld - loop_s) < 1e-4
+            rep.append('%s: %s: Loop Behavior already Once, Loop Duration Mode was not Fixed: Loop Duration -> %s' % (
+                'PASS' if ok else 'FAIL', who, b_ld))
+            n += 1
             continue
         path, once = as51_find_enum(S, em, scr, mod, 'Loop Behavior', 'Once', seen, rep)
         if once is None:
             continue
         set_input(S, em, scr, mod, ['Loop Behavior'], fx_enum(path, once))
+        if as51_fixed_duration(S, em, scr, mod, who, seen, rep) is None:
+            continue
         set_input(S, em, scr, mod, ['Loop Duration'], f_float(loop_s))
         back = as51_inputs(S, em, scr, mod)
         b_lb, b_ld = as51_enum(back.get('Loop Behavior', {})), as51_float(back.get('Loop Duration', {}))
@@ -293,11 +336,16 @@ def _as5x_latent_value(res):
     return (d.get('returnValue', d) if isinstance(d, dict) else d), True
 
 
+AS5X_SETTLE_S = 5.0
+
+
 def as5x_bg_compile(systems, out_name, label):
     """Background compile check of Niagara systems (Slate post-tick callback, one system at a time): close its editors,
     open the system editor, wait 3 s, request GetSystemCompileState + GetStackIssues (latent), wait for both (60 s at
-    most), close the editor. Writes Saved/Airship/<out_name> when every system is done. A check already running for the
-    same label is replaced. Returns at once."""
+    most), then settle: wait AS5X_SETTLE_S, confirm the system is idle (a fresh GetSystemCompileState, bIsCompiling
+    false; up to 6 tries), wait 2 s, close the editor (closing it right after the reads hung UE in
+    WaitForCompilationComplete on 2026-11-25). Writes Saved/Airship/<out_name> when every system is done. A check
+    already running for the same label is replaced. Returns at once."""
     reg = globals().setdefault('AS5X_BG_CC', {})
     old = reg.get(label)
     if old is not None and old.get('handle') is not None:
@@ -348,9 +396,38 @@ def as5x_bg_compile(systems, out_name, label):
                         if isinstance(x, dict) and x.get('_error'):
                             r['ok'], r['tool_error'] = False, x['_error']
                     st['res'][S] = r
-                    as51_close_editors(S)
+                    write()
+                    # Do NOT close the editor yet. Closing a Niagara system editor right after the compile-state reads
+                    # (2026-11-25, NS_AirshipMuzzle) hung the game thread for good inside FNiagaraSystemViewModel::
+                    # NotifyPreClose -> UNiagaraSystem::WaitForCompilationComplete (a compile the reads/editor had
+                    # just requested). Settle first: wait, confirm the system is idle, wait again, then close.
+                    st['step'], st['t'], st['idle_tries'] = 'settle', now, 0
+                return
+            if st['step'] == 'settle' and now - st['t'] >= AS5X_SETTLE_S:
+                st['idle'] = unreal.ToolsetRegistry.execute_tool(AS_NS_TS, 'GetSystemCompileState', json.dumps({'system': sref(S)}))
+                st['step'], st['t'] = 'idlecheck', now
+                return
+            if st['step'] == 'idlecheck':
+                v, done = _as5x_latent_value(st['idle'])
+                if not done and now - st['t'] <= 60.0:
+                    return
+                busy = (not done) or (not isinstance(v, dict)) or bool(v.get('bIsCompiling')) or bool(v.get('_error'))
+                st['idle_tries'] += 1
+                if busy and st['idle_tries'] < 6:
+                    st['step'], st['t'] = 'settle', now
+                    return
+                st['res'][S]['close_after_idle_checks'] = st['idle_tries']
+                if busy:
+                    st['res'][S]['editor_left_open'] = 'still compiling after %d idle checks' % st['idle_tries']
                     st['cur'] = None
                     write()
+                    return
+                st['step'], st['t'] = 'close_wait', now
+                return
+            if st['step'] == 'close_wait' and now - st['t'] >= 2.0:
+                as51_close_editors(S)
+                st['cur'] = None
+                write()
         except Exception:  # noqa: BLE001
             st['res'][st.get('cur') or '?'] = {'ok': False, 'script_error': traceback.format_exc()[-800:]}
             st['cur'] = None
@@ -389,6 +466,8 @@ def as51_main():
         o('INFO: %-18s state %s: Life Cycle Mode %s | Loop Behavior %s | Loop Duration %s | lifetime %s' % (
             'system' if em == 'None' else em, d.get('state_module'), d.get('Life Cycle Mode'), d.get('Loop Behavior'),
             d.get('Loop Duration'), d.get('lifetime')))
+        if isinstance(d.get('Loop Duration Mode'), dict):
+            o('INFO: %-18s Loop Duration Mode %s' % ('system' if em == 'None' else em, d['Loop Duration Mode'].get('display')))
     o('INFO: enum identifiers as the toolset returns them: %s' % json.dumps(seen))
     if AS51_PUFFS not in R['probe_before']['emitters']:
         o('FAIL: no %s emitter in %s' % (AS51_PUFFS, S))
@@ -408,10 +487,11 @@ def as51_main():
     for em, d in R['probe_after']['emitters'].items():
         lcm = (d.get('Life Cycle Mode') or {}) if isinstance(d.get('Life Cycle Mode'), dict) else {}
         lb = (d.get('Loop Behavior') or {}) if isinstance(d.get('Loop Behavior'), dict) else {}
+        ldm = (d.get('Loop Duration Mode') or {}) if isinstance(d.get('Loop Duration Mode'), dict) else {}
         if em != 'None' and (lcm.get('display') or '').lower() == 'system':
             continue
-        if lb and (lb.get('display') or '').lower() != 'once':
-            loops.append((em, lb.get('display')))
+        if as51_never_ends(d):
+            loops.append((em, lb.get('display'), ldm.get('display')))
     o('%s: read back: stacks still looping %s' % ('PASS' if not loops else 'FAIL', loops))
     pl = R['probe_after']['emitters'][AS51_PUFFS]
     o('INFO: %s after: lifetime %s, Scale Alpha %s' % (AS51_PUFFS, pl.get('lifetime'), pl.get('scale_alpha')))

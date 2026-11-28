@@ -197,6 +197,11 @@ void UMechSentinelAttackProcessor::Execute(FMassEntityManager& EntityManager, FM
 
 		// Ranged: aim ahead of a moving target by its velocity over the flight time, then fire from the muzzle.
 		FVector AimPoint = Pending.To;
+		// The target's module may pick another part of it for this bullet (an airship's turret); the lead still applies
+		if (Swarm->BulletAimRedirect.IsBound())
+		{
+			Swarm->BulletAimRedirect.Execute(TargetActor, Pending.From, AimPoint);
+		}
 		if (Pending.LeadFactor > 0.f)
 		{
 			const float FlightTime = FVector::Dist(Pending.From, AimPoint) / FMath::Max(100.f, Pending.Bullet.Speed);

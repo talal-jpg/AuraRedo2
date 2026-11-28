@@ -17,7 +17,13 @@ def _as10():
     SK = FOLDER + '/SK_Airship'
     SKEL = FOLDER + '/SKEL_Airship'
     ANIM = FOLDER + '/A_Airship_TestSweep'
+    # slot 0: the drivable hull material once as_61_hull_ink.py made it (M_Airship with the hull ink re-baked without
+    # the five removed deck pieces), else Talal's M_Airship
     MAT0 = '/Game/Assets/MyShip/M_Airship'
+    for _m0 in (FOLDER + '/Materials/M_AirshipDrivable', FOLDER + '/Materials/MI_AirshipDrivable'):
+        if unreal.EditorAssetLibrary.does_asset_exist(_m0):
+            MAT0 = _m0
+            break
     MAT1 = FOLDER + '/Materials/M_AirshipProps'
     g = globals()
     EXISTING = g.pop('AS10_EXISTING', 'reuse')     # 'reuse' | 'reimport'

@@ -964,6 +964,9 @@ Searchlights and other props stay as they are (lead decision).
 
 ### D8. Board from under the hull
 
+**Withdrawn 2026-11-25 (Talal, section 6.8):** F under the hull does nothing; `BoardBelowDistance` is 0 = off by default.
+The code below stays for a harness that sets the value.
+
 Port from the parked local branch `airship-anchor-wip` (1f3d2b7, `git show airship-anchor-wip`), boarding part only:
 
 * Settings (turret owner): `UPROPERTY(Config, EditAnywhere, Category = "Boarding", meta = (ClampMin = "0.0")) float
@@ -1249,26 +1252,31 @@ re-runnable, saves only its own assets by explicit path, prints `PASS/FAIL/WARN/
 | 1 | `as_51_muzzle_once.py` | D1 asset fix on NS_AirshipMuzzle (probe, every emitter Loop Once 0.2 s, Blast_Puffs lifetime 0.5-0.85 + alpha fade), compile check, save. Also defines the shared function the edited `as_06_muzzle.py` calls. |
 | 2 | `as_52_cannonball_bp.py` | BP_AirshipCannonball CDO: BallMesh scale (1, 1, 1), ImpactFXScale 3.0, Radius 50, GravityScale 0.6, SplashRadius 600, SentinelHitRadius 100, MaxLifeSeconds 10, BallMaxHealth 30; compile, read back, save. Header: run after any as_03 run. |
 | 3 | (existing) `as_02_textures_material.py` | re-import `T_AirshipProps_ComicLines/Mask` from SourceArt (the atlas repacked in D7) |
-| 4 | `as_56_reimport_airship.py` | wrapper: `AS10_EXISTING = 'reimport'` then exec `as_10_import.py` (SK_Airship over the existing asset, skeleton kept, bones checked against the new `bones_ue.csv`). Then checks: 118 bones, `Helm_Wheel`/`PilotSeat` rest positions = `turret_dims.json`, SK still points at PA_Airship, prints PilotSeat for `PilotSeatFallback`. Does NOT rebuild PA_Airship. |
+| 4 | `as_56_reimport_airship.py` | wrapper: `AS10_EXISTING = 'reimport'` then exec `as_10_import.py` (SK_Airship over the existing asset, skeleton kept, bones checked against the new `bones_ue.csv`). Then checks: 118 bones, `Helm_Wheel`/`PilotSeat` rest positions = `turret_dims.json`, SK still points at PA_Airship, prints PilotSeat for `PilotSeatFallback`. Does NOT rebuild PA_Airship (step 6b does). |
+| 4b | `as_61_hull_ink.py` (added 2026-11-25, risk 7 of NOTES_assets.md) | hull ink without the five removed deck pieces: import `SourceArt/Airship/textures/T_AirshipDrivable_ComicLines.png` (re-baked on the rig copy by `SourceArt/Airship/scripts/hull_ink_drivable.py`, headless Blender, before this step) as `/Game/Assets/MyShip/Drivable/Textures/T_AirshipDrivable_ComicLines` with `T_Airship_ComicLines`' settings read at run time (compression, sRGB, mips, LOD group, address, ...); duplicate `M_Airship` (a Material) to `/Game/Assets/MyShip/Drivable/Materials/M_AirshipDrivable` and swap only the ComicLines sample (an MI copy with the texture parameter if M_Airship were an instance); `bUsedWithSkeletalMesh` checked; SK_Airship slot 0 -> the copy; saves those three; Talal's M_Airship / T_Airship_Comic* / SM_Airship untouched (bytes checked). `as_10_import.py` now assigns slot 0 = M_AirshipDrivable when it exists, so as_56 keeps it. |
 | 5 | (existing, headless Blender) `as_09_part_bounds_blender.py` | new `part_bounds.json` (helm bounds changed) |
 | 6 | (existing) `as_12_reuse.py`, then `as_13_cr_eval.py` | CR_Airship rebuilt in place (Helm wreck body from the new bounds, wheel position); eval must pass as before (144 checks) |
+| 6b | `as_11a_hull_survey_blender.py` (headless Blender), `as_11b_hull_boxes.py` (python3), `as_11_physics_asset.py`, then `as_13_cr_eval.py` again | PA_Airship REBUILT (Talal 11-24 "make a proper PA for ship"): one Kinematic body per moving part from the new `part_bounds.json` (+2 cm, the Helm_Wheel box fits the 140 cm wheel), hull boxes fitted to a 25 cm column survey of the round-2 rig (none above the deck, none in the open truss, nothing where the five removed pieces were); saves PA_Airship + SK_Airship |
 | 7 | `as_53_turret_import.py` | import `SourceArt/Airship/SM_AirshipTurret_Base.fbx` / `_Gun.fbx` -> `/Game/Assets/MyShip/Drivable/Turret/SM_AirshipTurret_Base`, `SM_AirshipTurret_Gun` (static mesh, no collision generated, Nanite off, combine meshes, material slot -> `/Game/Assets/MyShip/Drivable/Materials/M_AirshipProps`, normals imported, pivot kept); check bounds against `turret_dims.json` (+-2 cm) |
 | 8 | `as_54_turret_fx.py` | three copies in `/Game/Assets/MyShip/Drivable/FX`: `NS_AirshipTurretTracer` (dup of `/Game/Assets/Effects/AppreiticeFx/GunShootHit/PS_06_Flipbook_Sprites_my`; probe every module input for the fixed 7500 cm/s tracer speed and set it to 30000; print what was found; if none is found, WARN and leave it); `NS_AirshipTurretMuzzle` (dup of `/Game/NiagaraExamples/FX_Weapons/MuzzleFlashes/NS_MuzzleFlash`, remove `Bullet_Shell_Eject`, `User.Use Bullet Shell` 0, `User.Global Scale` 1.5, every emitter Loop Once 0.2 s, smoke lifetimes <= 0.5 s); `NS_AirshipTurretFire` (dup of `/Game/Assets/Effects/Fire/NS_Fire`, unchanged). Compile state checked, saved. |
 | 9 | `as_55_turret_bp.py` | `/Game/Assets/MyShip/Drivable/Turret/BP_AirshipTurret` (parent `/Script/Aura.AirshipTurret`, create or reuse, never delete): BaseMesh/GunMesh meshes, `PivotHeight` / `MuzzleForward` from `turret_dims.json`, MuzzleFXComponent system NS_AirshipTurretMuzzle, DestroyedFXComponent NS_AirshipTurretFire (relative scale 0.3), TracerSystem NS_AirshipTurretTracer, TracerDataChannel `/Game/Assets/Effects/AppreiticeFx/GunShootHit/NDC_GunShootHit`, DestroyedExplosionFX NS_FireExplosion; HitBox extent from the dims; compile, save. |
 | 10 | `as_57_pawn_defaults.py` | BP_AirshipPawn: verify the CDO doesn't override CannonballSpeed / CannonSpawnForwardOffset / PilotSeatFallback (reset to the class default if it does, and report); report the project setting TurretClass resolves to BP_AirshipTurret_C. Saves only if something changed. |
-| 11 | `as_58_verify_round2.py` | read-only: every asset above loads, key properties as specified, NS compile states OK, IMC_Airship unchanged (no new input assets), PA_Airship untouched (file size/hash vs the clone's committed one). |
+| 11 | `as_58_verify_round2.py` | read-only: every asset above loads, key properties as specified, NS compile states OK, IMC_Airship unchanged (no new input assets), PA_Airship checked by its bodies (read back = as_11's report, every part covered, hull boxes vs the hull survey and the removed pieces), not by its bytes. |
 | 12 | `as_59_pie_round2.py` (+ `as_59s_status.py`, `as_59x_stop.py`) | PIE harness, section 4 |
 
 Input: no new input actions or contexts (gunners reuse IMC_Airship / IA_Airship*; D5.3).
 
-Must not be regenerated / overwritten: **PA_Airship** (not rebuilt in PR A: D3 no longer needs it, and the user's own
-tree has an uncommitted, empty PA_Airship; a committed PA change would collide with his local file when he pulls). The
-stale helm boxes in the committed PA are larger than the new wheel: only aim traces notice (they hit the ship), noted in
-section 5. ABP_Airship: unchanged. SM_Airship (static, UCX): unchanged.
+**PA_Airship is rebuilt** (step 6b; changed 2026-11-24 on Talal's answer "no make a proper PA for ship"). D3 does not
+depend on it, but the round-1 boxes stood up to 5.2 m above the hull and kept the old helm size. His local PA_Airship is
+an uncommitted, empty asset: the committed rebuild replaces it when he pulls (that file conflicts; take the branch's).
+ABP_Airship: unchanged. SM_Airship (static, UCX): unchanged. Hull texture: Talal's `T_Airship_ComicLines` / `M_Airship`
+stay as they are (SM_Airship keeps them); the drivable SK_Airship gets the copies of step 4b, whose texture differs from
+his only within 1.5 m of the five removed pieces (59,869 of 16.8 M texels; before / after:
+`media/deck_ink_before_after.jpg`).
 
-Order matters: 3-6 need the Blender outputs (D7); 7 and 9 need the turret FBX and dims; 9 needs the built C++ (the
-`AirshipTurret` class); 4 must not run while CR_Airship is open in an editor tab (the delete-while-in-use crash in the
-memory notes; `as_12_reuse` rebuilds in place).
+Order matters: 3-6 need the Blender outputs (D7); 4b needs step 4 and the hull ink PNG; 7 and 9 need the turret FBX and
+dims; 9 needs the built C++ (the `AirshipTurret` class); 4 must not run while CR_Airship is open in an editor tab (the
+delete-while-in-use crash in the memory notes; `as_12_reuse` rebuilds in place).
 
 ---
 
@@ -1297,13 +1305,16 @@ checked where noted).
 | T2.5 | S | D2 | Splash: dummy ship's hull 550 cm from a ball impact on a wall | dummy loses 60 x lerp(1, 0.3, d/600) +-15 % (d = centre distance) |
 | T2.6 | S | D2 | `SpawnTestCannonball` hovering (GravityScaleOverride 0, velocity 200 cm/s) 15 m in front of the host character; host fires GA_GunShoot at it (as as_45 'gun' phase) | ball health -1 per hit (server); after 30 hits bShotDown, no damage to a dummy 1 m away |
 | T2.7 | L | D2 | Same ball shot down by a turret (`TurretFire` at it) | server `bShotDown` within 1 s (8 bullets); client copy hidden and still within 0.5 s of the server |
-| T2.8 | S | D2 | Own crew: a deck rider and a gunner (L1) on ship 1; ship 1 fires L2 point-blank at a wall 8 m off the beam (splash reaches the deck) | rider, gunner, pilot and ship health unchanged |
+| T2.8 | S | D2 | Own crew, one role at a time (one player): L1's muzzle 1 m from the port wall; a ball of ship 1 bursts there with a deck rider beside L1, then L1's gunner fires it, then the pilot fires a real port broadside. as_62 `s_own`: the pilot aboard, a real starboard broadside and a test ball into ship 2's hull 4.5 m beside ship 1 | each time the ball's own splash query holds the player (the hull for the pilot's case) and rider, gunner, pilot and ship health are unchanged; ship 2 loses health |
+| SW.e1 | S | D2 | as_62 `s_cannon`: three balls of ship 1 from the nearest muzzle at a real sentinel, led | `OnSentinelDamaged` with ship 1 as instigator, the sentinel loses health (the flight sweep) |
+| SW.e2 | S | D2 | as_62 `s_cannon`: balls of ship 2 into ship 1's hull beside a sentinel 1.5-5.6 m off it | events with ship 2 as instigator at a part of the full damage (the burst's splash); ship 1 loses health |
 | T2.9 | S | D2 | Pilot aim trace with a ball crossing the camera ray (harness spawns a test ball on the ray) | `GetLocalAimPoint` stays on the wall (< 50 cm change) |
 | T3.1 | S | D3 | `TestBullet` from 25 m beside ship 1 at its hull centre, ship unpiloted, Mesh collision turned off by the harness (no PA bodies involved) | ship health -3 (AttackDamage of the test bullet) |
 | T3.2 | S | D3 | `TestBullet` from 25 m outboard at turret 0's HitBox, the hull's Visibility left on (a real line: it meets the hull's forward deck convex first) | turret health -3, ship unchanged; the report names the first Visibility hit (the hull) |
 | T3.3 | S | D3 | `TestBullet` at the on-foot host character | character -3 via the Pawn sweep, as before |
 | T3.4 | S | D3 | `TestBullet` at an untagged GAS actor (an enemy character if the map has one, else skip) | no damage (unchanged behaviour) |
-| T3.5 | S | D3 | Swarm live (if the demo spawner is in the map): pilot hovers 30 s | ship health decreases; log shows tagged hits |
+| T3.5 | S | D3 | Swarm live (as_62 places a TEMP wave spawner): pilot hovers 30 s | ship health decreases (through the Pawn sweep on the PA boxes since 6.8; the log's tagged hits name the turrets) |
+| SW.a3 | S | D3 | The same 30 s | the turrets lose health too (`SwarmTurretAimChance` > 0) |
 | T4.1 | L | D4 | Host pilots, client mans L1; `Aura.Airship.Damage 100` | pilot -25, gunner -25 (+-0.5), next frame |
 | T4.2 | L | D4 | Pilot health set to 10 (harness, server ASC base); `Aura.Airship.Damage 100` | pilot ejected (PC pawn = character), then IsDead; ship alive without pilot |
 | T4.3 | L | D4 | Same for the gunner at 10 | gunner dismounted, then dead, station free |
@@ -1336,7 +1347,20 @@ checked where noted).
 | T7.1 | - | D7 | Blender `rig_all.sh` + `verify_all.sh` | PASS, 118 bones, 31 meshes |
 | T7.2 | S | D7 | Pilot at the helm, capture from the side | wheel hub near the character's chest; wheel about 140 cm across (bounds of Helm_Wheel's vertices from part_bounds.json 136-144 cm) |
 | T7.3 | S | D7 | Top capture of the deck | the 5 pieces gone; turrets at the forward deck edges |
-| T8.1 | L | D8 | Client 7 m below the hovering ship's belly, under the hull | F boards; 12 m below: refused |
+| T8.1 | S | 6.8 | The player on the ground 7 m and 12 m under the hovering ship's belly, F | not boarded, both (until 2026-11-25, D8: boards at 7 m) |
+| T8.2 | S, L | 6.8 | The player on the planks 2.5 m behind the wheel, F. L: the client on the free ship 2, its own F key | not boarded (L: no pilot on either machine, "F refused" in the server log; the F at the wheel right after it boards) |
+| T8.3 | S | 6.8 | The player on the planks at the pilot's standing spot, F | boarded, attached at the seat |
+| T8.4 | S, L | 6.8 | The pilot presses F at the helm. S: at rest. L: the client pilot at 35 m/s, both copies, each in its own hull's space | S: hull xy within 10 cm of the driving pose, walking, base = the ship, feet within 5 cm of the deck box, no falling. L: server copy within 10 cm; the client's own copy never more than 100 cm off and within 10 cm from 2 s on |
+| T8.5 | S | 6.8 | A player stands on the planks; Classic, throttle 1 for 8 s with a 3 s turn (48 m/s) | walking, a rider, base = the ship all the time; within 1 m of its spot; feet -6..12 cm over the deck box |
+| T8.6 | S | 6.8 | Visibility lines at a player on the planks from 10 m above and from 25 m to port; then from above past the player | the player first on both; then ship 1's Mesh (a deck box) |
+| T8.7 | S, L | 6.8 | The same player jumps at 48 m/s. L (`g8_jump`): the client jumps on the ship the host flies, at 30 m/s and accelerating; both copies, each in its own hull's space | back on the deck within 4 m of the take-off point (hull xy) |
+| T8.8 | S, L | 6.8 | The 1.5 s after that landing (L: part of T8.7 L) | within 50 cm of the landing point (hull xy), walking: no slide at the ship's speed |
+| deck_arrival | L | 6.8 | The client comes from the ground straight onto the planks of the hovering ship the host holds (`g1_far`) | the ship moves at most 15 cm in the next 2 s (first run: 554 cm, CPP_NOTES 15.11) |
+| T5.8b | L | 6.9 | as_60 `g9_clock`: the client's move clock past 121 s (the phase waits for it), F on L1, 3 s, F again, W for 1.5 s | both copies move at least 1 m; no move refused because of the clock |
+| T8.11 | S | 6.9 | Ship 1 with the deck on the hull's collision (`SetDeckOnPhysicsAsset(false)`: a ship without PA bodies), the player on the lid at the wheel, F | at the helm (the feet are 2.45 m above the seat: measured from the seat F was refused) |
+| T8.12 | S | 6.9 | A third ship with the player at its helm is destroyed (`K2_DestroyActor`) | 0.2 s later: the character possessed, falling, not attached, thrown up; health unchanged |
+| T8.B1 / T8.B2 | S, opt-in | 6.9 | `AS59_ONLY="t8_boost"`: from the ground to the helm with Space x 3, Shift + W, Space, W, F; the level gap with Space x 3 and W | INFO only: what was reached |
+| T8.9 | S | 6.8 | A second jump at 48 m/s, 0.5 s later the air jump with the movement input to starboard | 0.5 s on: within 1.5 m along the hull's x (the ship's speed is kept), 0.75..7 m to starboard (MaxWalkSpeed relative to the ship) |
 | T9.1 | S | D9 | P&F cruise 48 m/s, F exit | speed 2.5 +-0.3 m/s within 30 s; heading within 2 deg for 60 s; mode Drift |
 | T9.2 | S | D9 | Galleon and Classic: same | same (Galleon: no reverse; fans idle) |
 | T9.3 | S | D9 | Exit at rest | mode Hold; moves < 0.5 m in 30 s |
@@ -1345,6 +1369,40 @@ checked where noted).
 | T9.6 | S | D9 | `Aura.Airship.Input 1 0` on an unpiloted ship, then InputClear at speed | None while active; Coast, then Hold below 3 m/s |
 | T9.7 | L | D9 | Client sees the drift | client copy's RepInput has the drift bit; Galleon cosmetics no reverse |
 | T10.1 | S/L | D10 | Every new console command runs and logs; Telemetry line 3 present | PASS |
+
+Swarm result 2026-11-27 (`as_62`, real sentinels, standalone; CPP_NOTES 15.12): 17 PASS, 0 FAIL, 1 INFO, 2 SKIP
+(`Saved/Airship/round2_final_swarm/`). T3.5: the driven ship lost 210 in 30 s under 5 sentinels, the pilot 52.5 (0.25 x).
+T6.7: 106 turret rounds, 86 damage events on sentinels, 3 kills. The first run (17 checks: 12 PASS, 3 WARN from the
+safety cut, 0 FAIL) showed that no real bullet could reach a turret of a ship with only a pilot (turrets 0 / 0 in 30 s):
+the swarm aims at the ship's root, 21 m behind them. `UAirshipSettings::SwarmTurretAimChance` (0.25) now aims that share
+of the bullets at a living turret: 15 and 21 lost in the same 30 s. An undriven, unmanned ship stays untouched (SW.c1,
+SW.c2).
+
+Regression result 2026-11-27 on the same build (`controls/RESULTS.md`, "Regression on the round 2 build"): as_43 under
+Classic 24 of 25 (`f2_boost_path` at +5.35 m/s, the documented v1 crash bump); as_45 listen 22 of 22 in Classic and 18
+of 22 in Point & Fly (the same four by-design v1-check fails); `Aura.Airship.Scheme 0` + `check`: 0 differences. The
+follow-up checks score 7 of 9 as shipped and 9 of 9 with `Settings.DriverTurretArcDeg 0`: `p4_firehold` and `p4_tap60`
+press Fire in the frame the camera leaves the bow, where D6 now drives the machine guns instead of a broadside
+(changed on purpose). as_59 and as_60, run once more on this build (the swarm's aim hook is its only C++ difference
+from the runs below): 52 PASS, 0 FAIL, 4 INFO, 14 SKIP and 42 PASS, 0 FAIL, 1 INFO, 9 SKIP
+(`Saved/Airship/round2_final_sa_t3_1127/`, `round2_final_mp_t3_1127/`).
+
+Listen result 2026-11-27 (`as_60`, helm and deck, the passenger fix of CPP_NOTES 15.11 built): 42 PASS, 0 FAIL, 1 INFO,
+9 SKIP (`Saved/Airship/round2_final_mp/`). The first run of the day, before the fix: 38 PASS, 1 FAIL (T5.12a at 1.04
+deg; a frame-pairing fix in the harness, the limit unchanged) and the ship knocked 3-5.5 m away each time a character was
+put on the planks. New checks since: `deck_arrival_no_shove_L`, `T8.2_client_F_away_from_wheel_L`,
+`T8.7_client_deck_jump_L`. T8.4 L: the client pilot leaves at 40 m/s, both copies 6.5 cm from the driving pose, the
+client's own copy never further, no correction.
+
+Standalone result 2026-11-27 (helm and deck, PA_Airship rebuilt, hull ink applied): 52 PASS, 0 FAIL, 4 INFO, 14 SKIP
+(`Saved/Airship/round2_final_sa/`). One harness fix (T8.1's ground trace hit the player), one C++ change found by
+T8.7's numbers (jumps on a flying deck, section 6.8 "Deck jumps"; T8.8 / T8.9 are its checks).
+
+Standalone result 2026-11-25 (`as_59`, runner `_AirshipWork_logs/run_r2_pie.sh`): 44 PASS, 0 FAIL, 14 SKIP, no C++
+change; T8.1 runs there as an S variant (phase `t8_below`). The fixes were measurement fixes (Python trace reader, recoil
+in T2.1, camera recenter / lag in the aim phases, T2.6 from the deck, the drift's no-reverse window, T9.6 isolating ship
+2, T5.15 for a character that doesn't simulate physics): NOTES_assets.md, "as_59 PIE run 2026-11-25". T2.8 and T4.5 are
+not covered by any harness (3 characters / a second pilot at once).
 
 Regression (lead, same editor session):
 
@@ -1387,9 +1445,10 @@ mounted gunner (simulated by destroying the client's character: the station clea
    IMC_Airship doesn't map, a gunner can cast from the seat. Check IMC_PlayerMappings in the editor stage; if it
    matters, a follow-up adds those keys to IMC_Airship (an asset change, out of PR A's no-new-input rule).
 4. **User's local GE_GunShootDamage = 1000** (his uncommitted test value): turret bullets do 4000 in his tree and
-   one-shot a 2000 HP ship; balls are unaffected (gun units). Tell him.
-5. **User's empty local PA_Airship**: D3 doesn't need it; PR A doesn't touch PA. The committed PA keeps the old helm
-   boxes (bigger than the new wheel).
+   one-shot a 2000 HP ship; one gun hit destroys a turret (400) and its crew share (250) kills a mech (110); balls are
+   unaffected (gun units). Known limit of PR A, no code change (lead 2026-11-28); PR B sets ship damage for matches.
+5. **User's empty local PA_Airship**: D3 doesn't need it. PR A rebuilds PA_Airship (step 6b, his "make a proper PA"),
+   so his empty local copy conflicts with the committed one when he pulls: take the branch's.
 6. **Balls now block Visibility**: every Visibility trace in the project can hit a ball for the second it flies (beam,
    electrocute, sentinel bullets, the gun's wall trace). Acceptable; the ship's aim traces ignore them.
 7. **Drift and hold change every scheme after an exit** (on purpose). Old harness checks that assumed a coasting or
@@ -1412,7 +1471,7 @@ mounted gunner (simulated by destroying the client's character: the station clea
 * Wheel size: 140 cm across the tips (character height) as asked; the research target was 100-120 cm.
 * Turret placement x 2100 from image 2 (the lead's first range was x 2400-2900).
 * BallMaxHealth 30 and CrewDamageShare 0.25 tuning; 4x vs 10x (TurretGunDamageMultiplier is a project setting).
-* His local PA_Airship (empty) and GE_GunShootDamage (1000): keep or revert.
+* His local GE_GunShootDamage (1000): keep or revert. His empty local PA_Airship is replaced by the rebuilt one.
 
 ### 5.3 PR B hooks left open
 
@@ -1555,13 +1614,130 @@ with the health before boarding. `as_30_pie_smoke.py` (`crew_share_set` / `crew_
 `restore`; as_43 inherits them) and `as_45_pie_mp.py` now set `CrewDamageShare` to 0 for the whole run and restore it.
 Section 4 lists it with the other switches.
 
+### 6.8 Helm and deck (Talal 11-25; built 2026-11-27)
+
+Talal, 2026-11-25 05:02 and 05:06 UTC: "1.the player should only be able to drive mount the ship when close enough to
+hold steering wheel , 2. when player exits , the character should keep its position in front of the steering wheel ,as
+when driving." and "no need to make the character climb, if below hull, only be able to drive once close enough to grab
+the steering wheel". This replaces D8 and the helm half of D5.3. Code and engine facts with file:line:
+`Docs/Airship/CPP_NOTES.md` section 15.9. Built clean (`build_r2.sh`); run in standalone PIE 2026-11-27 (as_59: T8.1-T8.9
+PASS, 52 PASS / 0 FAIL in all) and in listen PIE the same day (as_60: 42 PASS / 0 FAIL; T8.2 L, T8.4 L, T8.7 L and
+`deck_arrival_no_shove_L` PASS after the passenger fix, CPP_NOTES 15.11).
+
+* **D1. Walkable deck at plank height.**
+  * `HullCollision` ignores `ECC_Pawn`; the Mesh (PA_Airship: kinematic, QueryOnly) blocks it. Characters pass through
+    the UCX lid and walk on the hull boxes (tops at the planks) and are stopped by the part boxes. The hull stays the
+    flight body with every other response, so flight, mass and inertia do not change.
+  * A ship without physics asset bodies keeps the v1 deck (`bDeckOnPhysicsAsset`, `IsDeckOnPhysicsAsset()`).
+  * The based movement is the same as on the hull: the Mesh under a simulating root counts as a simulated base. A rider
+    no longer pushes the ship (the standing force only acts on a simulating base).
+  * PA_Airship needs the 11-25 refit of `as_11b` (96 hull boxes, no hole): **rebuild the asset in the editor stage**
+    (`as_11_physics_asset.py`, then as_13 and as_58).
+  * The forward deck is 419 cm above the main deck, more than the air jump (353 cm). No ramp was added: the PA has no box
+    where nothing is drawn. Open item for the lead and Talal.
+* **D2. Visibility.** `HullCollision` ignores `ECC_Visibility` too; the PA bodies and the turrets' HitBoxes are what
+  traces hit, so a player on the planks (inside the lid) can be shot. Checked path by path (CPP_NOTES 15.9 table). One
+  fix: `UMechSentinelCombatLibrary::GetMoveVelocityAt` reads the simulating body under a kinematic base.
+  `FindTurretBehindHullHit` stays as a fallback for a PA box in front of a turret. Sentinel bullets and shots pass where
+  the PA has no box (the open truss under the forward deck).
+* **D3. The helm only at the wheel.** `AAirshipPawn::IsWithinHelmReach`: feet within `HelmReach` 150 cm (horizontal,
+  hull space) of the pilot's standing spot and within `HelmReachHeight` 100 cm vertically, and not ahead of the wheel
+  (hull x up to the wheel hub's plus the capsule's radius, so "beside" counts). Used by `TryUseNearest`, `TryBoard`
+  (without `bIgnoreRange`) and `FindBoardableAirship` (the prompt's question).
+* **D4. Leaving keeps the place.** `UnboardPilot(false)`: detached at the seat transform, walking with the ship as the
+  base, no launch. The capsule clears the wheel's box by 8 cm, so nothing moves in the hull's xy; it settles 11 cm in z
+  (the seat's clearance onto the deck box). Ejects keep the old launch. The owning client places its own copy the same
+  way (`ClientLeftHelm` -> `PlaceLeftPilotLocal`): without it that copy fell with no base and no speed until the
+  server's correction (round 1's 3 m snap).
+* **D5. No climb.** `BoardDistance`, `BoardHullDistance`, `BoardBelowDistance` default to 0 = off; the code paths stay
+  for a harness. F under or near the hull does nothing. The main deck of a hovering ship is at least about 12.5 m above
+  flat ground (18.7 m in L_AirshipTest, 13.6 m for the ship in Talal's StartupMap); a jump reaches 1.76 m, the air jump
+  3.53 m. Players get aboard by hover and boost (Space x 3, then Shift + W along the view; measured, section 6.9), from
+  a platform at deck height or above, or with PR B's ship hook. Not by the grapple: GA_GrappleSwing2 refuses the ship
+  (an earlier version of this line said it did). Gunner stations keep `StationMountDistance` 350; a gunner who leaves
+  is put on the planks next to the seat.
+* **D6. Harnesses and docs.** as_59: T8.1 turned around, T8.2-T8.7 new, T3.1 with the Mesh's collision on; as_60: T8.4 L
+  in `g6_drift`, setups; as_45 / as_43: setups; as_30: unchanged. Console `Board` / `Exit` / `Mount` / `Dismount` are
+  unchanged (as_62 uses them). Section 4 has the rows; `HOW_TO_FLY.md` has the player's view.
+* **Deck jumps (found in the 2026-11-27 run, fixed in `UMyCharacterMovementComponent`; CPP_NOTES 15.10).** T8.7 passed
+  (the jump kept the ship's velocity) but its numbers showed two faults at 48 m/s: the walker slid 1.7 m forward after
+  landing until the wheel's box stopped it (the engine adds the base's velocity at the take-off and never takes it off
+  on landing), and in the air its capsule swept 1.6 m per frame ahead into the ship, which moves later in the frame
+  (it lost height on the wheel's box 1.5 m ahead). From the code: the air jump turned the whole velocity, the ship's
+  48 m/s included, toward the movement input. Now a jump from the deck of a vehicle (a pawn that simulates physics) stays on that base in the
+  air (the engine's `bStayBasedInAir`, set per jump; the ground, the hex platforms and collapsing bridge parts are not
+  such bases and behave as before): the jump is a clean arc in the hull's frame (176 cm up, back within 1 cm, no slide, T8.8) and the air jump
+  turns only the velocity relative to the deck (T8.9). Listen: a client's plain jump on the flying deck is T8.7 L (as_60
+  `g8_jump`, PASS); its air jump and jumps with lag are not covered.
+* **Characters shoved the ship (found in the 2026-11-27 listen run, fixed; CPP_NOTES 15.11).** The mech's mesh and its
+  two jet packs are kinematic WorldDynamic bodies, which the hull (it ignores only Pawn) still blocks, and the planks
+  lie inside the hull's convex. A character that came onto the planks while it still counted as standing elsewhere
+  knocked the hovering ship 3 to 5.5 m away. Now a character standing elsewhere inside the hull's own box + 3 m is a
+  passenger candidate (query-only collision), and each ship checks for new candidates before every physics step. After:
+  the ship moves 0.1 cm (`deck_arrival_no_shove_L`).
+* **Reaching the decks (measured 2026-11-27, `t8_reach` + `deck_reach_probe.json`; nothing changed).** L_AirshipTest:
+  the ship hangs at z 1600 over the start platform (top z 0); main deck 18.3-18.8 m over it (hull z 232-283), forward
+  deck 22.5 m (hull z 653). A jump lifts the feet 176 cm, a jump + the air jump at its top 353 cm; hover holds the
+  height. The forward deck is 416-421 cm over the main deck: not reachable on foot. A turret's seat is 350 cm over a
+  capsule standing on the main deck (`StationMountHeightBelow` 200): F does nothing. At the top of a jump under the
+  forward deck the capsule is 175 cm under the seat: F mans the turret, and Dismount then leaves the player on the
+  forward deck. That is the only way up on foot today, and it is an accident of the ranges. Open item for the lead and
+  Talal (stairs or a ladder in the model, or a deliberate rule).
+* **Deviations from the lead's brief.** (1) T8.4's 10 cm is measured in the hull's xy; in z the capsule settles 11 cm
+  from the driving pose onto the deck box, which is reported and checked as "feet within 5 cm of the deck box". (2) The
+  client RPC is an addition. (3) "Not ahead of the wheel" has the capsule's radius of tolerance.
+
 ---
+
+### 6.9 Second review (2026-11-27 / 28)
+
+Eight findings and one nit. Details and numbers: CPP_NOTES.md 15.13; runs: NOTES_assets.md, "PIE runs 2026-11-28".
+
+| # | Finding | What was done | Check |
+|---|---|---|---|
+| 1 | A remote gunner who leaves a gun with a move clock past 120 s stood still on the server for up to 2 minutes | `DismountGunner` keeps the server's prediction state, sets its clock to now and clears the forced-update state | as_60 `T5.8b_dismount_old_clock_L` |
+| 2 | The docs said the grapple takes you aboard; nothing showed a player reaching the deck | Docs corrected. Measured with the game's keys: hover + boost reaches the planks and the helm. No boarding rule, climb or ladder added | as_59 opt-in `t8_boost` (T8.B1, T8.B2, INFO) |
+| 3 | The machine guns cannot be manned by a player who walks | No code change, the station reach is not raised. Known limit below | none |
+| 4 | 10 cm slots between the deck boxes, no boxes for the deck's crates and barrels | as_11b: neighbours overlap, 7 prop boxes; PA_Airship rebuilt: 35 bodies / 143 boxes / 103 hull boxes | as_11, as_13, as_58 (55 PASS), T8.1-T8.9, stills |
+| 5 | Talal's local gun damage of 1000 | No code change. Known limit below | none |
+| 6 | A ship without PA bodies could never be boarded | Helm reach measured from the deck stood on; Warning in the log on the fallback | as_59 `T8.11_helm_on_hull_deck_S` |
+| 7 | The smoke captures showed no smoke | Camera off the port bow along the hull's side, the muzzles against the sky; frames at 0.1, 0.3 and 1.2 s read; the report line no longer claims what the pictures show. Final run: orange-brown puffs at both muzzles at 0.1 s, none at 0.3 s and 1.2 s. **Partly settled:** how much smoke is drawn differs between editor sessions (see the known limits) | as_59 T1.3 captures (INFO), T1.1 (components and their life) |
+| 8 | Cannonball splash was never tried on the real swarm; T2.8 skipped everywhere | as_62 `s_cannon` and `s_own`; as_59 `t2_own` | `SW.e1`, `SW.e2`, `T2.8_own_splash_pilot_aboard`, `T2.8_own_crew_splash_S` |
+| 9 | (nit) A ship removed under its pilot left him in place | `EndPlay(Destroyed)` ejects him | as_59 `T8.12_destroyed_ship_ejects_pilot_S` |
+
+Final runs on that build (2026-11-28, one full run each): as_59 standalone 55 PASS, 0 FAIL, 4 INFO, 13 SKIP; as_60
+listen 43 PASS, 0 FAIL, 1 INFO, 9 SKIP; as_62 real swarm 20 PASS, 0 FAIL, 1 INFO, 1 SKIP. No error or ensure in the
+editor logs. The older suites (as_43, as_45, the follow-up checks) were not run again after this review's two C++
+changes (the station reach back to one value, the eject of a destroyed ship's pilot).
+
+**Known limits of PR A**
+
+* **The turret stations are not reachable on foot.** The forward deck is 4.2 m above the main deck, the model has no
+  stairs, and F from the main deck is out of range (the capsule's centre is 3.5 m under the seat, the limit is 2 m).
+  A player gets there by hover and boost, or by the accidental jump + F under the forward deck. Stairs or a ladder come
+  with the model detail pass that follows PR A.
+* **Gun damage 1000 in Talal's tree** (his local `GE_GunShootDamage`): one turret bullet (4000) destroys a ship, one gun
+  hit a turret. The PIE suites must not be run there with that value. PR B sets ship damage for matches.
+* **The main deck of a hovering ship is 12.5 m or more above flat ground and F does nothing from below** (Talal 11-25).
+  The way up is the player's own flight: Space, Space, Space (hover), then Shift + W along the view. It is fast (26 m/s)
+  and has little braking of its own. From a platform beside the ship the hover alone is enough.
+* **Talal's StartupMap** (read from disk, not played): from the hex platform beside the placed ship the main deck is
+  7.9 m away and 3.5 m lower, inside a running jump (9.8 m for that drop). From the start floor it is 13.6 m up.
+* **How much cannon smoke is drawn differs between editor sessions.** "Stops within 1 s" is measured (T1.1: the
+  effect's components are gone 0.83 to 0.9 s after the shot). What the side camera shows, on the same build: in the
+  final run orange-brown puffs at both muzzles at 0.1 s and nothing at 0.3 s and 1.2 s; in one earlier session (11-27
+  13:54 UTC) a large grey cloud at 0.3 s and nothing at 1.2 s; in two short runs only sparks at 0.1 s. Never any
+  smoke at 1.2 s. Ruled out with one run each: Niagara's visibility culling, and spawning the effect once before the
+  shot. Not tried: a second broadside in the same session (if only the first shot after an editor start is thin, it
+  is the engine preparing the effect's shaders, not the asset). Someone should fire twice in PIE and look.
 
 ## Appendix A. New settings (`UAirshipSettings`, all `UPROPERTY(Config, EditAnywhere)`)
 
 | Category | Name | Type | Default | Unit / meaning |
 |---|---|---|---|---|
-| Boarding | `BoardBelowDistance` | float | 1000 | cm: a pawn under the hull (trace straight up hits it) can board; 0 = off |
+| Boarding | `BoardBelowDistance` | float | 0 (was 1000) | cm: a pawn under the hull (trace straight up hits it) can board; 0 = off. Off since 6.8, like `BoardDistance` (was 1200) and `BoardHullDistance` (was 400) |
+| Boarding | `HelmReach` | float | 150 | cm, horizontal, hull space: F takes the helm with the feet this close to the pilot's standing spot (6.8); 0 = only the old ranges |
+| Boarding | `HelmReachHeight` | float | 100 | cm above or below the standing spot |
 | Stations | `StationMountDistance` | float | 350 | cm, horizontal radius around a station seat for F |
 | Stations | `StationMountHeightAbove` | float | 600 | cm the pawn may be above the seat (the lid, the gantry convex) |
 | Stations | `StationMountHeightBelow` | float | 200 | cm the pawn may be below the seat |

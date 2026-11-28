@@ -17,7 +17,10 @@ mkdir -p $W/Saved/ClaudeInbox $W/Saved/Airship; rm -f $W/Saved/ClaudeInbox/*.py
 # After a crash the editor opens a modal "Restore Packages" dialog that blocks the inbox: move the restore data aside.
 R=$W/Saved/Autosaves/PackageRestoreData.json; [ -f $R ] && mv $R $W/Saved/Airship/PackageRestoreData.$(date -u +%H%M%S).json && echo "moved aside $R"
 cd /mnt/new_partition/5.8/Engine/Binaries/Linux
-DISPLAY=:0 XAUTHORITY=/home/talal/.Xauthority setsid nohup ./UnrealEditor $W/Aura.uproject $MAP -norelativemousemode "-ExecCmds=py $H/pt_boot.py" > $W/Saved/Airship/editor_stdout.log 2>&1 < /dev/null & disown
+# Own memory-capped systemd scope (2026-11-25: the editor grew to 16 GB twice in as_54 and the global OOM kill took the
+# Claude app down with it). Over UE_MEM_HIGH the kernel reclaims/throttles; over UE_MEM_MAX only the editor is killed.
+UE_MEM_HIGH=${UE_MEM_HIGH:-12G}; UE_MEM_MAX=${UE_MEM_MAX:-13G}
+DISPLAY=:0 XAUTHORITY=/home/talal/.Xauthority setsid nohup systemd-run --user --scope --collect --unit=airship-ue-$(date -u +%H%M%S) -p MemoryHigh=$UE_MEM_HIGH -p MemoryMax=$UE_MEM_MAX -p MemorySwapMax=0 ./UnrealEditor $W/Aura.uproject $MAP -norelativemousemode "-ExecCmds=py $H/pt_boot.py" > $W/Saved/Airship/editor_stdout.log 2>&1 < /dev/null & disown
 sleep 5
 for p in $(ps -C UnrealEditor -o pid=); do tr '\0' ' ' < /proc/$p/cmdline | grep -q '_AirshipWork' && EP=$p; done
 echo "editor pid $EP"

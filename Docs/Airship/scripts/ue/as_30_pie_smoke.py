@@ -17,6 +17,9 @@
 #  cannons 9  look port, RequestFire; look stbd, fire      (i) balls from the muzzles, recoil in the bones, wall hits
 #  exit 3     Aura.Airship.Exit (pilot hurt by 25 first)   (k) character back, Health/Mana = the saved values
 #                                                          (k2) capsule keeps a QueryOnly body, stands on the hull 2 s
+#                                                          (since Talal 11-25, SPEC_A.md 6.8: at the wheel, on the planks'
+#                                                          boxes of the Mesh's physics asset, not 2.5 m to port on the
+#                                                          lid; the check and its limits are as they were)
 #  board2 2   Aura.Airship.Board
 #  lift 11    lift +1 4 s, -1 4 s, 0 3 s                   (c)
 #  throttle 10 throttle 1                                  (d) speed curve, top speed; (g) rig bones; (h) Niagara
@@ -26,7 +29,7 @@
 #  kill 16    Aura.Airship.Kill                            (j2) forces off, falls to the ground plane, wreck parts, pilot out
 import json, math, os, time, traceback  # unreal = inbox namespace
 
-AS30_VERSION = 'as_30_pie_smoke 2026-11-25'
+AS30_VERSION = 'as_30_pie_smoke 2026-11-27 helm+deck'
 OUT = os.path.join(os.path.abspath(unreal.Paths.project_saved_dir()), 'Airship')
 CAPS = os.path.join(OUT, 'captures')
 MAP_NAME = 'L_AirshipTest'

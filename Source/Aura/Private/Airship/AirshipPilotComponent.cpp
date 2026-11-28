@@ -258,24 +258,25 @@ void UAirshipPilotComponent::ServerRequestDismount_Implementation()
 AAirshipPawn* UAirshipPilotComponent::FindBoardableAirship() const
 {
 	const APlayerController* PC = GetPlayerController();
-	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	const ACharacter* Character = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
 	const UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(this);
 
-	if (!Pawn || !Subsystem || Cast<AAirshipPawn>(Pawn))
+	// On foot only (a pilot's pawn is the ship)
+	if (!Character || !Subsystem)
 	{
 		return nullptr;
 	}
 
-	const UAirshipSettings* Settings = UAirshipSettings::Get();
-	const FVector Location = Pawn->GetActorLocation();
+	// The helm only from the wheel (AAirshipPawn::IsWithinHelmReach): a prompt shows there and nowhere else
+	const FVector Location = Character->GetActorLocation();
 	AAirshipPawn* Best = nullptr;
 	double BestDistSq = TNumericLimits<double>::Max();
 
 	for (AAirshipPawn* Ship : Subsystem->GetAirships())
 	{
 		// Never the other team's ship (CanBoard is server only; the replicated team ids answer this on any machine)
-		if (!Ship || Ship->IsAirshipDead() || Ship->HasPilot() || !UMyTeamLibrary::CanUseShip(Pawn, Ship)
-			|| !Ship->IsWithinBoardRange(Location, Settings->BoardDistance, Settings->BoardHullDistance, Settings->BoardBelowDistance))
+		if (!Ship || Ship->IsAirshipDead() || Ship->HasPilot() || !UMyTeamLibrary::CanUseShip(Character, Ship)
+			|| !Ship->IsWithinHelmReach(Character))
 		{
 			continue;
 		}
@@ -327,14 +328,10 @@ bool UAirshipPilotComponent::TryBoard(AAirshipPawn* Ship, bool bIgnoreRange)
 		return false;
 	}
 
-	if (!bIgnoreRange)
+	// A player's request: only from the wheel. The console (bIgnoreRange) seats the player from anywhere.
+	if (!bIgnoreRange && !Ship->IsWithinHelmReach(Character))
 	{
-		const UAirshipSettings* Settings = UAirshipSettings::Get();
-
-		if (!Ship->IsWithinBoardRange(Character->GetActorLocation(), Settings->BoardDistance, Settings->BoardHullDistance, Settings->BoardBelowDistance))
-		{
-			return false;
-		}
+		return false;
 	}
 
 	const bool bBoarded = Ship->BoardPilot(Character, PC);
@@ -388,10 +385,9 @@ bool UAirshipPilotComponent::TryUseNearest()
 		return TryDismount();
 	}
 
-	// The nearest wins: the helm of a free living ship in its own range (distance to the pilot seat), or a free station
-	// in range (3D distance to its seat). From the deck the helm is always in range (BoardHullDistance), so standing at
-	// a gun mans it and standing elsewhere takes the helm.
-	const UAirshipSettings* Settings = UAirshipSettings::Get();
+	// The nearest wins: the helm of a free living ship when the character stands at its wheel (IsWithinHelmReach: Talal
+	// 11-25, "only be able to drive once close enough to grab the steering wheel"; distance to the pilot seat), or a free
+	// station in range (3D distance to its seat). Anywhere else, on the deck, beside or under the hull, F does nothing.
 	const FVector Location = Character->GetActorLocation();
 	AAirshipPawn* BestShip = nullptr;
 	int32 BestStation = INDEX_NONE;
@@ -408,7 +404,7 @@ bool UAirshipPilotComponent::TryUseNearest()
 		// Team match: the other team's ship is never used; remembered for the refusal's reason (its helm or a gun in range)
 		if (!UMyTeamLibrary::CanUseShip(Character, Ship))
 		{
-			bool bInRange = Ship->IsWithinBoardRange(Location, Settings->BoardDistance, Settings->BoardHullDistance, Settings->BoardBelowDistance);
+			bool bInRange = Ship->IsWithinHelmReach(Character);
 
 			for (int32 Station = 0; Station < Airship::NumStations && !bInRange; ++Station)
 			{
@@ -422,8 +418,7 @@ bool UAirshipPilotComponent::TryUseNearest()
 			continue;
 		}
 
-		if (!Ship->HasPilot() && Ship->CanBoard(Character)
-			&& Ship->IsWithinBoardRange(Location, Settings->BoardDistance, Settings->BoardHullDistance, Settings->BoardBelowDistance))
+		if (!Ship->HasPilot() && Ship->CanBoard(Character) && Ship->IsWithinHelmReach(Character))
 		{
 			const double DistSq = FVector::DistSquared(Location, Ship->GetPilotSeatLocation());
 
@@ -601,6 +596,18 @@ void UAirshipPilotComponent::ClientMountChanged_Implementation(AAirshipPawn* Shi
 	else
 	{
 		EndLocalGunner(LocalShip.Get(), ExitHullLocal, LaunchVelocity, true);
+	}
+}
+
+void UAirshipPilotComponent::ClientLeftHelm_Implementation(AAirshipPawn* Ship, ACharacter* Pilot)
+{
+	const APlayerController* PC = GetPlayerController();
+
+	// A client's own copy; the server (a listen host's own player) placed the character itself. A ship or character this
+	// machine has no copy of yet resolves to null: replication and the server's corrections then do it, as before.
+	if (PC && !PC->HasAuthority() && Ship && Pilot)
+	{
+		Ship->PlaceLeftPilotLocal(Pilot);
 	}
 }
 

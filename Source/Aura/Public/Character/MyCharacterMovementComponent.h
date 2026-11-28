@@ -19,6 +19,13 @@
  * Swing phase), so a swing always leaves one air jump for after the release. On a new air jump the owner
  * (AMyCharPlayer::OnAirJumped) plays its air jump montage.
  *
+ * Moving bases (the deck of a flying airship): a jump from a pawn that simulates physics stays on that base in the air
+ * (bStayOnVehicleInAir), so jumps, air jumps and landings on the deck happen in the ship's frame. Once the
+ * character is no longer over the ship the engine gives it the ship's velocity and never takes it off again. Here the
+ * landing does: back on a moving base, the velocity becomes the one relative to that base when that is the smaller one
+ * (no slide along the deck at the ship's speed; a character that drops onto the deck from outside still sticks as
+ * before). The air jump turns only the velocity relative to the base the character left, so it keeps the ship's speed.
+ *
  * Hover: the hover wish travels with every saved move (FLAG_Custom_0). While it is on, a falling character switches
  * to MOVE_Flying; when it goes off, a flying character drops back to MOVE_Falling (only on that change, so other
  * flying, such as GA_BoostBP's, is left alone).
@@ -79,10 +86,34 @@ public:
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category="Character Movement: Jumping / Falling|Hover")
 	bool bWantsToHover=false;
 
+	/**
+	 * A jump from the deck of a vehicle stays on that base in the air (the engine's bStayBasedInAir, set per jump). A
+	 * vehicle here is a pawn that simulates physics: the airship (its physics asset bodies and its turrets hang under
+	 * the simulating hull). The character keeps moving with the ship and its velocity stays relative to the deck until
+	 * it lands or is no longer over the ship (StayBasedInAirHeight, 10 m). Without it the character takes the ship's
+	 * velocity and flies beside it in world space: its capsule then sweeps the ship's speed x one frame (1.6 m at
+	 * 48 m/s) ahead into the ship, which has not moved yet in that frame, and hits or lands on whatever stands there.
+	 * Every other base is left as it was (dropped when the character leaves the ground): the ground, the hex
+	 * platforms, and simulating pieces that are not pawns (collapsing bridge parts, which tumble).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character Movement: Jumping / Falling")
+	bool bStayOnVehicleInAir=true;
+
+	/**
+	 * The velocity the character got from the moving base it left (the engine adds the base's velocity when a character
+	 * jumps or walks off a moving base, such as the deck of a flying airship) and still carries in the air. Zero on the
+	 * ground, in the hover, and after leaving a base at rest. The air jump turns only the velocity relative to it.
+	 */
+	FVector GetCarriedBaseVelocity() const { return CarriedBaseVelocity; }
+
 protected:
 	virtual void UpdateCharacterStateBeforeMovement(float DeltaSeconds) override;
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 	virtual void ControlledCharacterMove(const FVector& InputVector, float DeltaSeconds) override;
+	// Moving bases (the airship's deck): see CarriedBaseVelocity
+	virtual void ApplyImpartedMovementBaseVelocity() override;
+	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
+	virtual void SetPostLandedPhysics(const FHitResult& Hit) override;
 
 private:
 	// GA_JumpHover's request on the owning machine. Copied into bWantsToHover for each new local move, so a replay
@@ -104,6 +135,13 @@ private:
 
 	// A new air jump (not a replay) on this move: tell the character once the redirect is done
 	bool bPendingAirJumpNotify=false;
+
+	/**
+	 * Set when the character leaves a moving base (ApplyImpartedMovementBaseVelocity), cleared when it stops falling.
+	 * Not saved with the moves: a replay that starts in the air uses the value of the last simulated move, which is the
+	 * same jump unless the character has landed since (then a redirect in that replay is off until the next correction).
+	 */
+	FVector CarriedBaseVelocity=FVector::ZeroVector;
 
 	void ApplyHover();
 	void ApplyAirJumpRedirect();

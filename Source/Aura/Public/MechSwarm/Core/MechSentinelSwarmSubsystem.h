@@ -29,6 +29,13 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMechSentinelKilled, FMechSenti
  */
 DECLARE_DELEGATE_RetVal_ThreeParams(AActor*, FMechSentinelBulletTargetRedirect, const FHitResult& /*Block*/, const FVector& /*Direction*/, FVector& /*OutImpact*/);
 
+/**
+ * UMechSentinelSwarmSubsystem::BulletAimRedirect: a sentinel at From is about to fire at Target; InOutAimPoint is the
+ * target point (the pawn's location + TargetHeightOffset). The bound function may put another point of that target
+ * there (a part that should take fire too) and returns true when it did. The lead for a moving target is added after.
+ */
+DECLARE_DELEGATE_RetVal_ThreeParams(bool, FMechSentinelBulletAimRedirect, const AActor* /*Target*/, const FVector& /*From*/, FVector& /*InOutAimPoint*/);
+
 /** One damaging hit on a sentinel (server), with more detail than OnSentinelDamaged. C++ only; used for damage numbers. */
 struct FMechSentinelDamageEvent
 {
@@ -157,6 +164,14 @@ public:
 	 * trace always finds the hull first, and a hull hit over the forward deck goes to the turret behind it. Server.
 	 */
 	FMechSentinelBulletTargetRedirect BulletTargetRedirect;
+
+	/**
+	 * Optional, bound by the module that owns a large target: lets some bullets aim at a part of it away from its
+	 * origin. Airships bind it (UAirshipSubsystem, AAirshipPawn::RedirectBulletAimToTurret): the swarm orbits and aims at
+	 * the ship's root, and the turrets 21 m forward of it would never be on a bullet's line. Unbound: every bullet aims
+	 * at the target point, as before. Server (UMechSentinelAttackProcessor's ranged attacks).
+	 */
+	FMechSentinelBulletAimRedirect BulletAimRedirect;
 
 	//~ USubsystem
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
