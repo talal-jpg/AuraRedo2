@@ -1,0 +1,1878 @@
+{
+ "zone": "Z4",
+ "knobs": {
+  "seed": 1304,
+  "x_aft": 7.05,
+  "x_fwd": 8.6,
+  "x_fwd_plates": 15.45,
+  "chart_x": [
+   6.8,
+   15.7,
+   0.05
+  ],
+  "chart_phi": [
+   60.0,
+   -85.0,
+   -0.5
+  ],
+  "chart_clear": 0.3,
+  "bilge_phi": -84.0,
+  "touch_tol": 0.02,
+  "step_tol": 0.012,
+  "plate": {
+   "gap": 0.015,
+   "t": 0.045,
+   "bevel": 0.014,
+   "cell_u": 0.6,
+   "cell_v": 0.25,
+   "cut": [
+    0.07,
+    0.17
+   ],
+   "cut_p": 0.3
+  },
+  "layer": 0.006,
+  "seam": 0.024,
+  "rivet": {
+   "r": 0.022,
+   "h": 0.012,
+   "inset": 0.07,
+   "spacing": 0.28
+  },
+  "upper": {
+   "w": [
+    0.8,
+    1.7
+   ],
+   "row_h": [
+    0.55,
+    0.95
+   ],
+   "top_off": 0.27,
+   "min_w": 0.35,
+   "min_h": 0.22,
+   "keep": 0.25,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "lower": {
+   "w": [
+    0.8,
+    1.6
+   ],
+   "row_h": [
+    0.7,
+    1.1
+   ],
+   "top_off": 0.04,
+   "min_w": 0.35,
+   "min_h": 0.22,
+   "keep": 0.25,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "fill": {
+   "w": [
+    0.35,
+    0.8
+   ],
+   "h": [
+    0.3,
+    0.6
+   ],
+   "min_w": 0.3,
+   "min_h": 0.24,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "shingle": {
+   "p": 0.3,
+   "overlap": 0.08,
+   "t": 0.04,
+   "armour": 0.5
+  },
+  "frame": {
+   "p": 0.65,
+   "rim": 0.075,
+   "t": 0.035,
+   "inset_p": 0.0,
+   "min_w": 0.6,
+   "min_h": 0.45,
+   "edge": 0.09
+  },
+  "patch": {
+   "p": 0.7,
+   "t": 0.04,
+   "w": [
+    0.4,
+    0.8
+   ],
+   "h": [
+    0.3,
+    0.55
+   ],
+   "mats": [
+    [
+     "rust_red",
+     0.7
+    ],
+    [
+     "paint_ochre",
+     0.3
+    ]
+   ]
+  },
+  "batten": {
+   "p": 0.75,
+   "w": 0.12,
+   "t": 0.05,
+   "mat": "rust_red"
+  },
+  "slots": {
+   "up": 3,
+   "mid": 2,
+   "w": [
+    0.55,
+    0.8
+   ],
+   "h": [
+    0.32,
+    0.45
+   ],
+   "n": [
+    3,
+    4
+   ],
+   "slot_w": 0.05,
+   "ang": 58.0
+  },
+  "strake": {
+   "h": 0.2,
+   "t": 0.085,
+   "back_h": 0.6,
+   "back_t": 0.02,
+   "smooth": 0.9
+  },
+  "teeth": {
+   "w": [
+    0.7,
+    0.9
+   ],
+   "h": [
+    0.62,
+    0.78
+   ],
+   "gap": [
+    0.14,
+    0.2
+   ],
+   "t": 0.09,
+   "chamfer": 0.07
+  },
+  "channel": {
+   "v": [
+    1.02,
+    1.52
+   ],
+   "r": [
+    0.07,
+    0.058
+   ],
+   "clamp_step": 1.0
+  },
+  "bay": {
+   "v": [
+    1.62,
+    2.78
+   ],
+   "w": [
+    2.1,
+    1.6
+   ],
+   "rim": 0.1,
+   "rim_t": 0.05,
+   "depth": 0.11,
+   "pump_r": 0.068
+  },
+  "ubay": {
+   "v": [
+    0.1,
+    0.86
+   ],
+   "w": [
+    1.8,
+    1.6
+   ],
+   "x_pref": [
+    -7.4,
+    -2.3
+   ],
+   "rim": 0.08,
+   "depth": 0.1
+  },
+  "conduit": {
+   "r_up": [
+    0.03,
+    0.026
+   ],
+   "clamp_step": 0.7,
+   "fittings": 3,
+   "smooth": 0.75
+  },
+  "gusset": {
+   "step": 0.51,
+   "depth": 0.1,
+   "height": 0.22,
+   "t": 0.025
+  },
+  "pocket": {
+   "r": 2.85,
+   "rim_w": [
+    0.03,
+    0.19
+   ],
+   "rim_t": 0.05,
+   "cavity_bottom_h": -1.84,
+   "roof_h": -2.8,
+   "cols": [
+    -0.5,
+    9.5
+   ]
+  },
+  "pod": {
+   "gap": 0.012,
+   "t": 0.035,
+   "bevel": 0.01,
+   "rib_rivet_step": 20.0,
+   "hull_clear": 0.05,
+   "bundle_r": 0.05,
+   "hug_r": [
+    0.06,
+    0.05
+   ],
+   "act_r": 2.04,
+   "hoops": [
+    3.25,
+    3.6
+   ],
+   "mats": [
+    [
+     "rust_red",
+     0.45
+    ],
+    [
+     "rust_dark",
+     0.35
+    ],
+    [
+     "dark_metal",
+     0.2
+    ]
+   ]
+  },
+  "pa_boxes": "/mnt/new_partition/UnrealProjects/_AirshipWork/Saved/Airship/pa_hull_boxes.json",
+  "z4": {
+   "gusset_x0": -11.2,
+   "flank_slots": 2,
+   "flank_frame_min": [
+    0.75,
+    0.5
+   ],
+   "conduit_min_strip": 0.42,
+   "end_rib": {
+    "w": 0.18,
+    "t": 0.11
+   },
+   "seam_clear": 0.1,
+   "teeth_min": 0.36,
+   "seam": {
+    "port": {
+     "file": "/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/round3/z1_continuity.json",
+     "fallback": 1.0562
+    },
+    "stbd": {
+     "file": "/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/round3/z2_continuity.json",
+     "fallback": 1.0165
+    }
+   },
+   "angle": {
+    "leg": 0.13,
+    "t": 0.032,
+    "mat": "dark_metal"
+   },
+   "strap_w": 0.2,
+   "keel_w": 0.3,
+   "wedge_rows": {
+    "w": [
+     1.2,
+     2.4
+    ],
+    "row_h": [
+     0.75,
+     1.1
+    ],
+    "min_w": 0.5,
+    "min_h": 0.34,
+    "keep": 0.3
+   },
+   "wedge_fill": {
+    "w": [
+     0.6,
+     1.1
+    ],
+    "h": [
+     0.45,
+     0.75
+    ],
+    "min_w": 0.5,
+    "min_h": 0.4
+   },
+   "wedge_mats": [
+    [
+     "rust_red",
+     0.55
+    ],
+    [
+     "rust_dark",
+     0.45
+    ]
+   ],
+   "wedge_slots": {
+    "side": 1,
+    "lowch": 0,
+    "bottom": 1,
+    "front": 2,
+    "aft": 0
+   },
+   "blocks": [
+    [
+     "lowch0_P",
+     [
+      0.2,
+      0.5
+     ],
+     [
+      0.5,
+      0.42,
+      0.17
+     ]
+    ],
+    [
+     "lowch2_P",
+     [
+      0.6,
+      0.5
+     ],
+     [
+      0.42,
+      0.36,
+      0.16
+     ]
+    ],
+    [
+     "lowch0_S",
+     [
+      0.2,
+      0.5
+     ],
+     [
+      0.5,
+      0.42,
+      0.17
+     ]
+    ],
+    [
+     "lowch2_S",
+     [
+      0.6,
+      0.5
+     ],
+     [
+      0.42,
+      0.36,
+      0.16
+     ]
+    ],
+    [
+     "side_P",
+     [
+      0.97,
+      0.22
+     ],
+     [
+      0.4,
+      0.34,
+      0.15
+     ]
+    ],
+    [
+     "side_S",
+     [
+      0.97,
+      0.22
+     ],
+     [
+      0.4,
+      0.34,
+      0.15
+     ]
+    ],
+    [
+     "front",
+     [
+      0.14,
+      0.8
+     ],
+     [
+      0.46,
+      0.4,
+      0.16
+     ]
+    ],
+    [
+     "front",
+     [
+      0.88,
+      0.22
+     ],
+     [
+      0.36,
+      0.32,
+      0.14
+     ]
+    ],
+    [
+     "bottom",
+     [
+      0.05,
+      0.12
+     ],
+     [
+      0.5,
+      0.42,
+      0.17
+     ]
+    ],
+    [
+     "bottom",
+     [
+      0.05,
+      0.88
+     ],
+     [
+      0.5,
+      0.42,
+      0.17
+     ]
+    ],
+    [
+     "bottom",
+     [
+      0.95,
+      0.25
+     ],
+     [
+      0.42,
+      0.36,
+      0.15
+     ]
+    ],
+    [
+     "bottom",
+     [
+      0.95,
+      0.75
+     ],
+     [
+      0.42,
+      0.36,
+      0.15
+     ]
+    ]
+   ],
+   "wedge_bays": [
+    [
+     "bottom",
+     0.37,
+     0.07,
+     1.9,
+     1.3
+    ],
+    [
+     "bottom",
+     0.12,
+     0.68,
+     1.8,
+     1.25
+    ],
+    [
+     "bottom",
+     0.7,
+     0.64,
+     1.8,
+     1.2
+    ],
+    [
+     "side_P",
+     0.08,
+     0.45,
+     1.9,
+     1.0
+    ],
+    [
+     "side_S",
+     0.08,
+     0.45,
+     1.9,
+     1.0
+    ]
+   ],
+   "bottom_channels": [
+    [
+     0.035,
+     0.965,
+     0.355
+    ]
+   ],
+   "side_conduit": {
+    "v": 0.23,
+    "off": 0.106
+   },
+   "keepout_boxes": [],
+   "chain_margin": 0.22,
+   "keel_rows": {
+    "w": [
+     0.9,
+     1.7
+    ],
+    "row_h": [
+     0.6,
+     0.95
+    ],
+    "min_w": 0.45,
+    "min_h": 0.3,
+    "keep": 0.3
+   },
+   "keel_fill": {
+    "w": [
+     0.5,
+     0.9
+    ],
+    "h": [
+     0.4,
+     0.65
+    ],
+    "min_w": 0.45,
+    "min_h": 0.36
+   },
+   "keel_mats": [
+    [
+     "rust_dark",
+     0.4
+    ],
+    [
+     "rust_red",
+     0.2
+    ],
+    [
+     "machinery",
+     0.32
+    ],
+    [
+     "dark_metal",
+     0.08
+    ]
+   ],
+   "keel_max_res": 0.06,
+   "rivet_min_area": 0.25,
+   "keel_strap_u": [
+    0.22,
+    0.5,
+    0.78
+   ],
+   "keel_block_at": [
+    [
+     0.08,
+     0.55
+    ],
+    [
+     0.1,
+     0.4
+    ],
+    [
+     0.12,
+     0.7
+    ]
+   ],
+   "keel_pipe": {
+    "v": 0.62,
+    "r": 0.055,
+    "u": [
+     0.5,
+     0.7
+    ],
+    "off": 0.07,
+    "x_max": {
+     "P": 10.75,
+     "S": 99.0
+    }
+   },
+   "keel_bay": null,
+   "flank_fill": {
+    "w": [
+     0.5,
+     0.9
+    ],
+    "h": [
+     0.38,
+     0.6
+    ],
+    "min_w": 0.5,
+    "min_h": 0.38,
+    "mats": [
+     [
+      "paint_yellow",
+      0.5
+     ],
+     [
+      "paint_ochre",
+      0.5
+     ]
+    ]
+   },
+   "block_mats": {
+    "body": "rust_dark",
+    "base": "rust_red",
+    "cap": "rust_dark"
+   },
+   "keel_block_mats": {
+    "body": "rust_red",
+    "base": "rust_red",
+    "cap": "rust_red"
+   },
+   "keel_strap_continuous": true
+  }
+ },
+ "log": {
+  "other_zones": {
+   "Z1": {
+    "objects": 4,
+    "tris": 51204
+   },
+   "Z2": {
+    "objects": 4,
+    "tris": 52294
+   },
+   "Z3": {
+    "objects": 7,
+    "tris": 60068
+   },
+   "Z6": {
+    "objects": 8,
+    "tris": 53078
+   },
+   "Z7": {
+    "objects": 7,
+    "tris": 45230
+   }
+  },
+  "flank_port": {
+   "cells_kept_off_neighbours": 216,
+   "flank_free_m2": {
+    "up": 0.2,
+    "low": 12.7
+   },
+   "strake_runs": [
+    [
+     7.35,
+     11.75
+    ]
+   ],
+   "pipe_spans": [],
+   "skipped_on_step": 1,
+   "layers": {
+    "flank_port": {
+     "plates": 12,
+     "raised": 2,
+     "armour": 2,
+     "battens": 0,
+     "slotted": 2,
+     "frames": 0,
+     "patches": 2,
+     "calm_plates": 6,
+     "calm_share_of_area": 0.33,
+     "plate_area_m2": 4.8,
+     "built": {
+      "base": 10,
+      "raised": 1,
+      "battens": 0,
+      "frames": 0,
+      "patches": 2,
+      "slotted": 1
+     },
+     "rivets": 55
+    }
+   },
+   "strake": {
+    "segments": 4,
+    "shifted_for_a_shelf": 0
+   },
+   "teeth": 4,
+   "gussets": 5,
+   "pipes": 0,
+   "conduits": 0,
+   "hull_rivets": 83
+  },
+  "flank_stbd": {
+   "cells_kept_off_neighbours": 202,
+   "flank_free_m2": {
+    "up": 0.2,
+    "low": 12.5
+   },
+   "strake_runs": [
+    [
+     7.35,
+     11.75
+    ]
+   ],
+   "pipe_spans": [],
+   "skipped_on_step": 1,
+   "layers": {
+    "flank_stbd": {
+     "plates": 10,
+     "raised": 4,
+     "armour": 2,
+     "battens": 0,
+     "slotted": 0,
+     "frames": 0,
+     "patches": 3,
+     "calm_plates": 3,
+     "calm_share_of_area": 0.26,
+     "plate_area_m2": 3.7,
+     "built": {
+      "base": 5,
+      "raised": 4,
+      "battens": 0,
+      "frames": 0,
+      "patches": 3,
+      "slotted": 0
+     },
+     "rivets": 41
+    }
+   },
+   "strake": {
+    "segments": 4,
+    "shifted_for_a_shelf": 0
+   },
+   "teeth": 4,
+   "gussets": 5,
+   "pipes": 0,
+   "conduits": 0,
+   "hull_rivets": 69
+  },
+  "tab_rivets": {
+   "tabs": [
+    399,
+    400,
+    401,
+    402,
+    408,
+    409,
+    410,
+    411,
+    4,
+    5,
+    7,
+    8
+   ],
+   "rivets": 48
+  },
+  "t_flank": 7.4,
+  "wedge": {
+   "wedge_groups": {
+    "side_P": [
+     177,
+     192,
+     193
+    ],
+    "upch_P": [
+     175,
+     184,
+     190
+    ],
+    "lowch0_P": [
+     178
+    ],
+    "lowch1_P": [
+     186
+    ],
+    "lowch2_P": [
+     191
+    ],
+    "side_S": [
+     181,
+     196,
+     197
+    ],
+    "upch_S": [
+     182,
+     188,
+     198
+    ],
+    "lowch0_S": [
+     180
+    ],
+    "lowch1_S": [
+     187
+    ],
+    "lowch2_S": [
+     195
+    ],
+    "bottom": [
+     179,
+     185,
+     194
+    ],
+    "front": [
+     199
+    ],
+    "aft": [
+     176
+    ]
+   },
+   "wedge_free_m2": {
+    "side_P": 12.7,
+    "lowch0_P": 5.7,
+    "lowch1_P": 5.4,
+    "lowch2_P": 3.7,
+    "side_S": 11.7,
+    "lowch0_S": 5.7,
+    "lowch1_S": 5.4,
+    "lowch2_S": 3.5,
+    "bottom": 56.6,
+    "front": 10.8,
+    "aft": 5.9
+   },
+   "bottom_keel_strap": true,
+   "wedge_angles": [
+    {
+     "tag": "top_P",
+     "x": [
+      16.3,
+      21.16
+     ]
+    },
+    {
+     "tag": "top_P",
+     "x": [
+      22.55,
+      23.11
+     ]
+    },
+    {
+     "tag": "top_P",
+     "x": [
+      24.05,
+      26.81
+     ]
+    },
+    {
+     "tag": "side_low_lowch0_P",
+     "x": [
+      15.65,
+      18.91
+     ]
+    },
+    {
+     "tag": "low_bottom_lowch0_P",
+     "x": [
+      15.65,
+      18.91
+     ]
+    },
+    {
+     "tag": "side_low_lowch1_P",
+     "x": [
+      19.08,
+      22.89
+     ]
+    },
+    {
+     "tag": "low_bottom_lowch1_P",
+     "x": [
+      19.08,
+      22.89
+     ]
+    },
+    {
+     "tag": "side_low_lowch2_P",
+     "x": [
+      23.08,
+      24.39
+     ]
+    },
+    {
+     "tag": "side_low_lowch2_P",
+     "x": [
+      26.18,
+      26.84
+     ]
+    },
+    {
+     "tag": "low_bottom_lowch2_P",
+     "x": [
+      23.08,
+      26.84
+     ]
+    },
+    {
+     "tag": "facet_strap_lowch0_P",
+     "z": [
+      -0.22,
+      1.13
+     ]
+    },
+    {
+     "tag": "facet_strap_lowch1_P",
+     "z": [
+      0.77,
+      1.72
+     ]
+    },
+    {
+     "tag": "top_S",
+     "x": [
+      15.65,
+      21.16
+     ]
+    },
+    {
+     "tag": "top_S",
+     "x": [
+      22.55,
+      23.11
+     ]
+    },
+    {
+     "tag": "top_S",
+     "x": [
+      24.05,
+      25.56
+     ]
+    },
+    {
+     "tag": "side_low_lowch0_S",
+     "x": [
+      15.65,
+      18.91
+     ]
+    },
+    {
+     "tag": "low_bottom_lowch0_S",
+     "x": [
+      15.65,
+      18.91
+     ]
+    },
+    {
+     "tag": "side_low_lowch1_S",
+     "x": [
+      19.08,
+      22.49
+     ]
+    },
+    {
+     "tag": "low_bottom_lowch1_S",
+     "x": [
+      19.08,
+      22.89
+     ]
+    },
+    {
+     "tag": "side_low_lowch2_S",
+     "x": [
+      26.18,
+      26.84
+     ]
+    },
+    {
+     "tag": "low_bottom_lowch2_S",
+     "x": [
+      23.08,
+      26.84
+     ]
+    },
+    {
+     "tag": "facet_strap_lowch0_S",
+     "z": [
+      -0.22,
+      1.13
+     ]
+    },
+    {
+     "tag": "facet_strap_lowch1_S",
+     "z": [
+      0.77,
+      1.72
+     ]
+    },
+    {
+     "tag": "bottom_crease",
+     "x": 19.0
+    },
+    {
+     "tag": "bottom_crease",
+     "x": 23.0
+    }
+   ],
+   "channels": [
+    {
+     "tag": "bottom",
+     "u": [
+      0.41,
+      11.33
+     ],
+     "v": 1.88,
+     "pipes": 2,
+     "backing_runs": 3
+    }
+   ],
+   "conduits": [
+    {
+     "tag": "side_P",
+     "u": [
+      0.65,
+      7.38
+     ],
+     "v": 0.23,
+     "pipes": 2
+    },
+    {
+     "tag": "side_S",
+     "u": [
+      0.3,
+      7.38
+     ],
+     "v": 0.23,
+     "pipes": 2
+    }
+   ],
+   "wedge_pipes": 6,
+   "wedge_gussets": 17,
+   "bays": [
+    {
+     "tag": "wedge_bottom",
+     "u": [
+      4.35,
+      6.25
+     ],
+     "v": [
+      0.37,
+      1.67
+     ]
+    },
+    {
+     "tag": "wedge_bottom",
+     "u": [
+      1.41,
+      3.21
+     ],
+     "v": [
+      3.6,
+      4.85
+     ]
+    },
+    {
+     "tag": "wedge_bottom",
+     "u": [
+      8.22,
+      10.02
+     ],
+     "v": [
+      3.39,
+      4.59
+     ]
+    },
+    {
+     "tag": "wedge_side_P",
+     "u": [
+      0.96,
+      2.86
+     ],
+     "v": [
+      1.28,
+      2.28
+     ]
+    },
+    {
+     "tag": "wedge_side_S",
+     "u": [
+      0.96,
+      2.86
+     ],
+     "v": [
+      1.28,
+      2.28
+     ]
+    }
+   ],
+   "wedge_bays": 5,
+   "wedge_blocks": [
+    {
+     "panel": "lowch0_P",
+     "u": 0.76,
+     "v": 1.27,
+     "size": [
+      0.5,
+      0.42,
+      0.17
+     ]
+    },
+    {
+     "panel": "lowch2_P",
+     "u": 2.36,
+     "v": 0.87,
+     "size": [
+      0.42,
+      0.36,
+      0.16
+     ]
+    },
+    {
+     "panel": "lowch0_S",
+     "u": 0.76,
+     "v": 1.27,
+     "size": [
+      0.5,
+      0.42,
+      0.17
+     ]
+    },
+    {
+     "panel": "lowch2_S",
+     "u": 2.36,
+     "v": 0.87,
+     "size": [
+      0.42,
+      0.36,
+      0.16
+     ]
+    },
+    {
+     "panel": "side_P",
+     "built": false
+    },
+    {
+     "panel": "side_S",
+     "built": false
+    },
+    {
+     "panel": "front",
+     "u": 0.94,
+     "v": 1.96,
+     "size": [
+      0.46,
+      0.4,
+      0.16
+     ]
+    },
+    {
+     "panel": "front",
+     "u": 5.23,
+     "v": 0.59,
+     "size": [
+      0.36,
+      0.32,
+      0.14
+     ]
+    },
+    {
+     "panel": "bottom",
+     "u": 0.66,
+     "v": 0.71,
+     "size": [
+      0.5,
+      0.42,
+      0.17
+     ]
+    },
+    {
+     "panel": "bottom",
+     "u": 0.66,
+     "v": 4.73,
+     "size": [
+      0.5,
+      0.42,
+      0.17
+     ]
+    },
+    {
+     "panel": "bottom",
+     "u": 11.23,
+     "v": 1.39,
+     "size": [
+      0.42,
+      0.36,
+      0.15
+     ]
+    },
+    {
+     "panel": "bottom",
+     "u": 11.23,
+     "v": 4.04,
+     "size": [
+      0.42,
+      0.36,
+      0.15
+     ]
+    }
+   ],
+   "layers": {
+    "wedge_aft": {
+     "plates": 6,
+     "raised": 1,
+     "armour": 0,
+     "battens": 2,
+     "slotted": 0,
+     "frames": 0,
+     "patches": 1,
+     "calm_plates": 4,
+     "calm_share_of_area": 0.61,
+     "plate_area_m2": 3.3,
+     "built": {
+      "base": 5,
+      "raised": 1,
+      "battens": 2,
+      "frames": 0,
+      "patches": 1,
+      "slotted": 0
+     },
+     "rivets": 22
+    },
+    "wedge_bottom": {
+     "plates": 32,
+     "raised": 6,
+     "armour": 5,
+     "battens": 3,
+     "slotted": 1,
+     "frames": 0,
+     "patches": 9,
+     "calm_plates": 16,
+     "calm_share_of_area": 0.33,
+     "plate_area_m2": 23.8,
+     "built": {
+      "base": 26,
+      "raised": 6,
+      "battens": 3,
+      "frames": 0,
+      "patches": 9,
+      "slotted": 1
+     },
+     "rivets": 153
+    },
+    "wedge_front": {
+     "plates": 9,
+     "raised": 1,
+     "armour": 1,
+     "battens": 3,
+     "slotted": 2,
+     "frames": 0,
+     "patches": 4,
+     "calm_plates": 2,
+     "calm_share_of_area": 0.34,
+     "plate_area_m2": 7.2,
+     "built": {
+      "base": 8,
+      "raised": 1,
+      "battens": 3,
+      "frames": 0,
+      "patches": 4,
+      "slotted": 2
+     },
+     "rivets": 54
+    },
+    "wedge_lowch0_P": {
+     "plates": 6,
+     "raised": 1,
+     "armour": 1,
+     "battens": 1,
+     "slotted": 0,
+     "frames": 0,
+     "patches": 1,
+     "calm_plates": 4,
+     "calm_share_of_area": 0.46,
+     "plate_area_m2": 3.1,
+     "built": {
+      "base": 5,
+      "raised": 1,
+      "battens": 1,
+      "frames": 0,
+      "patches": 1,
+      "slotted": 0
+     },
+     "rivets": 26
+    },
+    "wedge_lowch0_S": {
+     "plates": 5,
+     "raised": 0,
+     "armour": 0,
+     "battens": 1,
+     "slotted": 0,
+     "frames": 0,
+     "patches": 3,
+     "calm_plates": 2,
+     "calm_share_of_area": 0.22,
+     "plate_area_m2": 2.8,
+     "built": {
+      "base": 5,
+      "raised": 0,
+      "battens": 1,
+      "frames": 0,
+      "patches": 3,
+      "slotted": 0
+     },
+     "rivets": 27
+    },
+    "wedge_lowch1_P": {
+     "plates": 4,
+     "raised": 1,
+     "armour": 1,
+     "battens": 1,
+     "slotted": 0,
+     "frames": 0,
+     "patches": 1,
+     "calm_plates": 2,
+     "calm_share_of_area": 0.58,
+     "plate_area_m2": 2.5,
+     "built": {
+      "base": 3,
+      "raised": 1,
+      "battens": 1,
+      "frames": 0,
+      "patches": 1,
+      "slotted": 0
+     },
+     "rivets": 22
+    },
+    "wedge_lowch1_S": {
+     "plates": 4,
+     "raised": 0,
+     "armour": 0,
+     "battens": 1,
+     "slotted": 0,
+     "frames": 0,
+     "patches": 1,
+     "calm_plates": 3,
+     "calm_share_of_area": 0.7,
+     "plate_area_m2": 2.7,
+     "built": {
+      "base": 4,
+      "raised": 0,
+      "battens": 1,
+      "frames": 0,
+      "patches": 1,
+      "slotted": 0
+     },
+     "rivets": 15
+    },
+    "wedge_lowch2_P": {
+     "plates": 4,
+     "raised": 0,
+     "armour": 0,
+     "battens": 0,
+     "slotted": 0,
+     "frames": 0,
+     "patches": 1,
+     "calm_plates": 3,
+     "calm_share_of_area": 0.63,
+     "plate_area_m2": 1.6,
+     "built": {
+      "base": 4,
+      "raised": 0,
+      "battens": 0,
+      "frames": 0,
+      "patches": 1,
+      "slotted": 0
+     },
+     "rivets": 16
+    },
+    "wedge_lowch2_S": {
+     "plates": 4,
+     "raised": 0,
+     "armour": 0,
+     "battens": 0,
+     "slotted": 0,
+     "frames": 0,
+     "patches": 1,
+     "calm_plates": 3,
+     "calm_share_of_area": 0.8,
+     "plate_area_m2": 1.3,
+     "built": {
+      "base": 4,
+      "raised": 0,
+      "battens": 0,
+      "frames": 0,
+      "patches": 1,
+      "slotted": 0
+     },
+     "rivets": 8
+    },
+    "wedge_side_P": {
+     "plates": 8,
+     "raised": 1,
+     "armour": 1,
+     "battens": 1,
+     "slotted": 1,
+     "frames": 0,
+     "patches": 0,
+     "calm_plates": 6,
+     "calm_share_of_area": 0.49,
+     "plate_area_m2": 3.1,
+     "built": {
+      "base": 7,
+      "raised": 1,
+      "battens": 1,
+      "frames": 0,
+      "patches": 0,
+      "slotted": 1
+     },
+     "rivets": 24
+    },
+    "wedge_side_S": {
+     "plates": 6,
+     "raised": 1,
+     "armour": 1,
+     "battens": 1,
+     "slotted": 1,
+     "frames": 0,
+     "patches": 1,
+     "calm_plates": 3,
+     "calm_share_of_area": 0.2,
+     "plate_area_m2": 3.1,
+     "built": {
+      "base": 5,
+      "raised": 1,
+      "battens": 1,
+      "frames": 0,
+      "patches": 1,
+      "slotted": 1
+     },
+     "rivets": 20
+    }
+   },
+   "wedge_rivets_struct": 787
+  },
+  "t_wedge": 19.4,
+  "keel": {
+   "keel_free_m2": {
+    "P": 13.4,
+    "S": 14.1
+   },
+   "keel_angle_segments": [
+    [
+     7.05,
+     8.25
+    ],
+    [
+     8.3,
+     9.5
+    ],
+    [
+     9.55,
+     10.75
+    ],
+    [
+     10.8,
+     12.0
+    ],
+    [
+     12.05,
+     13.25
+    ],
+    [
+     13.3,
+     13.75
+    ]
+   ],
+   "keel_straps": 6,
+   "keel_pipes": 2,
+   "keel_bays": 0,
+   "skipped_lumpy": 1,
+   "layers": {
+    "keel_P": {
+     "plates": 16,
+     "raised": 3,
+     "armour": 3,
+     "battens": 0,
+     "slotted": 1,
+     "frames": 0,
+     "patches": 4,
+     "calm_plates": 8,
+     "calm_share_of_area": 0.38,
+     "plate_area_m2": 7.2,
+     "built": {
+      "base": 12,
+      "raised": 3,
+      "battens": 0,
+      "frames": 0,
+      "patches": 4,
+      "slotted": 0
+     },
+     "rivets": 65
+    },
+    "keel_S": {
+     "plates": 13,
+     "raised": 3,
+     "armour": 1,
+     "battens": 3,
+     "slotted": 1,
+     "frames": 0,
+     "patches": 2,
+     "calm_plates": 7,
+     "calm_share_of_area": 0.5,
+     "plate_area_m2": 6.6,
+     "built": {
+      "base": 10,
+      "raised": 3,
+      "battens": 3,
+      "frames": 0,
+      "patches": 2,
+      "slotted": 1
+     },
+     "rivets": 59
+    }
+   },
+   "keel_rivets": 179
+  },
+  "t_keel": 21.4,
+  "crossed_where": [],
+  "pieces_removed_crossing_other_zones": {
+   "Hull": {},
+   "Wedge": {},
+   "Keel": {}
+  },
+  "pieces_removed_above_pa_tops": {
+   "Hull": {},
+   "Wedge": {},
+   "Keel": {}
+  },
+  "floating_pieces_removed": {
+   "Hull": {
+    "rivet": 12
+   },
+   "Wedge": {
+    "fill": 4
+   }
+  },
+  "inside_out_pieces_flipped": {
+   "Hull": 0,
+   "Wedge": 14,
+   "Keel": 6
+  },
+  "z5_crosscheck": {
+   "zones": {
+    "Z5": {
+     "objects": 1,
+     "tris": 58782
+    }
+   },
+   "intersecting_pieces": {}
+  },
+  "silhouette_by_kind": {
+   "Hull": {
+    "p99_m": 0.131,
+    "max_m": 0.143,
+    "over": 0,
+    "by_kind": {}
+   },
+   "Wedge": {
+    "p99_m": 0.177,
+    "max_m": 0.196,
+    "over": 0,
+    "by_kind": {
+     "block": {
+      "max_m": 0.171,
+      "over": 0
+     },
+     "clamp": {
+      "max_m": 0.182,
+      "over": 0
+     },
+     "housing": {
+      "max_m": 0.185,
+      "over": 0
+     },
+     "pipe": {
+      "max_m": 0.187,
+      "over": 0
+     },
+     "pump": {
+      "max_m": 0.189,
+      "over": 0
+     },
+     "rivet": {
+      "max_m": 0.178,
+      "over": 0
+     },
+     "tank": {
+      "max_m": 0.177,
+      "over": 0
+     },
+     "valve": {
+      "max_m": 0.196,
+      "over": 0
+     }
+    }
+   },
+   "Keel": {
+    "p99_m": 0.179,
+    "max_m": 0.197,
+    "over": 0,
+    "by_kind": {
+     "clamp": {
+      "max_m": 0.197,
+      "over": 0
+     },
+     "pipe": {
+      "max_m": 0.194,
+      "over": 0
+     },
+     "rivet": {
+      "max_m": 0.181,
+      "over": 0
+     }
+    }
+   }
+  }
+ },
+ "base_edits": {
+  "z6_fan_back_L": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "port fan: remove the flat disc behind the rotor (duct_back_wall, island 1028) and the big tail cone that closed the duct exit (tail_cone, island 1030, r 2.46 at x -18.76, flat end at x -19.91), so the fan blades are visible from behind and the duct reads as an open exhaust"
+  },
+  "z6_fan_back_R": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "starboard fan: the same (islands 1088 and 1091)"
+  },
+  "z7_chain_aft_bars": {
+   "file": "z7.json",
+   "zone": "Z7",
+   "faces": 36,
+   "tris": 72,
+   "guard_ok": true,
+   "why": "replace the ChainAft bars by a heavy link chain (detail object, Hull bone)"
+  }
+ },
+ "tris": {
+  "SM_AirshipDetail_Z4_Hull": 7202,
+  "SM_AirshipDetail_Z4_Wedge": 47774,
+  "SM_AirshipDetail_Z4_Keel": 8798
+ },
+ "tris_by_kind": {
+  "rivet": 20132,
+  "plate": 8446,
+  "bay": 4460,
+  "pipe": 3560,
+  "patch": 2440,
+  "fill": 2428,
+  "slotted": 2344,
+  "housing": 2300,
+  "conduit": 2288,
+  "plate_raised": 2280,
+  "clamp": 2144,
+  "pump": 1700,
+  "gland": 1512,
+  "block": 1320,
+  "tank": 1280,
+  "tooth": 952,
+  "strake": 908,
+  "strap": 732,
+  "batten": 676,
+  "valve": 552,
+  "bracket": 540,
+  "channel": 400,
+  "angle": 380
+ },
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z4_Hull",
+   "tris": 7202,
+   "verts": 4139,
+   "pieces": 269,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "paint_ochre": 724,
+    "bolt": 1692,
+    "paint_yellow": 346,
+    "rust_red": 890,
+    "dark_metal": 374
+   },
+   "collections": [
+    "Detail_Z4"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z4_Wedge",
+   "tris": 47774,
+   "verts": 27133,
+   "pieces": 1623,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 4195,
+    "bolt": 9279,
+    "rust_red": 3942,
+    "copper": 1682,
+    "brass": 1658,
+    "machinery": 320,
+    "steel": 520,
+    "rust_dark": 3966
+   },
+   "collections": [
+    "Detail_Z4"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z4_Keel",
+   "tris": 8798,
+   "verts": 5013,
+   "pieces": 307,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 732,
+    "bolt": 1971,
+    "copper": 584,
+    "brass": 88,
+    "dark_metal": 586,
+    "rust_dark": 676,
+    "machinery": 168
+   },
+   "collections": [
+    "Detail_Z4"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z4",
+   "verts_tested": 18143,
+   "sample_every": 2,
+   "outside_zone": {},
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "Z1": 12,
+    "Z2": 12
+   },
+   "within_margin_of": {
+    "Z1": 7,
+    "Z2": 8
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 36285,
+   "verts_inside_a_box": 1338,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.196,
+   "worst": [
+    19.587,
+    0.638,
+    -0.456
+   ],
+   "verts_over_limit": 0,
+   "over_limit_by_kind": {},
+   "verts": 18143,
+   "limit_m": 0.2,
+   "p99_m": 0.178
+  },
+  "bbox": [
+   [
+    6.463,
+    -5.89,
+    -4.685
+   ],
+   [
+    27.168,
+    5.89,
+    4.178
+   ]
+  ]
+ },
+ "seconds": 30.3,
+ "tris_total": 63774,
+ "rivet_share": 0.316,
+ "all_objects_ok": true
+}

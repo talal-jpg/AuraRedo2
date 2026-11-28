@@ -1,0 +1,84 @@
+{
+ "zone": "Z5",
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z5_Belly",
+   "tris": 58782,
+   "verts": 32999,
+   "pieces": 1804,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 4880,
+    "bolt": 10278,
+    "rust_red": 2578,
+    "copper": 2188,
+    "brass": 2458,
+    "machinery": 128,
+    "steel": 460,
+    "paint_ochre": 4386,
+    "paint_yellow": 3732
+   },
+   "collections": [
+    "Detail_Z5"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z5",
+   "verts_tested": 16500,
+   "sample_every": 2,
+   "outside_zone": {},
+   "outside_by_kind": {},
+   "on_seam_with": {},
+   "within_margin_of": {},
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 32999,
+   "verts_inside_a_box": 40,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.279,
+   "worst": [
+    -6.31,
+    1.717,
+    -5.482
+   ],
+   "verts_over_limit": 220,
+   "over_limit_by_kind": {},
+   "verts": 16500,
+   "limit_m": 0.2,
+   "p99_m": 0.212
+  },
+  "bbox": [
+   [
+    -15.935,
+    -4.761,
+    -5.539
+   ],
+   [
+    6.485,
+    4.699,
+    -1.898
+   ]
+  ]
+ }
+}

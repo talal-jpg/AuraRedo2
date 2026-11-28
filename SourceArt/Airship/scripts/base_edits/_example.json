@@ -1,0 +1,11 @@
+{
+ "zone": "Z6",
+ "about": "EXAMPLE ONLY (the loader reads z*.json, never this file). Copy it to zN.json for your zone; one file per zone.",
+ "edits": [
+  {"id": "z6_example_fan_back_L",
+   "why": "open the back of the port fan so the blades show from behind (Talal 2026-11-28, point 4)",
+   "select": {"part": "FanHousing_L", "piece": ["duct_back_wall", "tail_cone"]},
+   "expect_faces": 0,
+   "note": "set expect_faces / expect_tris to the counts --list prints, so a stale entry can never delete other faces"}
+ ]
+}

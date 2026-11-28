@@ -1,0 +1,14 @@
+{
+ "zone": "Z6",
+ "about": "Zone 6 (stern and fans): open the backs of the two big side fans so the blades show from behind (Talal 2026-11-28, answer 4). Whole islands only (no open edges). The duct (shell), the intake lip, the rotor (hub + 28 blades) and everything else stay. New rear parts (stator spider, bearing housing, short tail cone, exhaust rim, liner) are detail objects of zone 6, not SM_Airship geometry.",
+ "edits": [
+  {"id": "z6_fan_back_L",
+   "why": "port fan: remove the flat disc behind the rotor (duct_back_wall, island 1028) and the big tail cone that closed the duct exit (tail_cone, island 1030, r 2.46 at x -18.76, flat end at x -19.91), so the fan blades are visible from behind and the duct reads as an open exhaust",
+   "select": {"part": "FanHousing_L", "piece": ["duct_back_wall", "tail_cone"]},
+   "expect_faces": 60, "expect_tris": 216},
+  {"id": "z6_fan_back_R",
+   "why": "starboard fan: the same (islands 1088 and 1091)",
+   "select": {"part": "FanHousing_R", "piece": ["duct_back_wall", "tail_cone"]},
+   "expect_faces": 60, "expect_tris": 216}
+ ]
+}

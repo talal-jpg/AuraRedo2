@@ -1,0 +1,3513 @@
+{
+ "about": "Round 3 export: UV + bake checks (r3_prep / r3_bake / r3_preview / r3_checks). Full reports in rig/detail/r3export/checks/.",
+ "input": {
+  "full_blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_full.blend",
+  "full_md5": "1f2b3e05bf0a5a47d82db98170b8daaa",
+  "fingerprint": "34 objects identical to full_hash.json",
+  "sm_airship_faces": 37943,
+  "sm_airship_face_centres_vs_rig_max_err": 0.0,
+  "keel_block_faces": 8381,
+  "recolor_entries": [
+   {
+    "id": "z4_keel_block_rust",
+    "value": 1,
+    "slot": "keel_block",
+    "colour_key": "rust_red",
+    "faces": 8381,
+    "tris": 8998,
+    "select": {
+     "islands": [
+      1147,
+      1148,
+      1149
+     ],
+     "src": "Underside_Front"
+    },
+    "file": "z4.json"
+   }
+  ]
+ },
+ "knobs": {
+  "prep": {
+   "tex": {
+    "H": 4096,
+    "M": 4096,
+    "hull": 4096
+   },
+   "pack_px": 4,
+   "shape": "CONCAVE",
+   "min_w": 0.025,
+   "cull": 0.02,
+   "cap_deg": 30.0,
+   "cap_deg_tube": 30.0,
+   "z7_scale": 1.5,
+   "angle": 60.0,
+   "lod1": 0.15,
+   "lod2": 0.6,
+   "props_palette": true,
+   "density": 0.0,
+   "block": 32,
+   "band": 40,
+   "seams": "features",
+   "box_deg": 60.0,
+   "hull_crease": 42.0,
+   "hull_uv": "atlas",
+   "min_w_hull": 0.045
+  },
+  "bake": {
+   "dmax": 0.12,
+   "dneg": 0.02,
+   "side_d": 0.015,
+   "dot_r": 0.018,
+   "dot_r_hull": 0.012,
+   "crease": {
+    "hull": 42.0,
+    "H": 60.0,
+    "M": 60.0,
+    "P": 45.0
+   },
+   "margin_px": 8,
+   "lists": "piece",
+   "behind": 0.7,
+   "encoding": "R = (d + dneg) / (dmax + dneg), d in metres (negative beyond a feature edge)"
+  }
+ },
+ "faces": {
+  "H": {
+   "total": 137608,
+   "pieces": 8946,
+   "front_from_hull_normal": 7355,
+   "atlas": 39730,
+   "rivet": 47142,
+   "hidden": 15488,
+   "thin": 19090,
+   "ink_side": 16158,
+   "area_atlas": 782.72,
+   "area_rivet": 12.66,
+   "area_hidden": 569.73,
+   "area_thin": 49.82,
+   "area_ink_side": 62.95,
+   "by_source": {
+    "SM_AirshipDetail_Z1_Hull": {
+     "atlas": 4488,
+     "rivet": 4662,
+     "hidden": 1945,
+     "thin": 3866,
+     "ink_side": 2156
+    },
+    "SM_AirshipDetail_Z2_Hull": {
+     "atlas": 4535,
+     "rivet": 4482,
+     "hidden": 1885,
+     "thin": 3836,
+     "ink_side": 2090
+    },
+    "SM_AirshipDetail_Z3_Hull": {
+     "atlas": 3358,
+     "rivet": 4698,
+     "hidden": 1612,
+     "thin": 2076,
+     "ink_side": 1434
+    },
+    "SM_AirshipDetail_Z4_Hull": {
+     "atlas": 954,
+     "rivet": 1692,
+     "hidden": 587,
+     "thin": 232,
+     "ink_side": 561
+    },
+    "SM_AirshipDetail_Z4_Keel": {
+     "atlas": 1692,
+     "rivet": 1971,
+     "hidden": 405,
+     "thin": 191,
+     "ink_side": 546
+    },
+    "SM_AirshipDetail_Z4_Wedge": {
+     "atlas": 6912,
+     "rivet": 9279,
+     "hidden": 2348,
+     "thin": 3963,
+     "ink_side": 3060
+    },
+    "SM_AirshipDetail_Z5_Belly": {
+     "atlas": 10291,
+     "rivet": 10278,
+     "hidden": 4633,
+     "thin": 2133,
+     "ink_side": 3753
+    },
+    "SM_AirshipDetail_Z6_Hull": {
+     "atlas": 1159,
+     "rivet": 1593,
+     "hidden": 188,
+     "thin": 338,
+     "ink_side": 423
+    },
+    "SM_AirshipDetail_Z7_Chains": {
+     "atlas": 441,
+     "rivet": 0,
+     "hidden": 63,
+     "thin": 0,
+     "ink_side": 0
+    },
+    "SM_AirshipDetail_Z7_Gantry": {
+     "atlas": 3829,
+     "rivet": 7425,
+     "hidden": 1139,
+     "thin": 1686,
+     "ink_side": 1724
+    },
+    "SM_AirshipDetail_Z7_Rails": {
+     "atlas": 1508,
+     "rivet": 0,
+     "hidden": 286,
+     "thin": 0,
+     "ink_side": 0
+    },
+    "SM_AirshipDetail_Z7_Stairs": {
+     "atlas": 563,
+     "rivet": 1062,
+     "hidden": 397,
+     "thin": 769,
+     "ink_side": 411
+    }
+   }
+  },
+  "M": {
+   "total": 71205,
+   "pieces": 4253,
+   "front_from_hull_normal": 3544,
+   "atlas": 20102,
+   "rivet": 22689,
+   "hidden": 5999,
+   "thin": 10950,
+   "ink_side": 11465,
+   "area_atlas": 428.79,
+   "area_rivet": 6.05,
+   "area_hidden": 255.33,
+   "area_thin": 14.54,
+   "area_ink_side": 36.01,
+   "by_source": {
+    "SM_AirshipDetail_Z1_Nozzle_FL": {
+     "atlas": 564,
+     "rivet": 432,
+     "hidden": 180,
+     "thin": 0,
+     "ink_side": 0
+    },
+    "SM_AirshipDetail_Z1_Petals_FL": {
+     "atlas": 144,
+     "rivet": 216,
+     "hidden": 72,
+     "thin": 792,
+     "ink_side": 528
+    },
+    "SM_AirshipDetail_Z1_Pod_FL": {
+     "atlas": 1826,
+     "rivet": 2610,
+     "hidden": 531,
+     "thin": 866,
+     "ink_side": 847
+    },
+    "SM_AirshipDetail_Z2_Nozzle_FR": {
+     "atlas": 564,
+     "rivet": 432,
+     "hidden": 180,
+     "thin": 0,
+     "ink_side": 0
+    },
+    "SM_AirshipDetail_Z2_Petals_FR": {
+     "atlas": 144,
+     "rivet": 216,
+     "hidden": 72,
+     "thin": 792,
+     "ink_side": 528
+    },
+    "SM_AirshipDetail_Z2_Pod_FR": {
+     "atlas": 2399,
+     "rivet": 2736,
+     "hidden": 541,
+     "thin": 958,
+     "ink_side": 866
+    },
+    "SM_AirshipDetail_Z3_Nozzle_RL": {
+     "atlas": 556,
+     "rivet": 378,
+     "hidden": 178,
+     "thin": 0,
+     "ink_side": 0
+    },
+    "SM_AirshipDetail_Z3_Nozzle_RR": {
+     "atlas": 564,
+     "rivet": 432,
+     "hidden": 180,
+     "thin": 0,
+     "ink_side": 0
+    },
+    "SM_AirshipDetail_Z3_Petals_RL": {
+     "atlas": 144,
+     "rivet": 216,
+     "hidden": 72,
+     "thin": 792,
+     "ink_side": 528
+    },
+    "SM_AirshipDetail_Z3_Petals_RR": {
+     "atlas": 144,
+     "rivet": 216,
+     "hidden": 72,
+     "thin": 792,
+     "ink_side": 528
+    },
+    "SM_AirshipDetail_Z3_Pod_RL": {
+     "atlas": 1807,
+     "rivet": 2259,
+     "hidden": 482,
+     "thin": 845,
+     "ink_side": 736
+    },
+    "SM_AirshipDetail_Z3_Pod_RR": {
+     "atlas": 1919,
+     "rivet": 2385,
+     "hidden": 413,
+     "thin": 868,
+     "ink_side": 700
+    },
+    "SM_AirshipDetail_Z6_Rod_L": {
+     "atlas": 34,
+     "rivet": 0,
+     "hidden": 14,
+     "thin": 12,
+     "ink_side": 8
+    },
+    "SM_AirshipDetail_Z6_Rod_R": {
+     "atlas": 34,
+     "rivet": 0,
+     "hidden": 14,
+     "thin": 12,
+     "ink_side": 8
+    },
+    "SM_AirshipDetail_Z6_Rotor_L": {
+     "atlas": 654,
+     "rivet": 576,
+     "hidden": 38,
+     "thin": 683,
+     "ink_side": 449
+    },
+    "SM_AirshipDetail_Z6_Rotor_R": {
+     "atlas": 654,
+     "rivet": 576,
+     "hidden": 38,
+     "thin": 687,
+     "ink_side": 445
+    },
+    "SM_AirshipDetail_Z6_Rudder": {
+     "atlas": 970,
+     "rivet": 1512,
+     "hidden": 521,
+     "thin": 120,
+     "ink_side": 621
+    },
+    "SM_AirshipDetail_Z6_Turbine_L": {
+     "atlas": 2573,
+     "rivet": 3465,
+     "hidden": 1100,
+     "thin": 1016,
+     "ink_side": 2377
+    },
+    "SM_AirshipDetail_Z6_Turbine_R": {
+     "atlas": 2570,
+     "rivet": 3456,
+     "hidden": 1073,
+     "thin": 1060,
+     "ink_side": 2233
+    },
+    "SM_AirshipDetail_Z7_LightHeads": {
+     "atlas": 922,
+     "rivet": 0,
+     "hidden": 208,
+     "thin": 282,
+     "ink_side": 20
+    },
+    "SM_AirshipDetail_Z7_LightPosts": {
+     "atlas": 268,
+     "rivet": 360,
+     "hidden": 20,
+     "thin": 373,
+     "ink_side": 43
+    },
+    "SM_AirshipDetail_Z7_Winches": {
+     "atlas": 648,
+     "rivet": 216,
+     "hidden": 0,
+     "thin": 0,
+     "ink_side": 0
+    }
+   }
+  },
+  "hull": {
+   "total": 37943,
+   "atlas": 28277,
+   "rivet": 0,
+   "hidden": 0,
+   "thin": 7744,
+   "ink_side": 1922,
+   "area_atlas": 4677.31,
+   "area_rivet": 0.0,
+   "area_hidden": 0.0,
+   "area_thin": 44.52,
+   "area_ink_side": 12.6,
+   "thin_by_class": {
+    "paint_orange": 24,
+    "rust_red": 160,
+    "dark_metal": 1400,
+    "copper": 5730,
+    "wood": 108,
+    "hull_paint": 98,
+    "deck": 14,
+    "recess": 7,
+    "keel_block": 2125
+   },
+   "narrow_kept_in_atlas_by_class": {
+    "paint_orange": 12,
+    "rust_red": 244,
+    "dark_metal": 88,
+    "copper": 5734,
+    "wood": 122,
+    "hull_paint": 88,
+    "deck": 4,
+    "recess": 1,
+    "keel_block": 3841
+   }
+  }
+ },
+ "pack": {
+  "H": {
+   "tex": 4096,
+   "shape": "CONCAVE",
+   "margin_px": 4,
+   "unwrap_s": 1.3,
+   "pack_s": 1.9,
+   "seams": "features",
+   "feature_edges_cut_inside_smart_islands": 15094,
+   "density_all": {
+    "5": 70.06,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 105.09,
+    "95": 105.09
+   },
+   "density_z7": {
+    "5": 105.06,
+    "25": 105.09,
+    "50": 105.09,
+    "75": 105.09,
+    "95": 105.09
+   },
+   "density_other": {
+    "5": 70.05,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.07
+   },
+   "uv_area_used": 0.316,
+   "packing_efficiency": 0.322,
+   "extent": [
+    0.9708,
+    0.9707
+   ],
+   "area_atlas_m2": 782.7
+  },
+  "M": {
+   "tex": 4096,
+   "shape": "CONCAVE",
+   "margin_px": 4,
+   "unwrap_s": 0.7,
+   "pack_s": 2.9,
+   "seams": "features",
+   "feature_edges_cut_inside_smart_islands": 8529,
+   "density_all": {
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 177.99
+   },
+   "density_z7": {
+    "5": 173.61,
+    "25": 177.99,
+    "50": 177.99,
+    "75": 177.99,
+    "95": 182.48
+   },
+   "density_other": {
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.67
+   },
+   "uv_area_used": 0.3891,
+   "packing_efficiency": 0.397,
+   "extent": [
+    0.989,
+    0.9862
+   ],
+   "area_atlas_m2": 428.8
+  },
+  "hull": {
+   "tex": 4096,
+   "shape": "CONCAVE",
+   "margin_px": 4,
+   "unwrap_s": 0.8,
+   "pack_s": 5.3,
+   "seams": "features",
+   "feature_edges_cut_inside_smart_islands": 3707,
+   "density_all": {
+    "5": 35.99,
+    "25": 36.37,
+    "50": 36.37,
+    "75": 36.37,
+    "95": 36.77
+   },
+   "density_z7": {},
+   "density_other": {
+    "5": 35.99,
+    "25": 36.37,
+    "50": 36.37,
+    "75": 36.37,
+    "95": 36.77
+   },
+   "uv_area_used": 0.3691,
+   "packing_efficiency": 0.376,
+   "extent": [
+    0.9867,
+    0.9867
+   ],
+   "area_atlas_m2": 4684.2
+  }
+ },
+ "lods": {
+  "details": {
+   "H": {
+    "0": {
+     "tris": 258238
+    },
+    "1": {
+     "tris": 170538,
+     "faces": 83604,
+     "rivet_tris_dropped": 73332,
+     "small_tris_dropped": 14368,
+     "cut_m": 0.15
+    },
+    "2": {
+     "tris": 119664,
+     "faces": 60027,
+     "rivet_tris_dropped": 73332,
+     "small_tris_dropped": 65242,
+     "cut_m": 0.6
+    }
+   },
+   "M": {
+    "0": {
+     "tris": 134904
+    },
+    "1": {
+     "tris": 82966,
+     "faces": 41382,
+     "rivet_tris_dropped": 35294,
+     "small_tris_dropped": 16644,
+     "cut_m": 0.15
+    },
+    "2": {
+     "tris": 61162,
+     "faces": 30664,
+     "rivet_tris_dropped": 35294,
+     "small_tris_dropped": 38448,
+     "cut_m": 0.6
+    }
+   }
+  },
+  "sk_base_tris": 103526,
+  "sk_tris": {
+   "0": 238430,
+   "1": 186492,
+   "2": 164688
+  },
+  "hull_detail_tris": {
+   "0": 258238,
+   "1": 170538,
+   "2": 119664
+  }
+ },
+ "density_hull": {
+  "area_m2": 4684.2,
+  "5": 35.99,
+  "25": 36.37,
+  "50": 36.37,
+  "75": 36.37,
+  "95": 36.77
+ },
+ "density_by_source": {
+  "H": {
+   "SM_AirshipDetail_Z1_Hull": {
+    "area_m2": 61.08,
+    "5": 70.05,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.07
+   },
+   "SM_AirshipDetail_Z2_Hull": {
+    "area_m2": 54.7,
+    "5": 70.05,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.07
+   },
+   "SM_AirshipDetail_Z3_Hull": {
+    "area_m2": 38.38,
+    "5": 70.04,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.08
+   },
+   "SM_AirshipDetail_Z4_Hull": {
+    "area_m2": 19.5,
+    "5": 70.05,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.07
+   },
+   "SM_AirshipDetail_Z4_Keel": {
+    "area_m2": 33.52,
+    "5": 70.04,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.08
+   },
+   "SM_AirshipDetail_Z4_Wedge": {
+    "area_m2": 145.36,
+    "5": 70.06,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.06
+   },
+   "SM_AirshipDetail_Z5_Belly": {
+    "area_m2": 168.48,
+    "5": 70.04,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.08
+   },
+   "SM_AirshipDetail_Z6_Hull": {
+    "area_m2": 23.89,
+    "5": 70.06,
+    "25": 70.06,
+    "50": 70.06,
+    "75": 70.06,
+    "95": 70.06
+   },
+   "SM_AirshipDetail_Z7_Chains": {
+    "area_m2": 3.23,
+    "5": 101.82,
+    "25": 105.09,
+    "50": 105.09,
+    "75": 105.09,
+    "95": 107.92
+   },
+   "SM_AirshipDetail_Z7_Gantry": {
+    "area_m2": 153.76,
+    "5": 104.99,
+    "25": 105.09,
+    "50": 105.09,
+    "75": 105.09,
+    "95": 105.17
+   },
+   "SM_AirshipDetail_Z7_Rails": {
+    "area_m2": 18.6,
+    "5": 105.09,
+    "25": 105.09,
+    "50": 105.09,
+    "75": 105.09,
+    "95": 105.09
+   },
+   "SM_AirshipDetail_Z7_Stairs": {
+    "area_m2": 62.23,
+    "5": 105.09,
+    "25": 105.09,
+    "50": 105.09,
+    "75": 105.09,
+    "95": 105.09
+   }
+  },
+  "M": {
+   "SM_AirshipDetail_Z1_Nozzle_FL": {
+    "area_m2": 7.06,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.66
+   },
+   "SM_AirshipDetail_Z1_Petals_FL": {
+    "area_m2": 0.41,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.67
+   },
+   "SM_AirshipDetail_Z1_Pod_FL": {
+    "area_m2": 21.92,
+    "5": 118.59,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.66
+   },
+   "SM_AirshipDetail_Z2_Nozzle_FR": {
+    "area_m2": 7.06,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.66
+   },
+   "SM_AirshipDetail_Z2_Petals_FR": {
+    "area_m2": 0.41,
+    "5": 118.65,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.67
+   },
+   "SM_AirshipDetail_Z2_Pod_FR": {
+    "area_m2": 28.56,
+    "5": 118.51,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.74
+   },
+   "SM_AirshipDetail_Z3_Nozzle_RL": {
+    "area_m2": 6.99,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.66
+   },
+   "SM_AirshipDetail_Z3_Nozzle_RR": {
+    "area_m2": 7.06,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.66
+   },
+   "SM_AirshipDetail_Z3_Petals_RL": {
+    "area_m2": 0.41,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.67
+   },
+   "SM_AirshipDetail_Z3_Petals_RR": {
+    "area_m2": 0.41,
+    "5": 118.65,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.67
+   },
+   "SM_AirshipDetail_Z3_Pod_RL": {
+    "area_m2": 22.69,
+    "5": 118.61,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.67
+   },
+   "SM_AirshipDetail_Z3_Pod_RR": {
+    "area_m2": 22.48,
+    "5": 118.48,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.79
+   },
+   "SM_AirshipDetail_Z6_Rod_L": {
+    "area_m2": 0.86,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.66
+   },
+   "SM_AirshipDetail_Z6_Rod_R": {
+    "area_m2": 0.86,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.66
+   },
+   "SM_AirshipDetail_Z6_Rotor_L": {
+    "area_m2": 15.82,
+    "5": 117.56,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 119.59
+   },
+   "SM_AirshipDetail_Z6_Rotor_R": {
+    "area_m2": 15.82,
+    "5": 117.48,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 119.75
+   },
+   "SM_AirshipDetail_Z6_Rudder": {
+    "area_m2": 40.97,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.66
+   },
+   "SM_AirshipDetail_Z6_Turbine_L": {
+    "area_m2": 99.29,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.67
+   },
+   "SM_AirshipDetail_Z6_Turbine_R": {
+    "area_m2": 101.85,
+    "5": 118.66,
+    "25": 118.66,
+    "50": 118.66,
+    "75": 118.66,
+    "95": 118.67
+   },
+   "SM_AirshipDetail_Z7_LightHeads": {
+    "area_m2": 7.55,
+    "5": 177.99,
+    "25": 177.99,
+    "50": 177.99,
+    "75": 177.99,
+    "95": 178.0
+   },
+   "SM_AirshipDetail_Z7_LightPosts": {
+    "area_m2": 3.11,
+    "5": 177.99,
+    "25": 177.99,
+    "50": 177.99,
+    "75": 177.99,
+    "95": 178.0
+   },
+   "SM_AirshipDetail_Z7_Winches": {
+    "area_m2": 17.21,
+    "5": 172.88,
+    "25": 177.16,
+    "50": 177.99,
+    "75": 178.42,
+    "95": 182.97
+   }
+  }
+ },
+ "uv_checks": {
+  "hull": {
+   "res": 4096,
+   "triangles": 51330,
+   "coverage": 0.369,
+   "overlap_texels": 0,
+   "loops_out_of_range": {
+    "SM_Airship": 0
+   },
+   "loops_in_reserved_band": {
+    "SM_Airship": 0
+   }
+  },
+  "hull_talal_uv0": {
+   "res": 4096,
+   "triangles": 68006,
+   "coverage": 0.4275,
+   "overlap_texels": 0,
+   "loops_out_of_range": {
+    "SM_Airship": 0
+   },
+   "loops_in_reserved_band": {
+    "SM_Airship": 0
+   }
+  },
+  "H": {
+   "res": 4096,
+   "triangles": 85555,
+   "coverage": 0.3162,
+   "overlap_texels": 0,
+   "loops_out_of_range": {
+    "SM_AirshipDetail_Z1_Hull": 0,
+    "SM_AirshipDetail_Z2_Hull": 0,
+    "SM_AirshipDetail_Z3_Hull": 0,
+    "SM_AirshipDetail_Z4_Hull": 0,
+    "SM_AirshipDetail_Z4_Keel": 0,
+    "SM_AirshipDetail_Z4_Wedge": 0,
+    "SM_AirshipDetail_Z5_Belly": 0,
+    "SM_AirshipDetail_Z6_Hull": 0,
+    "SM_AirshipDetail_Z7_Chains": 0,
+    "SM_AirshipDetail_Z7_Gantry": 0,
+    "SM_AirshipDetail_Z7_Rails": 0,
+    "SM_AirshipDetail_Z7_Stairs": 0
+   },
+   "loops_in_reserved_band": {
+    "SM_AirshipDetail_Z1_Hull": 0,
+    "SM_AirshipDetail_Z2_Hull": 0,
+    "SM_AirshipDetail_Z3_Hull": 0,
+    "SM_AirshipDetail_Z4_Hull": 0,
+    "SM_AirshipDetail_Z4_Keel": 0,
+    "SM_AirshipDetail_Z4_Wedge": 0,
+    "SM_AirshipDetail_Z5_Belly": 0,
+    "SM_AirshipDetail_Z6_Hull": 0,
+    "SM_AirshipDetail_Z7_Chains": 0,
+    "SM_AirshipDetail_Z7_Gantry": 0,
+    "SM_AirshipDetail_Z7_Rails": 0,
+    "SM_AirshipDetail_Z7_Stairs": 0
+   }
+  },
+  "M": {
+   "res": 4096,
+   "triangles": 44459,
+   "coverage": 0.3894,
+   "overlap_texels": 0,
+   "loops_out_of_range": {
+    "SM_AirshipDetail_Z1_Nozzle_FL": 0,
+    "SM_AirshipDetail_Z1_Petals_FL": 0,
+    "SM_AirshipDetail_Z1_Pod_FL": 0,
+    "SM_AirshipDetail_Z2_Nozzle_FR": 0,
+    "SM_AirshipDetail_Z2_Petals_FR": 0,
+    "SM_AirshipDetail_Z2_Pod_FR": 0,
+    "SM_AirshipDetail_Z3_Nozzle_RL": 0,
+    "SM_AirshipDetail_Z3_Nozzle_RR": 0,
+    "SM_AirshipDetail_Z3_Petals_RL": 0,
+    "SM_AirshipDetail_Z3_Petals_RR": 0,
+    "SM_AirshipDetail_Z3_Pod_RL": 0,
+    "SM_AirshipDetail_Z3_Pod_RR": 0,
+    "SM_AirshipDetail_Z6_Rod_L": 0,
+    "SM_AirshipDetail_Z6_Rod_R": 0,
+    "SM_AirshipDetail_Z6_Rotor_L": 0,
+    "SM_AirshipDetail_Z6_Rotor_R": 0,
+    "SM_AirshipDetail_Z6_Rudder": 0,
+    "SM_AirshipDetail_Z6_Turbine_L": 0,
+    "SM_AirshipDetail_Z6_Turbine_R": 0,
+    "SM_AirshipDetail_Z7_LightHeads": 0,
+    "SM_AirshipDetail_Z7_LightPosts": 0,
+    "SM_AirshipDetail_Z7_Winches": 0
+   },
+   "loops_in_reserved_band": {
+    "SM_AirshipDetail_Z1_Nozzle_FL": 0,
+    "SM_AirshipDetail_Z1_Petals_FL": 0,
+    "SM_AirshipDetail_Z1_Pod_FL": 0,
+    "SM_AirshipDetail_Z2_Nozzle_FR": 0,
+    "SM_AirshipDetail_Z2_Petals_FR": 0,
+    "SM_AirshipDetail_Z2_Pod_FR": 0,
+    "SM_AirshipDetail_Z3_Nozzle_RL": 0,
+    "SM_AirshipDetail_Z3_Nozzle_RR": 0,
+    "SM_AirshipDetail_Z3_Petals_RL": 0,
+    "SM_AirshipDetail_Z3_Petals_RR": 0,
+    "SM_AirshipDetail_Z3_Pod_RL": 0,
+    "SM_AirshipDetail_Z3_Pod_RR": 0,
+    "SM_AirshipDetail_Z6_Rod_L": 0,
+    "SM_AirshipDetail_Z6_Rod_R": 0,
+    "SM_AirshipDetail_Z6_Rotor_L": 0,
+    "SM_AirshipDetail_Z6_Rotor_R": 0,
+    "SM_AirshipDetail_Z6_Rudder": 0,
+    "SM_AirshipDetail_Z6_Turbine_L": 0,
+    "SM_AirshipDetail_Z6_Turbine_R": 0,
+    "SM_AirshipDetail_Z7_LightHeads": 0,
+    "SM_AirshipDetail_Z7_LightPosts": 0,
+    "SM_AirshipDetail_Z7_Winches": 0
+   }
+  },
+  "P": {
+   "res": 2048,
+   "triangles": 21398,
+   "coverage": 0.5063,
+   "overlap_texels": 0,
+   "loops_out_of_range": {
+    "SM_AirshipProp_Cannon_L1_Barrel": 0,
+    "SM_AirshipProp_Cannon_L1_Carriage": 0,
+    "SM_AirshipProp_Cannon_L1_Quoin": 0,
+    "SM_AirshipProp_Cannon_L1_Wheel_BL": 0,
+    "SM_AirshipProp_Cannon_L1_Wheel_BR": 0,
+    "SM_AirshipProp_Cannon_L1_Wheel_FL": 0,
+    "SM_AirshipProp_Cannon_L1_Wheel_FR": 0,
+    "SM_AirshipProp_Helm_Pedestal": 0,
+    "SM_AirshipProp_Helm_Wheel": 0,
+    "SM_AirshipTurret_Base": 0,
+    "SM_AirshipTurret_Gun": 0
+   },
+   "loops_in_reserved_band": {
+    "SM_AirshipProp_Cannon_L1_Barrel": 0,
+    "SM_AirshipProp_Cannon_L1_Carriage": 0,
+    "SM_AirshipProp_Cannon_L1_Quoin": 0,
+    "SM_AirshipProp_Cannon_L1_Wheel_BL": 0,
+    "SM_AirshipProp_Cannon_L1_Wheel_BR": 0,
+    "SM_AirshipProp_Cannon_L1_Wheel_FL": 0,
+    "SM_AirshipProp_Cannon_L1_Wheel_FR": 0,
+    "SM_AirshipProp_Helm_Pedestal": 0,
+    "SM_AirshipProp_Helm_Wheel": 0,
+    "SM_AirshipTurret_Base": 0,
+    "SM_AirshipTurret_Gun": 0
+   }
+  }
+ },
+ "bake": {
+  "hull": {
+   "texture": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_HullInk.png",
+   "md5": "71e606b3781be2cacfae07f3d0b280d4",
+   "size": 4096,
+   "inside_texels": 6190299,
+   "margin_texels": 5856220,
+   "signed_margin_texels": 4669354,
+   "density_median": 36.4,
+   "features": {
+    "border": 294,
+    "nonmanifold": 128,
+    "class_boundary": 380,
+    "crease": 29616,
+    "contour": 1619,
+    "segments": 32037
+   },
+   "ink_share_of_inside": 0.0423,
+   "rivets_dotted": 710,
+   "rivets_assigned": 710,
+   "dot_texels": 702,
+   "comic_B": {
+    "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/checks/hull_ink/T_AirshipDrivable_ComicMask.png",
+    "uv": "UVMap",
+    "note": "own texture on UV0 (Talal's UVs); B of this page is 0"
+   },
+   "seams": {
+    "seam_edges": 22884,
+    "samples": 68652,
+    "abs_diff_cm": {
+     "50": 0.027,
+     "95": 0.511,
+     "99": 1.076,
+     "99.9": 4.682
+    },
+    "max_cm": 12.0,
+    "over_1cm": 809,
+    "over_2cm": 489,
+    "tolerance_cm": 4.12,
+    "ink_mismatch_halfwidth_0.5cm": {
+     "samples": 62,
+     "share": 0.0009
+    },
+    "ink_mismatch_halfwidth_2cm": {
+     "samples": 41,
+     "share": 0.0006
+    },
+    "ink_mismatch_halfwidth_6cm": {
+     "samples": 6,
+     "share": 9e-05
+    }
+   },
+   "seconds": {
+    "bake": 69.6,
+    "sdf": 13.6,
+    "total": 87.2
+   }
+  },
+  "H": {
+   "texture": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_DetailInk_H.png",
+   "md5": "e40ea64a812e58cf7d7d28ad24d7e5b8",
+   "size": 4096,
+   "inside_texels": 5305035,
+   "margin_texels": 7770965,
+   "signed_margin_texels": 5386792,
+   "density_median": 70.1,
+   "features": {
+    "border": 0,
+    "nonmanifold": 0,
+    "class_boundary": 0,
+    "crease": 50777,
+    "contour": 17360,
+    "segments": 68137
+   },
+   "ink_share_of_inside": 0.1495,
+   "rivets_dotted": 4682,
+   "rivets_assigned": 4682,
+   "dot_texels": 62645,
+   "comic_B": null,
+   "seams": {
+    "seam_edges": 25562,
+    "samples": 76686,
+    "abs_diff_cm": {
+     "50": 0.0,
+     "95": 0.148,
+     "99": 2.997,
+     "99.9": 5.331
+    },
+    "max_cm": 7.05,
+    "over_1cm": 1551,
+    "over_2cm": 1308,
+    "tolerance_cm": 2.14,
+    "ink_mismatch_halfwidth_0.5cm": {
+     "samples": 0,
+     "share": 0.0
+    },
+    "ink_mismatch_halfwidth_2cm": {
+     "samples": 0,
+     "share": 0.0
+    },
+    "ink_mismatch_halfwidth_6cm": {
+     "samples": 91,
+     "share": 0.00119
+    }
+   },
+   "seconds": {
+    "bake": 140.3,
+    "sdf": 12.0,
+    "total": 157.6
+   }
+  },
+  "M": {
+   "texture": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_DetailInk_M.png",
+   "md5": "7528f11f17636e3f40b862e59423aaa2",
+   "size": 4096,
+   "inside_texels": 6532481,
+   "margin_texels": 5836819,
+   "signed_margin_texels": 3829920,
+   "density_median": 118.7,
+   "features": {
+    "border": 0,
+    "nonmanifold": 0,
+    "class_boundary": 0,
+    "crease": 25984,
+    "contour": 9216,
+    "segments": 35200
+   },
+   "ink_share_of_inside": 0.1117,
+   "rivets_dotted": 1819,
+   "rivets_assigned": 1819,
+   "dot_texels": 57367,
+   "comic_B": null,
+   "seams": {
+    "seam_edges": 10763,
+    "samples": 32289,
+    "abs_diff_cm": {
+     "50": 0.0,
+     "95": 0.248,
+     "99": 2.912,
+     "99.9": 6.121
+    },
+    "max_cm": 6.12,
+    "over_1cm": 1333,
+    "over_2cm": 698,
+    "tolerance_cm": 1.26,
+    "ink_mismatch_halfwidth_0.5cm": {
+     "samples": 0,
+     "share": 0.0
+    },
+    "ink_mismatch_halfwidth_2cm": {
+     "samples": 0,
+     "share": 0.0
+    },
+    "ink_mismatch_halfwidth_6cm": {
+     "samples": 348,
+     "share": 0.01078
+    }
+   },
+   "seconds": {
+    "bake": 48.8,
+    "sdf": 10.4,
+    "total": 64.1
+   }
+  },
+  "P": {
+   "texture": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_PropsInk.png",
+   "md5": "5a0f211e08e9523b63089f1acc89eefa",
+   "size": 2048,
+   "inside_texels": 2123613,
+   "margin_texels": 1419522,
+   "signed_margin_texels": 909592,
+   "density_median": 230.9,
+   "features": {
+    "border": 930,
+    "nonmanifold": 0,
+    "class_boundary": 0,
+    "crease": 6919,
+    "contour": 0,
+    "segments": 7849
+   },
+   "ink_share_of_inside": 0.1762,
+   "rivets_dotted": 0,
+   "rivets_assigned": 0,
+   "dot_texels": 0,
+   "comic_B": null,
+   "seams": {
+    "seam_edges": 8430,
+    "samples": 25290,
+    "abs_diff_cm": {
+     "50": 0.0,
+     "95": 0.106,
+     "99": 1.239,
+     "99.9": 6.489
+    },
+    "max_cm": 9.51,
+    "over_1cm": 322,
+    "over_2cm": 236,
+    "tolerance_cm": 1.0,
+    "ink_mismatch_halfwidth_0.5cm": {
+     "samples": 0,
+     "share": 0.0
+    },
+    "ink_mismatch_halfwidth_2cm": {
+     "samples": 3,
+     "share": 0.00012
+    },
+    "ink_mismatch_halfwidth_6cm": {
+     "samples": 227,
+     "share": 0.00898
+    }
+   },
+   "seconds": {
+    "bake": 21.9,
+    "sdf": 7.0,
+    "total": 30.1
+   }
+  }
+ },
+ "rivets": {
+  "pieces": 7759,
+  "no_hit": 8,
+  "on_textured_face": 7211,
+  "on_blank_face": 540,
+  "by_page": {
+   "H": 4986,
+   "hull": 710,
+   "M": 2055
+  },
+  "seconds": 1.8
+ },
+ "determinism": {
+  "full_run_vs_previous_run": null,
+  "rebake_into_textures_det": {
+   "against": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/checks/r3_bake_report.json",
+   "result": {
+    "hull": "SAME"
+   }
+  },
+  "prep_uv_md5": "38 of 39 export objects identical between prep runs 4 and 5 (SM_Airship changed on purpose: the hull thin rule); H, M, P textures byte-identical across runs 4, 5, 6"
+ },
+ "colour_check": {
+  "flat_max_err_8bit": 0.85,
+  "spare_slot_pixels": 0,
+  "shots": {
+   "q34_fp": {
+    "paint_yellow": {
+     "pixels": 6273,
+     "flat_err_8bit": {
+      "median": 0.38,
+      "p99": 0.38,
+      "max": 0.38
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.732,
+       "mid_0.70": 0.019,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.751,
+      "median_ratio_to_palette": [
+       0.997,
+       0.999,
+       0.994
+      ]
+     }
+    },
+    "paint_ochre": {
+     "pixels": 5409,
+     "flat_err_8bit": {
+      "median": 0.1,
+      "p99": 0.1,
+      "max": 0.1
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.774,
+       "mid_0.70": 0.006,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.78,
+      "median_ratio_to_palette": [
+       0.991,
+       0.999,
+       0.98
+      ]
+     }
+    },
+    "paint_orange": {
+     "pixels": 8703,
+     "flat_err_8bit": {
+      "median": 0.39,
+      "p99": 0.39,
+      "max": 0.39
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.496,
+       "mid_0.70": 0.073,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.569,
+      "median_ratio_to_palette": [
+       0.977,
+       0.99,
+       1.018
+      ]
+     }
+    },
+    "rust_red": {
+     "pixels": 56545,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.687,
+       "mid_0.70": 0.077,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.764,
+      "median_ratio_to_palette": [
+       0.994,
+       1.008,
+       0.996
+      ]
+     }
+    },
+    "rust_dark": {
+     "pixels": 5403,
+     "flat_err_8bit": {
+      "median": 0.44,
+      "p99": 0.44,
+      "max": 0.44
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.837,
+       "mid_0.70": 0.009,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.846,
+      "median_ratio_to_palette": [
+       0.992,
+       1.009,
+       1.009
+      ]
+     }
+    },
+    "dark_metal": {
+     "pixels": 41651,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.649,
+       "mid_0.70": 0.168,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.817,
+      "median_ratio_to_palette": [
+       0.953,
+       0.994,
+       0.975
+      ]
+     }
+    },
+    "machinery": {
+     "pixels": 3616,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.264,
+       "mid_0.70": 0.413,
+       "shade_0.40": 0.001
+      },
+      "any_band": 0.678,
+      "median_ratio_to_palette": [
+       0.707,
+       0.707,
+       0.769
+      ]
+     }
+    },
+    "steel": {
+     "pixels": 81,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.049,
+       "mid_0.70": 0.062,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.111,
+      "median_ratio_to_palette": [
+       0.165,
+       0.175,
+       0.252
+      ]
+     }
+    },
+    "copper": {
+     "pixels": 4117,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.85
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.56,
+       "mid_0.70": 0.0,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.56,
+      "median_ratio_to_palette": [
+       0.971,
+       0.99,
+       1.027
+      ]
+     }
+    },
+    "wood": {
+     "pixels": 2553,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.555,
+       "mid_0.70": 0.036,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.591,
+      "median_ratio_to_palette": [
+       0.965,
+       0.987,
+       0.988
+      ]
+     }
+    },
+    "hull_paint": {
+     "pixels": 13889,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.375,
+       "mid_0.70": 0.069,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.444,
+      "median_ratio_to_palette": [
+       0.905,
+       0.963,
+       1.027
+      ]
+     }
+    },
+    "deck": {
+     "pixels": 26173,
+     "flat_err_8bit": {
+      "median": 0.37,
+      "p99": 0.37,
+      "max": 0.37
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.647,
+       "mid_0.70": 0.087,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.734,
+      "median_ratio_to_palette": [
+       0.979,
+       0.992,
+       1.003
+      ]
+     }
+    },
+    "recess": {
+     "pixels": 1797,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.688,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.688,
+      "median_ratio_to_palette": [
+       0.692,
+       0.688,
+       0.747
+      ]
+     }
+    },
+    "keel_block": {
+     "pixels": 5108,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.342,
+       "mid_0.70": 0.402,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.744,
+      "median_ratio_to_palette": [
+       0.713,
+       0.721,
+       0.872
+      ]
+     }
+    },
+    "prop_wood": {
+     "pixels": 217,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.382,
+       "mid_0.70": 0.0,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.382,
+      "median_ratio_to_palette": [
+       0.953,
+       0.973,
+       1.062
+      ]
+     }
+    },
+    "prop_metal": {
+     "pixels": 1243,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.562,
+       "mid_0.70": 0.074,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.636,
+      "median_ratio_to_palette": [
+       0.935,
+       0.994,
+       0.994
+      ]
+     }
+    },
+    "prop_gun": {
+     "pixels": 104,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.375,
+       "mid_0.70": 0.01,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.385,
+      "median_ratio_to_palette": [
+       0.879,
+       0.904,
+       0.969
+      ]
+     }
+    }
+   },
+   "side": {
+    "paint_yellow": {
+     "pixels": 15827,
+     "flat_err_8bit": {
+      "median": 0.38,
+      "p99": 0.38,
+      "max": 0.38
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.521,
+       "mid_0.70": 0.183,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.704,
+      "median_ratio_to_palette": [
+       0.979,
+       0.989,
+       0.994
+      ]
+     }
+    },
+    "paint_ochre": {
+     "pixels": 15308,
+     "flat_err_8bit": {
+      "median": 0.1,
+      "p99": 0.1,
+      "max": 0.1
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.364,
+       "mid_0.70": 0.333,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.697,
+      "median_ratio_to_palette": [
+       0.72,
+       0.725,
+       0.923
+      ]
+     }
+    },
+    "paint_orange": {
+     "pixels": 17222,
+     "flat_err_8bit": {
+      "median": 0.39,
+      "p99": 0.39,
+      "max": 0.39
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.594,
+       "mid_0.70": 0.134,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.728,
+      "median_ratio_to_palette": [
+       0.987,
+       0.99,
+       0.996
+      ]
+     }
+    },
+    "rust_red": {
+     "pixels": 98108,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.567,
+       "mid_0.70": 0.225,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.792,
+      "median_ratio_to_palette": [
+       0.97,
+       0.99,
+       0.975
+      ]
+     }
+    },
+    "rust_dark": {
+     "pixels": 12227,
+     "flat_err_8bit": {
+      "median": 0.44,
+      "p99": 0.44,
+      "max": 0.44
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.827,
+       "mid_0.70": 0.041,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.868,
+      "median_ratio_to_palette": [
+       1.006,
+       1.009,
+       1.009
+      ]
+     }
+    },
+    "dark_metal": {
+     "pixels": 66902,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.572,
+       "mid_0.70": 0.277,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.849,
+      "median_ratio_to_palette": [
+       0.953,
+       0.994,
+       0.937
+      ]
+     }
+    },
+    "machinery": {
+     "pixels": 6161,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.088,
+       "mid_0.70": 0.568,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.656,
+      "median_ratio_to_palette": [
+       0.683,
+       0.695,
+       0.744
+      ]
+     }
+    },
+    "steel": {
+     "pixels": 576,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.151,
+       "mid_0.70": 0.241,
+       "shade_0.40": 0.014
+      },
+      "any_band": 0.406,
+      "median_ratio_to_palette": [
+       0.684,
+       0.685,
+       0.731
+      ]
+     }
+    },
+    "copper": {
+     "pixels": 15126,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.472,
+       "mid_0.70": 0.04,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.512,
+      "median_ratio_to_palette": [
+       0.951,
+       0.976,
+       1.008
+      ]
+     }
+    },
+    "brass": {
+     "pixels": 524,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.004,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.004,
+      "median_ratio_to_palette": [
+       0.495,
+       0.573,
+       0.93
+      ]
+     }
+    },
+    "wood": {
+     "pixels": 4442,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.566,
+       "mid_0.70": 0.05,
+       "shade_0.40": 0.001
+      },
+      "any_band": 0.617,
+      "median_ratio_to_palette": [
+       0.977,
+       0.987,
+       0.988
+      ]
+     }
+    },
+    "hull_paint": {
+     "pixels": 66977,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.219,
+       "mid_0.70": 0.312,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.531,
+      "median_ratio_to_palette": [
+       0.708,
+       0.705,
+       0.935
+      ]
+     }
+    },
+    "recess": {
+     "pixels": 7296,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.005,
+       "mid_0.70": 0.781,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.786,
+      "median_ratio_to_palette": [
+       0.706,
+       0.688,
+       0.747
+      ]
+     }
+    },
+    "keel_block": {
+     "pixels": 8781,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.487,
+       "mid_0.70": 0.215,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.702,
+      "median_ratio_to_palette": [
+       0.947,
+       0.956,
+       0.975
+      ]
+     }
+    },
+    "prop_wood": {
+     "pixels": 161,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.286,
+       "mid_0.70": 0.23,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.516,
+      "median_ratio_to_palette": [
+       0.728,
+       0.744,
+       0.9
+      ]
+     }
+    },
+    "prop_metal": {
+     "pixels": 726,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.236,
+       "mid_0.70": 0.492,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.728,
+      "median_ratio_to_palette": [
+       0.718,
+       0.715,
+       0.796
+      ]
+     }
+    },
+    "prop_gun": {
+     "pixels": 82,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.488,
+       "mid_0.70": 0.0,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.488,
+      "median_ratio_to_palette": [
+       0.929,
+       0.947,
+       0.998
+      ]
+     }
+    }
+   },
+   "pilot_45": {
+    "paint_yellow": {
+     "pixels": 2461,
+     "flat_err_8bit": {
+      "median": 0.38,
+      "p99": 0.38,
+      "max": 0.38
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.759,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.759,
+      "median_ratio_to_palette": [
+       0.7,
+       0.696,
+       0.743
+      ]
+     }
+    },
+    "paint_ochre": {
+     "pixels": 2987,
+     "flat_err_8bit": {
+      "median": 0.1,
+      "p99": 0.1,
+      "max": 0.1
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.02,
+       "mid_0.70": 0.802,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.822,
+      "median_ratio_to_palette": [
+       0.696,
+       0.706,
+       0.746
+      ]
+     }
+    },
+    "paint_orange": {
+     "pixels": 23561,
+     "flat_err_8bit": {
+      "median": 0.39,
+      "p99": 0.39,
+      "max": 0.39
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.116,
+       "mid_0.70": 0.4,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.516,
+      "median_ratio_to_palette": [
+       0.703,
+       0.701,
+       0.832
+      ]
+     }
+    },
+    "rust_red": {
+     "pixels": 25115,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.52
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.017,
+       "mid_0.70": 0.749,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.766,
+      "median_ratio_to_palette": [
+       0.693,
+       0.706,
+       0.757
+      ]
+     }
+    },
+    "dark_metal": {
+     "pixels": 36068,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.076,
+       "mid_0.70": 0.746,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.822,
+      "median_ratio_to_palette": [
+       0.688,
+       0.7,
+       0.747
+      ]
+     }
+    },
+    "machinery": {
+     "pixels": 1998,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.836,
+       "shade_0.40": 0.004
+      },
+      "any_band": 0.84,
+      "median_ratio_to_palette": [
+       0.683,
+       0.695,
+       0.732
+      ]
+     }
+    },
+    "steel": {
+     "pixels": 174,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.126,
+       "shade_0.40": 0.04
+      },
+      "any_band": 0.166,
+      "median_ratio_to_palette": [
+       0.533,
+       0.553,
+       0.613
+      ]
+     }
+    },
+    "wood": {
+     "pixels": 4113,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.203,
+       "mid_0.70": 0.589,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.792,
+      "median_ratio_to_palette": [
+       0.708,
+       0.707,
+       0.769
+      ]
+     }
+    },
+    "hull_paint": {
+     "pixels": 21354,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.026,
+       "mid_0.70": 0.719,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.745,
+      "median_ratio_to_palette": [
+       0.708,
+       0.696,
+       0.734
+      ]
+     }
+    },
+    "deck": {
+     "pixels": 55753,
+     "flat_err_8bit": {
+      "median": 0.37,
+      "p99": 0.37,
+      "max": 0.37
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.798,
+       "mid_0.70": 0.073,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.871,
+      "median_ratio_to_palette": [
+       0.99,
+       1.005,
+       1.003
+      ]
+     }
+    },
+    "prop_wood": {
+     "pixels": 567,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.469,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.469,
+      "median_ratio_to_palette": [
+       0.688,
+       0.695,
+       0.785
+      ]
+     }
+    },
+    "prop_metal": {
+     "pixels": 1879,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.127,
+       "mid_0.70": 0.6,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.727,
+      "median_ratio_to_palette": [
+       0.688,
+       0.715,
+       0.78
+      ]
+     }
+    }
+   },
+   "talal_back": {
+    "paint_yellow": {
+     "pixels": 5458,
+     "flat_err_8bit": {
+      "median": 0.38,
+      "p99": 0.38,
+      "max": 0.38
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.477,
+       "mid_0.70": 0.294,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.771,
+      "median_ratio_to_palette": [
+       0.97,
+       0.979,
+       0.977
+      ]
+     }
+    },
+    "paint_ochre": {
+     "pixels": 5928,
+     "flat_err_8bit": {
+      "median": 0.1,
+      "p99": 0.1,
+      "max": 0.1
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.166,
+       "mid_0.70": 0.617,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.783,
+      "median_ratio_to_palette": [
+       0.704,
+       0.706,
+       0.763
+      ]
+     }
+    },
+    "paint_orange": {
+     "pixels": 81831,
+     "flat_err_8bit": {
+      "median": 0.39,
+      "p99": 0.39,
+      "max": 0.39
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.209,
+       "mid_0.70": 0.429,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.638,
+      "median_ratio_to_palette": [
+       0.703,
+       0.712,
+       0.832
+      ]
+     }
+    },
+    "rust_red": {
+     "pixels": 94696,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.52
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.153,
+       "mid_0.70": 0.647,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.8,
+      "median_ratio_to_palette": [
+       0.703,
+       0.706,
+       0.757
+      ]
+     }
+    },
+    "rust_dark": {
+     "pixels": 27605,
+     "flat_err_8bit": {
+      "median": 0.44,
+      "p99": 0.44,
+      "max": 0.44
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.71,
+       "mid_0.70": 0.223,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.933,
+      "median_ratio_to_palette": [
+       0.992,
+       1.009,
+       1.009
+      ]
+     }
+    },
+    "dark_metal": {
+     "pixels": 89996,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.186,
+       "mid_0.70": 0.681,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.867,
+      "median_ratio_to_palette": [
+       0.688,
+       0.7,
+       0.747
+      ]
+     }
+    },
+    "machinery": {
+     "pixels": 5826,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.001,
+       "mid_0.70": 0.818,
+       "shade_0.40": 0.004
+      },
+      "any_band": 0.823,
+      "median_ratio_to_palette": [
+       0.683,
+       0.695,
+       0.732
+      ]
+     }
+    },
+    "steel": {
+     "pixels": 929,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.316,
+       "shade_0.40": 0.014
+      },
+      "any_band": 0.33,
+      "median_ratio_to_palette": [
+       0.674,
+       0.676,
+       0.712
+      ]
+     }
+    },
+    "copper": {
+     "pixels": 4318,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.359,
+       "mid_0.70": 0.02,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.379,
+      "median_ratio_to_palette": [
+       0.931,
+       0.976,
+       1.027
+      ]
+     }
+    },
+    "brass": {
+     "pixels": 221,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.0,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.0,
+      "median_ratio_to_palette": [
+       0.309,
+       0.411,
+       0.755
+      ]
+     }
+    },
+    "wood": {
+     "pixels": 12918,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.449,
+       "mid_0.70": 0.401,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.85,
+      "median_ratio_to_palette": [
+       0.836,
+       0.888,
+       0.917
+      ]
+     }
+    },
+    "hull_paint": {
+     "pixels": 20053,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.092,
+       "mid_0.70": 0.544,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.636,
+      "median_ratio_to_palette": [
+       0.708,
+       0.696,
+       0.766
+      ]
+     }
+    },
+    "deck": {
+     "pixels": 134013,
+     "flat_err_8bit": {
+      "median": 0.37,
+      "p99": 0.37,
+      "max": 0.37
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.813,
+       "mid_0.70": 0.066,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.879,
+      "median_ratio_to_palette": [
+       0.99,
+       1.005,
+       1.003
+      ]
+     }
+    },
+    "prop_wood": {
+     "pixels": 1446,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.49,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.49,
+      "median_ratio_to_palette": [
+       0.678,
+       0.695,
+       0.769
+      ]
+     }
+    },
+    "prop_metal": {
+     "pixels": 4904,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.215,
+       "mid_0.70": 0.566,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.781,
+      "median_ratio_to_palette": [
+       0.688,
+       0.715,
+       0.78
+      ]
+     }
+    }
+   },
+   "stairs_close": {
+    "paint_yellow": {
+     "pixels": 75,
+     "flat_err_8bit": {
+      "median": 0.38,
+      "p99": 0.38,
+      "max": 0.38
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.533,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.533,
+      "median_ratio_to_palette": [
+       0.693,
+       0.705,
+       0.757
+      ]
+     }
+    },
+    "paint_ochre": {
+     "pixels": 914,
+     "flat_err_8bit": {
+      "median": 0.1,
+      "p99": 0.1,
+      "max": 0.1
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.447,
+       "shade_0.40": 0.001
+      },
+      "any_band": 0.448,
+      "median_ratio_to_palette": [
+       0.677,
+       0.687,
+       0.763
+      ]
+     }
+    },
+    "rust_red": {
+     "pixels": 340541,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.303,
+       "mid_0.70": 0.449,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.752,
+      "median_ratio_to_palette": [
+       0.703,
+       0.706,
+       0.813
+      ]
+     }
+    },
+    "rust_dark": {
+     "pixels": 875,
+     "flat_err_8bit": {
+      "median": 0.44,
+      "p99": 0.44,
+      "max": 0.44
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.002,
+       "mid_0.70": 0.714,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.716,
+      "median_ratio_to_palette": [
+       0.701,
+       0.697,
+       0.74
+      ]
+     }
+    },
+    "dark_metal": {
+     "pixels": 299926,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.18,
+       "mid_0.70": 0.689,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.869,
+      "median_ratio_to_palette": [
+       0.688,
+       0.7,
+       0.747
+      ]
+     }
+    },
+    "machinery": {
+     "pixels": 777,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.47,
+       "shade_0.40": 0.004
+      },
+      "any_band": 0.474,
+      "median_ratio_to_palette": [
+       0.647,
+       0.671,
+       0.72
+      ]
+     }
+    },
+    "steel": {
+     "pixels": 55675,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.752,
+       "mid_0.70": 0.043,
+       "shade_0.40": 0.004
+      },
+      "any_band": 0.799,
+      "median_ratio_to_palette": [
+       0.994,
+       0.99,
+       1.004
+      ]
+     }
+    },
+    "copper": {
+     "pixels": 15596,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.008,
+       "mid_0.70": 0.632,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.64,
+      "median_ratio_to_palette": [
+       0.693,
+       0.706,
+       0.75
+      ]
+     }
+    },
+    "brass": {
+     "pixels": 6062,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.584,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.584,
+      "median_ratio_to_palette": [
+       0.686,
+       0.702,
+       0.755
+      ]
+     }
+    },
+    "bolt": {
+     "pixels": 680,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.5,
+       "mid_0.70": 0.122,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.622,
+      "median_ratio_to_palette": [
+       0.993,
+       0.973,
+       0.941
+      ]
+     }
+    },
+    "wood": {
+     "pixels": 220813,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.572,
+       "mid_0.70": 0.325,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.897,
+      "median_ratio_to_palette": [
+       1.002,
+       0.987,
+       0.988
+      ]
+     }
+    },
+    "hull_paint": {
+     "pixels": 78,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.051,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.051,
+      "median_ratio_to_palette": [
+       0.732,
+       0.77,
+       1.206
+      ]
+     }
+    },
+    "deck": {
+     "pixels": 239501,
+     "flat_err_8bit": {
+      "median": 0.37,
+      "p99": 0.37,
+      "max": 0.37
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.502,
+       "mid_0.70": 0.42,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.922,
+      "median_ratio_to_palette": [
+       0.956,
+       0.968,
+       0.977
+      ]
+     }
+    }
+   },
+   "fan_close_L": {
+    "paint_ochre": {
+     "pixels": 29764,
+     "flat_err_8bit": {
+      "median": 0.1,
+      "p99": 0.1,
+      "max": 0.1
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.151,
+       "mid_0.70": 0.43,
+       "shade_0.40": 0.001
+      },
+      "any_band": 0.582,
+      "median_ratio_to_palette": [
+       0.688,
+       0.706,
+       0.797
+      ]
+     }
+    },
+    "paint_orange": {
+     "pixels": 404415,
+     "flat_err_8bit": {
+      "median": 0.39,
+      "p99": 0.39,
+      "max": 0.39
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.168,
+       "mid_0.70": 0.675,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.843,
+      "median_ratio_to_palette": [
+       0.703,
+       0.701,
+       0.739
+      ]
+     }
+    },
+    "rust_red": {
+     "pixels": 489726,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.52
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.216,
+       "mid_0.70": 0.651,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.867,
+      "median_ratio_to_palette": [
+       0.703,
+       0.706,
+       0.757
+      ]
+     }
+    },
+    "rust_dark": {
+     "pixels": 78113,
+     "flat_err_8bit": {
+      "median": 0.44,
+      "p99": 0.44,
+      "max": 0.44
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.603,
+       "mid_0.70": 0.319,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.922,
+      "median_ratio_to_palette": [
+       0.992,
+       1.009,
+       0.985
+      ]
+     }
+    },
+    "dark_metal": {
+     "pixels": 428648,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.15,
+       "mid_0.70": 0.796,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.946,
+      "median_ratio_to_palette": [
+       0.688,
+       0.7,
+       0.747
+      ]
+     }
+    },
+    "machinery": {
+     "pixels": 49395,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.002,
+       "mid_0.70": 0.849,
+       "shade_0.40": 0.008
+      },
+      "any_band": 0.859,
+      "median_ratio_to_palette": [
+       0.683,
+       0.695,
+       0.732
+      ]
+     }
+    },
+    "steel": {
+     "pixels": 5223,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.009,
+       "mid_0.70": 0.529,
+       "shade_0.40": 0.007
+      },
+      "any_band": 0.545,
+      "median_ratio_to_palette": [
+       0.693,
+       0.695,
+       0.74
+      ]
+     }
+    },
+    "bolt": {
+     "pixels": 1880,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.199,
+       "mid_0.70": 0.428,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.627,
+      "median_ratio_to_palette": [
+       0.746,
+       0.707,
+       0.747
+      ]
+     }
+    },
+    "hull_paint": {
+     "pixels": 2907,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.58,
+       "mid_0.70": 0.106,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.686,
+      "median_ratio_to_palette": [
+       0.977,
+       0.995,
+       1.008
+      ]
+     }
+    },
+    "deck": {
+     "pixels": 1536,
+     "flat_err_8bit": {
+      "median": 0.37,
+      "p99": 0.37,
+      "max": 0.37
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.623,
+       "mid_0.70": 0.113,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.736,
+      "median_ratio_to_palette": [
+       0.979,
+       0.992,
+       0.99
+      ]
+     }
+    }
+   },
+   "keel_low": {
+    "paint_yellow": {
+     "pixels": 313,
+     "flat_err_8bit": {
+      "median": 0.38,
+      "p99": 0.38,
+      "max": 0.38
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.521,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.521,
+      "median_ratio_to_palette": [
+       0.693,
+       0.696,
+       0.757
+      ]
+     }
+    },
+    "paint_ochre": {
+     "pixels": 3913,
+     "flat_err_8bit": {
+      "median": 0.1,
+      "p99": 0.1,
+      "max": 0.1
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.004,
+       "mid_0.70": 0.752,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.756,
+      "median_ratio_to_palette": [
+       0.688,
+       0.697,
+       0.746
+      ]
+     }
+    },
+    "rust_red": {
+     "pixels": 256647,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.094,
+       "mid_0.70": 0.699,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.793,
+      "median_ratio_to_palette": [
+       0.703,
+       0.706,
+       0.757
+      ]
+     }
+    },
+    "rust_dark": {
+     "pixels": 100066,
+     "flat_err_8bit": {
+      "median": 0.44,
+      "p99": 0.44,
+      "max": 0.6
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.157,
+       "mid_0.70": 0.728,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.885,
+      "median_ratio_to_palette": [
+       0.701,
+       0.697,
+       0.74
+      ]
+     }
+    },
+    "dark_metal": {
+     "pixels": 93800,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.149,
+       "mid_0.70": 0.748,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.897,
+      "median_ratio_to_palette": [
+       0.688,
+       0.7,
+       0.747
+      ]
+     }
+    },
+    "machinery": {
+     "pixels": 16626,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.59
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.736,
+       "shade_0.40": 0.005
+      },
+      "any_band": 0.741,
+      "median_ratio_to_palette": [
+       0.683,
+       0.695,
+       0.732
+      ]
+     }
+    },
+    "steel": {
+     "pixels": 203,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.433,
+       "shade_0.40": 0.005
+      },
+      "any_band": 0.438,
+      "median_ratio_to_palette": [
+       0.684,
+       0.685,
+       0.74
+      ]
+     }
+    },
+    "copper": {
+     "pixels": 21428,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.201,
+       "mid_0.70": 0.417,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.618,
+      "median_ratio_to_palette": [
+       0.701,
+       0.706,
+       0.798
+      ]
+     }
+    },
+    "brass": {
+     "pixels": 3402,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.317,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.317,
+      "median_ratio_to_palette": [
+       0.67,
+       0.693,
+       0.797
+      ]
+     }
+    },
+    "bolt": {
+     "pixels": 52,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.48
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.038,
+       "mid_0.70": 0.231,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.269,
+      "median_ratio_to_palette": [
+       0.795,
+       0.713,
+       0.714
+      ]
+     }
+    },
+    "hull_paint": {
+     "pixels": 39553,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.031,
+       "mid_0.70": 0.746,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.777,
+      "median_ratio_to_palette": [
+       0.708,
+       0.696,
+       0.734
+      ]
+     }
+    },
+    "keel_block": {
+     "pixels": 117151,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.031,
+       "mid_0.70": 0.737,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.768,
+      "median_ratio_to_palette": [
+       0.703,
+       0.706,
+       0.757
+      ]
+     }
+    }
+   },
+   "deck_eye": {
+    "rust_red": {
+     "pixels": 48147,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.52
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.08,
+       "mid_0.70": 0.533,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.613,
+      "median_ratio_to_palette": [
+       0.693,
+       0.706,
+       0.757
+      ]
+     }
+    },
+    "dark_metal": {
+     "pixels": 48657,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.55
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.046,
+       "mid_0.70": 0.742,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.788,
+      "median_ratio_to_palette": [
+       0.688,
+       0.7,
+       0.747
+      ]
+     }
+    },
+    "machinery": {
+     "pixels": 156,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.327,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.327,
+      "median_ratio_to_palette": [
+       0.601,
+       0.636,
+       0.696
+      ]
+     }
+    },
+    "steel": {
+     "pixels": 4136,
+     "flat_err_8bit": {
+      "median": 0.48,
+      "p99": 0.48,
+      "max": 0.68
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.012,
+       "mid_0.70": 0.206,
+       "shade_0.40": 0.028
+      },
+      "any_band": 0.246,
+      "median_ratio_to_palette": [
+       0.656,
+       0.658,
+       0.712
+      ]
+     }
+    },
+    "copper": {
+     "pixels": 1568,
+     "flat_err_8bit": {
+      "median": 0.45,
+      "p99": 0.45,
+      "max": 0.45
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.223,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.223,
+      "median_ratio_to_palette": [
+       0.628,
+       0.695,
+       0.848
+      ]
+     }
+    },
+    "brass": {
+     "pixels": 1452,
+     "flat_err_8bit": {
+      "median": 0.41,
+      "p99": 0.41,
+      "max": 0.41
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.0,
+       "mid_0.70": 0.254,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.254,
+      "median_ratio_to_palette": [
+       0.654,
+       0.684,
+       0.811
+      ]
+     }
+    },
+    "wood": {
+     "pixels": 70221,
+     "flat_err_8bit": {
+      "median": 0.35,
+      "p99": 0.35,
+      "max": 0.35
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.025,
+       "mid_0.70": 0.854,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.879,
+      "median_ratio_to_palette": [
+       0.698,
+       0.695,
+       0.754
+      ]
+     }
+    },
+    "deck": {
+     "pixels": 503745,
+     "flat_err_8bit": {
+      "median": 0.37,
+      "p99": 0.37,
+      "max": 0.37
+     },
+     "approved_toon": {
+      "share_within_6_of_band": {
+       "lit_1.0": 0.845,
+       "mid_0.70": 0.116,
+       "shade_0.40": 0.0
+      },
+      "any_band": 0.961,
+      "median_ratio_to_palette": [
+       0.99,
+       1.005,
+       1.003
+      ]
+     }
+    }
+   }
+  }
+ },
+ "base_edits": {
+  "radius_m": 1.5,
+  "hull_texture": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_HullInk.png",
+  "hull_md5": "71e606b3781be2cacfae07f3d0b280d4",
+  "whole_hull_R_ink_share": 0.0423,
+  "hull_uv": "R3Ink",
+  "comic_mask": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/checks/hull_ink/T_AirshipDrivable_ComicMask.png",
+  "edits": {
+   "z6_fan_back_L": {
+    "within_0.3m": {
+     "R": {
+      "texels": 21914,
+      "ink_share": 0.0153
+     },
+     "B": {
+      "texels": 24905,
+      "ink_share": 0.4215
+     }
+    },
+    "within_1.5m": {
+     "R": {
+      "texels": 287477,
+      "ink_share": 0.0452
+     },
+     "B": {
+      "texels": 328157,
+      "ink_share": 0.3875
+     }
+    },
+    "deleted_triangles": 216
+   },
+   "z6_fan_back_R": {
+    "within_0.3m": {
+     "R": {
+      "texels": 21821,
+      "ink_share": 0.0076
+     },
+     "B": {
+      "texels": 24793,
+      "ink_share": 0.4229
+     }
+    },
+    "within_1.5m": {
+     "R": {
+      "texels": 287822,
+      "ink_share": 0.0455
+     },
+     "B": {
+      "texels": 328286,
+      "ink_share": 0.3939
+     }
+    },
+    "deleted_triangles": 216
+   },
+   "z7_chain_aft_bars": {
+    "within_0.3m": {
+     "R": {
+      "texels": 6119,
+      "ink_share": 0.0564
+     },
+     "B": {
+      "texels": 7396,
+      "ink_share": 0.4442
+     }
+    },
+    "within_1.5m": {
+     "R": {
+      "texels": 74869,
+      "ink_share": 0.0579
+     },
+     "B": {
+      "texels": 88940,
+      "ink_share": 0.4243
+     }
+    },
+    "deleted_triangles": 72
+   }
+  },
+  "note": "R = the ink lines (distance under 1 cm), computed on the edited mesh; B = Talal's round 2 comic mask (shown only with ComicAmount > 0), which still has the contact strokes of the removed parts"
+ },
+ "protected": {
+  "prep": true,
+  "bake": true,
+  "md5": {
+   "/mnt/new_partition/BlenderProjects/StylizedAirship/StylizedAirship.blend": "4cb832deaa0fa005bf6a9359e34692bb",
+   "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/AirshipRig.blend": "50f895b0bd50be523e3aaa0a6ecbfa31",
+   "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/AirshipRig_src.blend": "4cb832deaa0fa005bf6a9359e34692bb",
+   "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/AirshipRig_detail.blend": "31317912621726b5e647c78bfc0cf948",
+   "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/props/AirshipProps.blend": "b253e788be1d887028d3110c0e0c65a2"
+  }
+ }
+}

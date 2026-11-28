@@ -1,0 +1,268 @@
+{
+ "zone": "Z7",
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z7_Chains",
+   "tris": 1008,
+   "verts": 504,
+   "pieces": 14,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 504
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_Gantry",
+   "tris": 28830,
+   "verts": 16959,
+   "pieces": 1272,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 2050,
+    "bolt": 7425,
+    "paint_ochre": 1204,
+    "paint_yellow": 1392,
+    "dark_metal": 1630,
+    "copper": 576,
+    "machinery": 230,
+    "steel": 520,
+    "brass": 776
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_LightHeads",
+   "tris": 3072,
+   "verts": 1616,
+   "pieces": 56,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "SearchLight_AftL_Head",
+    "SearchLight_FwdC_Head",
+    "SearchLight_MidL_Head",
+    "SearchLight_MidR_Head"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "brass": 296,
+    "dark_metal": 672,
+    "rust_red": 96,
+    "rust_dark": 192,
+    "steel": 176
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_LightPosts",
+   "tris": 2128,
+   "verts": 1248,
+   "pieces": 92,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "SearchLight_AftL",
+    "SearchLight_FwdC",
+    "SearchLight_MidL",
+    "SearchLight_MidR"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 352,
+    "rust_red": 48,
+    "bolt": 360,
+    "machinery": 104,
+    "steel": 48,
+    "brass": 152
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_Rails",
+   "tris": 3588,
+   "verts": 2392,
+   "pieces": 299,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 54,
+    "rust_red": 1740
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_Stairs",
+   "tris": 5804,
+   "verts": 3550,
+   "pieces": 324,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 1252,
+    "wood": 366,
+    "rust_red": 318,
+    "bolt": 1062,
+    "steel": 152,
+    "rust_dark": 52
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_Winches",
+   "tris": 1672,
+   "verts": 888,
+   "pieces": 26,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Winch_Aft",
+    "Winch_Fwd"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "steel": 648,
+    "bolt": 216
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z7",
+   "verts_tested": 13579,
+   "sample_every": 2,
+   "outside_zone": {
+    "Z4": 6,
+    "None": 28,
+    "none": 142
+   },
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "none": 164,
+    "Z4": 63,
+    "Z6": 8
+   },
+   "within_margin_of": {
+    "Z4": 376,
+    "Z6": 16
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 27157,
+   "verts_inside_a_box": 553,
+   "verts_above_a_box_top": 18268,
+   "worst_cm_above_a_top": 781.6
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 2.514,
+   "worst": [
+    7.888,
+    1.404,
+    5.575
+   ],
+   "verts_over_limit": 2683,
+   "over_limit_by_kind": {},
+   "verts": 13579,
+   "limit_m": 0.2,
+   "p99_m": 2.137
+  },
+  "bbox": [
+   [
+    -15.83,
+    -8.161,
+    1.882
+   ],
+   [
+    31.567,
+    8.161,
+    10.904
+   ]
+  ]
+ }
+}

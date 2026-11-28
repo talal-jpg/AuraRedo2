@@ -1,0 +1,39 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_z5.blend",
+ "prefix": "SM_AirshipDetail_Z5_",
+ "objects": {
+  "SM_AirshipDetail_Z5_Belly": {
+   "verts": 32999,
+   "faces": 31088,
+   "tris": 58782,
+   "co_0p1mm_md5": "53b5e70ca5e9bd519cc02f82e5279f49",
+   "faces_md5": "519b65277ce104ea6d01090c4438c4a0",
+   "roles_md5": "ec735dbbfa2d97d675721152a09a31e7",
+   "bones_md5": "7bafe7b8d66068f5fc547e61932292a1",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z5"
+   ]
+  }
+ }
+}

@@ -1,0 +1,6 @@
+{
+ "_about": "Extra cameras for the review fixes (EXPORT_R3.md section 15), read by r3_preview.py; the review's cameras are in review/review_shots.json",
+ "enemy200_q": {"loc": [125.5, -152.0, 52.3], "tgt": [5.5, 0.0, 2.3], "lens": 19.64, "about": "another ship 200 m away (enemy120_q's direction), FOV 85 (SK LOD2): the far ink tint check"},
+ "enemy300_q": {"loc": [185.5, -228.0, 77.3], "tgt": [5.5, 0.0, 2.3], "lens": 19.64, "about": "another ship 300 m away, FOV 85 (SK LOD2): the far ink tint check"},
+ "enemy300_tele": {"loc": [185.5, -228.0, 77.3], "tgt": [5.5, 0.0, 2.3], "lens": 160.0, "about": "the 300 m ship through a long lens with the 300 m pixel size kept by --res-scale: not used for the tint (pixel size differs), only to look"}
+}

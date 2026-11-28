@@ -1,0 +1,10 @@
+{
+ "chase40_back":  {"loc": [-39.13, 0.0, 17.32],  "tgt": [0.0, 0.0, 9.0], "lens": 19.64, "about": "chase camera, arm 40 m, pitch -12, pivot root + 9 m, FOV 85 (SK LOD1)"},
+ "chase65_back":  {"loc": [-63.58, 0.0, 22.51],  "tgt": [0.0, 0.0, 9.0], "lens": 19.64, "about": "default chase camera, arm 65 m, pitch -12, FOV 85 (SK LOD1)"},
+ "chase120_back": {"loc": [-117.38, 0.0, 33.95], "tgt": [0.0, 0.0, 9.0], "lens": 19.64, "about": "chase camera, arm 120 m (SK LOD2)"},
+ "enemy120_q":    {"loc": [77.5, -91.2, 32.3],   "tgt": [5.5, 0.0, 2.3], "lens": 19.64, "about": "another ship 120 m away, front-starboard quarter, from above (SK LOD2)"},
+ "enemy70_low":   {"loc": [5.5, 70.0, -8.0],     "tgt": [5.5, 0.0, 2.3], "lens": 19.64, "about": "another ship 70 m away, port side, from a little below (SK LOD1)"},
+ "deck_aft_helm": {"loc": [1.5, -2.0, 4.15],     "tgt": [-12.0, 3.0, 3.0], "lens": 20.0, "about": "player on the main deck (eye 1.6 m) looking aft at the helm, the cannons and the fans"},
+ "deck_cannon":   {"loc": [-3.5, 3.6, 4.1],      "tgt": [-0.45, 6.39, 3.3], "lens": 24.0, "about": "player next to the fore port cannon (about 4 m)"},
+ "turret_deck":   {"loc": [17.0, -1.0, 8.15],    "tgt": [21.0, 2.45, 7.6], "lens": 24.0, "about": "player on the turret deck looking at the port turret"}
+}

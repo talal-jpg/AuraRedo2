@@ -1,0 +1,105 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_z4.blend",
+ "prefix": "SM_AirshipDetail_Z4_",
+ "objects": {
+  "SM_AirshipDetail_Z4_Hull": {
+   "verts": 4139,
+   "faces": 4026,
+   "tris": 7202,
+   "co_0p1mm_md5": "df8fd44ec3d8bb4488206e30034c27a2",
+   "faces_md5": "bc51e8087a3f9264c133a7e1d3470b69",
+   "roles_md5": "d3ccfa0dbf002ed5cc25f2429fb5e83d",
+   "bones_md5": "35877f9032440fe54b56371834ff2f3d",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z4"
+   ]
+  },
+  "SM_AirshipDetail_Z4_Keel": {
+   "verts": 5013,
+   "faces": 4805,
+   "tris": 8798,
+   "co_0p1mm_md5": "40b59ee77a5e925e1523097f51ad399f",
+   "faces_md5": "c289a3bd3bad0fbf267c40de99d48f7c",
+   "roles_md5": "4a405545bad9b375652f8ae8f175a2c6",
+   "bones_md5": "a2be98d3caff22a1c0188c929b72535f",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z4"
+   ]
+  },
+  "SM_AirshipDetail_Z4_Wedge": {
+   "verts": 27133,
+   "faces": 25562,
+   "tris": 47774,
+   "co_0p1mm_md5": "182efd582350c303f2aca9aaeaa43784",
+   "faces_md5": "f793e490bb03acca2847a3dd36320c2a",
+   "roles_md5": "14480b25be2477b47993682f30c65885",
+   "bones_md5": "7a875525706dc5dfebe6191018944318",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z4"
+   ]
+  }
+ }
+}

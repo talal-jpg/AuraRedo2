@@ -1,0 +1,556 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_z1.blend",
+ "zones": null,
+ "only": null,
+ "base_edits": {},
+ "test_objects": [
+  "SM_AirshipDetail_Z1_Hull",
+  "SM_AirshipDetail_Z1_Pod_FL",
+  "SM_AirshipDetail_Z1_Nozzle_FL",
+  "SM_AirshipDetail_Z1_Petals_FL"
+ ],
+ "context_objects": [],
+ "not_rigid_vertices": 0,
+ "assignment": {
+  "SM_AirshipDetail_Z1_Hull": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Hull": 18336
+   },
+   "verts": 18336,
+   "not_rigid": 0,
+   "tris": 32676
+  },
+  "SM_AirshipDetail_Z1_Pod_FL": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Thruster_FL": 6944
+   },
+   "verts": 6944,
+   "not_rigid": 0,
+   "tris": 12336
+  },
+  "SM_AirshipDetail_Z1_Nozzle_FL": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Thruster_FL_Nozzle": 1248
+   },
+   "verts": 1248,
+   "not_rigid": 0,
+   "tris": 2160
+  },
+  "SM_AirshipDetail_Z1_Petals_FL": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Thruster_FL_Petal00": 190,
+    "Thruster_FL_Petal01": 190,
+    "Thruster_FL_Petal02": 190,
+    "Thruster_FL_Petal03": 190,
+    "Thruster_FL_Petal04": 190,
+    "Thruster_FL_Petal05": 190,
+    "Thruster_FL_Petal06": 190,
+    "Thruster_FL_Petal07": 190,
+    "Thruster_FL_Petal08": 190,
+    "Thruster_FL_Petal09": 190,
+    "Thruster_FL_Petal10": 190,
+    "Thruster_FL_Petal11": 190
+   },
+   "verts": 2280,
+   "not_rigid": 0,
+   "tris": 4032
+  }
+ },
+ "results": [
+  {
+   "set": "pod:FL",
+   "poses": 243,
+   "seconds": 20.9,
+   "triangles_tested": {
+    "hull/base": 7389,
+    "pod/base": 2336,
+    "nozzle/base": 756,
+    "petals/base": 144,
+    "hull/test": 12086,
+    "pod/test": 12336,
+    "nozzle/test": 2160,
+    "petals/test": 4032
+   },
+   "rest": {
+    "pod vs hull": {
+     "new": 0,
+     "baseline": 184
+    },
+    "nozzle vs pod": {
+     "new": 0,
+     "baseline": 54
+    },
+    "nozzle vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "petals vs nozzle": {
+     "new": 0,
+     "baseline": 468
+    },
+    "petals vs pod": {
+     "new": 0,
+     "baseline": 0
+    },
+    "petals vs hull": {
+     "new": 0,
+     "baseline": 0
+    }
+   },
+   "worst": {
+    "pod vs hull": {
+     "new": 0,
+     "baseline": 244,
+     "new_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     },
+     "baseline_pose": {
+      "PodPitchDeg_FL": 0.0,
+      "PodRollDeg_FL": 3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     }
+    },
+    "nozzle vs pod": {
+     "new": 0,
+     "baseline": 54,
+     "new_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     },
+     "baseline_pose": {
+      "PodPitchDeg_FL": 0.0,
+      "PodRollDeg_FL": 0.0,
+      "NozzlePitchDeg_FL": 0.0,
+      "NozzleRollDeg_FL": 0.0,
+      "NozzleFlareDeg_FL": -10.0
+     }
+    },
+    "nozzle vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     },
+     "baseline_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     }
+    },
+    "petals vs nozzle": {
+     "new": 0,
+     "baseline": 540,
+     "new_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     },
+     "baseline_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     }
+    },
+    "petals vs pod": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     },
+     "baseline_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     }
+    },
+    "petals vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     },
+     "baseline_pose": {
+      "PodPitchDeg_FL": -3.0,
+      "PodRollDeg_FL": -3.0,
+      "NozzlePitchDeg_FL": -5.0,
+      "NozzleRollDeg_FL": -5.0,
+      "NozzleFlareDeg_FL": -10.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  },
+  {
+   "label": "cannon L1",
+   "poses": 18,
+   "detail_tris_near": 28994,
+   "overlap_pairs_max": 0,
+   "min_distance_m": 1.055,
+   "at_pose": {
+    "CannonYawDeg_L1": 0.0,
+    "CannonElevDeg_L1": -10.0,
+    "CannonRecoilCm_L1": 0.0
+   },
+   "passed": true
+  },
+  {
+   "label": "cannon L2",
+   "poses": 18,
+   "detail_tris_near": 8863,
+   "overlap_pairs_max": 0,
+   "min_distance_m": 1.321,
+   "at_pose": {
+    "CannonYawDeg_L2": 0.0,
+    "CannonElevDeg_L2": -10.0,
+    "CannonRecoilCm_L2": 0.0
+   },
+   "passed": true
+  },
+  {
+   "label": "cannon R1",
+   "detail_tris_near": 0,
+   "passed": true
+  },
+  {
+   "label": "cannon R2",
+   "detail_tris_near": 0,
+   "passed": true
+  },
+  {
+   "label": "turret L",
+   "detail_tris_near": 0,
+   "passed": true
+  },
+  {
+   "label": "turret R",
+   "detail_tris_near": 0,
+   "passed": true
+  },
+  {
+   "set": "turbine:L",
+   "poses": 99,
+   "seconds": 6.3,
+   "triangles_tested": {
+    "hull/base": 2838,
+    "housing/base": 1924,
+    "rotor/base": 570,
+    "rod/base": 12,
+    "hull/test": 174
+   },
+   "rest": {
+    "housing vs hull": {
+     "new": 0,
+     "baseline": 419
+    },
+    "rotor vs housing": {
+     "new": 0,
+     "baseline": 32
+    },
+    "rotor vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "rod vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "rod vs rotor": {
+     "new": 0,
+     "baseline": 0
+    }
+   },
+   "worst": {
+    "housing vs hull": {
+     "new": 0,
+     "baseline": 519,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": 12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    },
+    "rotor vs housing": {
+     "new": 0,
+     "baseline": 40,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": 12.0,
+      "RotorAngleDeg_L": 330.0
+     }
+    },
+    "rotor vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    },
+    "rod vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    },
+    "rod vs rotor": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  },
+  {
+   "set": "rudder",
+   "poses": 13,
+   "seconds": 0.4,
+   "triangles_tested": {
+    "hull/base": 4525,
+    "rudder/base": 100
+   },
+   "rest": {
+    "rudder vs hull": {
+     "new": 0,
+     "baseline": 120
+    }
+   },
+   "worst": {
+    "rudder vs hull": {
+     "new": 0,
+     "baseline": 120,
+     "new_pose": {
+      "RudderDeg": -30.0
+     },
+     "baseline_pose": {
+      "RudderDeg": -30.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  },
+  {
+   "set": "searchlights",
+   "poses": 216,
+   "seconds": 8.7,
+   "triangles_tested": {
+    "hull/base": 286,
+    "posts/base": 80,
+    "heads/base": 288
+   },
+   "rest": {
+    "heads vs posts": {
+     "new": 0,
+     "baseline": 56
+    },
+    "heads vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "posts vs hull": {
+     "new": 0,
+     "baseline": 101
+    }
+   },
+   "worst": {
+    "heads vs posts": {
+     "new": 0,
+     "baseline": 56,
+     "new_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     },
+     "baseline_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     }
+    },
+    "heads vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     },
+     "baseline_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     }
+    },
+    "posts vs hull": {
+     "new": 0,
+     "baseline": 112,
+     "new_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     },
+     "baseline_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": 0.0,
+      "SearchLightPanDeg": 0.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  },
+  {
+   "set": "chain",
+   "poses": 36,
+   "seconds": 1.5,
+   "triangles_tested": {
+    "hull/base": 1482,
+    "chain/base": 72,
+    "winches/base": 312
+   },
+   "rest": {
+    "chain vs hull": {
+     "new": 0,
+     "baseline": 80
+    },
+    "winches vs hull": {
+     "new": 0,
+     "baseline": 170
+    },
+    "chain vs winches": {
+     "new": 0,
+     "baseline": 0
+    }
+   },
+   "worst": {
+    "chain vs hull": {
+     "new": 0,
+     "baseline": 84,
+     "new_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 0.0
+     },
+     "baseline_pose": {
+      "ChainSwingDeg": 3.0,
+      "WinchSpinDeg": 0.0
+     }
+    },
+    "winches vs hull": {
+     "new": 0,
+     "baseline": 174,
+     "new_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 0.0
+     },
+     "baseline_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 180.0
+     }
+    },
+    "chain vs winches": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 0.0
+     },
+     "baseline_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 0.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  }
+ ],
+ "passed": true,
+ "seconds": 39.3
+}

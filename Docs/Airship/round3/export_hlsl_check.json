@@ -1,0 +1,31 @@
+{
+ "about": "Round 3 review fixes (EXPORT_R3.md section 15): offline compile check of M_AirshipR3's Custom node bodies, no editor.",
+ "as90": "/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/scripts/ue/as_90_r3_textures_material.py",
+ "nodes": [
+  "AS90_PAL_CODE",
+  "AS90_INK_CODE",
+  "AS90_SIL_CODE",
+  "AS90_FINAL_CODE",
+  "AS90_LIFT_CODE"
+ ],
+ "results": {
+  "HV 2018 -T ps_6_0": {
+   "ok": true,
+   "messages": "warning: DXIL signing library (dxil.dll,libdxil.so) not found.  Resulting DXIL will not be signed for use in release environments.\r\n\n\u0000"
+  },
+  "HV 2018 -T ps_6_0 -spirv": {
+   "ok": true,
+   "messages": ""
+  },
+  "HV 2021 -T ps_6_0": {
+   "ok": true,
+   "messages": "warning: DXIL signing library (dxil.dll,libdxil.so) not found.  Resulting DXIL will not be signed for use in release environments.\r\n\n\u0000"
+  },
+  "HV 2021 -T ps_6_0 -spirv": {
+   "ok": true,
+   "messages": ""
+  }
+ },
+ "all_ok": true,
+ "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/checks/_hlsl_check_source.hlsl"
+}

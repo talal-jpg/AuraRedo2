@@ -1,0 +1,78 @@
+{
+ "far_ink": {
+  "enemy120_q": {
+   "ship_pixels": 35678,
+   "mean_darkening_8bit": 2.65,
+   "share_darker_by_20": 0.0085,
+   "share_darker_by_40": 0.0,
+   "box": [
+    737,
+    464,
+    1183,
+    629
+   ],
+   "crop_scale": 2
+  },
+  "enemy200_q": {
+   "ship_pixels": 13004,
+   "mean_darkening_8bit": 33.14,
+   "share_darker_by_20": 0.8274,
+   "share_darker_by_40": 0.2813,
+   "box": [
+    821,
+    489,
+    1090,
+    596
+   ],
+   "crop_scale": 3
+  },
+  "enemy300_q": {
+   "ship_pixels": 5903,
+   "mean_darkening_8bit": 35.89,
+   "share_darker_by_20": 0.8552,
+   "share_darker_by_40": 0.4074,
+   "box": [
+    863,
+    502,
+    1047,
+    580
+   ],
+   "crop_scale": 4
+  }
+ },
+ "patches": {
+  "chase65_back_stern": {
+   "pixels": 1174,
+   "ref": [
+    209,
+    173,
+    99
+   ],
+   "approved": [
+    208,
+    173,
+    100
+   ],
+   "v1_preview": [
+    150,
+    128,
+    78
+   ],
+   "v2_preview": [
+    217,
+    176,
+    70
+   ],
+   "v1_startupmap": [
+    0,
+    56,
+    42
+   ],
+   "v2_startupmap": [
+    217,
+    198,
+    106
+   ]
+  }
+ }
+}

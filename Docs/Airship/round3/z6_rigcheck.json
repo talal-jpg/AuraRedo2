@@ -1,0 +1,412 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_z6.blend",
+ "zones": "1",
+ "only": [
+  "Detail_Z6"
+ ],
+ "base_edits": {
+  "z6_fan_back_L": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "port fan: remove the flat disc behind the rotor (duct_back_wall, island 1028) and the big tail cone that closed the duct exit (tail_cone, island 1030, r 2.46 at x -18.76, flat end at x -19.91), so the fan blades are visible from behind and the duct reads as an open exhaust"
+  },
+  "z6_fan_back_R": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "starboard fan: the same (islands 1088 and 1091)"
+  },
+  "z7_chain_aft_bars": {
+   "file": "z7.json",
+   "zone": "Z7",
+   "faces": 36,
+   "tris": 72,
+   "guard_ok": true,
+   "why": "replace the ChainAft bars by a heavy link chain (detail object, Hull bone)"
+  }
+ },
+ "test_objects": [
+  "SM_AirshipDetail_Z6_Hull",
+  "SM_AirshipDetail_Z6_Turbine_L",
+  "SM_AirshipDetail_Z6_Rotor_L",
+  "SM_AirshipDetail_Z6_Rod_L",
+  "SM_AirshipDetail_Z6_Turbine_R",
+  "SM_AirshipDetail_Z6_Rotor_R",
+  "SM_AirshipDetail_Z6_Rod_R",
+  "SM_AirshipDetail_Z6_Rudder"
+ ],
+ "context_objects": [
+  "SM_AirshipDetail_Z1_Hull",
+  "SM_AirshipDetail_Z1_Pod_FL",
+  "SM_AirshipDetail_Z1_Nozzle_FL",
+  "SM_AirshipDetail_Z1_Petals_FL"
+ ],
+ "not_rigid_vertices": 0,
+ "assignment": {
+  "SM_AirshipDetail_Z6_Hull": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Hull": 3938
+   },
+   "verts": 3938,
+   "not_rigid": 0,
+   "tris": 6812
+  },
+  "SM_AirshipDetail_Z6_Turbine_L": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Turbine_L": 10985
+   },
+   "verts": 10985,
+   "not_rigid": 0,
+   "tris": 19482
+  },
+  "SM_AirshipDetail_Z6_Rotor_L": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Turbine_L_Rotor": 2312
+   },
+   "verts": 2312,
+   "not_rigid": 0,
+   "tris": 4136
+  },
+  "SM_AirshipDetail_Z6_Rod_L": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Turbine_L_Rod": 96
+   },
+   "verts": 96,
+   "not_rigid": 0,
+   "tris": 176
+  },
+  "SM_AirshipDetail_Z6_Turbine_R": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Turbine_R": 10844
+   },
+   "verts": 10844,
+   "not_rigid": 0,
+   "tris": 19216
+  },
+  "SM_AirshipDetail_Z6_Rotor_R": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Turbine_R_Rotor": 2312
+   },
+   "verts": 2312,
+   "not_rigid": 0,
+   "tris": 4136
+  },
+  "SM_AirshipDetail_Z6_Rod_R": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Turbine_R_Rod": 96
+   },
+   "verts": 96,
+   "not_rigid": 0,
+   "tris": 176
+  },
+  "SM_AirshipDetail_Z6_Rudder": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Rudder": 3828
+   },
+   "verts": 3828,
+   "not_rigid": 0,
+   "tris": 6784
+  }
+ },
+ "results": [
+  {
+   "set": "turbine:L",
+   "poses": 99,
+   "seconds": 8.5,
+   "triangles_tested": {
+    "hull/base": 3012,
+    "housing/base": 1708,
+    "rotor/base": 570,
+    "rod/base": 12,
+    "hull/test": 1708,
+    "housing/test": 19482,
+    "rotor/test": 4136,
+    "rod/test": 176
+   },
+   "rest": {
+    "housing vs hull": {
+     "new": 0,
+     "baseline": 419
+    },
+    "rotor vs housing": {
+     "new": 0,
+     "baseline": 0
+    },
+    "rotor vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "rod vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "rod vs rotor": {
+     "new": 0,
+     "baseline": 0
+    }
+   },
+   "worst": {
+    "housing vs hull": {
+     "new": 0,
+     "baseline": 519,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": 12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    },
+    "rotor vs housing": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    },
+    "rotor vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    },
+    "rod vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    },
+    "rod vs rotor": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_L": -12.0,
+      "RotorAngleDeg_L": 0.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  },
+  {
+   "set": "turbine:R",
+   "poses": 99,
+   "seconds": 7.3,
+   "triangles_tested": {
+    "hull/base": 2839,
+    "housing/base": 1708,
+    "rotor/base": 570,
+    "rod/base": 12,
+    "hull/test": 2610,
+    "housing/test": 19216,
+    "rotor/test": 4136,
+    "rod/test": 176
+   },
+   "rest": {
+    "housing vs hull": {
+     "new": 0,
+     "baseline": 457
+    },
+    "rotor vs housing": {
+     "new": 0,
+     "baseline": 0
+    },
+    "rotor vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "rod vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "rod vs rotor": {
+     "new": 0,
+     "baseline": 0
+    }
+   },
+   "worst": {
+    "housing vs hull": {
+     "new": 0,
+     "baseline": 524,
+     "new_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     }
+    },
+    "rotor vs housing": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     }
+    },
+    "rotor vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     }
+    },
+    "rod vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     }
+    },
+    "rod vs rotor": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     },
+     "baseline_pose": {
+      "TurbineYawDeg_R": -12.0,
+      "RotorAngleDeg_R": 0.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  },
+  {
+   "set": "rudder",
+   "poses": 13,
+   "seconds": 0.6,
+   "triangles_tested": {
+    "hull/base": 4525,
+    "rudder/base": 100,
+    "hull/test": 6812,
+    "rudder/test": 6784
+   },
+   "rest": {
+    "rudder vs hull": {
+     "new": 0,
+     "baseline": 120
+    }
+   },
+   "worst": {
+    "rudder vs hull": {
+     "new": 0,
+     "baseline": 120,
+     "new_pose": {
+      "RudderDeg": -30.0
+     },
+     "baseline_pose": {
+      "RudderDeg": -30.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  }
+ ],
+ "passed": true,
+ "seconds": 17.1
+}

@@ -1,0 +1,1334 @@
+{
+ "zone": "Z3",
+ "knobs": {
+  "seed": 1303,
+  "x_aft": -11.55,
+  "x_fwd": 8.6,
+  "x_fwd_plates": 6.95,
+  "chart_x": [
+   -16.4,
+   -11.0,
+   0.05
+  ],
+  "chart_phi": [
+   30.0,
+   -80.0,
+   -0.5
+  ],
+  "chart_clear": 0.3,
+  "bilge_phi": -56.0,
+  "touch_tol": 0.02,
+  "step_tol": 0.012,
+  "plate": {
+   "gap": 0.015,
+   "t": 0.045,
+   "bevel": 0.014,
+   "cell_u": 0.6,
+   "cell_v": 0.25,
+   "cut": [
+    0.07,
+    0.17
+   ],
+   "cut_p": 0.3
+  },
+  "layer": 0.006,
+  "seam": 0.024,
+  "rivet": {
+   "r": 0.022,
+   "h": 0.012,
+   "inset": 0.07,
+   "spacing": 0.28
+  },
+  "upper": {
+   "w": [
+    0.8,
+    1.7
+   ],
+   "row_h": [
+    0.55,
+    0.95
+   ],
+   "top_off": 0.27,
+   "min_w": 0.35,
+   "min_h": 0.22,
+   "keep": 0.25,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "lower": {
+   "w": [
+    0.8,
+    1.6
+   ],
+   "row_h": [
+    0.7,
+    1.1
+   ],
+   "top_off": 0.04,
+   "min_w": 0.35,
+   "min_h": 0.22,
+   "keep": 0.25,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "fill": {
+   "w": [
+    0.35,
+    0.8
+   ],
+   "h": [
+    0.3,
+    0.6
+   ],
+   "min_w": 0.36,
+   "min_h": 0.28,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "shingle": {
+   "p": 0.3,
+   "overlap": 0.08,
+   "t": 0.04,
+   "armour": 0.5
+  },
+  "frame": {
+   "p": 0.65,
+   "rim": 0.075,
+   "t": 0.035,
+   "inset_p": 0.0,
+   "min_w": 0.6,
+   "min_h": 0.45,
+   "edge": 0.09
+  },
+  "patch": {
+   "p": 0.7,
+   "t": 0.04,
+   "w": [
+    0.4,
+    0.8
+   ],
+   "h": [
+    0.3,
+    0.55
+   ],
+   "mats": [
+    [
+     "rust_red",
+     0.7
+    ],
+    [
+     "paint_ochre",
+     0.3
+    ]
+   ]
+  },
+  "batten": {
+   "p": 0.75,
+   "w": 0.12,
+   "t": 0.05,
+   "mat": "rust_red"
+  },
+  "slots": {
+   "up": 3,
+   "mid": 2,
+   "w": [
+    0.55,
+    0.8
+   ],
+   "h": [
+    0.32,
+    0.45
+   ],
+   "n": [
+    3,
+    4
+   ],
+   "slot_w": 0.05,
+   "ang": 58.0,
+   "low": 1
+  },
+  "strake": {
+   "h": 0.2,
+   "t": 0.085,
+   "back_h": 0.6,
+   "back_t": 0.02,
+   "smooth": 0.9
+  },
+  "teeth": {
+   "w": [
+    0.7,
+    0.9
+   ],
+   "h": [
+    0.62,
+    0.78
+   ],
+   "gap": [
+    0.14,
+    0.2
+   ],
+   "t": 0.09,
+   "chamfer": 0.07
+  },
+  "channel": {
+   "v": [
+    1.02,
+    1.52
+   ],
+   "r": [
+    0.07,
+    0.058
+   ],
+   "clamp_step": 1.0
+  },
+  "bay": {
+   "v": [
+    1.62,
+    2.78
+   ],
+   "w": [
+    2.1,
+    1.6
+   ],
+   "rim": 0.1,
+   "rim_t": 0.05,
+   "depth": 0.11,
+   "pump_r": 0.068
+  },
+  "ubay": {
+   "v": [
+    0.1,
+    0.86
+   ],
+   "w": [
+    1.6
+   ],
+   "x_pref": [
+    -12.9
+   ],
+   "rim": 0.08,
+   "depth": 0.1
+  },
+  "conduit": {
+   "r_up": [
+    0.03,
+    0.026
+   ],
+   "clamp_step": 0.7,
+   "fittings": 3,
+   "smooth": 0.75,
+   "fittings_z3": 1
+  },
+  "gusset": {
+   "step": 0.51,
+   "depth": 0.1,
+   "height": 0.22,
+   "t": 0.025
+  },
+  "pocket": {
+   "r": 2.85,
+   "rim_w": [
+    0.03,
+    0.19
+   ],
+   "rim_t": 0.05,
+   "cavity_bottom_h": -1.84,
+   "roof_h": -2.8,
+   "cols": [
+    -0.5,
+    9.5
+   ]
+  },
+  "pod": {
+   "gap": 0.012,
+   "t": 0.035,
+   "bevel": 0.01,
+   "rib_rivet_step": 20.0,
+   "hull_clear": 0.05,
+   "bundle_r": 0.05,
+   "hug_r": [
+    0.06,
+    0.05
+   ],
+   "act_r": 2.04,
+   "hoops": [
+    3.25,
+    3.6
+   ],
+   "mats": [
+    [
+     "rust_red",
+     0.45
+    ],
+    [
+     "rust_dark",
+     0.35
+    ],
+    [
+     "dark_metal",
+     0.2
+    ]
+   ],
+   "hug_th": [
+    0.0,
+    0.0
+   ],
+   "act_th": []
+  },
+  "pa_boxes": "/mnt/new_partition/UnrealProjects/_AirshipWork/Saved/Airship/pa_hull_boxes.json",
+  "seed_side": {
+   "1": 1325,
+   "-1": 1311
+  },
+  "x_aft_end": -15.3,
+  "x_mask_fwd": -11.6,
+  "gusset_grid_x0": -11.2,
+  "seam_gland_x": -11.7,
+  "end_rib": {
+   "w": 0.18,
+   "t": 0.11
+  },
+  "z3_bay_w": [
+   1.15,
+   2.0
+  ],
+  "z3_bay_v1": [
+   2.78,
+   2.66,
+   2.54,
+   2.42
+  ],
+  "zone_margin": {
+   "Z6": 0.12,
+   "none": 0.1,
+   "Z7": 0.1,
+   "Z4": 0.1,
+   "Z5": 0.03
+  },
+  "seam_fallback": {
+   "1": {
+    "ref_up": 0.9281,
+    "ref_low": 3.3742,
+    "ref_strake": 3.3555,
+    "source": "zone 1 z1_continuity.json"
+   },
+   "-1": {
+    "ref_up": 0.9327,
+    "ref_low": 3.3902,
+    "ref_strake": 3.3696,
+    "source": "zone 1 code on starboard (detail_selftest, the same deterministic lines Z2 builds on)"
+   }
+  },
+  "pocket_z3": {
+   "lip_w": 0.15,
+   "lip_t": 0.04,
+   "pod_clear": 0.05,
+   "stiff_step": 15.0,
+   "zone": "Z3"
+  },
+  "pod_z3": {
+   "RL": {
+    "hugs": [
+     [
+      1.84,
+      0.06,
+      "copper"
+     ],
+     [
+      2.05,
+      0.05,
+      "brass"
+     ]
+    ],
+    "prefer": [
+     [
+      130.0,
+      180.0
+     ],
+     [
+      -180.0,
+      -170.0
+     ]
+    ],
+    "hug_min_n": 6,
+    "act_pref": 158.0,
+    "act_gaps": [
+     14,
+     10,
+     8
+    ],
+    "act_window": 30,
+    "hug_max_deg": 60.0
+   },
+   "RR": {
+    "hugs": [
+     [
+      1.84,
+      0.06,
+      "copper"
+     ],
+     [
+      2.05,
+      0.05,
+      "brass"
+     ]
+    ],
+    "prefer": [
+     [
+      130.0,
+      180.0
+     ],
+     [
+      -180.0,
+      -170.0
+     ]
+    ],
+    "hug_min_n": 6,
+    "act_pref": 158.0,
+    "act_gaps": [
+     14,
+     10,
+     8
+    ],
+    "act_window": 30,
+    "hug_max_deg": 60.0
+   }
+  },
+  "calm_target": 0.3
+ },
+ "log": {
+  "flank_port": {
+   "mask_filtered_up": 57,
+   "mask_filtered_low": 386,
+   "ref_at_seam": {
+    "ref_up": 0.9281,
+    "ref_low": 3.3742,
+    "target": {
+     "ref_up": 0.9281,
+     "ref_low": 3.3742,
+     "ref_strake": 3.3555,
+     "source": "/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/round3/z1_continuity.json"
+    }
+   },
+   "end_rib": [
+    -14.75,
+    -14.57
+   ],
+   "strake_runs": [
+    [
+     -14.54,
+     -11.6
+    ]
+   ],
+   "pipe_spans": [
+    [
+     -14.5,
+     -11.6
+    ]
+   ],
+   "bay_runs": [
+    [
+     -13.1,
+     -11.6
+    ]
+   ],
+   "bays": [
+    [
+     -13.02,
+     -11.68,
+     2.78
+    ]
+   ],
+   "upper_bays": [],
+   "upper_end_rib": [
+    -14.05,
+    -13.87
+   ],
+   "plates": {
+    "up_rows": 3,
+    "low_rows": 2,
+    "fill": 4,
+    "coverage_up": 0.717,
+    "free_m2_up": 2.8,
+    "free_m2_low": 9.6
+   },
+   "frame_patch_reasons": {
+    "eligible": 3,
+    "busy_or_small_fill": 5,
+    "patch_too_small": 2,
+    "balanced_for_calm_share": 1
+   },
+   "layers": {
+    "raised": 1,
+    "armour": 1,
+    "battens": 1,
+    "slotted": 1,
+    "frames": 1,
+    "patches": 1,
+    "plates": 9,
+    "calm_plates": 5,
+    "calm_share_of_area": 0.31,
+    "armour_share_of_plates": 0.111
+   },
+   "skipped_on_step": 1,
+   "end_rib_v": [
+    -0.02,
+    1.86
+   ],
+   "upper_end_rib_v": [
+    -0.249,
+    0.46
+   ],
+   "strake_line": {
+    "at_seam": 3.3555,
+    "aft": 2.3006
+   },
+   "strake": {
+    "segments": 3,
+    "shifted_for_a_shelf": 0
+   },
+   "teeth": 3,
+   "gussets": 5,
+   "pipes": 2,
+   "bay_bottle": 1,
+   "bays_built": 1,
+   "conduits": 2,
+   "through_hull_fittings": 0,
+   "hull_rivets": 60,
+   "seam_source": "/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/round3/z1_continuity.json",
+   "seconds": 1.3
+  },
+  "flank_stbd": {
+   "mask_filtered_up": 60,
+   "mask_filtered_low": 356,
+   "ref_at_seam": {
+    "ref_up": 0.9327,
+    "ref_low": 3.3902,
+    "target": {
+     "ref_up": 0.9327,
+     "ref_low": 3.3902,
+     "ref_strake": 3.3696,
+     "source": "/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/round3/z2_continuity.json"
+    }
+   },
+   "end_rib": [
+    -14.75,
+    -14.57
+   ],
+   "strake_runs": [
+    [
+     -14.54,
+     -11.6
+    ]
+   ],
+   "pipe_spans": [
+    [
+     -14.5,
+     -11.6
+    ]
+   ],
+   "bay_runs": [
+    [
+     -13.05,
+     -11.6
+    ]
+   ],
+   "bays": [
+    [
+     -12.97,
+     -11.68,
+     2.42
+    ]
+   ],
+   "upper_bays": [],
+   "upper_end_rib": [
+    -14.05,
+    -13.87
+   ],
+   "plates": {
+    "up_rows": 3,
+    "low_rows": 3,
+    "fill": 7,
+    "coverage_up": 0.743,
+    "free_m2_up": 2.8,
+    "free_m2_low": 9.8
+   },
+   "frame_patch_reasons": {
+    "eligible": 4,
+    "busy_or_small_fill": 8,
+    "patch_too_small": 1,
+    "balanced_for_calm_share": 0
+   },
+   "layers": {
+    "raised": 1,
+    "armour": 1,
+    "battens": 1,
+    "slotted": 1,
+    "frames": 1,
+    "patches": 2,
+    "plates": 13,
+    "calm_plates": 8,
+    "calm_share_of_area": 0.31,
+    "armour_share_of_plates": 0.077
+   },
+   "end_rib_v": [
+    -0.02,
+    1.86
+   ],
+   "upper_end_rib_v": [
+    -0.248,
+    0.46
+   ],
+   "strake_line": {
+    "at_seam": 3.3696,
+    "aft": 2.3018
+   },
+   "strake": {
+    "segments": 3,
+    "shifted_for_a_shelf": 0
+   },
+   "teeth": 3,
+   "gussets": 5,
+   "pipes": 2,
+   "bay_bottle": 1,
+   "bays_built": 1,
+   "conduits": 2,
+   "through_hull_fittings": 1,
+   "hull_rivets": 78,
+   "seam_source": "/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/round3/z2_continuity.json",
+   "seconds": 1.3
+  },
+  "pocket_RL_wall": {
+   "angles_with_wall": 119,
+   "of": 120,
+   "edge_h": [
+    -0.92,
+    1.2
+   ]
+  },
+  "pocket_RL": {
+   "lip_pieces": 2,
+   "lip_runs": 2,
+   "stiffeners": 24,
+   "rivets": 125
+  },
+  "pod_RL": {
+   "pod_skipped": [
+    "hug pipe 0",
+    "hug pipe 1"
+   ],
+   "pod": {
+    "drum_plates": 16,
+    "big_plate_pieces": 11,
+    "hug_pipes": 0,
+    "rivets": 190
+   },
+   "nozzle": {
+    "rivets": 48,
+    "hoops": 2,
+    "fin_pieces": 36
+   },
+   "petals": 12,
+   "pod_z3_RL": {
+    "hugs": [
+     [
+      152.0,
+      176.0,
+      1.84
+     ],
+     [
+      144.0,
+      184.0,
+      2.05
+     ]
+    ],
+    "acts": [
+     154.0,
+     162.0
+    ]
+   }
+  },
+  "pocket_RR_wall": {
+   "angles_with_wall": 100,
+   "of": 120,
+   "edge_h": [
+    -1.98,
+    1.2
+   ]
+  },
+  "pocket_RR": {
+   "lip_pieces": 2,
+   "lip_runs": 2,
+   "stiffeners": 20,
+   "rivets": 99
+  },
+  "pod_RR": {
+   "pod_skipped": [
+    "hug pipe 0",
+    "hug pipe 1"
+   ],
+   "pod": {
+    "drum_plates": 16,
+    "big_plate_pieces": 11,
+    "hug_pipes": 0,
+    "rivets": 189
+   },
+   "nozzle": {
+    "rivets": 48,
+    "hoops": 2,
+    "fin_pieces": 36
+   },
+   "petals": 12,
+   "pod_z3_RR": {
+    "hugs": [
+     [
+      160.0,
+      196.0,
+      1.84
+     ],
+     [
+      140.0,
+      200.0,
+      2.05
+     ]
+    ],
+    "acts": [
+     164.0,
+     178.0
+    ]
+   }
+  },
+  "motion_filter_RL": {
+   "pod": {
+    "pod_patch": 174,
+    "rivet": 171
+   },
+   "nozzle": {
+    "rivet": 54,
+    "fin": 10
+   },
+   "pieces_removed": {
+    "pod": 23,
+    "nozzle": 7,
+    "hull": 0
+   }
+  },
+  "motion_filter_RR": {
+   "pod": {
+    "pod_patch": 42,
+    "rivet": 36
+   },
+   "pieces_removed": {
+    "pod": 5,
+    "nozzle": 0,
+    "hull": 0
+   }
+  },
+  "floating_pieces_removed": {},
+  "inside_out_pieces_flipped": {
+   "Hull": 0,
+   "Pod_RL": 13,
+   "Nozzle_RL": 37,
+   "Petals_RL": 0,
+   "Pod_RR": 11,
+   "Nozzle_RR": 38,
+   "Petals_RR": 0
+  }
+ },
+ "base_edits": {
+  "z6_fan_back_L": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "port fan: remove the flat disc behind the rotor (duct_back_wall, island 1028) and the big tail cone that closed the duct exit (tail_cone, island 1030, r 2.46 at x -18.76, flat end at x -19.91), so the fan blades are visible from behind and the duct reads as an open exhaust"
+  },
+  "z6_fan_back_R": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "starboard fan: the same (islands 1088 and 1091)"
+  },
+  "z7_chain_aft_bars": {
+   "file": "z7.json",
+   "zone": "Z7",
+   "faces": 36,
+   "tris": 72,
+   "guard_ok": true,
+   "why": "replace the ChainAft bars by a heavy link chain (detail object, Hull bone)"
+  }
+ },
+ "tris": {
+  "SM_AirshipDetail_Z3_Hull": 24758,
+  "SM_AirshipDetail_Z3_Pod_RL": 11388,
+  "SM_AirshipDetail_Z3_Nozzle_RL": 2056,
+  "SM_AirshipDetail_Z3_Petals_RL": 4032,
+  "SM_AirshipDetail_Z3_Pod_RR": 11642,
+  "SM_AirshipDetail_Z3_Nozzle_RR": 2160,
+  "SM_AirshipDetail_Z3_Petals_RR": 4032
+ },
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z3_Hull",
+   "tris": 24758,
+   "verts": 13995,
+   "pieces": 808,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "paint_ochre": 434,
+    "bolt": 4698,
+    "paint_yellow": 440,
+    "rust_red": 2640,
+    "dark_metal": 2760,
+    "copper": 764,
+    "brass": 1182,
+    "machinery": 52,
+    "steel": 208
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Pod_RL",
+   "tris": 11388,
+   "verts": 6378,
+   "pieces": 343,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RL"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_dark": 636,
+    "bolt": 2259,
+    "rust_red": 1072,
+    "dark_metal": 784,
+    "steel": 312,
+    "copper": 496,
+    "brass": 504,
+    "machinery": 66
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Nozzle_RL",
+   "tris": 2056,
+   "verts": 1182,
+   "pieces": 79,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RL_Nozzle"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "bolt": 378,
+    "steel": 734
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Petals_RL",
+   "tris": 4032,
+   "verts": 2280,
+   "pieces": 132,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RL_Petal00",
+    "Thruster_RL_Petal01",
+    "Thruster_RL_Petal02",
+    "Thruster_RL_Petal03",
+    "Thruster_RL_Petal04",
+    "Thruster_RL_Petal05",
+    "Thruster_RL_Petal06",
+    "Thruster_RL_Petal07",
+    "Thruster_RL_Petal08",
+    "Thruster_RL_Petal09",
+    "Thruster_RL_Petal10",
+    "Thruster_RL_Petal11"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 1176,
+    "machinery": 240,
+    "brass": 120,
+    "bolt": 216
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Pod_RR",
+   "tris": 11642,
+   "verts": 6539,
+   "pieces": 360,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RR"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 868,
+    "bolt": 2385,
+    "rust_dark": 770,
+    "dark_metal": 804,
+    "steel": 312,
+    "copper": 526,
+    "brass": 554,
+    "machinery": 66
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Nozzle_RR",
+   "tris": 2160,
+   "verts": 1248,
+   "pieces": 86,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RR_Nozzle"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "bolt": 432,
+    "steel": 744
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Petals_RR",
+   "tris": 4032,
+   "verts": 2280,
+   "pieces": 132,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RR_Petal00",
+    "Thruster_RR_Petal01",
+    "Thruster_RR_Petal02",
+    "Thruster_RR_Petal03",
+    "Thruster_RR_Petal04",
+    "Thruster_RR_Petal05",
+    "Thruster_RR_Petal06",
+    "Thruster_RR_Petal07",
+    "Thruster_RR_Petal08",
+    "Thruster_RR_Petal09",
+    "Thruster_RR_Petal10",
+    "Thruster_RR_Petal11"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 1176,
+    "machinery": 240,
+    "brass": 120,
+    "bolt": 216
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z3",
+   "verts_tested": 16951,
+   "sample_every": 2,
+   "outside_zone": {
+    "Z1": 10,
+    "Z2": 10
+   },
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "Z1": 329,
+    "Z2": 336
+   },
+   "within_margin_of": {
+    "Z1": 51,
+    "Z2": 47,
+    "Z5": 2
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 33902,
+   "verts_inside_a_box": 8144,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.301,
+   "worst": [
+    -7.407,
+    -8.259,
+    -3.043
+   ],
+   "verts_over_limit": 300,
+   "over_limit_by_kind": {},
+   "verts": 16951,
+   "limit_m": 0.2,
+   "p99_m": 0.221
+  },
+  "bbox": [
+   [
+    -15.241,
+    -8.473,
+    -6.162
+   ],
+   [
+    -3.991,
+    7.97,
+    2.177
+   ]
+  ]
+ },
+ "checks": {
+  "hull_flank_vs_skin": {
+   "name": "aft flank details vs hull skin",
+   "max_dist_m": 0.209,
+   "worst": [
+    -13.257,
+    5.289,
+    -1.466
+   ],
+   "verts_over_limit": 4,
+   "over_limit_by_kind": {
+    "valve": 4
+   },
+   "verts": 9555,
+   "limit_m": 0.2,
+   "p99_m": 0.184
+  },
+  "pocket_vs_skin": {
+   "name": "RL / RR pocket details vs hull skin",
+   "max_dist_m": 0.06,
+   "worst": [
+    -4.75,
+    6.528,
+    -1.749
+   ],
+   "verts_over_limit": 0,
+   "over_limit_by_kind": {},
+   "verts": 4440,
+   "limit_m": 0.2,
+   "p99_m": 0.048
+  },
+  "pod_envelope_RL": {
+   "name": "pod RL details outside the pod radial envelope",
+   "local_max_excess_m": 1.158,
+   "local_p99_m": 0.292,
+   "local_verts_over_0_15": 786,
+   "local_over_0_15_by_kind": {
+    "pod_patch": 108,
+    "rivet": 167,
+    "pod_box": 48,
+    "pod_pipe": 267,
+    "clamp": 4,
+    "piston": 192
+   },
+   "verts": 6378,
+   "silhouette_max_excess_m": 0.083,
+   "silhouette_verts_over_0": 412,
+   "silhouette_over_0_by_kind": {
+    "pod_patch": 75,
+    "rivet": 138,
+    "pod_box": 199
+   },
+   "silhouette_verts_over_0_05": 42,
+   "silhouette_worst": {
+    "h": 1.95,
+    "deg": 5.5,
+    "r": 2.425,
+    "kind": "pod_patch"
+   }
+  },
+  "nozzle_envelope_RL": {
+   "name": "nozzle RL details",
+   "local_max_excess_m": 0.307,
+   "local_p99_m": 0.306,
+   "local_verts_over_0_15": 162,
+   "local_over_0_15_by_kind": {
+    "fin": 162
+   },
+   "verts": 1182,
+   "silhouette_max_excess_m": -0.555,
+   "silhouette_verts_over_0": 0,
+   "silhouette_over_0_by_kind": {},
+   "silhouette_verts_over_0_05": 0,
+   "silhouette_worst": {
+    "h": 3.07,
+    "deg": -75.6,
+    "r": 1.555,
+    "kind": "fin"
+   }
+  },
+  "petal_envelope_RL": {
+   "name": "petal RL details",
+   "local_max_excess_m": 0.05,
+   "local_p99_m": 0.048,
+   "local_verts_over_0_15": 0,
+   "local_over_0_15_by_kind": {},
+   "verts": 2280,
+   "silhouette_max_excess_m": -0.456,
+   "silhouette_verts_over_0": 0,
+   "silhouette_over_0_by_kind": {},
+   "silhouette_verts_over_0_05": 0,
+   "silhouette_worst": {
+    "h": 4.31,
+    "deg": -89.6,
+    "r": 1.654,
+    "kind": "piston"
+   }
+  },
+  "pod_envelope_RR": {
+   "name": "pod RR details outside the pod radial envelope",
+   "local_max_excess_m": 1.157,
+   "local_p99_m": 0.292,
+   "local_verts_over_0_15": 954,
+   "local_over_0_15_by_kind": {
+    "pod_patch": 156,
+    "rivet": 228,
+    "pod_box": 48,
+    "pod_pipe": 273,
+    "clamp": 2,
+    "piston": 247
+   },
+   "verts": 6539,
+   "silhouette_max_excess_m": 0.099,
+   "silhouette_verts_over_0": 494,
+   "silhouette_over_0_by_kind": {
+    "pod_patch": 113,
+    "rivet": 183,
+    "pod_box": 198
+   },
+   "silhouette_verts_over_0_05": 63,
+   "silhouette_worst": {
+    "h": 1.91,
+    "deg": 14.2,
+    "r": 2.403,
+    "kind": "pod_patch"
+   }
+  },
+  "nozzle_envelope_RR": {
+   "name": "nozzle RR details",
+   "local_max_excess_m": 0.307,
+   "local_p99_m": 0.306,
+   "local_verts_over_0_15": 168,
+   "local_over_0_15_by_kind": {
+    "fin": 168
+   },
+   "verts": 1248,
+   "silhouette_max_excess_m": -0.555,
+   "silhouette_verts_over_0": 0,
+   "silhouette_over_0_by_kind": {},
+   "silhouette_verts_over_0_05": 0,
+   "silhouette_worst": {
+    "h": 3.07,
+    "deg": 74.4,
+    "r": 1.555,
+    "kind": "fin"
+   }
+  },
+  "petal_envelope_RR": {
+   "name": "petal RR details",
+   "local_max_excess_m": 0.05,
+   "local_p99_m": 0.048,
+   "local_verts_over_0_15": 0,
+   "local_over_0_15_by_kind": {},
+   "verts": 2280,
+   "silhouette_max_excess_m": -0.456,
+   "silhouette_verts_over_0": 0,
+   "silhouette_over_0_by_kind": {},
+   "silhouette_verts_over_0_05": 0,
+   "silhouette_worst": {
+    "h": 4.31,
+    "deg": 89.6,
+    "r": 1.654,
+    "kind": "piston"
+   }
+  },
+  "ownership_by_kind": {
+   "outside_zone": {
+    "Z1": 19,
+    "Z2": 17
+   },
+   "outside_by_kind": {
+    "Hull:strake": 22,
+    "Hull:channel": 14
+   },
+   "on_seam_with": {
+    "Z1": 654,
+    "Z2": 674
+   },
+   "within_margin_of": {
+    "Z6": 4,
+    "Z1": 101,
+    "Z2": 86,
+    "Z5": 4
+   },
+   "keep_clear": {},
+   "verts_tested": 33902
+  },
+  "tris_by_kind": {
+   "plate": 590,
+   "rivet": 16464,
+   "fill": 626,
+   "plate_raised": 120,
+   "batten": 64,
+   "frame": 256,
+   "slotted": 312,
+   "end_rib": 512,
+   "strake": 536,
+   "tooth": 780,
+   "bracket": 200,
+   "channel": 224,
+   "pipe": 1872,
+   "clamp": 896,
+   "gland": 1224,
+   "valve": 368,
+   "bay": 1424,
+   "housing": 1616,
+   "tank": 512,
+   "conduit": 1464,
+   "patch": 150,
+   "rim": 2720,
+   "cavity": 1936,
+   "pod_plate": 5438,
+   "pod_band": 576,
+   "pod_patch": 1720,
+   "pod_box": 1040,
+   "pod_pipe": 4960,
+   "piston": 5728,
+   "hoop": 1536,
+   "fin": 1420,
+   "petal": 2784
+  },
+  "rivet_share": 0.274,
+  "hull_tris_by_kind": {
+   "plate": 590,
+   "rivet": 7308,
+   "fill": 626,
+   "plate_raised": 120,
+   "batten": 64,
+   "frame": 256,
+   "slotted": 312,
+   "end_rib": 512,
+   "strake": 536,
+   "tooth": 780,
+   "bracket": 200,
+   "channel": 224,
+   "pipe": 1872,
+   "clamp": 640,
+   "gland": 1224,
+   "valve": 368,
+   "bay": 1424,
+   "housing": 920,
+   "tank": 512,
+   "conduit": 1464,
+   "patch": 150,
+   "rim": 2720,
+   "cavity": 1936
+  },
+  "hull_rivet_share": 0.295
+ },
+ "seconds": 24.7,
+ "tris_total": 60068,
+ "all_objects_ok": true
+}

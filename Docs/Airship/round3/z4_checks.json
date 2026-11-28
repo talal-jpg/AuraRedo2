@@ -1,0 +1,149 @@
+{
+ "zone": "Z4",
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z4_Hull",
+   "tris": 7202,
+   "verts": 4139,
+   "pieces": 269,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "paint_ochre": 724,
+    "bolt": 1692,
+    "paint_yellow": 346,
+    "rust_red": 890,
+    "dark_metal": 374
+   },
+   "collections": [
+    "Detail_Z4"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z4_Keel",
+   "tris": 8798,
+   "verts": 5013,
+   "pieces": 307,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 732,
+    "bolt": 1971,
+    "copper": 584,
+    "brass": 88,
+    "dark_metal": 586,
+    "rust_dark": 676,
+    "machinery": 168
+   },
+   "collections": [
+    "Detail_Z4"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z4_Wedge",
+   "tris": 47774,
+   "verts": 27133,
+   "pieces": 1623,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 4195,
+    "bolt": 9279,
+    "rust_red": 3942,
+    "copper": 1682,
+    "brass": 1658,
+    "machinery": 320,
+    "steel": 520,
+    "rust_dark": 3966
+   },
+   "collections": [
+    "Detail_Z4"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z4",
+   "verts_tested": 18143,
+   "sample_every": 2,
+   "outside_zone": {},
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "Z1": 12,
+    "Z2": 12
+   },
+   "within_margin_of": {
+    "Z1": 7,
+    "Z2": 8
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 36285,
+   "verts_inside_a_box": 1338,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.197,
+   "worst": [
+    7.61,
+    1.938,
+    -3.402
+   ],
+   "verts_over_limit": 0,
+   "over_limit_by_kind": {},
+   "verts": 18143,
+   "limit_m": 0.2,
+   "p99_m": 0.175
+  },
+  "bbox": [
+   [
+    6.463,
+    -5.89,
+    -4.685
+   ],
+   [
+    27.168,
+    5.89,
+    4.178
+   ]
+  ]
+ }
+}

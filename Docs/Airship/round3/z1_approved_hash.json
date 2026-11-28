@@ -1,0 +1,134 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/AirshipRig_detail.blend",
+ "prefix": "SM_AirshipDetail_Z1_",
+ "objects": {
+  "SM_AirshipDetail_Z1_Hull": {
+   "verts": 18336,
+   "faces": 17117,
+   "tris": 32676,
+   "co_0p1mm_md5": "e40611386b3ad9023528ecec31c47efb",
+   "faces_md5": "e766ceed6101af04a2c36b59b4163001",
+   "roles_md5": "4309007d5caf056f4e71893a7624cfca",
+   "bones_md5": "98ea6286ff9aad934e206db6615fc36c",
+   "materials": [
+    "M_Detail_PaintYellow",
+    "M_Detail_PaintOchre",
+    "M_Detail_PaintOrange",
+    "M_Detail_RustRed",
+    "M_Detail_RustDark",
+    "M_Detail_DarkMetal",
+    "M_Detail_Machinery",
+    "M_Detail_Steel",
+    "M_Detail_Copper",
+    "M_Detail_Brass",
+    "M_Detail_Bolt"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z1"
+   ]
+  },
+  "SM_AirshipDetail_Z1_Nozzle_FL": {
+   "verts": 1248,
+   "faces": 1176,
+   "tris": 2160,
+   "co_0p1mm_md5": "fe1b72915b57c6305be2e2b2754ea797",
+   "faces_md5": "fa14fa547026e3d2974e2088b1a9001f",
+   "roles_md5": "9a18d3edc8bd3cdc865df1ca6450720c",
+   "bones_md5": "db414fe0b2eb726089a8445f12b5a352",
+   "materials": [
+    "M_Detail_PaintYellow",
+    "M_Detail_PaintOchre",
+    "M_Detail_PaintOrange",
+    "M_Detail_RustRed",
+    "M_Detail_RustDark",
+    "M_Detail_DarkMetal",
+    "M_Detail_Machinery",
+    "M_Detail_Steel",
+    "M_Detail_Copper",
+    "M_Detail_Brass",
+    "M_Detail_Bolt"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z1"
+   ]
+  },
+  "SM_AirshipDetail_Z1_Petals_FL": {
+   "verts": 2280,
+   "faces": 1752,
+   "tris": 4032,
+   "co_0p1mm_md5": "adc0d1960067f3aece66e37df6c7d163",
+   "faces_md5": "4558e260a12abe6f2897a6690721c061",
+   "roles_md5": "777c1d036eac8171eefb10856968757a",
+   "bones_md5": "2e8cc55a34e895364438b6085618dbc5",
+   "materials": [
+    "M_Detail_PaintYellow",
+    "M_Detail_PaintOchre",
+    "M_Detail_PaintOrange",
+    "M_Detail_RustRed",
+    "M_Detail_RustDark",
+    "M_Detail_DarkMetal",
+    "M_Detail_Machinery",
+    "M_Detail_Steel",
+    "M_Detail_Copper",
+    "M_Detail_Brass",
+    "M_Detail_Bolt"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z1"
+   ]
+  },
+  "SM_AirshipDetail_Z1_Pod_FL": {
+   "verts": 6944,
+   "faces": 6680,
+   "tris": 12336,
+   "co_0p1mm_md5": "a4a8d950f31cc3619d0a737ae327255e",
+   "faces_md5": "455c0f221bcbd2fb9b57a03d39c8610b",
+   "roles_md5": "2ee36f9e80bfbbd81ff53eda30f2a938",
+   "bones_md5": "057d6e607ef102a206b0801213d88cdb",
+   "materials": [
+    "M_Detail_PaintYellow",
+    "M_Detail_PaintOchre",
+    "M_Detail_PaintOrange",
+    "M_Detail_RustRed",
+    "M_Detail_RustDark",
+    "M_Detail_DarkMetal",
+    "M_Detail_Machinery",
+    "M_Detail_Steel",
+    "M_Detail_Copper",
+    "M_Detail_Brass",
+    "M_Detail_Bolt"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z1"
+   ]
+  }
+ }
+}

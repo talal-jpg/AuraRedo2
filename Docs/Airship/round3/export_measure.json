@@ -1,0 +1,1819 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_full.blend",
+ "about": "Round 3 export plan: measurements for the Unreal stage (read only; never saves anything).",
+ "sm_airship": {
+  "faces": 37943,
+  "tris": 68006,
+  "verts": 36244,
+  "uv_maps": [
+   "UVMap"
+  ],
+  "materials": [
+   "M_Airship"
+  ],
+  "area_m2": 4741.4,
+  "uv_area_used": 0.4274,
+  "texels_per_m_area_weighted": {
+   "1024": {
+    "5": 9.55,
+    "10": 9.63,
+    "25": 9.71,
+    "50": 9.72,
+    "75": 9.72,
+    "90": 9.8,
+    "95": 9.9
+   },
+   "2048": {
+    "5": 19.11,
+    "10": 19.26,
+    "25": 19.41,
+    "50": 19.44,
+    "75": 19.44,
+    "90": 19.6,
+    "95": 19.81
+   },
+   "4096": {
+    "5": 38.21,
+    "10": 38.51,
+    "25": 38.83,
+    "50": 38.87,
+    "75": 38.89,
+    "90": 39.2,
+    "95": 39.61
+   },
+   "8192": {
+    "5": 76.42,
+    "10": 77.03,
+    "25": 77.66,
+    "50": 77.74,
+    "75": 77.77,
+    "90": 78.4,
+    "95": 79.22
+   }
+  },
+  "texels_per_m_note": "texel density = sqrt(UV area * res^2 / 3D area) per triangle, area-weighted percentiles",
+  "render_verts_est": 90119,
+  "bbox_min": [
+   -20.391,
+   -11.903,
+   -6.172
+  ],
+  "bbox_max": [
+   31.5,
+   11.959,
+   10.804
+  ]
+ },
+ "details": {
+  "SM_AirshipDetail_Z1_Hull": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 32676,
+   "verts": 18336,
+   "render_verts_est": 42098,
+   "faces": 17117,
+   "area_m2": 136.34,
+   "area_by_class": {
+    "rivet": 1.02,
+    "lt15cm": 1.37,
+    "15to60cm": 17.95,
+    "ge60cm": 116.0
+   },
+   "tris_by_class": {
+    "rivet": 7252,
+    "lt15cm": 2772,
+    "15to60cm": 7586,
+    "ge60cm": 15066
+   },
+   "pieces": {
+    "rivet": 518,
+    "lt15cm": 99,
+    "15to60cm": 255,
+    "ge60cm": 127
+   },
+   "area_by_material": {
+    "DM_Yellow": 30.36,
+    "DM_Ochre": 15.54,
+    "DM_Orange": 0.0,
+    "DM_Rust": 25.33,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 45.74,
+    "DM_Machinery": 6.66,
+    "DM_Steel": 0.11,
+    "DM_Copper": 4.07,
+    "DM_Brass": 7.52,
+    "DM_Rivet": 1.02,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z1_Nozzle_FL": {
+   "bones": [
+    "Thruster_FL_Nozzle"
+   ],
+   "hull_bone": false,
+   "tris": 2160,
+   "verts": 1248,
+   "render_verts_est": 2736,
+   "faces": 1176,
+   "area_m2": 8.93,
+   "area_by_class": {
+    "rivet": 0.13,
+    "lt15cm": 0.0,
+    "15to60cm": 4.11,
+    "ge60cm": 4.7
+   },
+   "tris_by_class": {
+    "rivet": 672,
+    "lt15cm": 0,
+    "15to60cm": 720,
+    "ge60cm": 768
+   },
+   "pieces": {
+    "rivet": 48,
+    "lt15cm": 0,
+    "15to60cm": 36,
+    "ge60cm": 2
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 0.0,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 8.81,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.13,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z1_Petals_FL": {
+   "bones": [
+    "Thruster_FL_Petal00",
+    "Thruster_FL_Petal01",
+    "Thruster_FL_Petal02",
+    "Thruster_FL_Petal03",
+    "... 12 bones"
+   ],
+   "hull_bone": false,
+   "tris": 4032,
+   "verts": 2280,
+   "render_verts_est": 7176,
+   "faces": 1752,
+   "area_m2": 1.84,
+   "area_by_class": {
+    "rivet": 0.04,
+    "lt15cm": 0.62,
+    "15to60cm": 1.18,
+    "ge60cm": 0.0
+   },
+   "tris_by_class": {
+    "rivet": 336,
+    "lt15cm": 2832,
+    "15to60cm": 864,
+    "ge60cm": 0
+   },
+   "pieces": {
+    "rivet": 24,
+    "lt15cm": 84,
+    "15to60cm": 24,
+    "ge60cm": 0
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 1.63,
+    "DM_Machinery": 0.14,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.02,
+    "DM_Rivet": 0.04,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z1_Pod_FL": {
+   "bones": [
+    "Thruster_FL"
+   ],
+   "hull_bone": false,
+   "tris": 12336,
+   "verts": 6944,
+   "render_verts_est": 15392,
+   "faces": 6680,
+   "area_m2": 37.33,
+   "area_by_class": {
+    "rivet": 0.61,
+    "lt15cm": 0.32,
+    "15to60cm": 2.7,
+    "ge60cm": 33.69
+   },
+   "tris_by_class": {
+    "rivet": 4060,
+    "lt15cm": 840,
+    "15to60cm": 1124,
+    "ge60cm": 6312
+   },
+   "pieces": {
+    "rivet": 290,
+    "lt15cm": 26,
+    "15to60cm": 32,
+    "ge60cm": 41
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 13.45,
+    "DM_RustDark": 6.67,
+    "DM_Dark": 12.25,
+    "DM_Machinery": 0.44,
+    "DM_Steel": 0.07,
+    "DM_Copper": 2.15,
+    "DM_Brass": 1.7,
+    "DM_Rivet": 0.61,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z2_Hull": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 32206,
+   "verts": 18025,
+   "render_verts_est": 41155,
+   "faces": 16828,
+   "area_m2": 125.73,
+   "area_by_class": {
+    "rivet": 0.95,
+    "lt15cm": 1.34,
+    "15to60cm": 15.93,
+    "ge60cm": 107.52
+   },
+   "tris_by_class": {
+    "rivet": 6972,
+    "lt15cm": 2732,
+    "15to60cm": 6814,
+    "ge60cm": 15688
+   },
+   "pieces": {
+    "rivet": 498,
+    "lt15cm": 97,
+    "15to60cm": 238,
+    "ge60cm": 128
+   },
+   "area_by_material": {
+    "DM_Yellow": 14.22,
+    "DM_Ochre": 26.02,
+    "DM_Orange": 0.0,
+    "DM_Rust": 20.82,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 45.2,
+    "DM_Machinery": 7.27,
+    "DM_Steel": 0.11,
+    "DM_Copper": 3.9,
+    "DM_Brass": 7.23,
+    "DM_Rivet": 0.95,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z2_Nozzle_FR": {
+   "bones": [
+    "Thruster_FR_Nozzle"
+   ],
+   "hull_bone": false,
+   "tris": 2160,
+   "verts": 1248,
+   "render_verts_est": 2736,
+   "faces": 1176,
+   "area_m2": 8.93,
+   "area_by_class": {
+    "rivet": 0.13,
+    "lt15cm": 0.0,
+    "15to60cm": 4.11,
+    "ge60cm": 4.7
+   },
+   "tris_by_class": {
+    "rivet": 672,
+    "lt15cm": 0,
+    "15to60cm": 720,
+    "ge60cm": 768
+   },
+   "pieces": {
+    "rivet": 48,
+    "lt15cm": 0,
+    "15to60cm": 36,
+    "ge60cm": 2
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 0.0,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 8.81,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.13,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z2_Petals_FR": {
+   "bones": [
+    "Thruster_FR_Petal00",
+    "Thruster_FR_Petal01",
+    "Thruster_FR_Petal02",
+    "Thruster_FR_Petal03",
+    "... 12 bones"
+   ],
+   "hull_bone": false,
+   "tris": 4032,
+   "verts": 2280,
+   "render_verts_est": 7176,
+   "faces": 1752,
+   "area_m2": 1.84,
+   "area_by_class": {
+    "rivet": 0.04,
+    "lt15cm": 0.62,
+    "15to60cm": 1.18,
+    "ge60cm": 0.0
+   },
+   "tris_by_class": {
+    "rivet": 336,
+    "lt15cm": 2832,
+    "15to60cm": 864,
+    "ge60cm": 0
+   },
+   "pieces": {
+    "rivet": 24,
+    "lt15cm": 84,
+    "15to60cm": 24,
+    "ge60cm": 0
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 1.63,
+    "DM_Machinery": 0.14,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.02,
+    "DM_Rivet": 0.04,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z2_Pod_FR": {
+   "bones": [
+    "Thruster_FR"
+   ],
+   "hull_bone": false,
+   "tris": 13896,
+   "verts": 7766,
+   "render_verts_est": 17100,
+   "faces": 7500,
+   "area_m2": 45.44,
+   "area_by_class": {
+    "rivet": 0.66,
+    "lt15cm": 0.36,
+    "15to60cm": 2.46,
+    "ge60cm": 41.96
+   },
+   "tris_by_class": {
+    "rivet": 4256,
+    "lt15cm": 864,
+    "15to60cm": 1100,
+    "ge60cm": 7676
+   },
+   "pieces": {
+    "rivet": 304,
+    "lt15cm": 28,
+    "15to60cm": 32,
+    "ge60cm": 46
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 13.94,
+    "DM_RustDark": 10.12,
+    "DM_Dark": 13.94,
+    "DM_Machinery": 0.44,
+    "DM_Steel": 0.07,
+    "DM_Copper": 3.04,
+    "DM_Brass": 3.23,
+    "DM_Rivet": 0.66,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z3_Hull": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 24758,
+   "verts": 13995,
+   "render_verts_est": 30697,
+   "faces": 13178,
+   "area_m2": 93.01,
+   "area_by_class": {
+    "rivet": 1.1,
+    "lt15cm": 0.53,
+    "15to60cm": 7.16,
+    "ge60cm": 84.22
+   },
+   "tris_by_class": {
+    "rivet": 7308,
+    "lt15cm": 1064,
+    "15to60cm": 3444,
+    "ge60cm": 12942
+   },
+   "pieces": {
+    "rivet": 522,
+    "lt15cm": 38,
+    "15to60cm": 118,
+    "ge60cm": 130
+   },
+   "area_by_material": {
+    "DM_Yellow": 5.91,
+    "DM_Ochre": 8.41,
+    "DM_Orange": 0.0,
+    "DM_Rust": 31.77,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 35.83,
+    "DM_Machinery": 1.19,
+    "DM_Steel": 0.04,
+    "DM_Copper": 3.58,
+    "DM_Brass": 5.19,
+    "DM_Rivet": 1.1,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z3_Nozzle_RL": {
+   "bones": [
+    "Thruster_RL_Nozzle"
+   ],
+   "hull_bone": false,
+   "tris": 2056,
+   "verts": 1182,
+   "render_verts_est": 2602,
+   "faces": 1112,
+   "area_m2": 8.83,
+   "area_by_class": {
+    "rivet": 0.11,
+    "lt15cm": 0.0,
+    "15to60cm": 4.03,
+    "ge60cm": 4.7
+   },
+   "tris_by_class": {
+    "rivet": 588,
+    "lt15cm": 0,
+    "15to60cm": 700,
+    "ge60cm": 768
+   },
+   "pieces": {
+    "rivet": 42,
+    "lt15cm": 0,
+    "15to60cm": 35,
+    "ge60cm": 2
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 0.0,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 8.73,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.11,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z3_Nozzle_RR": {
+   "bones": [
+    "Thruster_RR_Nozzle"
+   ],
+   "hull_bone": false,
+   "tris": 2160,
+   "verts": 1248,
+   "render_verts_est": 2736,
+   "faces": 1176,
+   "area_m2": 8.93,
+   "area_by_class": {
+    "rivet": 0.13,
+    "lt15cm": 0.0,
+    "15to60cm": 4.11,
+    "ge60cm": 4.7
+   },
+   "tris_by_class": {
+    "rivet": 672,
+    "lt15cm": 0,
+    "15to60cm": 720,
+    "ge60cm": 768
+   },
+   "pieces": {
+    "rivet": 48,
+    "lt15cm": 0,
+    "15to60cm": 36,
+    "ge60cm": 2
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 0.0,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 8.81,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.13,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z3_Petals_RL": {
+   "bones": [
+    "Thruster_RL_Petal00",
+    "Thruster_RL_Petal01",
+    "Thruster_RL_Petal02",
+    "Thruster_RL_Petal03",
+    "... 12 bones"
+   ],
+   "hull_bone": false,
+   "tris": 4032,
+   "verts": 2280,
+   "render_verts_est": 7176,
+   "faces": 1752,
+   "area_m2": 1.84,
+   "area_by_class": {
+    "rivet": 0.04,
+    "lt15cm": 0.62,
+    "15to60cm": 1.18,
+    "ge60cm": 0.0
+   },
+   "tris_by_class": {
+    "rivet": 336,
+    "lt15cm": 2832,
+    "15to60cm": 864,
+    "ge60cm": 0
+   },
+   "pieces": {
+    "rivet": 24,
+    "lt15cm": 84,
+    "15to60cm": 24,
+    "ge60cm": 0
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 1.63,
+    "DM_Machinery": 0.14,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.02,
+    "DM_Rivet": 0.04,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z3_Petals_RR": {
+   "bones": [
+    "Thruster_RR_Petal00",
+    "Thruster_RR_Petal01",
+    "Thruster_RR_Petal02",
+    "Thruster_RR_Petal03",
+    "... 12 bones"
+   ],
+   "hull_bone": false,
+   "tris": 4032,
+   "verts": 2280,
+   "render_verts_est": 7176,
+   "faces": 1752,
+   "area_m2": 1.84,
+   "area_by_class": {
+    "rivet": 0.04,
+    "lt15cm": 0.62,
+    "15to60cm": 1.18,
+    "ge60cm": 0.0
+   },
+   "tris_by_class": {
+    "rivet": 336,
+    "lt15cm": 2832,
+    "15to60cm": 864,
+    "ge60cm": 0
+   },
+   "pieces": {
+    "rivet": 24,
+    "lt15cm": 84,
+    "15to60cm": 24,
+    "ge60cm": 0
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 1.63,
+    "DM_Machinery": 0.14,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.02,
+    "DM_Rivet": 0.04,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z3_Pod_RL": {
+   "bones": [
+    "Thruster_RL"
+   ],
+   "hull_bone": false,
+   "tris": 11388,
+   "verts": 6378,
+   "render_verts_est": 14213,
+   "faces": 6129,
+   "area_m2": 37.63,
+   "area_by_class": {
+    "rivet": 0.52,
+    "lt15cm": 0.32,
+    "15to60cm": 2.06,
+    "ge60cm": 34.73
+   },
+   "tris_by_class": {
+    "rivet": 3514,
+    "lt15cm": 840,
+    "15to60cm": 1000,
+    "ge60cm": 6034
+   },
+   "pieces": {
+    "rivet": 251,
+    "lt15cm": 26,
+    "15to60cm": 29,
+    "ge60cm": 37
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 16.25,
+    "DM_RustDark": 6.14,
+    "DM_Dark": 10.28,
+    "DM_Machinery": 0.44,
+    "DM_Steel": 0.07,
+    "DM_Copper": 2.09,
+    "DM_Brass": 1.84,
+    "DM_Rivet": 0.52,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z3_Pod_RR": {
+   "bones": [
+    "Thruster_RR"
+   ],
+   "hull_bone": false,
+   "tris": 11642,
+   "verts": 6539,
+   "render_verts_est": 14653,
+   "faces": 6285,
+   "area_m2": 36.91,
+   "area_by_class": {
+    "rivet": 0.56,
+    "lt15cm": 0.37,
+    "15to60cm": 1.77,
+    "ge60cm": 34.22
+   },
+   "tris_by_class": {
+    "rivet": 3710,
+    "lt15cm": 896,
+    "15to60cm": 880,
+    "ge60cm": 6156
+   },
+   "pieces": {
+    "rivet": 265,
+    "lt15cm": 28,
+    "15to60cm": 26,
+    "ge60cm": 41
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 12.17,
+    "DM_RustDark": 7.93,
+    "DM_Dark": 11.46,
+    "DM_Machinery": 0.44,
+    "DM_Steel": 0.07,
+    "DM_Copper": 2.24,
+    "DM_Brass": 2.04,
+    "DM_Rivet": 0.56,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z4_Hull": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 7202,
+   "verts": 4139,
+   "render_verts_est": 8726,
+   "faces": 4026,
+   "area_m2": 47.91,
+   "area_by_class": {
+    "rivet": 0.58,
+    "lt15cm": 0.0,
+    "15to60cm": 1.9,
+    "ge60cm": 45.42
+   },
+   "tris_by_class": {
+    "rivet": 2632,
+    "lt15cm": 0,
+    "15to60cm": 510,
+    "ge60cm": 4060
+   },
+   "pieces": {
+    "rivet": 188,
+    "lt15cm": 0,
+    "15to60cm": 28,
+    "ge60cm": 53
+   },
+   "area_by_material": {
+    "DM_Yellow": 6.45,
+    "DM_Ochre": 9.72,
+    "DM_Orange": 0.0,
+    "DM_Rust": 20.14,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 11.01,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.58,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z4_Keel": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 8798,
+   "verts": 5013,
+   "render_verts_est": 10835,
+   "faces": 4805,
+   "area_m2": 50.6,
+   "area_by_class": {
+    "rivet": 0.59,
+    "lt15cm": 0.0,
+    "15to60cm": 2.33,
+    "ge60cm": 47.68
+   },
+   "tris_by_class": {
+    "rivet": 3066,
+    "lt15cm": 0,
+    "15to60cm": 1086,
+    "ge60cm": 4646
+   },
+   "pieces": {
+    "rivet": 219,
+    "lt15cm": 0,
+    "15to60cm": 36,
+    "ge60cm": 52
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 21.57,
+    "DM_RustDark": 13.0,
+    "DM_Dark": 6.78,
+    "DM_Machinery": 4.58,
+    "DM_Steel": 0.0,
+    "DM_Copper": 3.71,
+    "DM_Brass": 0.36,
+    "DM_Rivet": 0.59,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z4_Wedge": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 47774,
+   "verts": 27133,
+   "render_verts_est": 61085,
+   "faces": 25562,
+   "area_m2": 273.08,
+   "area_by_class": {
+    "rivet": 2.66,
+    "lt15cm": 2.32,
+    "15to60cm": 18.83,
+    "ge60cm": 249.27
+   },
+   "tris_by_class": {
+    "rivet": 14434,
+    "lt15cm": 3596,
+    "15to60cm": 8404,
+    "ge60cm": 21340
+   },
+   "pieces": {
+    "rivet": 1031,
+    "lt15cm": 133,
+    "15to60cm": 237,
+    "ge60cm": 222
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 78.71,
+    "DM_RustDark": 84.47,
+    "DM_Dark": 87.89,
+    "DM_Machinery": 6.19,
+    "DM_Steel": 0.09,
+    "DM_Copper": 5.7,
+    "DM_Brass": 7.38,
+    "DM_Rivet": 2.66,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z5_Belly": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 58782,
+   "verts": 32999,
+   "render_verts_est": 67648,
+   "faces": 31088,
+   "area_m2": 362.74,
+   "area_by_class": {
+    "rivet": 2.93,
+    "lt15cm": 2.42,
+    "15to60cm": 36.7,
+    "ge60cm": 320.69
+   },
+   "tris_by_class": {
+    "rivet": 15988,
+    "lt15cm": 1748,
+    "15to60cm": 12790,
+    "ge60cm": 28256
+   },
+   "pieces": {
+    "rivet": 1142,
+    "lt15cm": 107,
+    "15to60cm": 333,
+    "ge60cm": 222
+   },
+   "area_by_material": {
+    "DM_Yellow": 61.17,
+    "DM_Ochre": 75.7,
+    "DM_Orange": 0.0,
+    "DM_Rust": 63.05,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 114.81,
+    "DM_Machinery": 2.24,
+    "DM_Steel": 1.73,
+    "DM_Copper": 20.23,
+    "DM_Brass": 20.87,
+    "DM_Rivet": 2.93,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z6_Hull": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 6812,
+   "verts": 3938,
+   "render_verts_est": 9233,
+   "faces": 3701,
+   "area_m2": 28.96,
+   "area_by_class": {
+    "rivet": 0.41,
+    "lt15cm": 0.5,
+    "15to60cm": 3.0,
+    "ge60cm": 25.06
+   },
+   "tris_by_class": {
+    "rivet": 2478,
+    "lt15cm": 368,
+    "15to60cm": 1240,
+    "ge60cm": 2726
+   },
+   "pieces": {
+    "rivet": 177,
+    "lt15cm": 22,
+    "15to60cm": 40,
+    "ge60cm": 27
+   },
+   "area_by_material": {
+    "DM_Yellow": 8.45,
+    "DM_Ochre": 6.16,
+    "DM_Orange": 0.0,
+    "DM_Rust": 5.55,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 4.37,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.0,
+    "DM_Copper": 1.84,
+    "DM_Brass": 2.18,
+    "DM_Rivet": 0.41,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z6_Rod_L": {
+   "bones": [
+    "Turbine_L_Rod"
+   ],
+   "hull_bone": false,
+   "tris": 176,
+   "verts": 96,
+   "render_verts_est": 240,
+   "faces": 68,
+   "area_m2": 1.43,
+   "area_by_class": {
+    "rivet": 0.0,
+    "lt15cm": 0.0,
+    "15to60cm": 0.92,
+    "ge60cm": 0.51
+   },
+   "tris_by_class": {
+    "rivet": 0,
+    "lt15cm": 0,
+    "15to60cm": 132,
+    "ge60cm": 44
+   },
+   "pieces": {
+    "rivet": 0,
+    "lt15cm": 0,
+    "15to60cm": 3,
+    "ge60cm": 1
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.66,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 0.77,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.0,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z6_Rod_R": {
+   "bones": [
+    "Turbine_R_Rod"
+   ],
+   "hull_bone": false,
+   "tris": 176,
+   "verts": 96,
+   "render_verts_est": 240,
+   "faces": 68,
+   "area_m2": 1.43,
+   "area_by_class": {
+    "rivet": 0.0,
+    "lt15cm": 0.0,
+    "15to60cm": 0.92,
+    "ge60cm": 0.51
+   },
+   "tris_by_class": {
+    "rivet": 0,
+    "lt15cm": 0,
+    "15to60cm": 132,
+    "ge60cm": 44
+   },
+   "pieces": {
+    "rivet": 0,
+    "lt15cm": 0,
+    "15to60cm": 3,
+    "ge60cm": 1
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.66,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 0.77,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.0,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z6_Rotor_L": {
+   "bones": [
+    "Turbine_L_Rotor"
+   ],
+   "hull_bone": false,
+   "tris": 216,
+   "verts": 128,
+   "render_verts_est": 248,
+   "faces": 104,
+   "area_m2": 4.83,
+   "area_by_class": {
+    "rivet": 0.02,
+    "lt15cm": 0.0,
+    "15to60cm": 0.0,
+    "ge60cm": 4.81
+   },
+   "tris_by_class": {
+    "rivet": 112,
+    "lt15cm": 0,
+    "15to60cm": 0,
+    "ge60cm": 104
+   },
+   "pieces": {
+    "rivet": 8,
+    "lt15cm": 0,
+    "15to60cm": 0,
+    "ge60cm": 2
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 3.98,
+    "DM_Machinery": 0.83,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.02,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z6_Rotor_R": {
+   "bones": [
+    "Turbine_R_Rotor"
+   ],
+   "hull_bone": false,
+   "tris": 216,
+   "verts": 128,
+   "render_verts_est": 248,
+   "faces": 104,
+   "area_m2": 4.83,
+   "area_by_class": {
+    "rivet": 0.02,
+    "lt15cm": 0.0,
+    "15to60cm": 0.0,
+    "ge60cm": 4.81
+   },
+   "tris_by_class": {
+    "rivet": 112,
+    "lt15cm": 0,
+    "15to60cm": 0,
+    "ge60cm": 104
+   },
+   "pieces": {
+    "rivet": 8,
+    "lt15cm": 0,
+    "15to60cm": 0,
+    "ge60cm": 2
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 3.98,
+    "DM_Machinery": 0.83,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.02,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z6_Rudder": {
+   "bones": [
+    "Rudder"
+   ],
+   "hull_bone": false,
+   "tris": 6784,
+   "verts": 3828,
+   "render_verts_est": 7898,
+   "faces": 3744,
+   "area_m2": 88.03,
+   "area_by_class": {
+    "rivet": 0.51,
+    "lt15cm": 0.0,
+    "15to60cm": 1.3,
+    "ge60cm": 86.22
+   },
+   "tris_by_class": {
+    "rivet": 2352,
+    "lt15cm": 0,
+    "15to60cm": 496,
+    "ge60cm": 3936
+   },
+   "pieces": {
+    "rivet": 168,
+    "lt15cm": 0,
+    "15to60cm": 12,
+    "ge60cm": 38
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 18.39,
+    "DM_RustDark": 51.53,
+    "DM_Dark": 17.61,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.51,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z6_Turbine_L": {
+   "bones": [
+    "Turbine_L"
+   ],
+   "hull_bone": false,
+   "tris": 19482,
+   "verts": 10985,
+   "render_verts_est": 26019,
+   "faces": 10531,
+   "area_m2": 185.67,
+   "area_by_class": {
+    "rivet": 1.07,
+    "lt15cm": 0.19,
+    "15to60cm": 6.49,
+    "ge60cm": 177.91
+   },
+   "tris_by_class": {
+    "rivet": 5390,
+    "lt15cm": 776,
+    "15to60cm": 2636,
+    "ge60cm": 10680
+   },
+   "pieces": {
+    "rivet": 385,
+    "lt15cm": 22,
+    "15to60cm": 63,
+    "ge60cm": 152
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 15.2,
+    "DM_Orange": 35.23,
+    "DM_Rust": 58.73,
+    "DM_RustDark": 1.5,
+    "DM_Dark": 60.73,
+    "DM_Machinery": 12.53,
+    "DM_Steel": 0.05,
+    "DM_Copper": 0.28,
+    "DM_Brass": 0.33,
+    "DM_Rivet": 1.07,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z6_Turbine_R": {
+   "bones": [
+    "Turbine_R"
+   ],
+   "hull_bone": false,
+   "tris": 19216,
+   "verts": 10844,
+   "render_verts_est": 25704,
+   "faces": 10392,
+   "area_m2": 186.91,
+   "area_by_class": {
+    "rivet": 1.06,
+    "lt15cm": 0.17,
+    "15to60cm": 6.84,
+    "ge60cm": 178.85
+   },
+   "tris_by_class": {
+    "rivet": 5376,
+    "lt15cm": 748,
+    "15to60cm": 2772,
+    "ge60cm": 10320
+   },
+   "pieces": {
+    "rivet": 384,
+    "lt15cm": 21,
+    "15to60cm": 62,
+    "ge60cm": 151
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 16.92,
+    "DM_Orange": 30.38,
+    "DM_Rust": 61.79,
+    "DM_RustDark": 1.57,
+    "DM_Dark": 61.98,
+    "DM_Machinery": 12.53,
+    "DM_Steel": 0.05,
+    "DM_Copper": 0.3,
+    "DM_Brass": 0.32,
+    "DM_Rivet": 1.06,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z7_Chains": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 1008,
+   "verts": 504,
+   "render_verts_est": 1456,
+   "faces": 504,
+   "area_m2": 3.71,
+   "area_by_class": {
+    "rivet": 0.0,
+    "lt15cm": 0.0,
+    "15to60cm": 1.06,
+    "ge60cm": 2.65
+   },
+   "tris_by_class": {
+    "rivet": 0,
+    "lt15cm": 0,
+    "15to60cm": 288,
+    "ge60cm": 720
+   },
+   "pieces": {
+    "rivet": 0,
+    "lt15cm": 0,
+    "15to60cm": 4,
+    "ge60cm": 10
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 3.71,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.0,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z7_Gantry": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 28830,
+   "verts": 16959,
+   "render_verts_est": 38405,
+   "faces": 15803,
+   "area_m2": 246.22,
+   "area_by_class": {
+    "rivet": 2.14,
+    "lt15cm": 0.22,
+    "15to60cm": 18.24,
+    "ge60cm": 225.62
+   },
+   "tris_by_class": {
+    "rivet": 11550,
+    "lt15cm": 1080,
+    "15to60cm": 4904,
+    "ge60cm": 11296
+   },
+   "pieces": {
+    "rivet": 825,
+    "lt15cm": 30,
+    "15to60cm": 205,
+    "ge60cm": 212
+   },
+   "area_by_material": {
+    "DM_Yellow": 36.51,
+    "DM_Ochre": 30.34,
+    "DM_Orange": 0.0,
+    "DM_Rust": 62.85,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 80.1,
+    "DM_Machinery": 6.51,
+    "DM_Steel": 0.09,
+    "DM_Copper": 16.11,
+    "DM_Brass": 11.57,
+    "DM_Rivet": 2.14,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z7_LightHeads": {
+   "bones": [
+    "SearchLight_AftL_Head",
+    "SearchLight_FwdC_Head",
+    "SearchLight_MidL_Head",
+    "SearchLight_MidR_Head"
+   ],
+   "hull_bone": false,
+   "tris": 3072,
+   "verts": 1616,
+   "render_verts_est": 3696,
+   "faces": 1432,
+   "area_m2": 11.33,
+   "area_by_class": {
+    "rivet": 0.0,
+    "lt15cm": 0.09,
+    "15to60cm": 1.86,
+    "ge60cm": 9.37
+   },
+   "tris_by_class": {
+    "rivet": 0,
+    "lt15cm": 112,
+    "15to60cm": 1232,
+    "ge60cm": 1728
+   },
+   "pieces": {
+    "rivet": 0,
+    "lt15cm": 4,
+    "15to60cm": 32,
+    "ge60cm": 20
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.83,
+    "DM_RustDark": 0.51,
+    "DM_Dark": 7.29,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.14,
+    "DM_Copper": 0.0,
+    "DM_Brass": 2.56,
+    "DM_Rivet": 0.0,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z7_LightPosts": {
+   "bones": [
+    "SearchLight_AftL",
+    "SearchLight_FwdC",
+    "SearchLight_MidL",
+    "SearchLight_MidR"
+   ],
+   "hull_bone": false,
+   "tris": 2128,
+   "verts": 1248,
+   "render_verts_est": 3416,
+   "faces": 1064,
+   "area_m2": 4.17,
+   "area_by_class": {
+    "rivet": 0.04,
+    "lt15cm": 0.13,
+    "15to60cm": 3.65,
+    "ge60cm": 0.34
+   },
+   "tris_by_class": {
+    "rivet": 560,
+    "lt15cm": 240,
+    "15to60cm": 1168,
+    "ge60cm": 160
+   },
+   "pieces": {
+    "rivet": 40,
+    "lt15cm": 20,
+    "15to60cm": 30,
+    "ge60cm": 2
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.55,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 2.52,
+    "DM_Machinery": 0.61,
+    "DM_Steel": 0.02,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.41,
+    "DM_Rivet": 0.04,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z7_Rails": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 3588,
+   "verts": 2392,
+   "render_verts_est": 7176,
+   "faces": 1794,
+   "area_m2": 24.15,
+   "area_by_class": {
+    "rivet": 0.0,
+    "lt15cm": 0.0,
+    "15to60cm": 19.99,
+    "ge60cm": 4.16
+   },
+   "tris_by_class": {
+    "rivet": 0,
+    "lt15cm": 0,
+    "15to60cm": 3480,
+    "ge60cm": 108
+   },
+   "pieces": {
+    "rivet": 0,
+    "lt15cm": 0,
+    "15to60cm": 290,
+    "ge60cm": 9
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 19.99,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 4.16,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.0,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z7_Stairs": {
+   "bones": [
+    "Hull"
+   ],
+   "hull_bone": true,
+   "tris": 4932,
+   "verts": 3078,
+   "render_verts_est": 8446,
+   "faces": 2706,
+   "area_m2": 85.94,
+   "area_by_class": {
+    "rivet": 0.27,
+    "lt15cm": 0.41,
+    "15to60cm": 1.03,
+    "ge60cm": 84.23
+   },
+   "tris_by_class": {
+    "rivet": 1652,
+    "lt15cm": 216,
+    "15to60cm": 328,
+    "ge60cm": 2736
+   },
+   "pieces": {
+    "rivet": 118,
+    "lt15cm": 18,
+    "15to60cm": 14,
+    "ge60cm": 156
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 29.84,
+    "DM_RustDark": 0.3,
+    "DM_Dark": 27.5,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 0.0,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.27,
+    "DM_Wood": 28.03
+   },
+   "uv_maps": []
+  },
+  "SM_AirshipDetail_Z7_Winches": {
+   "bones": [
+    "Winch_Aft",
+    "Winch_Fwd"
+   ],
+   "hull_bone": false,
+   "tris": 1672,
+   "verts": 888,
+   "render_verts_est": 1696,
+   "faces": 864,
+   "area_m2": 17.28,
+   "area_by_class": {
+    "rivet": 0.07,
+    "lt15cm": 0.0,
+    "15to60cm": 0.0,
+    "ge60cm": 17.21
+   },
+   "tris_by_class": {
+    "rivet": 336,
+    "lt15cm": 0,
+    "15to60cm": 0,
+    "ge60cm": 1336
+   },
+   "pieces": {
+    "rivet": 24,
+    "lt15cm": 0,
+    "15to60cm": 0,
+    "ge60cm": 2
+   },
+   "area_by_material": {
+    "DM_Yellow": 0.0,
+    "DM_Ochre": 0.0,
+    "DM_Orange": 0.0,
+    "DM_Rust": 0.0,
+    "DM_RustDark": 0.0,
+    "DM_Dark": 0.0,
+    "DM_Machinery": 0.0,
+    "DM_Steel": 17.21,
+    "DM_Copper": 0.0,
+    "DM_Brass": 0.0,
+    "DM_Rivet": 0.07,
+    "DM_Wood": 0.0
+   },
+   "uv_maps": []
+  }
+ },
+ "detail_groups": {
+  "Hull": {
+   "objects": 12,
+   "tris": 257366,
+   "verts": 146511,
+   "render_verts_est": 326960,
+   "area_m2": 1478.4,
+   "area_by_class": {
+    "rivet": 12.7,
+    "lt15cm": 9.1,
+    "15to60cm": 144.1,
+    "ge60cm": 1312.5
+   },
+   "tris_by_class": {
+    "rivet": 73332,
+    "lt15cm": 13576,
+    "15to60cm": 50874,
+    "ge60cm": 119584
+   }
+  },
+  "moving": {
+   "objects": 22,
+   "tris": 127064,
+   "verts": 71530,
+   "render_verts_est": 170277,
+   "area_m2": 706.2,
+   "area_by_class": {
+    "rivet": 5.8,
+    "lt15cm": 4.4,
+    "15to60cm": 52.1,
+    "ge60cm": 643.9
+   },
+   "tris_by_class": {
+    "rivet": 33726,
+    "lt15cm": 16644,
+    "15to60cm": 18988,
+    "ge60cm": 57706
+   }
+  }
+ },
+ "rivet_pieces": {
+  "count": 7647,
+  "diag_m": {
+   "5": 0.03,
+   "50": 0.06,
+   "95": 0.06
+  }
+ },
+ "atlas_sizing": {
+  "Hull": {
+   "non_rivet_area_m2": 1465.7,
+   "ge60cm_area_m2": 1312.5,
+   "rows": {
+    "32 t/m, eff 0.6": {
+     "texels_M": 2.5,
+     "side": 1582,
+     "pages_4096": 0.15,
+     "pages_8192": 0.04
+    },
+    "32 t/m, eff 0.7": {
+     "texels_M": 2.14,
+     "side": 1465,
+     "pages_4096": 0.13,
+     "pages_8192": 0.03
+    },
+    "48 t/m, eff 0.6": {
+     "texels_M": 5.63,
+     "side": 2373,
+     "pages_4096": 0.34,
+     "pages_8192": 0.08
+    },
+    "48 t/m, eff 0.7": {
+     "texels_M": 4.82,
+     "side": 2197,
+     "pages_4096": 0.29,
+     "pages_8192": 0.07
+    },
+    "64 t/m, eff 0.6": {
+     "texels_M": 10.01,
+     "side": 3164,
+     "pages_4096": 0.6,
+     "pages_8192": 0.15
+    },
+    "64 t/m, eff 0.7": {
+     "texels_M": 8.58,
+     "side": 2929,
+     "pages_4096": 0.51,
+     "pages_8192": 0.13
+    },
+    "96 t/m, eff 0.6": {
+     "texels_M": 22.51,
+     "side": 4745,
+     "pages_4096": 1.34,
+     "pages_8192": 0.34
+    },
+    "96 t/m, eff 0.7": {
+     "texels_M": 19.3,
+     "side": 4393,
+     "pages_4096": 1.15,
+     "pages_8192": 0.29
+    },
+    "128 t/m, eff 0.6": {
+     "texels_M": 40.02,
+     "side": 6327,
+     "pages_4096": 2.39,
+     "pages_8192": 0.6
+    },
+    "128 t/m, eff 0.7": {
+     "texels_M": 34.31,
+     "side": 5858,
+     "pages_4096": 2.04,
+     "pages_8192": 0.51
+    },
+    "192 t/m, eff 0.6": {
+     "texels_M": 90.05,
+     "side": 9490,
+     "pages_4096": 5.37,
+     "pages_8192": 1.34
+    },
+    "192 t/m, eff 0.7": {
+     "texels_M": 77.19,
+     "side": 8786,
+     "pages_4096": 4.6,
+     "pages_8192": 1.15
+    },
+    "256 t/m, eff 0.6": {
+     "texels_M": 160.09,
+     "side": 12653,
+     "pages_4096": 9.54,
+     "pages_8192": 2.39
+    },
+    "256 t/m, eff 0.7": {
+     "texels_M": 137.22,
+     "side": 11715,
+     "pages_4096": 8.18,
+     "pages_8192": 2.04
+    }
+   }
+  },
+  "moving": {
+   "non_rivet_area_m2": 700.4,
+   "ge60cm_area_m2": 643.9,
+   "rows": {
+    "32 t/m, eff 0.6": {
+     "texels_M": 1.2,
+     "side": 1094,
+     "pages_4096": 0.07,
+     "pages_8192": 0.02
+    },
+    "32 t/m, eff 0.7": {
+     "texels_M": 1.02,
+     "side": 1013,
+     "pages_4096": 0.06,
+     "pages_8192": 0.02
+    },
+    "48 t/m, eff 0.6": {
+     "texels_M": 2.69,
+     "side": 1640,
+     "pages_4096": 0.16,
+     "pages_8192": 0.04
+    },
+    "48 t/m, eff 0.7": {
+     "texels_M": 2.31,
+     "side": 1519,
+     "pages_4096": 0.14,
+     "pages_8192": 0.03
+    },
+    "64 t/m, eff 0.6": {
+     "texels_M": 4.78,
+     "side": 2187,
+     "pages_4096": 0.28,
+     "pages_8192": 0.07
+    },
+    "64 t/m, eff 0.7": {
+     "texels_M": 4.1,
+     "side": 2025,
+     "pages_4096": 0.24,
+     "pages_8192": 0.06
+    },
+    "96 t/m, eff 0.6": {
+     "texels_M": 10.76,
+     "side": 3280,
+     "pages_4096": 0.64,
+     "pages_8192": 0.16
+    },
+    "96 t/m, eff 0.7": {
+     "texels_M": 9.22,
+     "side": 3037,
+     "pages_4096": 0.55,
+     "pages_8192": 0.14
+    },
+    "128 t/m, eff 0.6": {
+     "texels_M": 19.13,
+     "side": 4374,
+     "pages_4096": 1.14,
+     "pages_8192": 0.28
+    },
+    "128 t/m, eff 0.7": {
+     "texels_M": 16.39,
+     "side": 4049,
+     "pages_4096": 0.98,
+     "pages_8192": 0.24
+    },
+    "192 t/m, eff 0.6": {
+     "texels_M": 43.03,
+     "side": 6560,
+     "pages_4096": 2.56,
+     "pages_8192": 0.64
+    },
+    "192 t/m, eff 0.7": {
+     "texels_M": 36.89,
+     "side": 6074,
+     "pages_4096": 2.2,
+     "pages_8192": 0.55
+    },
+    "256 t/m, eff 0.6": {
+     "texels_M": 76.5,
+     "side": 8747,
+     "pages_4096": 4.56,
+     "pages_8192": 1.14
+    },
+    "256 t/m, eff 0.7": {
+     "texels_M": 65.57,
+     "side": 8098,
+     "pages_4096": 3.91,
+     "pages_8192": 0.98
+    }
+   }
+  }
+ },
+ "seconds": 2.0
+}

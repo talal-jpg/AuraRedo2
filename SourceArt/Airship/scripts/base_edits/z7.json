@@ -1,0 +1,17 @@
+{
+ "zone": "Z7",
+ "about": "Zone 7 (gantry, stairs): the chain that hangs beside the bow under the gantry (ChainAft, Hull bone) is six plain bars in SM_Airship. It is replaced by a heavy link chain built as detail geometry along the same line (SM_AirshipDetail_Z7_Chains, Hull bone), like reference 1's chains. Whole islands only: no open edges. ChainFwd is left as it is: it hangs inside the bow wedge (Z4) and does not show. No rail pieces are removed: the stairs arrive where the platform's aft edge has no rail.",
+ "edits": [
+  {
+   "id": "z7_chain_aft_bars",
+   "why": "replace the ChainAft bars by a heavy link chain (detail object, Hull bone)",
+   "select": {
+    "src": "Gantry",
+    "part": "ChainAft",
+    "piece": "link"
+   },
+   "expect_faces": 36,
+   "expect_tris": 72
+  }
+ ]
+}

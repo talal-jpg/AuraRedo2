@@ -48,33 +48,45 @@ deck, the belly below the bilge line, the starboard side, the bow, the gantry an
 New detail geometry sits **on top of** the unchanged ship. SM_Airship (Talal's mesh), its UVs and its baked textures,
 and the props are not touched.
 
-* Work file: `/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/AirshipRig_detail.blend`. The build opens
-  `rig/AirshipRig.blend` read-only, adds collection `Detail_Z1` and saves the copy. `AirshipRig.blend`,
-  `AirshipRig_src.blend` and `StylizedAirship.blend` are never written (checked by md5 and dates after pass 2).
+* Build file (since 2026-11-28): `/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_z1.blend`.
+  The build opens `rig/AirshipRig.blend` read-only, adds collection `Detail_Z1` and saves the copy there through
+  `detail_common.safe_save`, which refuses every other place. The approved pass 2 file
+  `rig/detail/AirshipRig_detail.blend` is read only now (md5 31317912621726b5e647c78bfc0cf948); nothing writes it.
+  `AirshipRig.blend`, `AirshipRig_src.blend` and `StylizedAirship.blend` are never written.
+* The rebuilt file is identical to the approved one: same vertex and face counts, same coordinates (to 0.1 mm), same
+  faces, roles and bones for all four objects (`detail_hash.py`, see ZONES.md). Only the material names changed:
+  `M_Detail_<Key>` became the role materials `DM_*` (same keys, same order).
 * Scripts (in `SourceArt/Airship/scripts/`):
 
 | Script | What it does |
 |---|---|
-| `detail_common.py` | the generators (section 4), the mesh builder, rigid skinning, Freestyle marks on rivets, target surfaces with smooth normals, the floating-piece check |
+| `detail_common.py` | the generators (section 4), the mesh builder, rigid skinning, Freestyle marks on rivets, target surfaces with smooth normals, the floating-piece check, role materials, safe_save |
 | `detail_ship.py` | which SM_Airship faces are what (skin, pods, pipes ...), the hull flank chart, pod frames |
-| `detail_zone1.py` | zone 1 layout and build, checks, report `rig/detail/zone1_report.json` |
-| `detail_rigcheck.py` | poses the pod / nozzle / petals through their limits and counts new intersections; sweeps the two port cannons against the hull details; per-bone report `rig/detail/zone1_rigcheck.json` |
-| `detail_render.py` | preview renders: `toon` (reference 1 palette + ink), `paper` (in-game paper + navy ink), `clay` (clay + cavity); before / after, optional rig pose |
+| `detail_flank.py`, `detail_pod.py`, `detail_checks.py` | zone 1's flank layout, pod / pocket code and checks, moved out of `detail_zone1.py` on 2026-11-28 so the other zones share them (geometry unchanged) |
+| `detail_zone1.py` | zone 1's knobs `K` and build, report `rig/detail/zones/z1_report.json`, continuity lines `z1_continuity.json` |
+| `detail_rigcheck.py` | poses moving parts through their limits and counts new intersections; sweeps cannons and turrets (since 2026-11-28 for any zone: `--sets pod:FL,cannons`) |
+| `detail_render.py` | preview renders: `toon` (the final look, reference 1 palette + ink), `paper` (old in-game paper + navy ink), `clay` (clay + cavity); before / after, optional rig pose, other zones, turrets |
 | `detail_sheet.py` | the combined sheet (python3 + Pillow) |
 
-Rebuild everything (headless, about 5 minutes in total, one Blender at a time):
+Rebuild everything (headless, through the memory-capped wrapper, about 5 minutes in total):
 
 ```
-B=/home/talal/.local/bin/blender; S=SourceArt/Airship/scripts; M=Docs/Airship/round3/media/zone1
-export TMPDIR=/mnt/new_partition/BlenderProjects/StylizedAirship/rig/tmp
-$B -b --factory-startup --python $S/detail_zone1.py                       # 9 s, writes the detail .blend
-$B -b --factory-startup --python $S/detail_rigcheck.py -- --pod FL        # 75 s
-$B -b --factory-startup --python $S/detail_render.py -- --look toon --states before,after --shots side,q34,close_flank,close_pod,pod_low --out $M
-$B -b --factory-startup --python $S/detail_render.py -- --look toon --states after --shots close_pod,pod_low --pose poseA --out $M   # and poseB
-$B -b --factory-startup --python $S/detail_render.py -- --look paper --states before,after --shots q34,close_flank --out $M
-$B -b --factory-startup --python $S/detail_render.py -- --look clay --samples 64 --states before,after --shots q34,close_flank,close_pod --out $M
+B=/mnt/new_partition/UnrealProjects/_AirshipWork_logs/blender_capped.sh     # adds -b --factory-startup, 4 GB cap
+S=/mnt/new_partition/UnrealProjects/_AirshipWork/SourceArt/Airship/scripts
+Z=/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones
+M=/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/round3/media/zone1
+$B --python $S/detail_zone1.py                                             # 9 s, writes $Z/AirshipRig_detail_z1.blend
+$B --python $S/detail_hash.py -- --blend $Z/AirshipRig_detail_z1.blend --prefix SM_AirshipDetail_Z1_ \
+   --out $Z/z1_rebuild_hash.json --compare $Z/z1_approved_hash.json       # must print IDENTICAL GEOMETRY
+$B --python $S/detail_rigcheck.py -- --blend $Z/AirshipRig_detail_z1.blend --sets pod:FL,cannons:L1+L2 --out $Z/z1_rigcheck.json
+$B --python $S/detail_render.py -- --blend $Z/AirshipRig_detail_z1.blend --look toon --states before,after --shots side,q34,close_flank,close_pod,pod_low --out $M
+$B --python $S/detail_render.py -- --blend $Z/AirshipRig_detail_z1.blend --look toon --states after --shots close_pod,pod_low --pose poseA --out $M   # and poseB
+$B --python $S/detail_render.py -- --blend $Z/AirshipRig_detail_z1.blend --look paper --states before,after --shots q34,close_flank --out $M
+$B --python $S/detail_render.py -- --blend $Z/AirshipRig_detail_z1.blend --look clay --samples 64 --states before,after --shots q34,close_flank,close_pod --out $M
 python3 -B $S/detail_sheet.py                                              # media/zone1/zone1_sheet.jpg
 ```
+
+(The renders now also show the two front turrets; `--turrets off` gives the old framing.)
 
 All randomness is seeded (`seed` 1301 in `detail_zone1.py`), so a rebuild gives the same geometry.
 
@@ -231,6 +243,10 @@ dark), 2.6 px navy outlines and 1.1 px creases.
   per bone.
 * Physics: the details are visual only. PA_Airship and the walkable deck are unchanged; the details stay within 20 cm of
   the hull, below the rail line and off the deck (section 5).
-* The same generators and the same chart / mask code work for the starboard side (`FlankChart(side=-1)`) and other
-  pods (`pod_frame('FR' / 'RL' / 'RR')`). The pod code reads the big pod plates' facets from their 12 vertices, so it
-  needs the same plate islands on the other pods (check their ids first).
+* The same generators and the same chart / mask code work for the starboard side (`Flank(ship, K, side=-1)`) and the
+  other pods (`build_pod(..., which='FR' / 'RL' / 'RR')`): checked on 2026-11-28 (`detail_selftest.py`, ZONES.md).
+  The plate islands are the same on every pod (12 vertices each; FR = FL + 78, RL = FL + 156, RR = FL + 234).
+* 38 pieces of `SM_AirshipDetail_Z1_Nozzle_FL` (the hoops) and 13 of `SM_AirshipDetail_Z1_Pod_FL` (the ring band,
+  the side-box lids) are built inside out (faces wound inward). The previews do not show it, Unreal would (back-face
+  culling). Zone 1 is approved and frozen, so they are left as they are; flip them at the export step
+  (`detail_checks.object_report` counts them). The new zones flip theirs in the build (`Mesh.orient_outward`).

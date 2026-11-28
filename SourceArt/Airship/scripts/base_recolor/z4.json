@@ -1,0 +1,12 @@
+{
+ "zone": "Z4",
+ "about": "Zone 4 (bow): Talal 2026-11-28 answered 'yes' to 'the keel block under the bow is the base model's grey (Underside_Front); should the block's own colour be rust too?'. The block keeps its geometry and its material slot (M_Airship); only its palette class changes. The three islands are the whole Underside_Front source part (1147 the block, 1148 / 1149 one-triangle slivers of the same part). Applied by r3_base_recolor.py: the toon renders (after state), the assembler (face attribute + custom property in the full file) and the round 3 bake (palette slot).",
+ "recolors": [
+  {"id": "z4_keel_block_rust",
+   "why": "keel block under the bow: grey -> rust like the bow wedge and the keel plates on it (Talal 2026-11-28, answer 1: yes)",
+   "select": {"islands": [1147, 1148, 1149], "src": "Underside_Front"},
+   "slot": "keel_block",
+   "colour_key": "rust_red",
+   "expect_faces": 8381, "expect_tris": 8998}
+ ]
+}

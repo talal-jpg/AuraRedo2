@@ -1,0 +1,21 @@
+{
+ "zones_loaded": [
+  "1",
+  "6",
+  "7"
+ ],
+ "zones_missing": [
+  "3",
+  "4",
+  "5"
+ ],
+ "pairs": {
+  "SM_AirshipDetail_Z2_Hull | SM_AirshipDetail_Z7_Rails": {
+   "overlap_tri_pairs": 0,
+   "min_dist_m": 0.987
+  }
+ },
+ "keep_clear_hits": {},
+ "overlaps_total": 0,
+ "RESULT": "PASS"
+}

@@ -1,0 +1,288 @@
+{
+ "zone": "Z3",
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z3_Hull",
+   "tris": 24758,
+   "verts": 13995,
+   "pieces": 808,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "paint_ochre": 434,
+    "bolt": 4698,
+    "paint_yellow": 440,
+    "rust_red": 2640,
+    "dark_metal": 2760,
+    "copper": 764,
+    "brass": 1182,
+    "machinery": 52,
+    "steel": 208
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Nozzle_RL",
+   "tris": 2056,
+   "verts": 1182,
+   "pieces": 79,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RL_Nozzle"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "bolt": 378,
+    "steel": 734
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Nozzle_RR",
+   "tris": 2160,
+   "verts": 1248,
+   "pieces": 86,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RR_Nozzle"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "bolt": 432,
+    "steel": 744
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Petals_RL",
+   "tris": 4032,
+   "verts": 2280,
+   "pieces": 132,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RL_Petal00",
+    "Thruster_RL_Petal01",
+    "Thruster_RL_Petal02",
+    "Thruster_RL_Petal03",
+    "Thruster_RL_Petal04",
+    "Thruster_RL_Petal05",
+    "Thruster_RL_Petal06",
+    "Thruster_RL_Petal07",
+    "Thruster_RL_Petal08",
+    "Thruster_RL_Petal09",
+    "Thruster_RL_Petal10",
+    "Thruster_RL_Petal11"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 1176,
+    "machinery": 240,
+    "brass": 120,
+    "bolt": 216
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Petals_RR",
+   "tris": 4032,
+   "verts": 2280,
+   "pieces": 132,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RR_Petal00",
+    "Thruster_RR_Petal01",
+    "Thruster_RR_Petal02",
+    "Thruster_RR_Petal03",
+    "Thruster_RR_Petal04",
+    "Thruster_RR_Petal05",
+    "Thruster_RR_Petal06",
+    "Thruster_RR_Petal07",
+    "Thruster_RR_Petal08",
+    "Thruster_RR_Petal09",
+    "Thruster_RR_Petal10",
+    "Thruster_RR_Petal11"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 1176,
+    "machinery": 240,
+    "brass": 120,
+    "bolt": 216
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Pod_RL",
+   "tris": 11388,
+   "verts": 6378,
+   "pieces": 343,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RL"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_dark": 636,
+    "bolt": 2259,
+    "rust_red": 1072,
+    "dark_metal": 784,
+    "steel": 312,
+    "copper": 496,
+    "brass": 504,
+    "machinery": 66
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z3_Pod_RR",
+   "tris": 11642,
+   "verts": 6539,
+   "pieces": 360,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_RR"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 868,
+    "bolt": 2385,
+    "rust_dark": 770,
+    "dark_metal": 804,
+    "steel": 312,
+    "copper": 526,
+    "brass": 554,
+    "machinery": 66
+   },
+   "collections": [
+    "Detail_Z3"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z3",
+   "verts_tested": 16951,
+   "sample_every": 2,
+   "outside_zone": {
+    "Z1": 10,
+    "Z2": 10
+   },
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "Z1": 329,
+    "Z2": 336
+   },
+   "within_margin_of": {
+    "Z1": 51,
+    "Z2": 47,
+    "Z5": 2
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 33902,
+   "verts_inside_a_box": 8144,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.301,
+   "worst": [
+    -7.407,
+    -8.259,
+    -3.043
+   ],
+   "verts_over_limit": 324,
+   "over_limit_by_kind": {},
+   "verts": 16951,
+   "limit_m": 0.2,
+   "p99_m": 0.221
+  },
+  "bbox": [
+   [
+    -15.241,
+    -8.473,
+    -6.162
+   ],
+   [
+    -3.991,
+    7.97,
+    2.177
+   ]
+  ]
+ }
+}

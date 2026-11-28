@@ -11,6 +11,14 @@ materials, UCX, prop UV channels.
 Round 2 (2026-11-24): the rig deletes the deck pieces listed in scripts/deck_removals.json, so SM_Airship is compared
 with Talal's mesh minus those islands (kept vertices renumbered in order, the faces made of them in order); the helm
 contract is the character-size wheel (HELM_WHEEL_OFS, PILOT_BEHIND_AXLE below).
+Round 3 (2026-11-28), only with --r3 (default --fbx rig/detail/r3export/fbx/SK_Airship.fbx, --out
+rig/detail/r3export/checks/fbx_verify.json): SM_Airship is Talal's mesh minus deck_removals.json minus the round 3 base
+edits (scripts/base_edits/z*.json, whole islands resolved from the research island records here, with their face /
+triangle guards); 32 meshes with SM_AirshipR3Detail_Moving (or its _LOD1 / _LOD2) last; materials M_Airship,
+M_AirshipProps, M_AirshipR3_Detail; UV layers: SM_Airship 3 (UVMap, R3Palette, R3Ink), the others 2 (UVMap, R3Palette);
+the Moving object's expected bone per vertex from rig/detail/r3export/manifest_arrays.npz. Everything else (bones,
+parents, rest pose, the contract positions, weights of SM_Airship and the props, UV0 against Talal's) is the round 2
+check, unchanged. Without --r3 the script behaves exactly as before.
 """
 import bpy, sys, os, json, math
 import numpy as np
@@ -26,19 +34,54 @@ RES = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/research'
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 def arg(k, d):
     return argv[argv.index(k) + 1] if k in argv else d
-FBX = arg('--fbx', RIG + '/export/SK_Airship.fbx')
-OUT = arg('--out', RIG + '/checks/verify/fbx_verify.json')
+R3 = '--r3' in argv or '--round3' in argv
+R3X = RIG + '/detail/r3export'
+FBX = arg('--fbx', R3X + '/fbx/SK_Airship.fbx' if R3 else RIG + '/export/SK_Airship.fbx')
+OUT = arg('--out', R3X + '/checks/fbx_verify.json' if R3 else RIG + '/checks/verify/fbx_verify.json')
 # round 2 contract (Docs/Airship/round2/SPEC_A.md D7): wheel origin relative to the pedestal, pilot behind the axle
 HELM_WHEEL_OFS = (-0.35, 0.0, 1.00)
 PILOT_BEHIND_AXLE = 0.55
 DECK_REMOVALS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deck_removals.json')))
 REMOVED = sorted(i for p in DECK_REMOVALS['pieces'] for i in p['islands'])
+R3_EDITS = []
+if R3:
+    # round 3 base edits: whole islands of SM_Airship, chosen by research island metadata (the same select keys as
+    # detail_base_edits.py, read here on their own); each entry's face / triangle guard must hold
+    import glob
+    _isl_recs = json.load(open(RES + '/sm_airship_islands.json'))['islands']
+    def _sel_ok(rec, sel):
+        if 'islands' in sel and rec['id'] not in sel['islands']: return False
+        if 'src' in sel and rec.get('src') != sel['src']: return False
+        if 'part' in sel:
+            p = sel['part']
+            if (not rec['part'].startswith(p[:-1])) if p.endswith('*') else rec['part'] != p: return False
+        if 'piece' in sel:
+            pc = sel['piece'] if isinstance(sel['piece'], list) else [sel['piece']]
+            if rec.get('piece', '') not in pc: return False
+        if 'index' in sel and rec.get('index') != sel['index']: return False
+        return True
+    for _f in sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'base_edits', 'z*.json'))):
+        for _e in json.load(open(_f)).get('edits', []):
+            assert 'where' not in _e, 'verify_fbx --r3 handles whole-island edits only: %s' % _e['id']
+            _ids = sorted(r['id'] for r in _isl_recs if _sel_ok(r, _e['select']))
+            _nf = sum(r['nf'] for r in _isl_recs if r['id'] in _ids); _nt = sum(r['tris'] for r in _isl_recs if r['id'] in _ids)
+            R3_EDITS.append({'id': _e['id'], 'file': os.path.basename(_f), 'islands': _ids, 'faces': _nf, 'tris': _nt,
+                             'guard_ok': _e.get('expect_faces') in (None, _nf) and _e.get('expect_tris') in (None, _nt)})
+    REMOVED = sorted(set(REMOVED) | {i for e in R3_EDITS for i in e['islands']})
+    R3_ARR = np.load(R3X + '/manifest_arrays.npz')
+    R3_BONES = [str(b) for b in R3_ARR['bone_names']]
 
 rep = {'fbx': FBX, 'defects': [], 'notes': []}
 def defect(msg):
     rep['defects'].append(msg); print('[DEFECT]', msg)
 def note(msg):
     rep['notes'].append(msg); print('[note]', msg)
+if R3:
+    rep['round3'] = True
+    rep['r3_base_edits'] = R3_EDITS
+    for _e in R3_EDITS:
+        if not _e['guard_ok']:
+            defect('round 3 base edit %s: %d faces / %d tris, not the guard of %s' % (_e['id'], _e['faces'], _e['tris'], _e['file']))
 
 sc = F.load(FBX)
 gs = sc.global_settings
@@ -265,7 +308,11 @@ for mname, mu in sorted(meshes.items()):
         b = l[0][0]
         counts[b] = counts.get(b, 0) + 1
         bone_vcount[b] = bone_vcount.get(b, 0) + 1
-        exp = expected_bone_sm(vi) if mname == 'SM_Airship' else prop_bone(mname)
+        if R3 and mname.startswith('SM_AirshipR3Detail_Moving'):
+            _k = mname.replace('SM_Airship', '').strip('_') + '__vert_bone'
+            exp = R3_BONES[int(R3_ARR[_k][vi])] if vi < len(R3_ARR[_k]) else None
+        else:
+            exp = expected_bone_sm(vi) if mname == 'SM_Airship' else prop_bone(mname)
         if b != exp:
             key = '%s: %s -> %s' % (mname, exp, b)
             wrong_bone[key] = wrong_bone.get(key, 0) + 1
@@ -292,15 +339,32 @@ ucx = [m for m in meshes if m.upper().startswith('UCX')]
 if ucx: defect('UCX meshes in the SK: %s' % ucx)
 all_mats = sorted({m for l in mat_of_model.values() for m in l})
 rep['materials'] = all_mats
-if all_mats != ['M_Airship', 'M_AirshipProps']: defect('materials %s' % all_mats)
+if all_mats != (['M_Airship', 'M_AirshipProps', 'M_AirshipR3_Detail'] if R3 else ['M_Airship', 'M_AirshipProps']):
+    defect('materials %s' % all_mats)
 if mesh_info['SM_Airship']['materials'] != ['M_Airship']: defect('SM_Airship materials %s' % mesh_info['SM_Airship']['materials'])
+R3_MOVING = [n for n in mesh_info if n.startswith('SM_AirshipR3Detail_Moving')] if R3 else []
+if R3:
+    rep['r3_mesh_count'] = len(mesh_info)
+    if len(mesh_info) != 32 or len(R3_MOVING) != 1: defect('round 3: %d meshes, Moving objects %s (want 32, one)' % (len(mesh_info), R3_MOVING))
 for mname, mi in mesh_info.items():
+    if R3:
+        # round 3: UV0 the ink / props atlas (SM_Airship: Talal's), UV1 the palette index, UV2 SM_Airship's ink atlas
+        want_uv = ['UVMap', 'R3Palette', 'R3Ink'] if mname == 'SM_Airship' else ['UVMap', 'R3Palette']
+        if [n for _, n in mi['uv_layers']] != want_uv:
+            defect('%s UV layers %s (want %s)' % (mname, mi['uv_layers'], want_uv))
+        if mname in R3_MOVING:
+            if mi['materials'] != ['M_AirshipR3_Detail']: defect('%s materials %s' % (mname, mi['materials']))
+            continue
     if mname != 'SM_Airship' and mi['materials'] != ['M_AirshipProps']:
         defect('%s materials %s' % (mname, mi['materials']))
-    if len(mi['uv_layers']) != 1:
+    if len(mi['uv_layers']) != 1 and not R3:
         defect('%s has %d UV layers %s' % (mname, len(mi['uv_layers']), mi['uv_layers']))
 # order of mesh models in the file (UE builds material slots in import order)
 rep['mesh_order_in_file'] = [sc.models[u]['name'] for u in sc.models if sc.models[u]['type'] == 'Mesh']
+if R3:
+    _mo = rep['mesh_order_in_file']
+    if _mo != sorted(_mo) or _mo[0] != 'SM_Airship' or not _mo[-1].startswith('SM_AirshipR3Detail_Moving'):
+        defect('round 3 mesh order %s ... %s (want sorted: SM_Airship first, the Moving object last)' % (_mo[:2], _mo[-2:]))
 rep['textures'] = [(t['name'], F.props70(t['elem']).get('RelativeFilename') or F.arr(t['elem'], b'RelativeFilename'))
                    for t in sc.other.get('Texture', [])]
 rep['textures'] = [(t['name'], (F.child(t['elem'], b'RelativeFilename').props[0].decode() if F.child(t['elem'], b'RelativeFilename') is not None else None))
@@ -395,7 +459,8 @@ for c in cannons:
 copy_dev = max(float(np.abs(cuv[(c, p)] - cuv[('L1', p)]).max()) for c in cannons for p in parts_c)
 rep['cannon_copies_uv_max_dev'] = copy_dev
 if copy_dev > 1e-6: defect('the 4 cannon copies do not share identical UVs (max dev %g)' % copy_dev)
-allp = np.concatenate([np.array(F.per_corner_uv(mi['_gd']['uv'][0])) for n, mi in mesh_info.items() if n != 'SM_Airship'])
+allp = np.concatenate([np.array(F.per_corner_uv(mi['_gd']['uv'][0])) for n, mi in mesh_info.items()
+                       if n != 'SM_Airship' and not n.startswith('SM_AirshipR3Detail_Moving')])
 rep['props_uv_range'] = [allp.min(0).tolist(), allp.max(0).tolist()]
 if allp.min() < -1e-6 or allp.max() > 1 + 1e-6: defect('prop UVs outside 0..1: %s' % rep['props_uv_range'])
 

@@ -1,0 +1,16 @@
+{
+ "q34_aft_port": {"loc": [-29.0, 16.5, -12.5], "tgt": [-10.5, 4.2, -1.8], "lens": 35, "about": "3/4 from aft-port, low, about 25 m: aft port flank, RL pod, port fan above"},
+ "q34_aft_stbd": {"loc": [-29.0, -16.5, -12.5], "tgt": [-10.5, -4.2, -1.8], "lens": 35, "about": "the same from aft-starboard"},
+ "side_aft": {"loc": [-13.0, 30.0, -0.5], "tgt": [-13.0, 0.0, -0.5], "ortho": 9.0, "res": [1600, 1100], "about": "port aft flank, orthographic"},
+ "side_aft_stbd": {"loc": [-13.0, -30.0, -0.5], "tgt": [-13.0, 0.0, -0.5], "ortho": 9.0, "res": [1600, 1100], "about": "starboard aft flank, orthographic"},
+ "close_aft_flank": {"loc": [-11.0, 10.6, -2.9], "tgt": [-13.4, 5.6, -0.9], "lens": 28, "about": "port aft flank, about 5.7 m"},
+ "close_aft_flank_stbd": {"loc": [-11.0, -10.6, -2.9], "tgt": [-13.4, -5.6, -0.9], "lens": 28, "about": "starboard aft flank, about 5.7 m"},
+ "close_rear_pod": {"loc": [-14.0, 6.5, -5.0], "tgt": [-7.4, 5.2, -2.6], "lens": 30, "about": "rear-left pod RL from aft, about 7 m"},
+ "close_rear_pod_stbd": {"loc": [-14.0, -7.1, -5.0], "tgt": [-7.4, -5.8, -2.6], "lens": 30, "about": "rear-right pod RR from aft"},
+ "rear_pod_front": {"loc": [-1.5, 8.8, -6.0], "tgt": [-7.0, 5.2, -2.6], "lens": 30, "about": "RL from fore-port (its front plates)"},
+ "rear_pods_below": {"loc": [-21.5, 0.001, -8.0], "tgt": [-7.3, 0.0, -2.6], "lens": 28, "about": "both rear pods from below and aft"},
+ "pocket_RL": {"loc": [-11.0, 9.5, -4.2], "tgt": [-7.6, 5.4, -0.6], "lens": 30, "about": "RL pocket: wall stiffeners and the rust lip on the opening edge"},
+ "seam_z1z3": {"loc": [-9.6, 10.4, -1.6], "tgt": [-11.8, 6.4, -0.6], "lens": 30, "about": "seam with zone 1 at x -11.55 (strake, teeth, channel, conduits, gussets)"},
+ "seam_z2z3": {"loc": [-9.6, -10.4, -1.6], "tgt": [-11.8, -6.4, -0.6], "lens": 30, "about": "seam with zone 2 at x -11.55"},
+ "seam_z3z6": {"loc": [-11.0, 10.0, 0.2], "tgt": [-15.2, 4.6, 0.0], "lens": 28, "about": "the aft end: end ribs, fan mount pylon, transom corner (zone 6)"}
+}

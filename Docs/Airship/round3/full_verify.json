@@ -1,0 +1,613 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_full.blend",
+ "md5": "1f2b3e05bf0a5a47d82db98170b8daaa",
+ "rig_meshes": 65,
+ "first_mesh": "SM_Airship",
+ "detail_objects": 34,
+ "props": 30,
+ "sm_airship_tris": 68006,
+ "sm_airship_base_edits": {
+  "z6_fan_back_L": {
+   "faces": 60,
+   "tris": 216
+  },
+  "z6_fan_back_R": {
+   "faces": 60,
+   "tris": 216
+  },
+  "z7_chain_aft_bars": {
+   "faces": 36,
+   "tris": 72
+  }
+ },
+ "sm_airship_base_recolor": {
+  "entries": [
+   {
+    "id": "z4_keel_block_rust",
+    "value": 1,
+    "slot": "keel_block",
+    "colour_key": "rust_red",
+    "faces": 8381,
+    "tris": 8998,
+    "select": {
+     "islands": [
+      1147,
+      1148,
+      1149
+     ],
+     "src": "Underside_Front"
+    },
+    "file": "z4.json"
+   }
+  ],
+  "faces_by_slot": {
+   "keel_block": 8381
+  }
+ },
+ "details_tris": 393142,
+ "collections": [
+  "Detail_Z1",
+  "Detail_Z2",
+  "Detail_Z3",
+  "Detail_Z4",
+  "Detail_Z5",
+  "Detail_Z6",
+  "Detail_Z7"
+ ],
+ "materials": [
+  "DM_Brass",
+  "DM_Copper",
+  "DM_Dark",
+  "DM_Machinery",
+  "DM_Ochre",
+  "DM_Orange",
+  "DM_Rivet",
+  "DM_Rust",
+  "DM_RustDark",
+  "DM_Steel",
+  "DM_Wood",
+  "DM_Yellow"
+ ],
+ "sk_tris": 496668,
+ "sm_airship_materials": [
+  "M_Airship"
+ ],
+ "objects": {
+  "SM_AirshipDetail_Z1_Hull": {
+   "ok": true,
+   "tris": 32676,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z1_Nozzle_FL": {
+   "ok": true,
+   "tris": 2160,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_FL_Nozzle"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z1_Petals_FL": {
+   "ok": true,
+   "tris": 4032,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_FL_Petal00",
+    "Thruster_FL_Petal01",
+    "Thruster_FL_Petal02",
+    "Thruster_FL_Petal03",
+    "Thruster_FL_Petal04",
+    "Thruster_FL_Petal05",
+    "Thruster_FL_Petal06",
+    "Thruster_FL_Petal07",
+    "Thruster_FL_Petal08",
+    "Thruster_FL_Petal09",
+    "Thruster_FL_Petal10",
+    "Thruster_FL_Petal11"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z1_Pod_FL": {
+   "ok": true,
+   "tris": 12336,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_FL"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z2_Hull": {
+   "ok": true,
+   "tris": 32206,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z2_Nozzle_FR": {
+   "ok": true,
+   "tris": 2160,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_FR_Nozzle"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z2_Petals_FR": {
+   "ok": true,
+   "tris": 4032,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_FR_Petal00",
+    "Thruster_FR_Petal01",
+    "Thruster_FR_Petal02",
+    "Thruster_FR_Petal03",
+    "Thruster_FR_Petal04",
+    "Thruster_FR_Petal05",
+    "Thruster_FR_Petal06",
+    "Thruster_FR_Petal07",
+    "Thruster_FR_Petal08",
+    "Thruster_FR_Petal09",
+    "Thruster_FR_Petal10",
+    "Thruster_FR_Petal11"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z2_Pod_FR": {
+   "ok": true,
+   "tris": 13896,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_FR"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z3_Hull": {
+   "ok": true,
+   "tris": 24758,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z3_Nozzle_RL": {
+   "ok": true,
+   "tris": 2056,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_RL_Nozzle"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z3_Nozzle_RR": {
+   "ok": true,
+   "tris": 2160,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_RR_Nozzle"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z3_Petals_RL": {
+   "ok": true,
+   "tris": 4032,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_RL_Petal00",
+    "Thruster_RL_Petal01",
+    "Thruster_RL_Petal02",
+    "Thruster_RL_Petal03",
+    "Thruster_RL_Petal04",
+    "Thruster_RL_Petal05",
+    "Thruster_RL_Petal06",
+    "Thruster_RL_Petal07",
+    "Thruster_RL_Petal08",
+    "Thruster_RL_Petal09",
+    "Thruster_RL_Petal10",
+    "Thruster_RL_Petal11"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z3_Petals_RR": {
+   "ok": true,
+   "tris": 4032,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_RR_Petal00",
+    "Thruster_RR_Petal01",
+    "Thruster_RR_Petal02",
+    "Thruster_RR_Petal03",
+    "Thruster_RR_Petal04",
+    "Thruster_RR_Petal05",
+    "Thruster_RR_Petal06",
+    "Thruster_RR_Petal07",
+    "Thruster_RR_Petal08",
+    "Thruster_RR_Petal09",
+    "Thruster_RR_Petal10",
+    "Thruster_RR_Petal11"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z3_Pod_RL": {
+   "ok": true,
+   "tris": 11388,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_RL"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z3_Pod_RR": {
+   "ok": true,
+   "tris": 11642,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Thruster_RR"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z4_Hull": {
+   "ok": true,
+   "tris": 7202,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z4_Keel": {
+   "ok": true,
+   "tris": 8798,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z4_Wedge": {
+   "ok": true,
+   "tris": 47774,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z5_Belly": {
+   "ok": true,
+   "tris": 58782,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z6_Hull": {
+   "ok": true,
+   "tris": 6812,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z6_Rod_L": {
+   "ok": true,
+   "tris": 176,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Turbine_L_Rod"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z6_Rod_R": {
+   "ok": true,
+   "tris": 176,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Turbine_R_Rod"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z6_Rotor_L": {
+   "ok": true,
+   "tris": 4136,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Turbine_L_Rotor"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z6_Rotor_R": {
+   "ok": true,
+   "tris": 4136,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Turbine_R_Rotor"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z6_Rudder": {
+   "ok": true,
+   "tris": 6784,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Rudder"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z6_Turbine_L": {
+   "ok": true,
+   "tris": 19482,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Turbine_L"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z6_Turbine_R": {
+   "ok": true,
+   "tris": 19216,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Turbine_R"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z7_Chains": {
+   "ok": true,
+   "tris": 1008,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z7_Gantry": {
+   "ok": true,
+   "tris": 28830,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z7_LightHeads": {
+   "ok": true,
+   "tris": 3072,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "SearchLight_AftL_Head",
+    "SearchLight_FwdC_Head",
+    "SearchLight_MidL_Head",
+    "SearchLight_MidR_Head"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z7_LightPosts": {
+   "ok": true,
+   "tris": 2128,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "SearchLight_AftL",
+    "SearchLight_FwdC",
+    "SearchLight_MidL",
+    "SearchLight_MidR"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z7_Rails": {
+   "ok": true,
+   "tris": 3588,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z7_Stairs": {
+   "ok": true,
+   "tris": 5804,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Hull"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  },
+  "SM_AirshipDetail_Z7_Winches": {
+   "ok": true,
+   "tris": 1672,
+   "inside_out_pieces": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "faces_without_role": 0,
+   "bones": [
+    "Winch_Aft",
+    "Winch_Fwd"
+   ],
+   "uv_maps": [],
+   "materials": 12
+  }
+ },
+ "all_ok": true,
+ "vs_zone_hashes": {
+  "SM_AirshipDetail_Z1_Hull": "identical",
+  "SM_AirshipDetail_Z1_Nozzle_FL": [
+   "faces_md5"
+  ],
+  "SM_AirshipDetail_Z1_Petals_FL": "identical",
+  "SM_AirshipDetail_Z1_Pod_FL": [
+   "faces_md5"
+  ],
+  "SM_AirshipDetail_Z2_Hull": "identical",
+  "SM_AirshipDetail_Z2_Nozzle_FR": "identical",
+  "SM_AirshipDetail_Z2_Petals_FR": "identical",
+  "SM_AirshipDetail_Z2_Pod_FR": "identical",
+  "SM_AirshipDetail_Z3_Hull": "identical",
+  "SM_AirshipDetail_Z3_Nozzle_RL": "identical",
+  "SM_AirshipDetail_Z3_Nozzle_RR": "identical",
+  "SM_AirshipDetail_Z3_Petals_RL": "identical",
+  "SM_AirshipDetail_Z3_Petals_RR": "identical",
+  "SM_AirshipDetail_Z3_Pod_RL": "identical",
+  "SM_AirshipDetail_Z3_Pod_RR": "identical",
+  "SM_AirshipDetail_Z4_Hull": "identical",
+  "SM_AirshipDetail_Z4_Keel": "identical",
+  "SM_AirshipDetail_Z4_Wedge": "identical",
+  "SM_AirshipDetail_Z5_Belly": "identical",
+  "SM_AirshipDetail_Z6_Hull": "identical",
+  "SM_AirshipDetail_Z6_Rod_L": "identical",
+  "SM_AirshipDetail_Z6_Rod_R": "identical",
+  "SM_AirshipDetail_Z6_Rotor_L": "identical",
+  "SM_AirshipDetail_Z6_Rotor_R": "identical",
+  "SM_AirshipDetail_Z6_Rudder": "identical",
+  "SM_AirshipDetail_Z6_Turbine_L": "identical",
+  "SM_AirshipDetail_Z6_Turbine_R": "identical",
+  "SM_AirshipDetail_Z7_Chains": "identical",
+  "SM_AirshipDetail_Z7_Gantry": "identical",
+  "SM_AirshipDetail_Z7_LightHeads": "identical",
+  "SM_AirshipDetail_Z7_LightPosts": "identical",
+  "SM_AirshipDetail_Z7_Rails": "identical",
+  "SM_AirshipDetail_Z7_Stairs": "identical",
+  "SM_AirshipDetail_Z7_Winches": "identical"
+ },
+ "md5_after_open": "1f2b3e05bf0a5a47d82db98170b8daaa",
+ "seconds": 9.4
+}

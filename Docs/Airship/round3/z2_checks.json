@@ -1,0 +1,191 @@
+{
+ "zone": "Z2",
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z2_Hull",
+   "tris": 32206,
+   "verts": 18025,
+   "pieces": 961,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 1440,
+    "bolt": 4482,
+    "paint_yellow": 938,
+    "paint_ochre": 1472,
+    "dark_metal": 3876,
+    "copper": 1174,
+    "brass": 2390,
+    "machinery": 432,
+    "steel": 624
+   },
+   "collections": [
+    "Detail_Z2"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z2_Nozzle_FR",
+   "tris": 2160,
+   "verts": 1248,
+   "pieces": 86,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_FR_Nozzle"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "bolt": 432,
+    "steel": 744
+   },
+   "collections": [
+    "Detail_Z2"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z2_Petals_FR",
+   "tris": 4032,
+   "verts": 2280,
+   "pieces": 132,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_FR_Petal00",
+    "Thruster_FR_Petal01",
+    "Thruster_FR_Petal02",
+    "Thruster_FR_Petal03",
+    "Thruster_FR_Petal04",
+    "Thruster_FR_Petal05",
+    "Thruster_FR_Petal06",
+    "Thruster_FR_Petal07",
+    "Thruster_FR_Petal08",
+    "Thruster_FR_Petal09",
+    "Thruster_FR_Petal10",
+    "Thruster_FR_Petal11"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 1176,
+    "machinery": 240,
+    "brass": 120,
+    "bolt": 216
+   },
+   "collections": [
+    "Detail_Z2"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z2_Pod_FR",
+   "tris": 13896,
+   "verts": 7766,
+   "pieces": 410,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_FR"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 1016,
+    "bolt": 2736,
+    "rust_dark": 974,
+    "dark_metal": 1036,
+    "steel": 312,
+    "copper": 586,
+    "brass": 774,
+    "machinery": 66
+   },
+   "collections": [
+    "Detail_Z2"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z2",
+   "verts_tested": 14660,
+   "sample_every": 2,
+   "outside_zone": {
+    "Z5": 2
+   },
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "Z4": 5,
+    "Z5": 42,
+    "Z3": 15
+   },
+   "within_margin_of": {
+    "Z4": 10,
+    "Z3": 52,
+    "Z5": 28
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 29319,
+   "verts_inside_a_box": 890,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.308,
+   "worst": [
+    3.689,
+    -7.396,
+    -2.857
+   ],
+   "verts_over_limit": 236,
+   "over_limit_by_kind": {},
+   "verts": 14660,
+   "limit_m": 0.2,
+   "p99_m": 0.209
+  },
+  "bbox": [
+   [
+    -11.603,
+    -8.772,
+    -6.053
+   ],
+   [
+    7.235,
+    -2.082,
+    2.232
+   ]
+  ]
+ }
+}

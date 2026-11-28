@@ -1,0 +1,501 @@
+{
+ "about": "Round 3 inputs for the Unreal scripts (as_90 .. as_93), staged by SourceArt/Airship/scripts/r3_unreal_inputs.py from rig/detail/r3export (checked by r3_fbx_check.py, verify_fbx.py --r3, verify_import.py --r3).",
+ "staged": "2026-11-28 23:12:31",
+ "files": {
+  "r3/SK_Airship.fbx": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SK_Airship.fbx",
+   "md5": "490dab8a1333f923a492f0c5d79a94c7",
+   "bytes": 12243564
+  },
+  "r3/SK_Airship_LOD1.fbx": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SK_Airship_LOD1.fbx",
+   "md5": "1dbeba84e1b9effc0310bf24a0e12f54",
+   "bytes": 10833340
+  },
+  "r3/SK_Airship_LOD2.fbx": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SK_Airship_LOD2.fbx",
+   "md5": "8077a138708cdcdf6ff36ef499d6ecc2",
+   "bytes": 10189388
+  },
+  "r3/SM_AirshipR3_HullDetail.fbx": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipR3_HullDetail.fbx",
+   "md5": "c3201ca2a570a85f7f67c00681eb775a",
+   "bytes": 7576668
+  },
+  "r3/SM_AirshipR3_HullDetail_LOD1.fbx": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipR3_HullDetail_LOD1.fbx",
+   "md5": "0842b5d0a10e41ae60a80034289b5acd",
+   "bytes": 5202940
+  },
+  "r3/SM_AirshipR3_HullDetail_LOD2.fbx": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipR3_HullDetail_LOD2.fbx",
+   "md5": "1ab67f31354aa3b1fd3e224b2a6411f5",
+   "bytes": 3686604
+  },
+  "r3/SM_AirshipTurret_Base.fbx": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipTurret_Base.fbx",
+   "md5": "47c1e97b358ba153d4dd6ae9b3bdf9ed",
+   "bytes": 135164
+  },
+  "r3/SM_AirshipTurret_Gun.fbx": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipTurret_Gun.fbx",
+   "md5": "5a029d4a05be915e68a6024cac25f939",
+   "bytes": 117004
+  },
+  "textures/r3/T_AirshipR3_HullInk.png": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_HullInk.png",
+   "md5": "71e606b3781be2cacfae07f3d0b280d4",
+   "bytes": 2379054
+  },
+  "textures/r3/T_AirshipR3_DetailInk_H.png": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_DetailInk_H.png",
+   "md5": "e40ea64a812e58cf7d7d28ad24d7e5b8",
+   "bytes": 2857767
+  },
+  "textures/r3/T_AirshipR3_DetailInk_M.png": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_DetailInk_M.png",
+   "md5": "7528f11f17636e3f40b862e59423aaa2",
+   "bytes": 2662442
+  },
+  "textures/r3/T_AirshipR3_PropsInk.png": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/textures/T_AirshipR3_PropsInk.png",
+   "md5": "5a0f211e08e9523b63089f1acc89eefa",
+   "bytes": 768926
+  },
+  "textures/r3/T_AirshipR3_HullComicMask.png": {
+   "source": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/checks/hull_ink/T_AirshipDrivable_ComicMask.png",
+   "md5": "4b74324d5a22c84dc67b7186e3ddc1e9",
+   "bytes": 2853035
+  }
+ },
+ "sk": {
+  "tris": {
+   "0": 238430,
+   "1": 186492,
+   "2": 164688
+  },
+  "material_slots": [
+   "M_Airship",
+   "M_AirshipProps",
+   "M_AirshipR3_Detail"
+  ],
+  "uv_channels": 3,
+  "bones": 118,
+  "bounds_ue_cm": {
+   "min_cm": [
+    -2039.11,
+    -1195.92,
+    -617.22
+   ],
+   "max_cm": [
+    3150.0,
+    1190.31,
+    1090.37
+   ]
+  },
+  "render_vertices_est_lod0": 294929
+ },
+ "hull_detail": {
+  "tris": {
+   "0": 258238,
+   "1": 170538,
+   "2": 119664
+  },
+  "material_slots": [
+   "M_AirshipR3_Detail"
+  ],
+  "uv_channels": 2,
+  "bounds_ue_cm": {
+   "min_cm": [
+    -1749.22,
+    -878.43,
+    -553.88
+   ],
+   "max_cm": [
+    3156.7,
+    877.21,
+    849.9
+   ]
+  },
+  "render_vertices_est_lod0": 343785
+ },
+ "turrets": {
+  "SM_AirshipTurret_Base": {
+   "tris": 3766,
+   "bounds_ue_cm": {
+    "min_cm": [
+     -42.0,
+     -42.0,
+     -1.0
+    ],
+    "max_cm": [
+     43.6,
+     42.0,
+     187.68
+    ]
+   },
+   "uv_channels": 2
+  },
+  "SM_AirshipTurret_Gun": {
+   "tris": 4012,
+   "bounds_ue_cm": {
+    "min_cm": [
+     -44.4,
+     -21.5,
+     -24.0
+    ],
+    "max_cm": [
+     180.0,
+     21.5,
+     36.5
+    ]
+   },
+   "uv_channels": 2
+  }
+ },
+ "palette": [
+  {
+   "index": 0,
+   "slot": "paint_yellow",
+   "linear": [
+    0.95,
+    0.68,
+    0.21
+   ]
+  },
+  {
+   "index": 1,
+   "slot": "paint_ochre",
+   "linear": [
+    0.83,
+    0.54,
+    0.15
+   ]
+  },
+  {
+   "index": 2,
+   "slot": "paint_orange",
+   "linear": [
+    0.85,
+    0.38,
+    0.12
+   ]
+  },
+  {
+   "index": 3,
+   "slot": "rust_red",
+   "linear": [
+    0.5,
+    0.2,
+    0.12
+   ]
+  },
+  {
+   "index": 4,
+   "slot": "rust_dark",
+   "linear": [
+    0.34,
+    0.14,
+    0.09
+   ]
+  },
+  {
+   "index": 5,
+   "slot": "dark_metal",
+   "linear": [
+    0.17,
+    0.16,
+    0.16
+   ]
+  },
+  {
+   "index": 6,
+   "slot": "machinery",
+   "linear": [
+    0.28,
+    0.29,
+    0.31
+   ]
+  },
+  {
+   "index": 7,
+   "slot": "steel",
+   "linear": [
+    0.5,
+    0.52,
+    0.55
+   ]
+  },
+  {
+   "index": 8,
+   "slot": "copper",
+   "linear": [
+    0.7,
+    0.36,
+    0.17
+   ]
+  },
+  {
+   "index": 9,
+   "slot": "brass",
+   "linear": [
+    0.76,
+    0.58,
+    0.24
+   ]
+  },
+  {
+   "index": 10,
+   "slot": "bolt",
+   "linear": [
+    0.33,
+    0.3,
+    0.27
+   ]
+  },
+  {
+   "index": 11,
+   "slot": "wood",
+   "linear": [
+    0.45,
+    0.3,
+    0.18
+   ]
+  },
+  {
+   "index": 12,
+   "slot": "hull_paint",
+   "linear": [
+    0.9,
+    0.6,
+    0.17
+   ]
+  },
+  {
+   "index": 13,
+   "slot": "deck",
+   "linear": [
+    0.52,
+    0.46,
+    0.38
+   ]
+  },
+  {
+   "index": 14,
+   "slot": "recess",
+   "linear": [
+    0.2,
+    0.17,
+    0.16
+   ]
+  },
+  {
+   "index": 15,
+   "slot": "glass",
+   "linear": [
+    0.85,
+    0.85,
+    0.7
+   ]
+  },
+  {
+   "index": 16,
+   "slot": "keel_block",
+   "linear": [
+    0.5,
+    0.2,
+    0.12
+   ]
+  },
+  {
+   "index": 17,
+   "slot": "prop_wood",
+   "linear": [
+    0.45,
+    0.3,
+    0.18
+   ]
+  },
+  {
+   "index": 18,
+   "slot": "prop_metal",
+   "linear": [
+    0.17,
+    0.16,
+    0.16
+   ]
+  },
+  {
+   "index": 19,
+   "slot": "prop_gun",
+   "linear": [
+    0.28,
+    0.29,
+    0.31
+   ]
+  },
+  {
+   "index": 20,
+   "slot": "spare_20",
+   "linear": [
+    1.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "index": 21,
+   "slot": "spare_21",
+   "linear": [
+    1.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "index": 22,
+   "slot": "spare_22",
+   "linear": [
+    1.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "index": 23,
+   "slot": "spare_23",
+   "linear": [
+    1.0,
+    0.0,
+    1.0
+   ]
+  }
+ ],
+ "ink": {
+  "InkDistMax_cm": 12.0,
+  "InkDistNeg_cm": 2.0,
+  "encoding": "R = (d + InkDistNeg) / (InkDistMax + InkDistNeg), d in cm; G = rivet dot; B = 0",
+  "ink_hex": "1C2230",
+  "side_d_cm": 1.5
+ },
+ "textures": {
+  "T_AirshipR3_HullInk": {
+   "size": 4096,
+   "uv": "UV2 R3Ink"
+  },
+  "T_AirshipR3_DetailInk_H": {
+   "size": 4096,
+   "uv": "UV0"
+  },
+  "T_AirshipR3_DetailInk_M": {
+   "size": 4096,
+   "uv": "UV0"
+  },
+  "T_AirshipR3_PropsInk": {
+   "size": 2048,
+   "uv": "UV0"
+  },
+  "T_AirshipR3_HullComicMask": {
+   "size": null,
+   "uv": "UV0 (Talal's UVs)"
+  }
+ },
+ "ue_build": {
+  "full_precision_uvs": "required: half-float UVs put lines up to 1 texel off on the 4096 pages",
+  "sk_threshold_uv": 1.52587890625e-05,
+  "sk_weld_pairs_at_default": {
+   "pairs": 240,
+   "worst_uv_delta": 0.0009676218032836914,
+   "worst_texels_4096": 3.963,
+   "pairs_over_1_65536": 234,
+   "pairs_over_quarter_texel_4096": 210,
+   "pairs_over_1_texel_4096": 125,
+   "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+  },
+  "hull_detail_weld_pairs": {
+   "pairs": 9,
+   "worst_uv_delta": 9.03010368347168e-05,
+   "worst_texels_4096": 0.37,
+   "pairs_over_1_65536": 3,
+   "pairs_over_quarter_texel_4096": 1,
+   "pairs_over_1_texel_4096": 0,
+   "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+  }
+ },
+ "lod": {
+  "sk_screen_size_inputs": {
+   "fov_deg": 85,
+   "distances_m": [
+    30,
+    80
+   ],
+   "formula": "1.94 * R / D (16:9, FOV 85)"
+  },
+  "manifest": {
+   "details": {
+    "H": {
+     "0": {
+      "tris": 258238
+     },
+     "1": {
+      "tris": 170538,
+      "faces": 83604,
+      "rivet_tris_dropped": 73332,
+      "small_tris_dropped": 14368,
+      "cut_m": 0.15
+     },
+     "2": {
+      "tris": 119664,
+      "faces": 60027,
+      "rivet_tris_dropped": 73332,
+      "small_tris_dropped": 65242,
+      "cut_m": 0.6
+     }
+    },
+    "M": {
+     "0": {
+      "tris": 134904
+     },
+     "1": {
+      "tris": 82966,
+      "faces": 41382,
+      "rivet_tris_dropped": 35294,
+      "small_tris_dropped": 16644,
+      "cut_m": 0.15
+     },
+     "2": {
+      "tris": 61162,
+      "faces": 30664,
+      "rivet_tris_dropped": 35294,
+      "small_tris_dropped": 38448,
+      "cut_m": 0.6
+     }
+    }
+   },
+   "sk_base_tris": 103526,
+   "sk_tris": {
+    "0": 238430,
+    "1": 186492,
+    "2": 164688
+   },
+   "hull_detail_tris": {
+    "0": 258238,
+    "1": 170538,
+    "2": 119664
+   }
+  }
+ },
+ "look": {
+  "LitMix": 0.5,
+  "ShadeLift": 0.55,
+  "LiftSat": 1.3,
+  "LiftLock": 1.0,
+  "source": "Docs/Airship/round3/export_shade_calib.json (r3_shade_calib.py)",
+  "worst_dE_startupmap": 13.38,
+  "v1_plain_lit_dE": 65.07
+ },
+ "bake_knobs": {
+  "dot_r_cm": 1.8,
+  "dot_r_hull_cm": 1.2
+ }
+}

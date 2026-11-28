@@ -1,0 +1,384 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_z7.blend",
+ "zones": "1",
+ "only": [
+  "Detail_Z7"
+ ],
+ "base_edits": {
+  "z6_fan_back_L": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "port fan: remove the flat disc behind the rotor (duct_back_wall, island 1028) and the big tail cone that closed the duct exit (tail_cone, island 1030, r 2.46 at x -18.76, flat end at x -19.91), so the fan blades are visible from behind and the duct reads as an open exhaust"
+  },
+  "z6_fan_back_R": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "starboard fan: the same (islands 1088 and 1091)"
+  },
+  "z7_chain_aft_bars": {
+   "file": "z7.json",
+   "zone": "Z7",
+   "faces": 36,
+   "tris": 72,
+   "guard_ok": true,
+   "why": "replace the ChainAft bars by a heavy link chain (detail object, Hull bone)"
+  }
+ },
+ "test_objects": [
+  "SM_AirshipDetail_Z7_Stairs",
+  "SM_AirshipDetail_Z7_Gantry",
+  "SM_AirshipDetail_Z7_Rails",
+  "SM_AirshipDetail_Z7_LightPosts",
+  "SM_AirshipDetail_Z7_LightHeads",
+  "SM_AirshipDetail_Z7_Winches",
+  "SM_AirshipDetail_Z7_Chains"
+ ],
+ "context_objects": [
+  "SM_AirshipDetail_Z1_Hull",
+  "SM_AirshipDetail_Z1_Pod_FL",
+  "SM_AirshipDetail_Z1_Nozzle_FL",
+  "SM_AirshipDetail_Z1_Petals_FL"
+ ],
+ "not_rigid_vertices": 0,
+ "assignment": {
+  "SM_AirshipDetail_Z7_Stairs": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Hull": 3550
+   },
+   "verts": 3550,
+   "not_rigid": 0,
+   "tris": 5804
+  },
+  "SM_AirshipDetail_Z7_Gantry": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Hull": 16959
+   },
+   "verts": 16959,
+   "not_rigid": 0,
+   "tris": 28830
+  },
+  "SM_AirshipDetail_Z7_Rails": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Hull": 2392
+   },
+   "verts": 2392,
+   "not_rigid": 0,
+   "tris": 3588
+  },
+  "SM_AirshipDetail_Z7_LightPosts": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "SearchLight_AftL": 312,
+    "SearchLight_FwdC": 312,
+    "SearchLight_MidL": 312,
+    "SearchLight_MidR": 312
+   },
+   "verts": 1248,
+   "not_rigid": 0,
+   "tris": 2128
+  },
+  "SM_AirshipDetail_Z7_LightHeads": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "SearchLight_AftL_Head": 404,
+    "SearchLight_FwdC_Head": 404,
+    "SearchLight_MidL_Head": 404,
+    "SearchLight_MidR_Head": 404
+   },
+   "verts": 1616,
+   "not_rigid": 0,
+   "tris": 3072
+  },
+  "SM_AirshipDetail_Z7_Winches": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Winch_Aft": 780,
+    "Winch_Fwd": 108
+   },
+   "verts": 888,
+   "not_rigid": 0,
+   "tris": 1672
+  },
+  "SM_AirshipDetail_Z7_Chains": {
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "bones": {
+    "Hull": 504
+   },
+   "verts": 504,
+   "not_rigid": 0,
+   "tris": 1008
+  }
+ },
+ "results": [
+  {
+   "set": "searchlights",
+   "poses": 216,
+   "seconds": 12.2,
+   "triangles_tested": {
+    "hull/base": 286,
+    "posts/base": 80,
+    "heads/base": 288,
+    "hull/test": 6056,
+    "posts/test": 2128,
+    "heads/test": 3072
+   },
+   "rest": {
+    "heads vs posts": {
+     "new": 0,
+     "baseline": 56
+    },
+    "heads vs hull": {
+     "new": 0,
+     "baseline": 0
+    },
+    "posts vs hull": {
+     "new": 0,
+     "baseline": 101
+    }
+   },
+   "worst": {
+    "heads vs posts": {
+     "new": 0,
+     "baseline": 56,
+     "new_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     },
+     "baseline_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     }
+    },
+    "heads vs hull": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     },
+     "baseline_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     }
+    },
+    "posts vs hull": {
+     "new": 0,
+     "baseline": 112,
+     "new_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": -4.0,
+      "SearchLightPanDeg": 0.0
+     },
+     "baseline_pose": {
+      "LampWobbleXDeg": -4.0,
+      "LampWobbleYDeg": 0.0,
+      "SearchLightPanDeg": 0.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  },
+  {
+   "set": "chain",
+   "poses": 36,
+   "seconds": 2.0,
+   "triangles_tested": {
+    "hull/base": 1482,
+    "chain/base": 72,
+    "winches/base": 312,
+    "hull/test": 12011,
+    "winches/test": 1672
+   },
+   "rest": {
+    "chain vs hull": {
+     "new": 0,
+     "baseline": 80
+    },
+    "winches vs hull": {
+     "new": 0,
+     "baseline": 170
+    },
+    "chain vs winches": {
+     "new": 0,
+     "baseline": 0
+    }
+   },
+   "worst": {
+    "chain vs hull": {
+     "new": 0,
+     "baseline": 84,
+     "new_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 0.0
+     },
+     "baseline_pose": {
+      "ChainSwingDeg": 3.0,
+      "WinchSpinDeg": 0.0
+     }
+    },
+    "winches vs hull": {
+     "new": 0,
+     "baseline": 174,
+     "new_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 0.0
+     },
+     "baseline_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 180.0
+     }
+    },
+    "chain vs winches": {
+     "new": 0,
+     "baseline": 0,
+     "new_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 0.0
+     },
+     "baseline_pose": {
+      "ChainSwingDeg": -1.0,
+      "WinchSpinDeg": 0.0
+     }
+    }
+   },
+   "new_contacts": 0,
+   "new_contact_examples": [],
+   "passed": true
+  },
+  {
+   "label": "turret L",
+   "poses": 45,
+   "detail_tris_near": 12275,
+   "overlap_pairs_max": 0,
+   "min_distance_m": 0.34,
+   "at_pose": {
+    "yaw": -30.0,
+    "pitch": -20.0
+   },
+   "passed": true
+  },
+  {
+   "label": "turret R",
+   "poses": 45,
+   "detail_tris_near": 11813,
+   "overlap_pairs_max": 0,
+   "min_distance_m": 0.339,
+   "at_pose": {
+    "yaw": -50.0,
+    "pitch": -20.0
+   },
+   "passed": true
+  },
+  {
+   "label": "cannon L1",
+   "poses": 18,
+   "detail_tris_near": 939,
+   "overlap_pairs_max": 0,
+   "min_distance_m": 0.342,
+   "at_pose": {
+    "CannonYawDeg_L1": -20.0,
+    "CannonElevDeg_L1": 8.75,
+    "CannonRecoilCm_L1": 0.0
+   },
+   "passed": true
+  },
+  {
+   "label": "cannon L2",
+   "poses": 18,
+   "detail_tris_near": 600,
+   "overlap_pairs_max": 0,
+   "min_distance_m": 0.403,
+   "at_pose": {
+    "CannonYawDeg_L2": 0.0,
+    "CannonElevDeg_L2": -10.0,
+    "CannonRecoilCm_L2": 0.0
+   },
+   "passed": true
+  },
+  {
+   "label": "cannon R1",
+   "poses": 18,
+   "detail_tris_near": 615,
+   "overlap_pairs_max": 0,
+   "min_distance_m": 0.342,
+   "at_pose": {
+    "CannonYawDeg_R1": 20.0,
+    "CannonElevDeg_R1": 8.75,
+    "CannonRecoilCm_R1": 0.0
+   },
+   "passed": true
+  },
+  {
+   "label": "cannon R2",
+   "poses": 18,
+   "detail_tris_near": 600,
+   "overlap_pairs_max": 0,
+   "min_distance_m": 0.403,
+   "at_pose": {
+    "CannonYawDeg_R2": 0.0,
+    "CannonElevDeg_R2": -10.0,
+    "CannonRecoilCm_R2": 0.0
+   },
+   "passed": true
+  }
+ ],
+ "passed": true,
+ "seconds": 16.8
+}

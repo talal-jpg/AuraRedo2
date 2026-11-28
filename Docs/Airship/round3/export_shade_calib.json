@@ -1,0 +1,1600 @@
+{
+ "about": "Round 3 review fixes (EXPORT_R3.md section 15.2): choose the defaults of M_AirshipR3 v2's look knobs (LitMix, ShadeLift,",
+ "model": "r3_look.py; display = /mnt/new_partition/UnrealProjects/AuraRedo3/Saved/ClaudeTools/icelook/m1/display/display_model.py (forward, Filmic + V2.1 grading + 32^3 10-bit LUT)",
+ "startup": {
+  "source": "Content/Maps/StartupMap.umap = icelook preset V2_1.json (applied 2026-10-26; decoded by the round 3 review)",
+  "moon_lux": 2.24,
+  "moon_rgb8": [
+   125,
+   160,
+   255
+  ],
+  "moon_rot_pyr": [
+   -55.0,
+   178.0,
+   100.0
+  ],
+  "sky_intensity": 0.7,
+  "sky_rgb8": [
+   73,
+   203,
+   255
+  ],
+  "sky_lower": [
+   0.1,
+   0.18,
+   0.4
+  ],
+  "sky_cubemap": "/Engine/MapTemplates/Sky/DaylightAmbientCubemap",
+  "ev100": 0.5,
+  "sky_display_hex": "026AB5",
+  "pp": {
+   "auto_exposure_bias": -0.5,
+   "color_saturation": [
+    1.15,
+    1.15,
+    1.15,
+    1.0
+   ],
+   "color_contrast": [
+    1.1,
+    1.1,
+    1.1,
+    1.0
+   ],
+   "color_gain_shadows": [
+    1.05,
+    0.85,
+    0.85,
+    1.0
+   ],
+   "color_offset_shadows": [
+    0.008,
+    0.013,
+    0.0275,
+    0.0
+   ],
+   "color_gain_highlights": [
+    1.45,
+    1.45,
+    1.38,
+    1.0
+   ],
+   "color_offset_highlights": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "color_correction_highlights_min": 0.12,
+   "color_correction_highlights_max": 0.42,
+   "color_saturation_highlights": [
+    0.72,
+    0.72,
+    0.72,
+    1.0
+   ]
+  }
+ },
+ "sky_r_range": [
+  0.3,
+  0.6,
+  1.0
+ ],
+ "weights": {
+  "hull_paint": 3.0,
+  "paint_yellow": 2.0,
+  "paint_ochre": 1.0,
+  "paint_orange": 1.0,
+  "rust_red": 2.0,
+  "rust_dark": 1.0,
+  "keel_block": 0.5,
+  "deck": 1.0,
+  "copper": 0.5,
+  "wood": 0.5,
+  "steel": 0.5,
+  "dark_metal": 0.5,
+  "machinery": 0.5,
+  "brass": 0.3
+ },
+ "faces": {
+  "wall_shade": {
+   "target_band": 0.7
+  },
+  "wall_lit": {
+   "target_band": 1.0
+  },
+  "deck_top": {
+   "target_band": 1.0
+  }
+ },
+ "grid": {
+  "lit_mix": [
+   0.0,
+   0.25,
+   0.5,
+   0.75,
+   1.0
+  ],
+  "shade_lift": [
+   0.2,
+   0.25,
+   0.3,
+   0.35,
+   0.4,
+   0.45,
+   0.5,
+   0.55,
+   0.6,
+   0.65,
+   0.7,
+   0.75,
+   0.8,
+   0.85,
+   0.9,
+   0.95,
+   1.0,
+   1.05,
+   1.1,
+   1.15,
+   1.2,
+   1.25,
+   1.3
+  ],
+  "lift_sat": [
+   1.0,
+   1.1,
+   1.2,
+   1.3,
+   1.4,
+   1.5,
+   1.6,
+   1.7,
+   1.8,
+   1.9,
+   2.0
+  ]
+ },
+ "chosen": {
+  "lit_mix": 0.5,
+  "shade_lift": 0.55,
+  "lift_sat": 1.3,
+  "lift_lock": 1.0
+ },
+ "chosen_worst_dE": 13.38,
+ "chosen_per_sky_r": {
+  "0.3": {
+   "mean": 13.04,
+   "wall_shade": 14.26,
+   "wall_lit": 12.38,
+   "deck_top": 12.48
+  },
+  "0.6": {
+   "mean": 13.06,
+   "wall_shade": 13.69,
+   "wall_lit": 12.5,
+   "deck_top": 12.99
+  },
+  "1.0": {
+   "mean": 13.38,
+   "wall_shade": 13.26,
+   "wall_lit": 12.8,
+   "deck_top": 14.07
+  }
+ },
+ "overall_best": {
+  "look": {
+   "lit_mix": 0.0,
+   "shade_lift": 0.6,
+   "lift_sat": 1.1,
+   "lift_lock": 1.0
+  },
+  "worst_dE": 12.53
+ },
+ "best_per_lit_mix": {
+  "0.0": {
+   "look": {
+    "lit_mix": 0.0,
+    "shade_lift": 0.6,
+    "lift_sat": 1.1,
+    "lift_lock": 1.0
+   },
+   "worst_dE": 12.53
+  },
+  "0.25": {
+   "look": {
+    "lit_mix": 0.25,
+    "shade_lift": 0.55,
+    "lift_sat": 1.2,
+    "lift_lock": 1.0
+   },
+   "worst_dE": 12.58
+  },
+  "0.5": {
+   "look": {
+    "lit_mix": 0.5,
+    "shade_lift": 0.55,
+    "lift_sat": 1.3,
+    "lift_lock": 1.0
+   },
+   "worst_dE": 13.38
+  },
+  "0.75": {
+   "look": {
+    "lit_mix": 0.75,
+    "shade_lift": 0.55,
+    "lift_sat": 1.4,
+    "lift_lock": 1.0
+   },
+   "worst_dE": 14.38
+  },
+  "1.0": {
+   "look": {
+    "lit_mix": 1.0,
+    "shade_lift": 0.5,
+    "lift_sat": 1.5,
+    "lift_lock": 1.0
+   },
+   "worst_dE": 16.08
+  }
+ },
+ "v1_plain_lit": {
+  "look": {
+   "lit_mix": 1.0,
+   "shade_lift": 0.0,
+   "lift_sat": 1.0,
+   "lift_lock": 1.0
+  },
+  "worst_dE": 65.07,
+  "per_sky_r": {
+   "0.3": {
+    "mean": 65.07,
+    "wall_shade": 67.89,
+    "wall_lit": 67.06,
+    "deck_top": 60.26
+   },
+   "0.6": {
+    "mean": 61.05,
+    "wall_shade": 62.94,
+    "wall_lit": 64.1,
+    "deck_top": 56.12
+   },
+   "1.0": {
+    "mean": 57.15,
+    "wall_shade": 58.22,
+    "wall_lit": 61.05,
+    "deck_top": 52.17
+   }
+  }
+ },
+ "per_colour_chosen_sky_r_mid": {
+  "hull_paint": {
+   "wall_shade": {
+    "shown": [
+     217,
+     198,
+     105
+    ],
+    "approved": [
+     208,
+     173,
+     97
+    ],
+    "dE": 12.2,
+    "hue_shown": 96.0,
+    "hue_approved": 86.0
+   },
+   "wall_lit": {
+    "shown": [
+     219,
+     204,
+     126
+    ],
+    "approved": [
+     243,
+     203,
+     115
+    ],
+    "dE": 12.3,
+    "hue_shown": 97.0,
+    "hue_approved": 86.0
+   },
+   "deck_top": {
+    "shown": [
+     220,
+     208,
+     136
+    ],
+    "approved": [
+     243,
+     203,
+     115
+    ],
+    "dE": 15.2,
+    "hue_shown": 99.0,
+    "hue_approved": 86.0
+   }
+  },
+  "paint_yellow": {
+   "wall_shade": {
+    "shown": [
+     219,
+     207,
+     127
+    ],
+    "approved": [
+     213,
+     183,
+     107
+    ],
+    "dE": 10.2,
+    "hue_shown": 99.0,
+    "hue_approved": 89.0
+   },
+   "wall_lit": {
+    "shown": [
+     221,
+     210,
+     144
+    ],
+    "approved": [
+     249,
+     215,
+     126
+    ],
+    "dE": 15.6,
+    "hue_shown": 100.0,
+    "hue_approved": 89.0
+   },
+   "deck_top": {
+    "shown": [
+     222,
+     213,
+     153
+    ],
+    "approved": [
+     249,
+     215,
+     126
+    ],
+    "dE": 18.5,
+    "hue_shown": 101.0,
+    "hue_approved": 89.0
+   }
+  },
+  "paint_ochre": {
+   "wall_shade": {
+    "shown": [
+     212,
+     190,
+     87
+    ],
+    "approved": [
+     201,
+     165,
+     91
+    ],
+    "dE": 15.3,
+    "hue_shown": 94.0,
+    "hue_approved": 85.0
+   },
+   "wall_lit": {
+    "shown": [
+     215,
+     196,
+     110
+    ],
+    "approved": [
+     235,
+     194,
+     108
+    ],
+    "dE": 9.3,
+    "hue_shown": 96.0,
+    "hue_approved": 85.0
+   },
+   "deck_top": {
+    "shown": [
+     217,
+     202,
+     124
+    ],
+    "approved": [
+     235,
+     194,
+     108
+    ],
+    "dE": 12.3,
+    "hue_shown": 97.0,
+    "hue_approved": 85.0
+   }
+  },
+  "paint_orange": {
+   "wall_shade": {
+    "shown": [
+     215,
+     154,
+     47
+    ],
+    "approved": [
+     203,
+     141,
+     82
+    ],
+    "dE": 21.6,
+    "hue_shown": 78.0,
+    "hue_approved": 67.0
+   },
+   "wall_lit": {
+    "shown": [
+     217,
+     164,
+     73
+    ],
+    "approved": [
+     237,
+     166,
+     97
+    ],
+    "dE": 12.4,
+    "hue_shown": 79.0,
+    "hue_approved": 67.0
+   },
+   "deck_top": {
+    "shown": [
+     219,
+     173,
+     89
+    ],
+    "approved": [
+     237,
+     166,
+     97
+    ],
+    "dE": 12.6,
+    "hue_shown": 81.0,
+    "hue_approved": 67.0
+   }
+  },
+  "rust_red": {
+   "wall_shade": {
+    "shown": [
+     162,
+     82,
+     42
+    ],
+    "approved": [
+     160,
+     105,
+     82
+    ],
+    "dE": 19.7,
+    "hue_shown": 51.0,
+    "hue_approved": 48.0
+   },
+   "wall_lit": {
+    "shown": [
+     167,
+     90,
+     58
+    ],
+    "approved": [
+     188,
+     124,
+     97
+    ],
+    "dE": 14.9,
+    "hue_shown": 49.0,
+    "hue_approved": 48.0
+   },
+   "deck_top": {
+    "shown": [
+     170,
+     98,
+     67
+    ],
+    "approved": [
+     188,
+     124,
+     97
+    ],
+    "dE": 11.2,
+    "hue_shown": 49.0,
+    "hue_approved": 48.0
+   }
+  },
+  "rust_dark": {
+   "wall_shade": {
+    "shown": [
+     126,
+     59,
+     33
+    ],
+    "approved": [
+     134,
+     88,
+     71
+    ],
+    "dE": 17.7,
+    "hue_shown": 47.0,
+    "hue_approved": 47.0
+   },
+   "wall_lit": {
+    "shown": [
+     130,
+     64,
+     44
+    ],
+    "approved": [
+     158,
+     105,
+     85
+    ],
+    "dE": 16.8,
+    "hue_shown": 44.0,
+    "hue_approved": 47.0
+   },
+   "deck_top": {
+    "shown": [
+     133,
+     70,
+     50
+    ],
+    "approved": [
+     158,
+     105,
+     85
+    ],
+    "dE": 14.3,
+    "hue_shown": 43.0,
+    "hue_approved": 47.0
+   }
+  },
+  "keel_block": {
+   "wall_shade": {
+    "shown": [
+     162,
+     82,
+     42
+    ],
+    "approved": [
+     160,
+     105,
+     82
+    ],
+    "dE": 19.7,
+    "hue_shown": 51.0,
+    "hue_approved": 48.0
+   },
+   "wall_lit": {
+    "shown": [
+     167,
+     90,
+     58
+    ],
+    "approved": [
+     188,
+     124,
+     97
+    ],
+    "dE": 14.9,
+    "hue_shown": 49.0,
+    "hue_approved": 48.0
+   },
+   "deck_top": {
+    "shown": [
+     170,
+     98,
+     67
+    ],
+    "approved": [
+     188,
+     124,
+     97
+    ],
+    "dE": 11.2,
+    "hue_shown": 49.0,
+    "hue_approved": 48.0
+   }
+  },
+  "deck": {
+   "wall_shade": {
+    "shown": [
+     175,
+     171,
+     159
+    ],
+    "approved": [
+     163,
+     154,
+     141
+    ],
+    "dE": 6.3,
+    "hue_shown": 96.0,
+    "hue_approved": 83.0
+   },
+   "wall_lit": {
+    "shown": [
+     181,
+     179,
+     176
+    ],
+    "approved": [
+     191,
+     181,
+     166
+    ],
+    "dE": 7.2,
+    "hue_shown": 86.0,
+    "hue_approved": 83.0
+   },
+   "deck_top": {
+    "shown": [
+     186,
+     186,
+     184
+    ],
+    "approved": [
+     191,
+     181,
+     166
+    ],
+    "dE": 8.5,
+    "hue_shown": 111.0,
+    "hue_approved": 83.0
+   }
+  },
+  "copper": {
+   "wall_shade": {
+    "shown": [
+     198,
+     146,
+     76
+    ],
+    "approved": [
+     186,
+     137,
+     97
+    ],
+    "dE": 15.5,
+    "hue_shown": 74.0,
+    "hue_approved": 65.0
+   },
+   "wall_lit": {
+    "shown": [
+     202,
+     156,
+     99
+    ],
+    "approved": [
+     218,
+     162,
+     115
+    ],
+    "dE": 6.8,
+    "hue_shown": 74.0,
+    "hue_approved": 65.0
+   },
+   "deck_top": {
+    "shown": [
+     204,
+     164,
+     113
+    ],
+    "approved": [
+     218,
+     162,
+     115
+    ],
+    "dE": 7.3,
+    "hue_shown": 76.0,
+    "hue_approved": 65.0
+   }
+  },
+  "wood": {
+   "wall_shade": {
+    "shown": [
+     156,
+     123,
+     78
+    ],
+    "approved": [
+     152,
+     126,
+     99
+    ],
+    "dE": 10.9,
+    "hue_shown": 77.0,
+    "hue_approved": 72.0
+   },
+   "wall_lit": {
+    "shown": [
+     161,
+     132,
+     97
+    ],
+    "approved": [
+     179,
+     149,
+     118
+    ],
+    "dE": 7.1,
+    "hue_shown": 75.0,
+    "hue_approved": 72.0
+   },
+   "deck_top": {
+    "shown": [
+     165,
+     140,
+     107
+    ],
+    "approved": [
+     179,
+     149,
+     118
+    ],
+    "dE": 4.4,
+    "hue_shown": 78.0,
+    "hue_approved": 72.0
+   }
+  },
+  "steel": {
+   "wall_shade": {
+    "shown": [
+     176,
+     182,
+     190
+    ],
+    "approved": [
+     160,
+     163,
+     167
+    ],
+    "dE": 7.5,
+    "hue_shown": 261.0,
+    "hue_approved": 265.0
+   },
+   "wall_lit": {
+    "shown": [
+     183,
+     190,
+     202
+    ],
+    "approved": [
+     188,
+     191,
+     196
+    ],
+    "dE": 4.0,
+    "hue_shown": 269.0,
+    "hue_approved": 265.0
+   },
+   "deck_top": {
+    "shown": [
+     187,
+     196,
+     207
+    ],
+    "approved": [
+     188,
+     191,
+     196
+    ],
+    "dE": 4.3,
+    "hue_shown": 263.0,
+    "hue_approved": 265.0
+   }
+  },
+  "dark_metal": {
+   "wall_shade": {
+    "shown": [
+     72,
+     73,
+     80
+    ],
+    "approved": [
+     97,
+     94,
+     94
+    ],
+    "dE": 10.2,
+    "hue_shown": 286.0,
+    "hue_approved": 19.0
+   },
+   "wall_lit": {
+    "shown": [
+     75,
+     78,
+     94
+    ],
+    "approved": [
+     115,
+     111,
+     111
+    ],
+    "dE": 17.3,
+    "hue_shown": 286.0,
+    "hue_approved": 19.0
+   },
+   "deck_top": {
+    "shown": [
+     77,
+     83,
+     101
+    ],
+    "approved": [
+     115,
+     111,
+     111
+    ],
+    "dE": 16.9,
+    "hue_shown": 280.0,
+    "hue_approved": 19.0
+   }
+  },
+  "machinery": {
+   "wall_shade": {
+    "shown": [
+     109,
+     119,
+     135
+    ],
+    "approved": [
+     122,
+     124,
+     128
+    ],
+    "dE": 7.6,
+    "hue_shown": 267.0,
+    "hue_approved": 271.0
+   },
+   "wall_lit": {
+    "shown": [
+     115,
+     128,
+     152
+    ],
+    "approved": [
+     144,
+     147,
+     151
+    ],
+    "dE": 13.9,
+    "hue_shown": 273.0,
+    "hue_approved": 271.0
+   },
+   "deck_top": {
+    "shown": [
+     119,
+     136,
+     161
+    ],
+    "approved": [
+     144,
+     147,
+     151
+    ],
+    "dE": 13.5,
+    "hue_shown": 269.0,
+    "hue_approved": 271.0
+   }
+  },
+  "brass": {
+   "wall_shade": {
+    "shown": [
+     206,
+     194,
+     130
+    ],
+    "approved": [
+     193,
+     171,
+     114
+    ],
+    "dE": 9.2,
+    "hue_shown": 99.0,
+    "hue_approved": 90.0
+   },
+   "wall_lit": {
+    "shown": [
+     209,
+     200,
+     150
+    ],
+    "approved": [
+     226,
+     200,
+     134
+    ],
+    "dE": 11.0,
+    "hue_shown": 100.0,
+    "hue_approved": 90.0
+   },
+   "deck_top": {
+    "shown": [
+     211,
+     205,
+     160
+    ],
+    "approved": [
+     226,
+     200,
+     134
+    ],
+    "dE": 14.1,
+    "hue_shown": 102.0,
+    "hue_approved": 90.0
+   }
+  }
+ },
+ "per_colour_v1_sky_r_mid": {
+  "hull_paint": {
+   "wall_shade": {
+    "shown": [
+     0,
+     56,
+     39
+    ],
+    "approved": [
+     208,
+     173,
+     97
+    ],
+    "dE": 69.6,
+    "hue_shown": 165.0,
+    "hue_approved": 86.0
+   },
+   "wall_lit": {
+    "shown": [
+     42,
+     93,
+     68
+    ],
+    "approved": [
+     243,
+     203,
+     115
+    ],
+    "dE": 68.4,
+    "hue_shown": 159.0,
+    "hue_approved": 86.0
+   },
+   "deck_top": {
+    "shown": [
+     68,
+     126,
+     89
+    ],
+    "approved": [
+     243,
+     203,
+     115
+    ],
+    "dE": 58.7,
+    "hue_shown": 153.0,
+    "hue_approved": 86.0
+   }
+  },
+  "paint_yellow": {
+   "wall_shade": {
+    "shown": [
+     0,
+     61,
+     45
+    ],
+    "approved": [
+     213,
+     183,
+     107
+    ],
+    "dE": 69.5,
+    "hue_shown": 168.0,
+    "hue_approved": 89.0
+   },
+   "wall_lit": {
+    "shown": [
+     43,
+     102,
+     82
+    ],
+    "approved": [
+     249,
+     215,
+     126
+    ],
+    "dE": 69.0,
+    "hue_shown": 167.0,
+    "hue_approved": 89.0
+   },
+   "deck_top": {
+    "shown": [
+     75,
+     139,
+     107
+    ],
+    "approved": [
+     249,
+     215,
+     126
+    ],
+    "dE": 58.3,
+    "hue_shown": 159.0,
+    "hue_approved": 89.0
+   }
+  },
+  "paint_ochre": {
+   "wall_shade": {
+    "shown": [
+     0,
+     51,
+     37
+    ],
+    "approved": [
+     201,
+     165,
+     91
+    ],
+    "dE": 68.9,
+    "hue_shown": 168.0,
+    "hue_approved": 85.0
+   },
+   "wall_lit": {
+    "shown": [
+     39,
+     85,
+     61
+    ],
+    "approved": [
+     235,
+     194,
+     108
+    ],
+    "dE": 67.1,
+    "hue_shown": 157.0,
+    "hue_approved": 85.0
+   },
+   "deck_top": {
+    "shown": [
+     61,
+     117,
+     79
+    ],
+    "approved": [
+     235,
+     194,
+     108
+    ],
+    "dE": 58.2,
+    "hue_shown": 151.0,
+    "hue_approved": 85.0
+   }
+  },
+  "paint_orange": {
+   "wall_shade": {
+    "shown": [
+     0,
+     39,
+     36
+    ],
+    "approved": [
+     203,
+     141,
+     82
+    ],
+    "dE": 73.3,
+    "hue_shown": 190.0,
+    "hue_approved": 67.0
+   },
+   "wall_lit": {
+    "shown": [
+     47,
+     63,
+     51
+    ],
+    "approved": [
+     237,
+     166,
+     97
+    ],
+    "dE": 69.6,
+    "hue_shown": 151.0,
+    "hue_approved": 67.0
+   },
+   "deck_top": {
+    "shown": [
+     66,
+     89,
+     64
+    ],
+    "approved": [
+     237,
+     166,
+     97
+    ],
+    "dE": 61.5,
+    "hue_shown": 141.0,
+    "hue_approved": 67.0
+   }
+  },
+  "rust_red": {
+   "wall_shade": {
+    "shown": [
+     1,
+     25,
+     42
+    ],
+    "approved": [
+     160,
+     105,
+     82
+    ],
+    "dE": 59.2,
+    "hue_shown": 262.0,
+    "hue_approved": 48.0
+   },
+   "wall_lit": {
+    "shown": [
+     31,
+     37,
+     59
+    ],
+    "approved": [
+     188,
+     124,
+     97
+    ],
+    "dE": 60.8,
+    "hue_shown": 287.0,
+    "hue_approved": 48.0
+   },
+   "deck_top": {
+    "shown": [
+     42,
+     51,
+     68
+    ],
+    "approved": [
+     188,
+     124,
+     97
+    ],
+    "dE": 55.7,
+    "hue_shown": 276.0,
+    "hue_approved": 48.0
+   }
+  },
+  "rust_dark": {
+   "wall_shade": {
+    "shown": [
+     0,
+     20,
+     38
+    ],
+    "approved": [
+     134,
+     88,
+     71
+    ],
+    "dE": 51.4,
+    "hue_shown": 269.0,
+    "hue_approved": 47.0
+   },
+   "wall_lit": {
+    "shown": [
+     22,
+     28,
+     52
+    ],
+    "approved": [
+     158,
+     105,
+     85
+    ],
+    "dE": 54.4,
+    "hue_shown": 288.0,
+    "hue_approved": 47.0
+   },
+   "deck_top": {
+    "shown": [
+     31,
+     38,
+     58
+    ],
+    "approved": [
+     158,
+     105,
+     85
+    ],
+    "dE": 50.3,
+    "hue_shown": 283.0,
+    "hue_approved": 47.0
+   }
+  },
+  "keel_block": {
+   "wall_shade": {
+    "shown": [
+     1,
+     25,
+     42
+    ],
+    "approved": [
+     160,
+     105,
+     82
+    ],
+    "dE": 59.2,
+    "hue_shown": 262.0,
+    "hue_approved": 48.0
+   },
+   "wall_lit": {
+    "shown": [
+     31,
+     37,
+     59
+    ],
+    "approved": [
+     188,
+     124,
+     97
+    ],
+    "dE": 60.8,
+    "hue_shown": 287.0,
+    "hue_approved": 48.0
+   },
+   "deck_top": {
+    "shown": [
+     42,
+     51,
+     68
+    ],
+    "approved": [
+     188,
+     124,
+     97
+    ],
+    "dE": 55.7,
+    "hue_shown": 276.0,
+    "hue_approved": 48.0
+   }
+  },
+  "deck": {
+   "wall_shade": {
+    "shown": [
+     0,
+     43,
+     77
+    ],
+    "approved": [
+     163,
+     154,
+     141
+    ],
+    "dE": 57.2,
+    "hue_shown": 272.0,
+    "hue_approved": 83.0
+   },
+   "wall_lit": {
+    "shown": [
+     5,
+     73,
+     130
+    ],
+    "approved": [
+     191,
+     181,
+     166
+    ],
+    "dE": 63.3,
+    "hue_shown": 276.0,
+    "hue_approved": 83.0
+   },
+   "deck_top": {
+    "shown": [
+     19,
+     103,
+     154
+    ],
+    "approved": [
+     191,
+     181,
+     166
+    ],
+    "dE": 54.3,
+    "hue_shown": 262.0,
+    "hue_approved": 83.0
+   }
+  },
+  "copper": {
+   "wall_shade": {
+    "shown": [
+     0,
+     37,
+     46
+    ],
+    "approved": [
+     186,
+     137,
+     97
+    ],
+    "dE": 65.7,
+    "hue_shown": 227.0,
+    "hue_approved": 65.0
+   },
+   "wall_lit": {
+    "shown": [
+     37,
+     60,
+     71
+    ],
+    "approved": [
+     218,
+     162,
+     115
+    ],
+    "dE": 66.2,
+    "hue_shown": 238.0,
+    "hue_approved": 65.0
+   },
+   "deck_top": {
+    "shown": [
+     53,
+     85,
+     88
+    ],
+    "approved": [
+     218,
+     162,
+     115
+    ],
+    "dE": 59.0,
+    "hue_shown": 207.0,
+    "hue_approved": 65.0
+   }
+  },
+  "wood": {
+   "wall_shade": {
+    "shown": [
+     0,
+     33,
+     50
+    ],
+    "approved": [
+     152,
+     126,
+     99
+    ],
+    "dE": 55.4,
+    "hue_shown": 253.0,
+    "hue_approved": 72.0
+   },
+   "wall_lit": {
+    "shown": [
+     19,
+     51,
+     76
+    ],
+    "approved": [
+     179,
+     149,
+     118
+    ],
+    "dE": 59.3,
+    "hue_shown": 262.0,
+    "hue_approved": 72.0
+   },
+   "deck_top": {
+    "shown": [
+     26,
+     73,
+     93
+    ],
+    "approved": [
+     179,
+     149,
+     118
+    ],
+    "dE": 53.1,
+    "hue_shown": 243.0,
+    "hue_approved": 72.0
+   }
+  },
+  "steel": {
+   "wall_shade": {
+    "shown": [
+     0,
+     46,
+     99
+    ],
+    "approved": [
+     160,
+     163,
+     167
+    ],
+    "dE": 58.3,
+    "hue_shown": 285.0,
+    "hue_approved": 265.0
+   },
+   "wall_lit": {
+    "shown": [
+     0,
+     82,
+     162
+    ],
+    "approved": [
+     188,
+     191,
+     196
+    ],
+    "dE": 63.3,
+    "hue_shown": 283.0,
+    "hue_approved": 265.0
+   },
+   "deck_top": {
+    "shown": [
+     15,
+     116,
+     184
+    ],
+    "approved": [
+     188,
+     191,
+     196
+    ],
+    "dE": 50.4,
+    "hue_shown": 269.0,
+    "hue_approved": 265.0
+   }
+  },
+  "dark_metal": {
+   "wall_shade": {
+    "shown": [
+     0,
+     21,
+     50
+    ],
+    "approved": [
+     97,
+     94,
+     94
+    ],
+    "dE": 39.9,
+    "hue_shown": 282.0,
+    "hue_approved": 19.0
+   },
+   "wall_lit": {
+    "shown": [
+     2,
+     30,
+     74
+    ],
+    "approved": [
+     115,
+     111,
+     111
+    ],
+    "dE": 47.5,
+    "hue_shown": 288.0,
+    "hue_approved": 19.0
+   },
+   "deck_top": {
+    "shown": [
+     2,
+     41,
+     87
+    ],
+    "approved": [
+     115,
+     111,
+     111
+    ],
+    "dE": 44.5,
+    "hue_shown": 284.0,
+    "hue_approved": 19.0
+   }
+  },
+  "machinery": {
+   "wall_shade": {
+    "shown": [
+     0,
+     30,
+     69
+    ],
+    "approved": [
+     122,
+     124,
+     128
+    ],
+    "dE": 48.5,
+    "hue_shown": 285.0,
+    "hue_approved": 271.0
+   },
+   "wall_lit": {
+    "shown": [
+     0,
+     47,
+     113
+    ],
+    "approved": [
+     144,
+     147,
+     151
+    ],
+    "dE": 58.2,
+    "hue_shown": 290.0,
+    "hue_approved": 271.0
+   },
+   "deck_top": {
+    "shown": [
+     0,
+     69,
+     136
+    ],
+    "approved": [
+     144,
+     147,
+     151
+    ],
+    "dE": 51.7,
+    "hue_shown": 282.0,
+    "hue_approved": 271.0
+   }
+  },
+  "brass": {
+   "wall_shade": {
+    "shown": [
+     0,
+     54,
+     52
+    ],
+    "approved": [
+     193,
+     171,
+     114
+    ],
+    "dE": 64.5,
+    "hue_shown": 193.0,
+    "hue_approved": 90.0
+   },
+   "wall_lit": {
+    "shown": [
+     29,
+     90,
+     93
+    ],
+    "approved": [
+     226,
+     200,
+     134
+    ],
+    "dE": 66.2,
+    "hue_shown": 201.0,
+    "hue_approved": 90.0
+   },
+   "deck_top": {
+    "shown": [
+     55,
+     123,
+     116
+    ],
+    "approved": [
+     226,
+     200,
+     134
+    ],
+    "dE": 56.6,
+    "hue_shown": 186.0,
+    "hue_approved": 90.0
+   }
+  }
+ },
+ "reviewer_candidate_emissive_0p8": {
+  "look": {
+   "lit_mix": 1.0,
+   "shade_lift": 0.5656854249492381,
+   "lift_sat": 1.0,
+   "lift_lock": 1.0
+  },
+  "note": "the review's candidate: palette x 0.8 as plain emissive (scene units; x exposure here)",
+  "worst_dE": 21.3
+ }
+}

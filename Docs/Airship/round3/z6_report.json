@@ -1,0 +1,1366 @@
+{
+ "zone": "Z6",
+ "knobs": {
+  "seed": 1306,
+  "touch_tol": 0.02,
+  "layer": 0.006,
+  "seam": 0.024,
+  "plate": {
+   "gap": 0.015,
+   "t": 0.045,
+   "bevel": 0.014,
+   "cut": [
+    0.07,
+    0.15
+   ],
+   "cut_p": 0.3
+  },
+  "rivet": {
+   "r": 0.022,
+   "h": 0.012,
+   "inset": 0.07,
+   "spacing": 0.28
+  },
+  "yellows": [
+   [
+    "paint_yellow",
+    0.5
+   ],
+   [
+    "paint_ochre",
+    0.5
+   ]
+  ],
+  "poses": {
+   "yaw": [
+    -12.0,
+    -8.0,
+    -4.0,
+    0.0,
+    4.0,
+    8.0,
+    12.0
+   ],
+   "rudder": [
+    -30.0,
+    -25.0,
+    -20.0,
+    -15.0,
+    -10.0,
+    -5.0,
+    0.0,
+    5.0,
+    10.0,
+    15.0,
+    20.0,
+    25.0,
+    30.0
+   ],
+   "rod": [
+    -20.0,
+    0.0,
+    20.0
+   ],
+   "spin": [
+    0.0,
+    15.0,
+    30.0,
+    45.0,
+    60.0,
+    75.0,
+    90.0,
+    105.0,
+    120.0,
+    135.0,
+    150.0,
+    165.0,
+    180.0,
+    195.0,
+    210.0,
+    225.0,
+    240.0,
+    255.0,
+    270.0,
+    285.0,
+    300.0,
+    315.0,
+    330.0,
+    345.0
+   ]
+  },
+  "fan": {
+   "w": [
+    0.8,
+    1.5
+   ],
+   "min_w": 0.45,
+   "mats": [
+    [
+     "paint_orange",
+     0.7
+    ],
+    [
+     "paint_ochre",
+     0.3
+    ]
+   ],
+   "armour_p": 0.14,
+   "overlap": 0.08,
+   "batten_p": 0.55,
+   "batten_w": 0.12,
+   "frame_p": 0.42,
+   "frame_edge": 0.09,
+   "patch_p": 0.5,
+   "patch_mats": [
+    [
+     "rust_red",
+     0.7
+    ],
+    [
+     "rust_dark",
+     0.3
+    ]
+   ],
+   "slots": 2,
+   "band_seg": 1.7,
+   "bays": [
+    [
+     -38.0,
+     1.45,
+     "pump"
+    ],
+    [
+     46.0,
+     1.3,
+     "pair"
+    ]
+   ],
+   "rim_n": 16,
+   "rim_rho": [
+    2.95,
+    3.45
+   ],
+   "liner_n": 10,
+   "ring_rivet_step": 0.6,
+   "bay_floor": "paint_ochre",
+   "bay_lid": "machinery"
+  },
+  "stator": {
+   "n": 5,
+   "phase": 91.0,
+   "x": [
+    -18.36,
+    -18.1
+   ],
+   "t": 0.09,
+   "collar_r": 0.65,
+   "hub_r": 0.6,
+   "hub_x": [
+    -18.56,
+    -17.93
+   ],
+   "tail_x": -18.98,
+   "tail_r": 0.28
+  },
+  "transom": {
+   "w": [
+    1.0,
+    1.6
+   ],
+   "row_h": [
+    0.8,
+    1.5
+   ],
+   "armour_p": 0.12,
+   "slots": 1,
+   "frame_p": 0.3,
+   "patch_p": 0.5,
+   "batten_p": 0.6,
+   "min_w": 0.5,
+   "min_h": 0.38,
+   "col_w": 0.75,
+   "col_split": 2.0,
+   "frame_min_w": 1.1,
+   "low_panel_strap": false,
+   "patch_min_w": 0.9,
+   "patch_low": true,
+   "pipes": {
+    "port_header": {
+     "kind": "header",
+     "strip": [
+      0.95,
+      2.95,
+      2.24,
+      2.76
+     ],
+     "span": [
+      1.02,
+      2.86
+     ],
+     "runs": [
+      [
+       2.6,
+       0.055,
+       "copper"
+      ],
+      [
+       2.41,
+       0.045,
+       "brass"
+      ]
+     ],
+     "bonnet": [
+      0,
+      0,
+      -1
+     ]
+    },
+    "stbd_riser": {
+     "kind": "riser",
+     "strip": [
+      -2.97,
+      -2.56,
+      -1.1,
+      2.76
+     ],
+     "span": [
+      -0.95,
+      2.62
+     ],
+     "runs": [
+      [
+       -2.84,
+       0.05,
+       "copper"
+      ],
+      [
+       -2.69,
+       0.04,
+       "brass"
+      ]
+     ],
+     "bonnet": [
+      0,
+      1,
+      0
+     ]
+    }
+   }
+  },
+  "rudder": {
+   "x_cut": -16.75,
+   "band": [
+    0.05,
+    0.25
+   ],
+   "ribs": [
+    2.75,
+    -1.6
+   ],
+   "tiller": [
+    1.21,
+    1.59
+   ],
+   "w": [
+    1.5,
+    2.3
+   ],
+   "mats": [
+    [
+     "rust_dark",
+     0.6
+    ],
+    [
+     "rust_red",
+     0.4
+    ]
+   ],
+   "frame_p": 0.25,
+   "patch_p": 0.3,
+   "tiller_clamps": [
+    -17.6,
+    -19.1
+   ],
+   "brace": [
+    -1.45,
+    1.06
+   ],
+   "force_slot": true
+  },
+  "rotor": {
+   "blades": true,
+   "collar": {
+    "x": [
+     -17.34,
+     -16.88
+    ],
+    "r_in": 0.79,
+    "r_out": 0.95,
+    "ch": 0.025,
+    "seg": 56,
+    "mat": "rust_red",
+    "rivets": 28,
+    "rivet_r": 0.885
+   },
+   "cuffs": {
+    "rho": [
+     0.9,
+     1.04
+    ],
+    "m_chord": 0.02,
+    "m_thick": 0.015,
+    "ch": 0.008,
+    "mat": "machinery"
+   },
+   "tips": "caps",
+   "caps": {
+    "len": 0.14,
+    "skip_fwd": 0.08,
+    "m_chord": 0.012,
+    "m_thick": 0.014,
+    "ch": 0.006,
+    "ext": 0.012,
+    "mat": "steel",
+    "rivet": true
+   },
+   "shroud": {
+    "x": [
+     -17.44,
+     -17.21
+    ],
+    "r": [
+     2.7,
+     2.755
+    ],
+    "ch": 0.01,
+    "seg": 112,
+    "mat": "steel",
+    "rivets": 28
+   },
+   "r_max": 2.756,
+   "duct_r_min": 2.7747,
+   "swept_margin": 0.01,
+   "swept_yaw_step": 0.25
+  }
+ },
+ "log": {
+  "t_posed": 1.3,
+  "transom_map": [
+   "                                                                            ",
+   "###/######/.........................####.........................////////###",
+   "##########..........................####..........................///////###",
+   "##########.......................///####///.......................//////####",
+   "####//####....................../ccc####ccc/......................//////####",
+   "####//####....................../ccc####ccc/......................./////####",
+   "####///###....................../ccc####ccc/......................./////####",
+   "###########...................../ccc####ccc/.......................//#######",
+   "#############.................../ccc####ccc/...................#############",
+   "#############.................../ccc####ccc/...................#############",
+   "#############.................../ccc####ccc/...................#############",
+   "#############.................../ccc####ccc/...................#############",
+   "#############.................../cc######cc/...................#############",
+   "#############.................../cc######cc/...................#############",
+   "#############..../////////....../ccc####ccc/....../////////....#############",
+   "#############....bbbbbbbbb/...../ccc####ccc/...../bbbbbbbbb....#############",
+   "#############....bbbbbbbbb/...../ccc####ccc/...../bbbbbbbbb....#############",
+   "#############....bbbbbbbbb/...../ccc####ccc/...../bbbbbbbbb....#############",
+   "#############....bbbbbbbbb/...../ccc####ccc/...../bbbbbbbbb....#############",
+   "#############....bbbbbbbbb/...../ccc####ccc/...../bbbbbbbbb....#############",
+   "#############....bbbbbbbbb/...../ccc####ccc/...../bbbbbbbbb....#############",
+   "##########.......bbbbbbbbb/.....////####////...../bbbbbbbbb.........//######",
+   "##########.......bbbbbbbbb/.........####........./bbbbbbbbb........#########",
+   "#########........bbbbbbbbb/.........####........./bbbbbbbbb.......##########",
+   "#########........bbbbbbbbb/.........####........./bbbbbbbbb.......##########",
+   "#########........bbbbbbbbb/.........####........./bbbbbbbbb.......##########",
+   "###/####/........bbbbbbbbb/.........####........./bbbbbbbbb........#####//##",
+   "########/........bbbbbbbbb/.........####........./bbbbbbbbb........#####///#",
+   "#########/.......bbbbbbbbb/.........####........./bbbbbbbbb......./##//////#",
+   "#/#######/.......bbbbbbbbb/.........####........./bbbbbbbbb.......//////////",
+   "#/#######/.......bbbbbbbbb/.........####........./bbbbbbbbb.......//////##//",
+   "/#########.......bbbbbbbbb/.........####........./bbbbbbbbb.......////####//",
+   "#####/###//......bbbbbbbbb/.........####........./bbbbbbbbb......//////####/",
+   "########/#/......bbbbbbbbb/.........####........./bbbbbbbbb......//////#####",
+   "#######/###/.....bbbbbbbbb/.........####........./bbbbbbbbb.....////////####",
+   "######/####/.....bbbbbbbbb/.........####........./bbbbbbbbb...../////////###",
+   "####//#/####/.......................####.......................//////////###",
+   "##//########/.......................####.......................///////////##",
+   "#//##/##/##/#/......................####....................../////////////#",
+   "/#########//##/.......cccccccccccccc####cccccccccccccc.......///////////////",
+   "####/####//####/......cccccccccccccc####cccccccccccccc......////////////////",
+   "/######////##/#//.....cccccccccccccc####cccccccccccccc...../////////////////",
+   "###/###//##/##////....cccccccccccccc####cccccccccccccc....//////////////////",
+   "###/r#//####/##////...cccccccccccccc####cccccccccccccc...//////////////r////",
+   "/##/////#####////#//..cccccccccccccc####cccccccccccccc..////////////////////",
+   "##///////####///#/#//.cccccccccccccc####cccccccccccccc.///////////////////##",
+   "####/////##/#///##/#//cccccccccccccc####cccccccccccccc//////////////////####",
+   "######////##///#/##////.............####............./////////////////######",
+   "#######////#//###/#/////............####............/////////////////#######",
+   "#########//////###//////////////////####///////////////////////////#########",
+   "##########////#//##//#//////////////####/////////////////////////###########"
+  ],
+  "transom": {
+   "free_cells": 9660,
+   "free_area_m2": 15.5,
+   "plate_dims": [
+    [
+     0.78,
+     -1.62,
+     0.52,
+     2.02
+    ],
+    [
+     0.78,
+     0.42,
+     0.52,
+     1.8
+    ],
+    [
+     1.34,
+     1.34,
+     0.84,
+     0.88
+    ],
+    [
+     2.21,
+     1.34,
+     0.77,
+     0.88
+    ],
+    [
+     -2.54,
+     1.34,
+     0.98,
+     0.69
+    ],
+    [
+     -1.53,
+     1.34,
+     0.75,
+     0.69
+    ],
+    [
+     -2.54,
+     2.05,
+     0.86,
+     0.69
+    ],
+    [
+     -1.65,
+     2.05,
+     0.87,
+     0.69
+    ],
+    [
+     -1.3,
+     -1.62,
+     0.52,
+     1.6
+    ],
+    [
+     -1.3,
+     0.01,
+     0.52,
+     1.29
+    ]
+   ],
+   "plates": {
+    "base": 9,
+    "armour": 1,
+    "frames": 0,
+    "patches": 1,
+    "slotted": 1,
+    "planned": 10,
+    "plate_area_m2": 7.3,
+    "calm_share_of_area": 0.71
+   },
+   "battens": 6,
+   "bays": {
+    "planned": 0,
+    "built": 0
+   },
+   "pipes": {
+    "port_header": 1,
+    "stbd_riser": 1
+   },
+   "panel_straps": 4
+  },
+  "mounts": {
+   "pylon_faces": 2,
+   "strut_bands": 4
+  },
+  "t_hull": 3.1,
+  "fan_map": {
+   "L": {
+    "cells": 9180,
+    "free_by_level": [
+     8094,
+     7832,
+     7556,
+     7388
+    ]
+   },
+   "R": {
+    "cells": 9180,
+    "free_by_level": [
+     8072,
+     7800,
+     7516,
+     7360
+    ]
+   }
+  },
+  "fan_L": {
+   "band_front": 11,
+   "band_gimbal": 11,
+   "band_rear": 14,
+   "plates": {
+    "base": 26,
+    "raised": 1,
+    "frames": 9,
+    "patches": 5,
+    "slotted": 0,
+    "battens": 7,
+    "planned": 27,
+    "calm_plates": 10,
+    "calm_share_of_area": 0.4,
+    "armour_share": 0.04,
+    "plate_area_m2": 20.2
+   },
+   "bays": {
+    "planned": [
+     [
+      -49.5,
+      "pump"
+     ],
+     [
+      35.7,
+      "pair"
+     ]
+    ],
+    "built": 2
+   },
+   "rear_rim_segments": 16,
+   "liner": {
+    "segments": 10,
+    "ribs": 10
+   },
+   "stator": {
+    "struts": 5,
+    "hub": 1
+   },
+   "ring_rivets": 28,
+   "platform_blocks": 4,
+   "rivets_on_plates_and_layers": 166,
+   "rotor_tail": 1,
+   "rod_details": 1,
+   "blades": {
+    "base_blades": 28,
+    "blade_face_flatness_max_mm": 0.001,
+    "blade_rho_root_tip": [
+     0.779,
+     2.747
+    ],
+    "collar": 1,
+    "cuffs": 28,
+    "cuff_pairs_touching": 0,
+    "tip_caps": 28,
+    "tip_cap_rivets": 28,
+    "tip_cap_end_past_slat_mm": [
+     4.0,
+     4.0
+    ],
+    "cap_pairs_touching": 0,
+    "max_vertex_radius_m": 2.7555,
+    "duct_wall_inscribed_r_m": 2.7747,
+    "min_clearance_to_duct_m": 0.0192,
+    "hull_swept": {
+     "yaw_steps": [
+      -12.0,
+      12.0,
+      0.25
+     ],
+     "tris": 11,
+     "samples": 1404846,
+     "r_min_reached": 1.7876,
+     "margin_m": 0.01,
+     "min_clearance_rotor_details_m": 0.0214
+    },
+    "tris_added": 3920,
+    "stats": {
+     "blade_collar": {
+      "built": 1
+     },
+     "blade_cuff": {
+      "built": 28
+     },
+     "blade_tip_cap": {
+      "built": 28
+     }
+    }
+   }
+  },
+  "t_fan_L": 61.9,
+  "fan_R": {
+   "band_front": 11,
+   "band_gimbal": 12,
+   "band_rear": 14,
+   "plates": {
+    "base": 24,
+    "raised": 2,
+    "frames": 4,
+    "patches": 8,
+    "slotted": 2,
+    "battens": 7,
+    "planned": 26,
+    "calm_plates": 10,
+    "calm_share_of_area": 0.35,
+    "armour_share": 0.08,
+    "plate_area_m2": 19.7
+   },
+   "bays": {
+    "planned": [
+     [
+      -49.5,
+      "pump"
+     ],
+     [
+      35.7,
+      "pair"
+     ]
+    ],
+    "built": 2
+   },
+   "rear_rim_segments": 16,
+   "liner": {
+    "segments": 10,
+    "ribs": 10
+   },
+   "stator": {
+    "struts": 5,
+    "hub": 1
+   },
+   "ring_rivets": 25,
+   "platform_blocks": 4,
+   "rivets_on_plates_and_layers": 167,
+   "rotor_tail": 1,
+   "rod_details": 1,
+   "blades": {
+    "base_blades": 28,
+    "blade_face_flatness_max_mm": 0.001,
+    "blade_rho_root_tip": [
+     0.779,
+     2.747
+    ],
+    "collar": 1,
+    "cuffs": 28,
+    "cuff_pairs_touching": 0,
+    "tip_caps": 28,
+    "tip_cap_rivets": 28,
+    "tip_cap_end_past_slat_mm": [
+     4.0,
+     4.0
+    ],
+    "cap_pairs_touching": 0,
+    "max_vertex_radius_m": 2.7555,
+    "duct_wall_inscribed_r_m": 2.7747,
+    "min_clearance_to_duct_m": 0.0192,
+    "hull_swept": {
+     "yaw_steps": [
+      -12.0,
+      12.0,
+      0.25
+     ],
+     "tris": 12,
+     "samples": 1399167,
+     "r_min_reached": 1.7876,
+     "margin_m": 0.01,
+     "min_clearance_rotor_details_m": 0.0214
+    },
+    "tris_added": 3920,
+    "stats": {
+     "blade_collar": {
+      "built": 1
+     },
+     "blade_cuff": {
+      "built": 28
+     },
+     "blade_tip_cap": {
+      "built": 28
+     }
+    }
+   }
+  },
+  "t_fan_R": 122.8,
+  "rudder": {
+   "face_+1": {
+    "band_strips": 5,
+    "ribs": 2,
+    "plates": 7,
+    "layers": 3,
+    "brace": 1,
+    "y": 0.22
+   },
+   "face_-1": {
+    "band_strips": 5,
+    "ribs": 2,
+    "plates": 7,
+    "layers": 1,
+    "brace": 1,
+    "y": -0.22
+   },
+   "tiller_clamps": 2
+  },
+  "t_rudder": 123.1,
+  "pieces": {
+   "Hull": {
+    "transom_plate": {
+     "built": 10
+    },
+    "transom_slotted": {
+     "built": 1
+    },
+    "transom_patch": {
+     "built": 1
+    },
+    "transom_batten": {
+     "built": 6
+    },
+    "transom_pipes": {
+     "built": 2
+    },
+    "panel_strap": {
+     "built": 4
+    },
+    "pylon": {
+     "built": 2,
+     "hull_or_fittings": 2
+    },
+    "strut_band": {
+     "built": 4,
+     "hull_or_fittings": 2,
+     "fan_yaw": 2
+    }
+   },
+   "Turbine_L": {
+    "band_front": {
+     "built": 11,
+     "hull_at_yaw": 1
+    },
+    "band_gimbal": {
+     "built": 11
+    },
+    "band_rear": {
+     "built": 14
+    },
+    "plate": {
+     "built": 27
+    },
+    "patch": {
+     "built": 5
+    },
+    "frame": {
+     "built": 9
+    },
+    "batten": {
+     "built": 7
+    },
+    "bay_pump": {
+     "built": 1
+    },
+    "bay_pair": {
+     "built": 1
+    },
+    "rear_rim": {
+     "built": 16
+    },
+    "liner": {
+     "built": 10
+    },
+    "liner_rib": {
+     "built": 10
+    },
+    "stator_strut": {
+     "built": 5
+    },
+    "stator_hub": {
+     "built": 1
+    },
+    "ring_rivet": {
+     "built": 28
+    },
+    "platform_block": {
+     "built": 4
+    }
+   },
+   "Rotor_L": {
+    "rotor_tail": {
+     "built": 1
+    },
+    "blade_collar": {
+     "built": 1
+    },
+    "blade_cuff": {
+     "built": 28
+    },
+    "blade_tip_cap": {
+     "built": 28
+    }
+   },
+   "Rod_L": {
+    "rod": {
+     "built": 1
+    }
+   },
+   "Turbine_R": {
+    "band_front": {
+     "built": 11,
+     "hull_at_yaw": 1
+    },
+    "band_gimbal": {
+     "built": 12
+    },
+    "band_rear": {
+     "built": 14
+    },
+    "plate": {
+     "built": 26
+    },
+    "patch": {
+     "built": 8
+    },
+    "slotted": {
+     "built": 2
+    },
+    "frame": {
+     "built": 4
+    },
+    "batten": {
+     "built": 7
+    },
+    "bay_pump": {
+     "built": 1
+    },
+    "bay_pair": {
+     "built": 1
+    },
+    "rear_rim": {
+     "built": 16
+    },
+    "liner": {
+     "built": 10
+    },
+    "liner_rib": {
+     "built": 10
+    },
+    "stator_strut": {
+     "built": 5
+    },
+    "stator_hub": {
+     "built": 1
+    },
+    "ring_rivet": {
+     "built": 25,
+     "housing_fittings": 1,
+     "hull_at_yaw": 2
+    },
+    "platform_block": {
+     "built": 4
+    }
+   },
+   "Rotor_R": {
+    "rotor_tail": {
+     "built": 1
+    },
+    "blade_collar": {
+     "built": 1
+    },
+    "blade_cuff": {
+     "built": 28
+    },
+    "blade_tip_cap": {
+     "built": 28
+    }
+   },
+   "Rod_R": {
+    "rod": {
+     "built": 1
+    }
+   },
+   "Rudder": {
+    "rudder_band": {
+     "built": 10
+    },
+    "rudder_rib": {
+     "built": 4
+    },
+    "rudder_plate": {
+     "built": 14
+    },
+    "rudder_layer": {
+     "built": 4
+    },
+    "rudder_brace": {
+     "built": 2
+    },
+    "tiller_clamp": {
+     "built": 2
+    }
+   }
+  },
+  "floating_pieces_removed": {},
+  "inside_out_pieces_flipped": {
+   "Hull": 0,
+   "Turbine_L": 0,
+   "Rotor_L": 0,
+   "Rod_L": 0,
+   "Turbine_R": 0,
+   "Rotor_R": 1,
+   "Rod_R": 0,
+   "Rudder": 0
+  }
+ },
+ "base_edits": {
+  "z6_fan_back_L": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "port fan: remove the flat disc behind the rotor (duct_back_wall, island 1028) and the big tail cone that closed the duct exit (tail_cone, island 1030, r 2.46 at x -18.76, flat end at x -19.91), so the fan blades are visible from behind and the duct reads as an open exhaust"
+  },
+  "z6_fan_back_R": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "starboard fan: the same (islands 1088 and 1091)"
+  },
+  "z7_chain_aft_bars": {
+   "file": "z7.json",
+   "zone": "Z7",
+   "faces": 36,
+   "tris": 72,
+   "guard_ok": true,
+   "why": "replace the ChainAft bars by a heavy link chain (detail object, Hull bone)"
+  }
+ },
+ "tris": {
+  "SM_AirshipDetail_Z6_Hull": 6812,
+  "SM_AirshipDetail_Z6_Turbine_L": 19482,
+  "SM_AirshipDetail_Z6_Rotor_L": 4136,
+  "SM_AirshipDetail_Z6_Rod_L": 176,
+  "SM_AirshipDetail_Z6_Turbine_R": 19216,
+  "SM_AirshipDetail_Z6_Rotor_R": 4136,
+  "SM_AirshipDetail_Z6_Rod_R": 176,
+  "SM_AirshipDetail_Z6_Rudder": 6784
+ },
+ "tris_total": 60918,
+ "tris_by_kind": {
+  "Hull": {
+   "plate": 880,
+   "rivet": 2478,
+   "plate_armour": 110,
+   "slotted": 240,
+   "patch": 20,
+   "batten": 204,
+   "pipe": 1344,
+   "gland": 576,
+   "clamp": 448,
+   "valve": 184,
+   "strap": 152,
+   "strut_band": 176
+  },
+  "Turbine_L": {
+   "band_front": 820,
+   "rivet": 5390,
+   "band_gimbal": 844,
+   "band_rear": 1120,
+   "plate": 3140,
+   "patch": 196,
+   "frame": 1344,
+   "plate_raised": 80,
+   "batten": 224,
+   "bay": 1248,
+   "housing": 1268,
+   "tank": 256,
+   "gland": 144,
+   "valve": 92,
+   "rim": 896,
+   "liner": 800,
+   "liner_rib": 200,
+   "stator_foot": 240,
+   "stator": 660,
+   "stator_hub": 344,
+   "platform_block": 176
+  },
+  "Rotor_L": {
+   "rotor_tail": 104,
+   "rivet": 896,
+   "blade_collar": 672,
+   "blade_cuff": 1232,
+   "blade_tip_cap": 1232
+  },
+  "Rod_L": {
+   "rod": 176
+  },
+  "Turbine_R": {
+   "band_front": 736,
+   "rivet": 5376,
+   "band_gimbal": 864,
+   "band_rear": 1120,
+   "plate": 2812,
+   "patch": 304,
+   "slotted": 624,
+   "frame": 656,
+   "plate_raised": 176,
+   "batten": 224,
+   "bay": 1248,
+   "housing": 1268,
+   "tank": 256,
+   "gland": 144,
+   "valve": 92,
+   "rim": 896,
+   "liner": 800,
+   "liner_rib": 200,
+   "stator_foot": 240,
+   "stator": 660,
+   "stator_hub": 344,
+   "platform_block": 176
+  },
+  "Rotor_R": {
+   "rotor_tail": 104,
+   "rivet": 896,
+   "blade_collar": 672,
+   "blade_cuff": 1232,
+   "blade_tip_cap": 1232
+  },
+  "Rod_R": {
+   "rod": 176
+  },
+  "Rudder": {
+   "rudder_band": 968,
+   "rivet": 2352,
+   "rudder_rib": 320,
+   "rudder_plate": 1944,
+   "slotted": 624,
+   "patch": 96,
+   "rudder_brace": 304,
+   "tiller_clamp": 176
+  }
+ },
+ "rivet_share": 0.285,
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z6_Hull",
+   "tris": 6812,
+   "verts": 3938,
+   "pieces": 266,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "paint_ochre": 178,
+    "bolt": 1593,
+    "paint_yellow": 368,
+    "rust_red": 246,
+    "dark_metal": 560,
+    "copper": 300,
+    "brass": 456
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Turbine_L",
+   "tris": 19482,
+   "verts": 10985,
+   "pieces": 622,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_L"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 2404,
+    "bolt": 3465,
+    "dark_metal": 1088,
+    "paint_orange": 1360,
+    "paint_ochre": 1056,
+    "rust_dark": 60,
+    "machinery": 418,
+    "steel": 312,
+    "copper": 180,
+    "brass": 188
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rotor_L",
+   "tris": 4136,
+   "verts": 2312,
+   "pieces": 123,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_L_Rotor"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 18,
+    "machinery": 742,
+    "bolt": 576,
+    "rust_red": 336,
+    "steel": 728
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rod_L",
+   "tris": 176,
+   "verts": 96,
+   "pieces": 4,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_L_Rod"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 40,
+    "rust_red": 28
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Turbine_R",
+   "tris": 19216,
+   "verts": 10844,
+   "pieces": 618,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_R"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 2470,
+    "bolt": 3456,
+    "dark_metal": 1162,
+    "paint_ochre": 780,
+    "rust_dark": 54,
+    "paint_orange": 1372,
+    "machinery": 418,
+    "steel": 312,
+    "copper": 180,
+    "brass": 188
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rotor_R",
+   "tris": 4136,
+   "verts": 2312,
+   "pieces": 123,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_R_Rotor"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 18,
+    "machinery": 742,
+    "bolt": 576,
+    "rust_red": 336,
+    "steel": 728
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rod_R",
+   "tris": 176,
+   "verts": 96,
+   "pieces": 4,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_R_Rod"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 40,
+    "rust_red": 28
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rudder",
+   "tris": 6784,
+   "verts": 3828,
+   "pieces": 218,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Rudder"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 812,
+    "bolt": 1512,
+    "rust_red": 546,
+    "rust_dark": 874
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z6",
+   "verts_tested": 8603,
+   "sample_every": 4,
+   "outside_zone": {},
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "Z3": 28,
+    "Z5": 4
+   },
+   "within_margin_of": {
+    "Z5": 19,
+    "Z3": 39
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 34411,
+   "verts_inside_a_box": 164,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.408,
+   "worst": [
+    -17.157,
+    7.575,
+    -3.6
+   ],
+   "verts_over_limit": 136,
+   "over_limit_by_kind": {},
+   "verts": 8603,
+   "limit_m": 0.2,
+   "p99_m": 0.222
+  },
+  "bbox": [
+   [
+    -20.282,
+    -11.355,
+    -3.6
+   ],
+   [
+    -14.368,
+    11.764,
+    5.695
+   ]
+  ]
+ },
+ "fan_envelope": {
+  "L": {
+   "max_r_on_shell": 4.164,
+   "shell_r_max": 3.649,
+   "gimbal_ring_r": 4.361,
+   "p99_r_on_shell": 4.148,
+   "aft_most_x": -19.04,
+   "duct_exit_x": -18.758,
+   "old_tail_cone_tip_x": -19.906
+  },
+  "R": {
+   "max_r_on_shell": 4.164,
+   "shell_r_max": 3.649,
+   "gimbal_ring_r": 4.361,
+   "p99_r_on_shell": 4.145,
+   "aft_most_x": -19.04,
+   "duct_exit_x": -18.758,
+   "old_tail_cone_tip_x": -19.906
+  }
+ },
+ "seconds": 127.8,
+ "all_objects_ok": true
+}

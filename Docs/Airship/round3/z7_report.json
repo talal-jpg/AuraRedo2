@@ -1,0 +1,771 @@
+{
+ "zone": "Z7",
+ "knobs": {
+  "seed": 1307,
+  "touch_tol": 0.02,
+  "plate": {
+   "gap": 0.015,
+   "t": 0.045,
+   "bevel": 0.014
+  },
+  "layer": 0.006,
+  "seam": 0.024,
+  "rivet": {
+   "r": 0.022,
+   "h": 0.012,
+   "inset": 0.07,
+   "spacing": 0.28
+  },
+  "stairs": {
+   "option": "central",
+   "w": 1.5,
+   "going": 0.3,
+   "landing": 1.5,
+   "rail": {
+    "mat": "steel",
+    "r": 0.026,
+    "sides": 10,
+    "saddle": true
+   }
+  },
+  "fascia": {
+   "w": [
+    0.9,
+    1.6
+   ],
+   "rib_p": 0.75,
+   "rib_w": 0.12,
+   "rib_t": 0.05,
+   "frame_p": 0.25,
+   "patch_p": 0.25,
+   "armour_p": 0.1,
+   "slotted": [
+    1,
+    0
+   ],
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "chain": {
+   "link": 0.55,
+   "wire": 0.045,
+   "sides": 6
+  },
+  "truss": {
+   "gusset_t": 0.02,
+   "gusset_w": 0.34,
+   "gusset_h": 0.58,
+   "rivet_step": 0.4
+  },
+  "under": {
+   "joist_d": 0.12,
+   "pipe_r": [
+    0.065,
+    0.05
+   ],
+   "pipe_y": [
+    1.05,
+    1.3
+   ],
+   "drive_r": 0.34,
+   "drive_xy": [
+    21.1,
+    2.0
+   ]
+  },
+  "lights": {
+   "sleeve_r": 0.11,
+   "collar_r": 0.1
+  },
+  "winch": {
+   "rope_r": [
+    0.735,
+    0.755
+   ],
+   "rope_step": 0.1,
+   "keep_y": 0.3,
+   "bolt_r": 0.84,
+   "bolts": 12
+  },
+  "rails": {
+   "collar_len": 0.1,
+   "mat": "rust_red"
+  },
+  "guard": {
+   "x": 10.6,
+   "top": 7.65,
+   "mid": 7.1,
+   "post": 0.045,
+   "step": 1.0
+  },
+  "walk": {
+   "layer": 2.2,
+   "free": 0.2,
+   "overhead": 1.75
+  }
+ },
+ "log": {
+  "stairs": {
+   "plan": {
+    "option": "central",
+    "z_deck": 2.3945465087890625,
+    "z_top": 6.550000190734863,
+    "rise": 4.155453681945801,
+    "risers": 19,
+    "riser": 0.2187080885234632,
+    "going": 0.3,
+    "w": 1.5,
+    "W": 1.66,
+    "slope_deg": 36.09305767067766,
+    "flights": [
+     {
+      "p0": [
+       3.900000000000001,
+       0.63
+      ],
+      "d": [
+       1.0,
+       0.0
+      ],
+      "n": 10,
+      "zb": 2.3945465087890625,
+      "r": 0.2187080885234632,
+      "g": 0.3,
+      "w": 1.5
+     },
+     {
+      "p0": [
+       8.100000000000001,
+       0.63
+      ],
+      "d": [
+       1.0,
+       0.0
+      ],
+      "n": 9,
+      "zb": 4.581627394023695,
+      "r": 0.2187080885234632,
+      "g": 0.3,
+      "w": 1.5
+     }
+    ],
+    "landings": [
+     {
+      "x": [
+       6.6000000000000005,
+       8.100000000000001
+      ],
+      "y": [
+       -0.19999999999999996,
+       1.46
+      ],
+      "z": 4.581627394023695,
+      "posts": true,
+      "open_sides": [
+       "aft",
+       "fwd"
+      ]
+     }
+    ],
+    "x_top": 10.5,
+    "top_opening": {
+     "x": 10.5,
+     "y": [
+      -0.19999999999999996,
+      1.46
+     ]
+    },
+    "rail": {
+     "mat": "steel",
+     "r": 0.026,
+     "sides": 10,
+     "saddle": true
+    }
+   },
+   "usability": {
+    "risers": 19,
+    "riser_m": 0.2187,
+    "going_m": 0.3,
+    "slope_deg": 36.09,
+    "clear_width_m": 1.5,
+    "flights": [
+     {
+      "risers": 10,
+      "run_m": 2.7
+     },
+     {
+      "risers": 9,
+      "run_m": 2.4
+     }
+    ],
+    "rise_m": 4.155,
+    "ok": true
+   },
+   "rivets": 34,
+   "rail": {
+    "mat": "steel",
+    "r": 0.026,
+    "sides": 10,
+    "saddle": true
+   }
+  },
+  "guard_rails": {
+   "sections": 2,
+   "posts": 5
+  },
+  "truss": {
+   "gussets": 44,
+   "rivets": 236
+  },
+  "fascia": {
+   "calm": 18,
+   "patch": 9,
+   "armour": 7,
+   "slotted": 2,
+   "frame": 6,
+   "plates": 42,
+   "ribs": 25,
+   "straps": 3
+  },
+  "underside": {
+   "joists": 15,
+   "junction_housings": 3,
+   "leg_housings": 2,
+   "pipes": 4
+  },
+  "legs": {
+   "legs": 4
+  },
+  "hang_strip_bands": 8,
+  "chain_brackets": 2,
+  "chain_links": 14,
+  "winches": 2,
+  "light_boxes": {
+   "AftL": {
+    "z": 7.3,
+    "rails_near": 0,
+    "dir": [
+     -0.64,
+     -0.77,
+     0.0
+    ]
+   },
+   "MidL": {
+    "z": 8.75,
+    "rails_near": 2,
+    "dir": [
+     -0.64,
+     0.77,
+     0.0
+    ]
+   },
+   "MidR": {
+    "z": 8.75,
+    "rails_near": 2,
+    "dir": [
+     -0.64,
+     -0.77,
+     0.0
+    ]
+   },
+   "FwdC": {
+    "z": 8.1,
+    "rails_near": 1,
+    "dir": [
+     -0.64,
+     0.77,
+     0.0
+    ]
+   }
+  },
+  "lights": 4,
+  "rail_collars": {
+   "collars": 290,
+   "skipped_keep_clear": 52,
+   "posts": 101,
+   "rails": 150
+  },
+  "floating_pieces_removed": {},
+  "inside_out_pieces_flipped": {
+   "Stairs": 0,
+   "Gantry": 0,
+   "Rails": 0,
+   "LightPosts": 0,
+   "LightHeads": 0,
+   "Winches": 2,
+   "Chains": 0
+  },
+  "tris_by_kind": {
+   "Stairs": {
+    "tread": 1564,
+    "rivet": 1652,
+    "stringer": 144,
+    "foot": 24,
+    "rail": 1672,
+    "cleat": 88,
+    "landing": 228,
+    "column": 384,
+    "brace": 48
+   },
+   "Gantry": {
+    "gusset": 880,
+    "rivet": 11550,
+    "plate": 3560,
+    "patch": 400,
+    "armour": 560,
+    "slotted": 624,
+    "frame": 960,
+    "rib": 944,
+    "strap": 532,
+    "joist": 540,
+    "tray": 504,
+    "housing": 1740,
+    "drive": 448,
+    "pipe": 2776,
+    "clamp": 1344,
+    "gland": 144,
+    "band": 528,
+    "knee": 48,
+    "cleat": 200,
+    "bracket": 116,
+    "bearing": 432
+   },
+   "Rails": {
+    "guard": 228,
+    "collar": 3360
+   },
+   "LightPosts": {
+    "sleeve": 288,
+    "rivet": 560,
+    "jbox": 672,
+    "collar": 144,
+    "conduit": 464
+   },
+   "LightHeads": {
+    "bezel": 512,
+    "hood": 272,
+    "fins": 768,
+    "cap": 288,
+    "yoke": 864,
+    "handle": 368
+   },
+   "Winches": {
+    "rope": 1336,
+    "rivet": 336
+   },
+   "Chains": {
+    "chain": 1008
+   }
+  },
+  "walkable": {
+   "verts_in_walk_layer": 8360,
+   "attached_to_existing_obstacles": 8136,
+   "free_standing": {},
+   "inside_truss_or_overhead": {
+    "Gantry/tray": 44,
+    "Gantry/drive": 32,
+    "Gantry/clamp": 128,
+    "Gantry/bearing": 4,
+    "overhead/LightHeads/yoke": 16
+   },
+   "free_standing_total": 0,
+   "example": null,
+   "layer_m": 2.2,
+   "free_m": 0.2
+  },
+  "stairs_probe": {
+   "min_head_room_m": 9.0,
+   "min_clear_width_m": 1.55,
+   "narrowest_at": [
+    5.05,
+    0.63,
+    4.25
+   ],
+   "ok": true
+  }
+ },
+ "base_edits": {
+  "z6_fan_back_L": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "port fan: remove the flat disc behind the rotor (duct_back_wall, island 1028) and the big tail cone that closed the duct exit (tail_cone, island 1030, r 2.46 at x -18.76, flat end at x -19.91), so the fan blades are visible from behind and the duct reads as an open exhaust"
+  },
+  "z6_fan_back_R": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "starboard fan: the same (islands 1088 and 1091)"
+  },
+  "z7_chain_aft_bars": {
+   "file": "z7.json",
+   "zone": "Z7",
+   "faces": 36,
+   "tris": 72,
+   "guard_ok": true,
+   "why": "replace the ChainAft bars by a heavy link chain (detail object, Hull bone)"
+  }
+ },
+ "tris": {
+  "SM_AirshipDetail_Z7_Stairs": 5804,
+  "SM_AirshipDetail_Z7_Gantry": 28830,
+  "SM_AirshipDetail_Z7_Rails": 3588,
+  "SM_AirshipDetail_Z7_LightPosts": 2128,
+  "SM_AirshipDetail_Z7_LightHeads": 3072,
+  "SM_AirshipDetail_Z7_Winches": 1672,
+  "SM_AirshipDetail_Z7_Chains": 1008
+ },
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z7_Stairs",
+   "tris": 5804,
+   "verts": 3550,
+   "pieces": 324,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 1252,
+    "wood": 366,
+    "rust_red": 318,
+    "bolt": 1062,
+    "steel": 152,
+    "rust_dark": 52
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_Gantry",
+   "tris": 28830,
+   "verts": 16959,
+   "pieces": 1272,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 2050,
+    "bolt": 7425,
+    "paint_ochre": 1204,
+    "paint_yellow": 1392,
+    "dark_metal": 1630,
+    "copper": 576,
+    "machinery": 230,
+    "steel": 520,
+    "brass": 776
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_Rails",
+   "tris": 3588,
+   "verts": 2392,
+   "pieces": 299,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 54,
+    "rust_red": 1740
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_LightPosts",
+   "tris": 2128,
+   "verts": 1248,
+   "pieces": 92,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "SearchLight_AftL",
+    "SearchLight_FwdC",
+    "SearchLight_MidL",
+    "SearchLight_MidR"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 352,
+    "rust_red": 48,
+    "bolt": 360,
+    "machinery": 104,
+    "steel": 48,
+    "brass": 152
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_LightHeads",
+   "tris": 3072,
+   "verts": 1616,
+   "pieces": 56,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "SearchLight_AftL_Head",
+    "SearchLight_FwdC_Head",
+    "SearchLight_MidL_Head",
+    "SearchLight_MidR_Head"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "brass": 296,
+    "dark_metal": 672,
+    "rust_red": 96,
+    "rust_dark": 192,
+    "steel": 176
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_Winches",
+   "tris": 1672,
+   "verts": 888,
+   "pieces": 26,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Winch_Aft",
+    "Winch_Fwd"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "steel": 648,
+    "bolt": 216
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z7_Chains",
+   "tris": 1008,
+   "verts": 504,
+   "pieces": 14,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 504
+   },
+   "collections": [
+    "Detail_Z7"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z7",
+   "verts_tested": 6790,
+   "sample_every": 4,
+   "outside_zone": {
+    "none": 63,
+    "Z4": 3,
+    "None": 14
+   },
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "none": 88,
+    "Z4": 32,
+    "Z6": 4
+   },
+   "within_margin_of": {
+    "Z4": 189,
+    "Z6": 8
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 27157,
+   "verts_inside_a_box": 553,
+   "verts_above_a_box_top": 18268,
+   "worst_cm_above_a_top": 781.6
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 2.507,
+   "worst": [
+    7.892,
+    1.456,
+    5.571
+   ],
+   "verts_over_limit": 1335,
+   "over_limit_by_kind": {},
+   "verts": 6790,
+   "limit_m": 0.2,
+   "p99_m": 2.077
+  },
+  "bbox": [
+   [
+    -15.83,
+    -8.161,
+    1.882
+   ],
+   [
+    31.567,
+    8.161,
+    10.904
+   ]
+  ]
+ },
+ "seconds": 6.5,
+ "tris_total": 46102,
+ "per_object": {
+  "SM_AirshipDetail_Z7_Stairs": {
+   "sampled": 1184,
+   "owner_of_nearest": {
+    "Z7": 1108,
+    "none": 76
+   },
+   "max_dist_to_ship_m": 2.513,
+   "p99_dist_to_ship_m": 2.451,
+   "p50_dist_to_ship_m": 0.924
+  },
+  "SM_AirshipDetail_Z7_Gantry": {
+   "sampled": 5653,
+   "owner_of_nearest": {
+    "Z7": 5546,
+    "none": 92,
+    "Z4": 15
+   },
+   "max_dist_to_ship_m": 0.453,
+   "p99_dist_to_ship_m": 0.34,
+   "p50_dist_to_ship_m": 0.06
+  },
+  "SM_AirshipDetail_Z7_Rails": {
+   "sampled": 798,
+   "owner_of_nearest": {
+    "Z7": 758,
+    "None": 17,
+    "none": 15,
+    "Z6": 8
+   },
+   "max_dist_to_ship_m": 1.114,
+   "p99_dist_to_ship_m": 1.071,
+   "p50_dist_to_ship_m": 0.027
+  },
+  "SM_AirshipDetail_Z7_LightPosts": {
+   "sampled": 416,
+   "owner_of_nearest": {
+    "Z7": 416
+   },
+   "max_dist_to_ship_m": 0.15,
+   "p99_dist_to_ship_m": 0.144,
+   "p50_dist_to_ship_m": 0.035
+  },
+  "SM_AirshipDetail_Z7_LightHeads": {
+   "sampled": 539,
+   "owner_of_nearest": {
+    "Z7": 539
+   },
+   "max_dist_to_ship_m": 0.229,
+   "p99_dist_to_ship_m": 0.227,
+   "p50_dist_to_ship_m": 0.04
+  },
+  "SM_AirshipDetail_Z7_Winches": {
+   "sampled": 296,
+   "owner_of_nearest": {
+    "Z7": 296
+   },
+   "max_dist_to_ship_m": 0.048,
+   "p99_dist_to_ship_m": 0.048,
+   "p50_dist_to_ship_m": 0.029
+  },
+  "SM_AirshipDetail_Z7_Chains": {
+   "sampled": 168,
+   "owner_of_nearest": {
+    "Z7": 139,
+    "Z4": 26,
+    "none": 3
+   },
+   "max_dist_to_ship_m": 0.847,
+   "p99_dist_to_ship_m": 0.811,
+   "p50_dist_to_ship_m": 0.136
+  }
+ },
+ "all_objects_ok": true
+}

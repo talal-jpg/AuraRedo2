@@ -1,0 +1,3729 @@
+{
+ "about": "Per palette slot: the preview's flat render (base colour as emission, no light) against the palette (8-bit sRGB), on pixels with no ink, no dot, away from edges (the index pass); and the approved toon render of the same camera at those pixels: share within 6/255 of the palette colour times each cel band (1.0 lit, 0.70, 0.40), and its median linear ratio to the palette.",
+ "shots": {
+  "q34_fp": {
+   "paint_yellow": {
+    "pixels": 6273,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.732,
+      "mid_0.70": 0.019,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.751,
+     "median_ratio_to_palette": [
+      0.997,
+      0.999,
+      0.994
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 5409,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.774,
+      "mid_0.70": 0.006,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.78,
+     "median_ratio_to_palette": [
+      0.991,
+      0.999,
+      0.98
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 8703,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.496,
+      "mid_0.70": 0.073,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.569,
+     "median_ratio_to_palette": [
+      0.977,
+      0.99,
+      1.018
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 56554,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.687,
+      "mid_0.70": 0.077,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.764,
+     "median_ratio_to_palette": [
+      0.994,
+      1.008,
+      0.996
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 5403,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.837,
+      "mid_0.70": 0.009,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.846,
+     "median_ratio_to_palette": [
+      0.992,
+      1.009,
+      1.009
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 41770,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.649,
+      "mid_0.70": 0.168,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.817,
+     "median_ratio_to_palette": [
+      0.953,
+      0.994,
+      0.975
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 3616,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.264,
+      "mid_0.70": 0.413,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.678,
+     "median_ratio_to_palette": [
+      0.707,
+      0.707,
+      0.769
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 81,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.049,
+      "mid_0.70": 0.062,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.111,
+     "median_ratio_to_palette": [
+      0.165,
+      0.175,
+      0.252
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 4117,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.85
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.56,
+      "mid_0.70": 0.0,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.56,
+     "median_ratio_to_palette": [
+      0.971,
+      0.99,
+      1.027
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 2553,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.555,
+      "mid_0.70": 0.036,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.591,
+     "median_ratio_to_palette": [
+      0.965,
+      0.987,
+      0.988
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 13889,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.375,
+      "mid_0.70": 0.069,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.444,
+     "median_ratio_to_palette": [
+      0.905,
+      0.963,
+      1.027
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 26173,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.647,
+      "mid_0.70": 0.087,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.734,
+     "median_ratio_to_palette": [
+      0.979,
+      0.992,
+      1.003
+     ]
+    }
+   },
+   "recess": {
+    "pixels": 1797,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.688,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.688,
+     "median_ratio_to_palette": [
+      0.692,
+      0.688,
+      0.747
+     ]
+    }
+   },
+   "keel_block": {
+    "pixels": 5108,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.342,
+      "mid_0.70": 0.402,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.744,
+     "median_ratio_to_palette": [
+      0.713,
+      0.721,
+      0.872
+     ]
+    }
+   },
+   "prop_wood": {
+    "pixels": 217,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.382,
+      "mid_0.70": 0.0,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.382,
+     "median_ratio_to_palette": [
+      0.953,
+      0.973,
+      1.062
+     ]
+    }
+   },
+   "prop_metal": {
+    "pixels": 1243,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.562,
+      "mid_0.70": 0.074,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.636,
+     "median_ratio_to_palette": [
+      0.935,
+      0.994,
+      0.994
+     ]
+    }
+   },
+   "prop_gun": {
+    "pixels": 104,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.375,
+      "mid_0.70": 0.01,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.385,
+     "median_ratio_to_palette": [
+      0.879,
+      0.904,
+      0.969
+     ]
+    }
+   }
+  },
+  "side": {
+   "paint_yellow": {
+    "pixels": 15827,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.521,
+      "mid_0.70": 0.183,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.704,
+     "median_ratio_to_palette": [
+      0.979,
+      0.989,
+      0.994
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 15308,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.364,
+      "mid_0.70": 0.333,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.697,
+     "median_ratio_to_palette": [
+      0.72,
+      0.725,
+      0.923
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 17222,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.594,
+      "mid_0.70": 0.134,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.728,
+     "median_ratio_to_palette": [
+      0.987,
+      0.99,
+      0.996
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 98123,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.567,
+      "mid_0.70": 0.225,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.792,
+     "median_ratio_to_palette": [
+      0.97,
+      0.99,
+      0.975
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 12227,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.827,
+      "mid_0.70": 0.041,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.868,
+     "median_ratio_to_palette": [
+      1.006,
+      1.009,
+      1.009
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 67058,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.572,
+      "mid_0.70": 0.277,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.849,
+     "median_ratio_to_palette": [
+      0.953,
+      0.994,
+      0.937
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 6161,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.088,
+      "mid_0.70": 0.568,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.656,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.744
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 576,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.151,
+      "mid_0.70": 0.241,
+      "shade_0.40": 0.014
+     },
+     "any_band": 0.406,
+     "median_ratio_to_palette": [
+      0.684,
+      0.685,
+      0.731
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 15126,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.472,
+      "mid_0.70": 0.04,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.512,
+     "median_ratio_to_palette": [
+      0.951,
+      0.976,
+      1.008
+     ]
+    }
+   },
+   "brass": {
+    "pixels": 524,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.004,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.004,
+     "median_ratio_to_palette": [
+      0.495,
+      0.573,
+      0.93
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 4442,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.566,
+      "mid_0.70": 0.05,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.617,
+     "median_ratio_to_palette": [
+      0.977,
+      0.987,
+      0.988
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 66977,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.219,
+      "mid_0.70": 0.312,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.531,
+     "median_ratio_to_palette": [
+      0.708,
+      0.705,
+      0.935
+     ]
+    }
+   },
+   "recess": {
+    "pixels": 7296,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.005,
+      "mid_0.70": 0.781,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.786,
+     "median_ratio_to_palette": [
+      0.706,
+      0.688,
+      0.747
+     ]
+    }
+   },
+   "keel_block": {
+    "pixels": 8781,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.487,
+      "mid_0.70": 0.215,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.702,
+     "median_ratio_to_palette": [
+      0.947,
+      0.956,
+      0.975
+     ]
+    }
+   },
+   "prop_wood": {
+    "pixels": 161,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.286,
+      "mid_0.70": 0.23,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.516,
+     "median_ratio_to_palette": [
+      0.728,
+      0.744,
+      0.9
+     ]
+    }
+   },
+   "prop_metal": {
+    "pixels": 726,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.236,
+      "mid_0.70": 0.492,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.728,
+     "median_ratio_to_palette": [
+      0.718,
+      0.715,
+      0.796
+     ]
+    }
+   },
+   "prop_gun": {
+    "pixels": 82,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.488,
+      "mid_0.70": 0.0,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.488,
+     "median_ratio_to_palette": [
+      0.929,
+      0.947,
+      0.998
+     ]
+    }
+   }
+  },
+  "pilot_45": {
+   "paint_yellow": {
+    "pixels": 2461,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.759,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.759,
+     "median_ratio_to_palette": [
+      0.7,
+      0.696,
+      0.743
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 2987,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.02,
+      "mid_0.70": 0.802,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.822,
+     "median_ratio_to_palette": [
+      0.696,
+      0.706,
+      0.746
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 23598,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.116,
+      "mid_0.70": 0.4,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.516,
+     "median_ratio_to_palette": [
+      0.703,
+      0.701,
+      0.832
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 25115,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.52
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.017,
+      "mid_0.70": 0.749,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.766,
+     "median_ratio_to_palette": [
+      0.693,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 36068,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.076,
+      "mid_0.70": 0.746,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.822,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 1998,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.836,
+      "shade_0.40": 0.004
+     },
+     "any_band": 0.84,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.732
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 174,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.126,
+      "shade_0.40": 0.04
+     },
+     "any_band": 0.166,
+     "median_ratio_to_palette": [
+      0.533,
+      0.553,
+      0.613
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 4113,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.203,
+      "mid_0.70": 0.589,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.792,
+     "median_ratio_to_palette": [
+      0.708,
+      0.707,
+      0.769
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 21402,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.026,
+      "mid_0.70": 0.719,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.745,
+     "median_ratio_to_palette": [
+      0.708,
+      0.696,
+      0.734
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 55753,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.798,
+      "mid_0.70": 0.073,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.871,
+     "median_ratio_to_palette": [
+      0.99,
+      1.005,
+      1.003
+     ]
+    }
+   },
+   "prop_wood": {
+    "pixels": 567,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.469,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.469,
+     "median_ratio_to_palette": [
+      0.688,
+      0.695,
+      0.785
+     ]
+    }
+   },
+   "prop_metal": {
+    "pixels": 1879,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.127,
+      "mid_0.70": 0.6,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.727,
+     "median_ratio_to_palette": [
+      0.688,
+      0.715,
+      0.78
+     ]
+    }
+   }
+  },
+  "talal_back": {
+   "paint_yellow": {
+    "pixels": 5458,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.477,
+      "mid_0.70": 0.294,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.771,
+     "median_ratio_to_palette": [
+      0.97,
+      0.979,
+      0.977
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 5928,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.166,
+      "mid_0.70": 0.617,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.783,
+     "median_ratio_to_palette": [
+      0.704,
+      0.706,
+      0.763
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 82060,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.208,
+      "mid_0.70": 0.43,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.638,
+     "median_ratio_to_palette": [
+      0.703,
+      0.712,
+      0.832
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 94696,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.52
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.153,
+      "mid_0.70": 0.647,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.8,
+     "median_ratio_to_palette": [
+      0.703,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 27605,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.71,
+      "mid_0.70": 0.223,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.933,
+     "median_ratio_to_palette": [
+      0.992,
+      1.009,
+      1.009
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 90009,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.186,
+      "mid_0.70": 0.681,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.867,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 5826,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.001,
+      "mid_0.70": 0.818,
+      "shade_0.40": 0.004
+     },
+     "any_band": 0.823,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.732
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 929,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.316,
+      "shade_0.40": 0.014
+     },
+     "any_band": 0.33,
+     "median_ratio_to_palette": [
+      0.674,
+      0.676,
+      0.712
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 4318,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.359,
+      "mid_0.70": 0.02,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.379,
+     "median_ratio_to_palette": [
+      0.931,
+      0.976,
+      1.027
+     ]
+    }
+   },
+   "brass": {
+    "pixels": 221,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.0,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.0,
+     "median_ratio_to_palette": [
+      0.309,
+      0.411,
+      0.755
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 12918,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.449,
+      "mid_0.70": 0.401,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.85,
+     "median_ratio_to_palette": [
+      0.836,
+      0.888,
+      0.917
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 20091,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.092,
+      "mid_0.70": 0.544,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.636,
+     "median_ratio_to_palette": [
+      0.708,
+      0.696,
+      0.766
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 134013,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.813,
+      "mid_0.70": 0.066,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.879,
+     "median_ratio_to_palette": [
+      0.99,
+      1.005,
+      1.003
+     ]
+    }
+   },
+   "prop_wood": {
+    "pixels": 1446,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.49,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.49,
+     "median_ratio_to_palette": [
+      0.678,
+      0.695,
+      0.769
+     ]
+    }
+   },
+   "prop_metal": {
+    "pixels": 4904,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.215,
+      "mid_0.70": 0.566,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.781,
+     "median_ratio_to_palette": [
+      0.688,
+      0.715,
+      0.78
+     ]
+    }
+   }
+  },
+  "stairs_close": {
+   "paint_yellow": {
+    "pixels": 75,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.533,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.533,
+     "median_ratio_to_palette": [
+      0.693,
+      0.705,
+      0.757
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 914,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.447,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.448,
+     "median_ratio_to_palette": [
+      0.677,
+      0.687,
+      0.763
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 340548,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.303,
+      "mid_0.70": 0.449,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.752,
+     "median_ratio_to_palette": [
+      0.703,
+      0.706,
+      0.813
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 875,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.002,
+      "mid_0.70": 0.714,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.716,
+     "median_ratio_to_palette": [
+      0.701,
+      0.697,
+      0.74
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 300052,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.18,
+      "mid_0.70": 0.689,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.869,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 777,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.47,
+      "shade_0.40": 0.004
+     },
+     "any_band": 0.474,
+     "median_ratio_to_palette": [
+      0.647,
+      0.671,
+      0.72
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 55675,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.752,
+      "mid_0.70": 0.043,
+      "shade_0.40": 0.004
+     },
+     "any_band": 0.799,
+     "median_ratio_to_palette": [
+      0.994,
+      0.99,
+      1.004
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 15596,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.008,
+      "mid_0.70": 0.632,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.64,
+     "median_ratio_to_palette": [
+      0.693,
+      0.706,
+      0.75
+     ]
+    }
+   },
+   "brass": {
+    "pixels": 6062,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.584,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.584,
+     "median_ratio_to_palette": [
+      0.686,
+      0.702,
+      0.755
+     ]
+    }
+   },
+   "bolt": {
+    "pixels": 680,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.5,
+      "mid_0.70": 0.122,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.622,
+     "median_ratio_to_palette": [
+      0.993,
+      0.973,
+      0.941
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 220813,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.572,
+      "mid_0.70": 0.325,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.897,
+     "median_ratio_to_palette": [
+      1.002,
+      0.987,
+      0.988
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 78,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.051,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.051,
+     "median_ratio_to_palette": [
+      0.732,
+      0.77,
+      1.206
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 239501,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.502,
+      "mid_0.70": 0.42,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.922,
+     "median_ratio_to_palette": [
+      0.956,
+      0.968,
+      0.977
+     ]
+    }
+   }
+  },
+  "fan_close_L": {
+   "paint_ochre": {
+    "pixels": 29764,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.151,
+      "mid_0.70": 0.43,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.582,
+     "median_ratio_to_palette": [
+      0.688,
+      0.706,
+      0.797
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 405200,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.168,
+      "mid_0.70": 0.676,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.844,
+     "median_ratio_to_palette": [
+      0.703,
+      0.701,
+      0.739
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 489726,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.52
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.216,
+      "mid_0.70": 0.651,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.867,
+     "median_ratio_to_palette": [
+      0.703,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 78113,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.603,
+      "mid_0.70": 0.319,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.922,
+     "median_ratio_to_palette": [
+      0.992,
+      1.009,
+      0.985
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 428648,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.15,
+      "mid_0.70": 0.796,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.946,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 49395,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.002,
+      "mid_0.70": 0.849,
+      "shade_0.40": 0.008
+     },
+     "any_band": 0.859,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.732
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 5223,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.009,
+      "mid_0.70": 0.529,
+      "shade_0.40": 0.007
+     },
+     "any_band": 0.545,
+     "median_ratio_to_palette": [
+      0.693,
+      0.695,
+      0.74
+     ]
+    }
+   },
+   "bolt": {
+    "pixels": 1880,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.199,
+      "mid_0.70": 0.428,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.627,
+     "median_ratio_to_palette": [
+      0.746,
+      0.707,
+      0.747
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 2907,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.58,
+      "mid_0.70": 0.106,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.686,
+     "median_ratio_to_palette": [
+      0.977,
+      0.995,
+      1.008
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 1536,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.623,
+      "mid_0.70": 0.113,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.736,
+     "median_ratio_to_palette": [
+      0.979,
+      0.992,
+      0.99
+     ]
+    }
+   }
+  },
+  "keel_low": {
+   "paint_yellow": {
+    "pixels": 313,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.521,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.521,
+     "median_ratio_to_palette": [
+      0.693,
+      0.696,
+      0.757
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 3913,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.004,
+      "mid_0.70": 0.752,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.756,
+     "median_ratio_to_palette": [
+      0.688,
+      0.697,
+      0.746
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 256656,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.094,
+      "mid_0.70": 0.699,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.793,
+     "median_ratio_to_palette": [
+      0.703,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 100066,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.6
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.157,
+      "mid_0.70": 0.728,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.885,
+     "median_ratio_to_palette": [
+      0.701,
+      0.697,
+      0.74
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 94024,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.149,
+      "mid_0.70": 0.748,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.897,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 16626,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.59
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.736,
+      "shade_0.40": 0.005
+     },
+     "any_band": 0.741,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.732
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 203,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.433,
+      "shade_0.40": 0.005
+     },
+     "any_band": 0.438,
+     "median_ratio_to_palette": [
+      0.684,
+      0.685,
+      0.74
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 21428,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.201,
+      "mid_0.70": 0.417,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.618,
+     "median_ratio_to_palette": [
+      0.701,
+      0.706,
+      0.798
+     ]
+    }
+   },
+   "brass": {
+    "pixels": 3402,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.317,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.317,
+     "median_ratio_to_palette": [
+      0.67,
+      0.693,
+      0.797
+     ]
+    }
+   },
+   "bolt": {
+    "pixels": 52,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.038,
+      "mid_0.70": 0.231,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.269,
+     "median_ratio_to_palette": [
+      0.795,
+      0.713,
+      0.714
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 39553,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.031,
+      "mid_0.70": 0.746,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.777,
+     "median_ratio_to_palette": [
+      0.708,
+      0.696,
+      0.734
+     ]
+    }
+   },
+   "keel_block": {
+    "pixels": 117151,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.031,
+      "mid_0.70": 0.737,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.768,
+     "median_ratio_to_palette": [
+      0.703,
+      0.706,
+      0.757
+     ]
+    }
+   }
+  },
+  "deck_eye": {
+   "rust_red": {
+    "pixels": 48147,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.52
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.08,
+      "mid_0.70": 0.533,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.613,
+     "median_ratio_to_palette": [
+      0.693,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 48657,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.046,
+      "mid_0.70": 0.742,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.788,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 156,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.327,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.327,
+     "median_ratio_to_palette": [
+      0.601,
+      0.636,
+      0.696
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 4136,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.68
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.012,
+      "mid_0.70": 0.206,
+      "shade_0.40": 0.028
+     },
+     "any_band": 0.246,
+     "median_ratio_to_palette": [
+      0.656,
+      0.658,
+      0.712
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 1568,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.223,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.223,
+     "median_ratio_to_palette": [
+      0.628,
+      0.695,
+      0.848
+     ]
+    }
+   },
+   "brass": {
+    "pixels": 1452,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.254,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.254,
+     "median_ratio_to_palette": [
+      0.654,
+      0.684,
+      0.811
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 70221,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.025,
+      "mid_0.70": 0.854,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.879,
+     "median_ratio_to_palette": [
+      0.698,
+      0.695,
+      0.754
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 503745,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.845,
+      "mid_0.70": 0.116,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.961,
+     "median_ratio_to_palette": [
+      0.99,
+      1.005,
+      1.003
+     ]
+    }
+   }
+  },
+  "below": {
+   "paint_yellow": {
+    "pixels": 8154,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.64,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.64,
+     "median_ratio_to_palette": [
+      0.7,
+      0.696,
+      0.743
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 8098,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.609,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.609,
+     "median_ratio_to_palette": [
+      0.688,
+      0.697,
+      0.763
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 19959,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.02,
+      "mid_0.70": 0.685,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.705,
+     "median_ratio_to_palette": [
+      0.703,
+      0.701,
+      0.739
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 31669,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.664,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.664,
+     "median_ratio_to_palette": [
+      0.693,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 5327,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.661,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.661,
+     "median_ratio_to_palette": [
+      0.69,
+      0.697,
+      0.761
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 37846,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.007,
+      "mid_0.70": 0.799,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.806,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 5777,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.01,
+      "mid_0.70": 0.767,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.777,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.732
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 298,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.007,
+      "shade_0.40": 0.023
+     },
+     "any_band": 0.03,
+     "median_ratio_to_palette": [
+      0.2,
+      0.215,
+      0.273
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 8098,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.241,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.241,
+     "median_ratio_to_palette": [
+      0.628,
+      0.684,
+      0.848
+     ]
+    }
+   },
+   "brass": {
+    "pixels": 1406,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.0,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.0,
+     "median_ratio_to_palette": [
+      0.444,
+      0.518,
+      0.993
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 45935,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.649,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.649,
+     "median_ratio_to_palette": [
+      0.701,
+      0.696,
+      0.75
+     ]
+    }
+   },
+   "recess": {
+    "pixels": 4113,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.744,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.744,
+     "median_ratio_to_palette": [
+      0.706,
+      0.688,
+      0.747
+     ]
+    }
+   },
+   "keel_block": {
+    "pixels": 11265,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.622,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.622,
+     "median_ratio_to_palette": [
+      0.684,
+      0.706,
+      0.757
+     ]
+    }
+   }
+  },
+  "transom_rear": {
+   "paint_yellow": {
+    "pixels": 64342,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.871,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.871,
+     "median_ratio_to_palette": [
+      0.7,
+      0.696,
+      0.743
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 59319,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.844,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.844,
+     "median_ratio_to_palette": [
+      0.688,
+      0.697,
+      0.746
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 206166,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.054,
+      "mid_0.70": 0.719,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.773,
+     "median_ratio_to_palette": [
+      0.703,
+      0.701,
+      0.739
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 285989,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.52
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.019,
+      "mid_0.70": 0.862,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.881,
+     "median_ratio_to_palette": [
+      0.703,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 3527,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.587,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.587,
+     "median_ratio_to_palette": [
+      0.679,
+      0.697,
+      0.782
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 266959,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.02,
+      "mid_0.70": 0.879,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.899,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 7923,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.719,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.72,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.732
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 3431,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.557,
+      "shade_0.40": 0.015
+     },
+     "any_band": 0.572,
+     "median_ratio_to_palette": [
+      0.693,
+      0.695,
+      0.74
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 5487,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.164,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.165,
+     "median_ratio_to_palette": [
+      0.636,
+      0.684,
+      0.814
+     ]
+    }
+   },
+   "brass": {
+    "pixels": 4306,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.118,
+      "shade_0.40": 0.085
+     },
+     "any_band": 0.203,
+     "median_ratio_to_palette": [
+      0.601,
+      0.649,
+      0.755
+     ]
+    }
+   },
+   "bolt": {
+    "pixels": 439,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.264,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.264,
+     "median_ratio_to_palette": [
+      0.795,
+      0.672,
+      0.623
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 32578,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.159,
+      "mid_0.70": 0.795,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.955,
+     "median_ratio_to_palette": [
+      0.698,
+      0.695,
+      0.754
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 490717,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.011,
+      "mid_0.70": 0.895,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.906,
+     "median_ratio_to_palette": [
+      0.708,
+      0.696,
+      0.734
+     ]
+    }
+   },
+   "prop_wood": {
+    "pixels": 1094,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.463,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.463,
+     "median_ratio_to_palette": [
+      0.678,
+      0.695,
+      0.785
+     ]
+    }
+   },
+   "prop_metal": {
+    "pixels": 9271,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.06,
+      "mid_0.70": 0.853,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.913,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "prop_gun": {
+    "pixels": 69,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.159,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.159,
+     "median_ratio_to_palette": [
+      0.579,
+      0.625,
+      0.708
+     ]
+    }
+   }
+  },
+  "chain_aft": {
+   "paint_yellow": {
+    "pixels": 40015,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.699,
+      "mid_0.70": 0.016,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.716,
+     "median_ratio_to_palette": [
+      0.997,
+      0.999,
+      0.994
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 34424,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.737,
+      "mid_0.70": 0.064,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.801,
+     "median_ratio_to_palette": [
+      0.991,
+      0.999,
+      0.98
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 411711,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.533,
+      "mid_0.70": 0.346,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.879,
+     "median_ratio_to_palette": [
+      0.97,
+      0.99,
+      0.975
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 49607,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.56
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.842,
+      "mid_0.70": 0.009,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.851,
+     "median_ratio_to_palette": [
+      1.006,
+      1.029,
+      1.009
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 491967,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.441,
+      "mid_0.70": 0.47,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.911,
+     "median_ratio_to_palette": [
+      0.718,
+      0.715,
+      0.796
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 4674,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.131,
+      "mid_0.70": 0.415,
+      "shade_0.40": 0.033
+     },
+     "any_band": 0.579,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.744
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 4369,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.16,
+      "shade_0.40": 0.027
+     },
+     "any_band": 0.187,
+     "median_ratio_to_palette": [
+      0.516,
+      0.52,
+      0.579
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 73263,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.55
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.565,
+      "mid_0.70": 0.187,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.752,
+     "median_ratio_to_palette": [
+      0.981,
+      0.99,
+      1.008
+     ]
+    }
+   },
+   "brass": {
+    "pixels": 18357,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.042,
+      "mid_0.70": 0.416,
+      "shade_0.40": 0.003
+     },
+     "any_band": 0.461,
+     "median_ratio_to_palette": [
+      0.686,
+      0.702,
+      0.755
+     ]
+    }
+   },
+   "bolt": {
+    "pixels": 377,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.156,
+      "mid_0.70": 0.143,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.299,
+     "median_ratio_to_palette": [
+      1.051,
+      0.944,
+      0.841
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 124517,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.753,
+      "mid_0.70": 0.154,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.907,
+     "median_ratio_to_palette": [
+      0.996,
+      0.995,
+      1.008
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 108570,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.575,
+      "mid_0.70": 0.342,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.917,
+     "median_ratio_to_palette": [
+      0.979,
+      0.992,
+      0.99
+     ]
+    }
+   },
+   "prop_metal": {
+    "pixels": 4275,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.181,
+      "mid_0.70": 0.622,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.803,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.763
+     ]
+    }
+   },
+   "prop_gun": {
+    "pixels": 1129,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.32,
+      "mid_0.70": 0.26,
+      "shade_0.40": 0.003
+     },
+     "any_band": 0.583,
+     "median_ratio_to_palette": [
+      0.707,
+      0.719,
+      0.782
+     ]
+    }
+   }
+  },
+  "q34_rs": {
+   "paint_yellow": {
+    "pixels": 2017,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.366,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.366,
+     "median_ratio_to_palette": [
+      0.686,
+      0.688,
+      0.801
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 11182,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.708,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.708,
+     "median_ratio_to_palette": [
+      0.688,
+      0.697,
+      0.746
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 30292,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.125,
+      "mid_0.70": 0.569,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.694,
+     "median_ratio_to_palette": [
+      0.703,
+      0.701,
+      0.775
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 29541,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.52
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.003,
+      "mid_0.70": 0.695,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.698,
+     "median_ratio_to_palette": [
+      0.693,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 1752,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.523,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.523,
+     "median_ratio_to_palette": [
+      0.679,
+      0.697,
+      0.782
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 31107,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.052,
+      "mid_0.70": 0.8,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.852,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.747
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 7051,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.688,
+      "shade_0.40": 0.001
+     },
+     "any_band": 0.689,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.732
+     ]
+    }
+   },
+   "steel": {
+    "pixels": 435,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.06,
+      "shade_0.40": 0.005
+     },
+     "any_band": 0.065,
+     "median_ratio_to_palette": [
+      0.186,
+      0.201,
+      0.257
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 6378,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.431,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.431,
+     "median_ratio_to_palette": [
+      0.676,
+      0.695,
+      0.782
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 3057,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.059,
+      "mid_0.70": 0.554,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.613,
+     "median_ratio_to_palette": [
+      0.698,
+      0.695,
+      0.769
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 25348,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.446,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.446,
+     "median_ratio_to_palette": [
+      0.686,
+      0.696,
+      0.798
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 43494,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.696,
+      "mid_0.70": 0.067,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.763,
+     "median_ratio_to_palette": [
+      0.979,
+      0.992,
+      1.003
+     ]
+    }
+   },
+   "recess": {
+    "pixels": 1194,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.58,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.58,
+     "median_ratio_to_palette": [
+      0.678,
+      0.688,
+      0.763
+     ]
+    }
+   },
+   "keel_block": {
+    "pixels": 2523,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.735,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.735,
+     "median_ratio_to_palette": [
+      0.693,
+      0.706,
+      0.757
+     ]
+    }
+   },
+   "prop_wood": {
+    "pixels": 92,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.0,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.0,
+     "median_ratio_to_palette": [
+      0.53,
+      0.66,
+      0.9
+     ]
+    }
+   },
+   "prop_metal": {
+    "pixels": 826,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.093,
+      "mid_0.70": 0.439,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.532,
+     "median_ratio_to_palette": [
+      0.673,
+      0.7,
+      0.796
+     ]
+    }
+   }
+  },
+  "pilot_45q": {
+   "paint_yellow": {
+    "pixels": 1414,
+    "flat_err_8bit": {
+     "median": 0.38,
+     "p99": 0.38,
+     "max": 0.38
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.409,
+      "mid_0.70": 0.201,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.61,
+     "median_ratio_to_palette": [
+      0.97,
+      0.979,
+      0.977
+     ]
+    }
+   },
+   "paint_ochre": {
+    "pixels": 1484,
+    "flat_err_8bit": {
+     "median": 0.1,
+     "p99": 0.1,
+     "max": 0.1
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.111,
+      "mid_0.70": 0.567,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.678,
+     "median_ratio_to_palette": [
+      0.704,
+      0.706,
+      0.763
+     ]
+    }
+   },
+   "paint_orange": {
+    "pixels": 16140,
+    "flat_err_8bit": {
+     "median": 0.39,
+     "p99": 0.39,
+     "max": 0.39
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.186,
+      "mid_0.70": 0.293,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.479,
+     "median_ratio_to_palette": [
+      0.71,
+      0.723,
+      0.912
+     ]
+    }
+   },
+   "rust_red": {
+    "pixels": 22539,
+    "flat_err_8bit": {
+     "median": 0.48,
+     "p99": 0.48,
+     "max": 0.48
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.148,
+      "mid_0.70": 0.544,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.692,
+     "median_ratio_to_palette": [
+      0.703,
+      0.706,
+      0.775
+     ]
+    }
+   },
+   "rust_dark": {
+    "pixels": 9220,
+    "flat_err_8bit": {
+     "median": 0.44,
+     "p99": 0.44,
+     "max": 0.44
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.668,
+      "mid_0.70": 0.223,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.891,
+     "median_ratio_to_palette": [
+      0.992,
+      1.009,
+      0.985
+     ]
+    }
+   },
+   "dark_metal": {
+    "pixels": 21619,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.2,
+      "mid_0.70": 0.589,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.789,
+     "median_ratio_to_palette": [
+      0.688,
+      0.7,
+      0.78
+     ]
+    }
+   },
+   "machinery": {
+    "pixels": 1447,
+    "flat_err_8bit": {
+     "median": 0.41,
+     "p99": 0.41,
+     "max": 0.41
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.026,
+      "mid_0.70": 0.806,
+      "shade_0.40": 0.002
+     },
+     "any_band": 0.834,
+     "median_ratio_to_palette": [
+      0.683,
+      0.695,
+      0.732
+     ]
+    }
+   },
+   "copper": {
+    "pixels": 452,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.85
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.252,
+      "mid_0.70": 0.002,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.254,
+     "median_ratio_to_palette": [
+      0.891,
+      0.97,
+      1.125
+     ]
+    }
+   },
+   "wood": {
+    "pixels": 3123,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.65
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.489,
+      "mid_0.70": 0.287,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.776,
+     "median_ratio_to_palette": [
+      0.953,
+      0.973,
+      0.952
+     ]
+    }
+   },
+   "hull_paint": {
+    "pixels": 3939,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.056,
+      "mid_0.70": 0.364,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.42,
+     "median_ratio_to_palette": [
+      0.701,
+      0.705,
+      0.865
+     ]
+    }
+   },
+   "deck": {
+    "pixels": 52077,
+    "flat_err_8bit": {
+     "median": 0.37,
+     "p99": 0.37,
+     "max": 0.37
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.805,
+      "mid_0.70": 0.05,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.855,
+     "median_ratio_to_palette": [
+      0.99,
+      1.005,
+      1.003
+     ]
+    }
+   },
+   "prop_wood": {
+    "pixels": 199,
+    "flat_err_8bit": {
+     "median": 0.35,
+     "p99": 0.35,
+     "max": 0.35
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.0,
+      "mid_0.70": 0.271,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.271,
+     "median_ratio_to_palette": [
+      0.639,
+      0.684,
+      0.801
+     ]
+    }
+   },
+   "prop_metal": {
+    "pixels": 999,
+    "flat_err_8bit": {
+     "median": 0.45,
+     "p99": 0.45,
+     "max": 0.45
+    },
+    "approved_toon": {
+     "share_within_6_of_band": {
+      "lit_1.0": 0.199,
+      "mid_0.70": 0.432,
+      "shade_0.40": 0.0
+     },
+     "any_band": 0.631,
+     "median_ratio_to_palette": [
+      0.703,
+      0.715,
+      0.813
+     ]
+    }
+   }
+  }
+ },
+ "flat_max_err_8bit": 0.85,
+ "spare_slot_pixels": 0
+}

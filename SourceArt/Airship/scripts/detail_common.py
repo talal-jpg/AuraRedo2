@@ -29,48 +29,144 @@ Generators (all sizes in metres):
   piston           hydraulic actuator: cylinder, rod, two end eyes
   drop_floating    removes every loose piece that touches nothing (ship or other detail) within 2 cm
 """
-import bpy, bmesh, math, random
+import bpy, bmesh, math, random, os
 import numpy as np
 from mathutils import Vector as V, Matrix
 from mathutils.bvhtree import BVHTree
 
-# ------------------------------------------------------------------ preview palette
-# Flat colours for the preview renders only (the final look is a texture bake after Talal approves). Colours follow
-# reference 1 and are given by ROLE, not at random: one yellow body (hull paint +- one value step for plates), rust red
-# for heavy armour, strakes, teeth, straps and frame ribs, dark metal / machinery grey for machinery and anything in a
-# recess, steel for nozzle fins and hoops, copper and brass for pipes.
-PALETTE = {
-    'paint_yellow': (0.95, 0.68, 0.21),     # one step lighter than the hull paint (0.90, 0.60, 0.17)
-    'paint_ochre':  (0.83, 0.54, 0.15),     # one step darker
-    'paint_orange': (0.85, 0.38, 0.12),     # not used on plates any more
-    'rust_red':     (0.50, 0.20, 0.12),
-    'rust_dark':    (0.34, 0.14, 0.09),
-    'dark_metal':   (0.17, 0.16, 0.16),
-    'machinery':    (0.28, 0.29, 0.31),
-    'steel':        (0.50, 0.52, 0.55),
-    'copper':       (0.70, 0.36, 0.17),
-    'brass':        (0.76, 0.58, 0.24),
-    'bolt':         (0.33, 0.30, 0.27),
-}
+# ------------------------------------------------------------------ where detail builds may write (round 3, 2026-11-28)
+# Every zone builds into its own file under rig/detail/zones/. Talal's files, the rig and the approved zone 1 sample
+# (rig/detail/AirshipRig_detail.blend, which Talal may have open) are never written: safe_save() refuses them.
+BLENDER_ROOT = '/mnt/new_partition/BlenderProjects/StylizedAirship'
+RIG_DIR = BLENDER_ROOT + '/rig'
+ZONES_DIR = RIG_DIR + '/detail/zones'
+TMP_DIR = RIG_DIR + '/tmp'
+APPROVED_Z1_BLEND = RIG_DIR + '/detail/AirshipRig_detail.blend'      # read only (approved zone 1, pass 2)
+PROTECTED_BLENDS = (BLENDER_ROOT + '/StylizedAirship.blend', RIG_DIR + '/AirshipRig.blend',
+                    RIG_DIR + '/AirshipRig_src.blend', APPROVED_Z1_BLEND, RIG_DIR + '/props/AirshipProps.blend',
+                    RIG_DIR + '/props/Turret.blend')
+WRITABLE_DIRS = (ZONES_DIR, TMP_DIR)
+
+
+def zone_blend(zone):
+    """the output .blend of a zone: zone 1 or 'z1' or 'Z1' -> rig/detail/zones/AirshipRig_detail_z1.blend"""
+    z = str(zone).lower().lstrip('z')
+    return '%s/AirshipRig_detail_z%s.blend' % (ZONES_DIR, z)
+
+
+def check_writable(path):
+    p = os.path.realpath(path)
+    if any(p == os.path.realpath(q) for q in PROTECTED_BLENDS):
+        raise RuntimeError('refusing to write a protected file: ' + p)
+    if not any(p.startswith(os.path.realpath(d) + os.sep) for d in WRITABLE_DIRS):
+        raise RuntimeError('detail builds write only under %s: %s' % (' or '.join(WRITABLE_DIRS), p))
+    return p
+
+
+def safe_save(path):
+    """the only way a detail script saves a .blend (zones/ or tmp/ only, never a protected file)"""
+    p = check_writable(path)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=p, relative_remap=True, compress=False)
+    return p
+
+# ------------------------------------------------------------------ role materials (the final colours are by ROLE)
+# Every detail face carries one ROLE material. Talal approved reference 1's yellow and rust palette as the FINAL look on
+# 2026-11-28 (the 'toon' preview), and the Unreal stage bakes the colours by role, so the material name says the role.
+# The key is what the code uses (mat='rust_red' ...); the material name is what Unreal sees. Keep this order (material
+# index = position) and only ever append new roles at the end.
+ROLES = [
+    # key            material name     colour (linear)       what it is for
+    ('paint_yellow', 'DM_Yellow',     (0.95, 0.68, 0.21), 'base plates, one value step lighter than the hull paint (0.90, 0.60, 0.17)'),
+    ('paint_ochre',  'DM_Ochre',      (0.83, 0.54, 0.15), 'base plates one step darker; picture-frame rims on yellow plates'),
+    ('paint_orange', 'DM_Orange',     (0.85, 0.38, 0.12), 'reserved: the turbine housings\' own orange (fan zone only, if it must match them)'),
+    ('rust_red',     'DM_Rust',       (0.50, 0.20, 0.12), 'strakes, teeth, frame ribs, straps, bay frames, rim straps, heavy armour (<= ~15 % of plates), patches, pods'),
+    ('rust_dark',    'DM_RustDark',   (0.34, 0.14, 0.09), 'pod plates and lips, second rust tone'),
+    ('dark_metal',   'DM_Dark',       (0.17, 0.16, 0.16), 'recesses, bay floors, backings, clamps, glands, lids, hinges, conduits'),
+    ('machinery',    'DM_Machinery',  (0.28, 0.29, 0.31), 'machinery bodies: housings, pump bodies, cavity ribs'),
+    ('steel',        'DM_Steel',      (0.50, 0.52, 0.55), 'bright steel: nozzle hoops and fins, latches'),
+    ('copper',       'DM_Copper',     (0.70, 0.36, 0.17), 'big pipes, housing pipe stubs'),
+    ('brass',        'DM_Brass',      (0.76, 0.58, 0.24), 'second pipe, flanges, valves, collars'),
+    ('bolt',         'DM_Rivet',      (0.33, 0.30, 0.27), 'rivet heads (not inked; the bake draws rivet rows as dots)'),
+    ('wood',         'DM_Wood',       (0.45, 0.30, 0.18), 'wooden treads / hand rails (stairs), only where wood makes sense'),
+]
+PALETTE = {k: c for k, _, c, _ in ROLES}
+ROLE_MATERIAL = {k: n for k, n, _, _ in ROLES}
 NO_INK_KINDS = ('rivet', 'bolt')            # faces of these kinds get a Freestyle face mark: the previews skip them
-MAT_KEYS = list(PALETTE)
-MAT_PREFIX = 'M_Detail_'
+MAT_KEYS = [k for k, _, _, _ in ROLES]
+MAT_PREFIX = 'DM_'                          # until 2026-11-28 the materials were M_Detail_<Key> (same keys, same order)
 
 
 def mat_name(key):
-    return MAT_PREFIX + ''.join(w.capitalize() for w in key.split('_'))
+    return ROLE_MATERIAL[key]
 
 
 def ensure_materials():
-    """one placeholder material per palette key (viewport colour = palette colour; the render scripts swap them)"""
+    """one material per role, in ROLES order (viewport colour = the role colour, custom property palette_key = the role
+    key; the render scripts swap them for their looks by palette_key)"""
     mats = []
     for k in MAT_KEYS:
         n = mat_name(k)
         m = bpy.data.materials.get(n) or bpy.data.materials.new(n)
         m.diffuse_color = PALETTE[k] + (1.0,)
         m['palette_key'] = k
+        m['role'] = k
         mats.append(m)
     return mats
+
+
+# ------------------------------------------------------------------ zone .blends: load another zone's details
+def zone_collection_name(zone):
+    return 'Detail_Z' + str(zone).upper().lstrip('Z')
+
+
+def append_zone(zone, arm=None, path=None):
+    """append collection Detail_ZN of zone N's .blend into the open file (the zone file is only read), parented to this
+    file's Armature (Armature modifier retargeted, the appended duplicate armature removed) and with this file's role
+    materials. Returns the collection, or None when the zone has no .blend / collection yet. A collection already in
+    the file is returned as it is."""
+    cname = zone_collection_name(zone)
+    if cname in bpy.data.collections:
+        return bpy.data.collections[cname]
+    path = path or zone_blend(zone)
+    if not os.path.exists(path):
+        return None
+    before = set(bpy.data.objects)
+    with bpy.data.libraries.load(path, link=False) as (src, dst):
+        dst.collections = [cname] if cname in src.collections else []
+    if not dst.collections or dst.collections[0] is None:
+        return None
+    coll = dst.collections[0]
+    bpy.context.scene.collection.children.link(coll)
+    arm = arm or bpy.data.objects['Armature']
+    mats = {m['palette_key']: m for m in ensure_materials()}
+    for ob in coll.all_objects:
+        if ob.parent is not None and ob.parent.type == 'ARMATURE' and ob.parent != arm:
+            mw = ob.matrix_world.copy()
+            ob.parent = arm
+            ob.matrix_parent_inverse = arm.matrix_world.inverted()
+            ob.matrix_world = mw
+        for md in ob.modifiers:
+            if md.type == 'ARMATURE':
+                md.object = arm
+        if ob.type == 'MESH':
+            for i, m in enumerate(ob.data.materials):
+                k = m.get('palette_key') if m else None
+                if k in mats:
+                    ob.data.materials[i] = mats[k]
+    for o in [o for o in bpy.data.objects if o not in before]:
+        if o.type == 'ARMATURE' and o != arm:
+            bpy.data.objects.remove(o)
+    return coll
+
+
+def detail_objects(collections=None):
+    """mesh objects of the Detail_* collections (all, or the named ones)"""
+    out = []
+    for c in bpy.data.collections:
+        if c.name.startswith('Detail_') and (collections is None or c.name in collections):
+            out += [o for o in c.all_objects if o.type == 'MESH']
+    return out
 
 
 # ------------------------------------------------------------------ small vector helpers
@@ -182,6 +278,29 @@ class Mesh:
         self.m = [self.m[i] for i in keep_f]
         self.s = [self.s[i] for i in keep_f]
         self.k = [self.k[i] for i in keep_f]
+
+    def piece_volumes(self):
+        """signed volume of every loose piece (closed pieces: < 0 = inside out, e.g. a box built in a left-handed
+        frame). Returns (face -> piece id, {piece id: volume})"""
+        fc, _ = self.components()
+        P = np.asarray(self.v, float)
+        vol = {}
+        for f, c in zip(self.f, fc):
+            a = P[f[0]]
+            for i in range(1, len(f) - 1):
+                vol[int(c)] = vol.get(int(c), 0.0) + float(np.dot(a, np.cross(P[f[i]], P[f[i + 1]]))) / 6.0
+        return fc, vol
+
+    def orient_outward(self, min_vol=1e-9):
+        """flip every closed loose piece whose signed volume is negative (inside out). New zones call this before
+        to_object(); zone 1 (approved, frozen) does not, its few inside-out pieces are listed in ZONES.md. Returns the
+        number of pieces flipped."""
+        fc, vol = self.piece_volumes()
+        bad = {c for c, v in vol.items() if v < -min_vol}
+        for i, c in enumerate(fc):
+            if int(c) in bad:
+                self.f[i] = tuple(reversed(self.f[i]))
+        return len(bad)
 
     # ---- low level shape helpers
     def bridge(self, a, b, mat, smooth, kind, closed=True, flip=False):

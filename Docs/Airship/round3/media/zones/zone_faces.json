@@ -1,0 +1,76 @@
+{
+ "zones": {
+  "Z1": {
+   "faces": 5519,
+   "area_m2": 478.7
+  },
+  "Z2": {
+   "faces": 5313,
+   "area_m2": 456.2
+  },
+  "Z3": {
+   "faces": 5464,
+   "area_m2": 773.9
+  },
+  "Z4": {
+   "faces": 15797,
+   "area_m2": 742.8
+  },
+  "Z5": {
+   "faces": 503,
+   "area_m2": 214.1
+  },
+  "Z6": {
+   "faces": 2690,
+   "area_m2": 982.2
+  },
+  "Z7": {
+   "faces": 2254,
+   "area_m2": 626.8
+  },
+  "none": {
+   "faces": 559,
+   "area_m2": 655.5
+  }
+ },
+ "rules": {
+  "Z4": {
+   "part BowWedge": 233,
+   "position": 6976,
+   "part Hull": 207,
+   "part Underside_Front": 8381
+  },
+  "none": {
+   "walkable top of a part": 13,
+   "part DeckProps": 290,
+   "deck / walkable": 256
+  },
+  "Z7": {
+   "part DeckRails": 1200,
+   "part Gantry": 1054
+  },
+  "Z1": {
+   "position": 4083,
+   "part Thruster_Front_L": 1436
+  },
+  "Z2": {
+   "position": 3877,
+   "part Thruster_Front_R": 1436
+  },
+  "Z5": {
+   "position": 254,
+   "part Hull": 249
+  },
+  "Z3": {
+   "position": 2592,
+   "part Thruster_Rear_L": 1436,
+   "part Thruster_Rear_R": 1436
+  },
+  "Z6": {
+   "position": 276,
+   "part Rudder": 58,
+   "part Turbines": 2356
+  }
+ },
+ "about": "SM_Airship faces per owning zone (detail_zones.face_zones)"
+}

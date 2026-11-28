@@ -11,6 +11,15 @@ Never saves the .blend. Burrower route (_AirshipWork_logs/burrower_rig_src/model
   bones point +Z (contract: tail = head + (0, 0, 0.5), roll 0); with this bone-axis mapping every joint is written
   with the orientation that UE's Y-up -> Z-up scene conversion turns into the identity, so in UE every bone has the
   same (identity) rest rotation as `root` and its local axes are the component axes (contract section 3).
+
+Round 3 (2026-11-28, Docs/Airship/round3/EXPORT_R3.md sections 1, 4, 5), only with --round3 (alias --r3):
+  blender -b --factory-startup --python rig_export.py -- --round3 [--lod 0|1|2] [--out FILE.fbx]
+  reads rig/detail/r3export/AirshipR3_export.blend (r3_prep.py; never saved) instead of rig/AirshipRig.blend and exports
+  32 meshes: SM_Airship (base edits applied; UV0 Talal's, UV1 R3Palette, UV2 R3Ink), the 30 props (UV0 atlas, UV1
+  R3Palette) and SM_AirshipR3Detail_Moving (--lod 1 / 2: its _LOD1 / _LOD2 object instead) to
+  rig/detail/r3export/fbx/SK_Airship.fbx (SK_Airship_LOD1.fbx / _LOD2.fbx). Same armature, transforms and FBX settings
+  as round 2; the Hull-bone details (SM_AirshipR3_HullDetail) and the turrets are static meshes (r3_export_static.py).
+  Without --round3 nothing below changes: round 2's rig/AirshipRig.blend, 31 meshes, rig/export/.
 """
 import bpy, sys, os, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -19,15 +28,51 @@ import rig_common as C
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 ANIM = '--anim' in argv
-OUT = argv[argv.index('--out') + 1] if '--out' in argv else \
-    os.path.join(C.EXPORT, 'SK_Airship_testanim.fbx' if ANIM else 'SK_Airship.fbx')
+R3 = '--round3' in argv or '--r3' in argv
+R3_LOD = int(argv[argv.index('--lod') + 1]) if '--lod' in argv else 0
+if R3:
+    import r3_common as RC
+    assert not ANIM, 'round 3 has no test sweep export: the skeleton is unchanged (use the round 2 testanim FBX)'
+    assert R3_LOD in (0, 1, 2), R3_LOD
+    OUT = argv[argv.index('--out') + 1] if '--out' in argv else \
+        os.path.join(RC.OUT, 'fbx', 'SK_Airship.fbx' if R3_LOD == 0 else 'SK_Airship_LOD%d.fbx' % R3_LOD)
+    RC.check_out_path(OUT)
+else:
+    OUT = argv[argv.index('--out') + 1] if '--out' in argv else \
+        os.path.join(C.EXPORT, 'SK_Airship_testanim.fbx' if ANIM else 'SK_Airship.fbx')
 
-bpy.ops.wm.open_mainfile(filepath=C.RIG_BLEND)
+bpy.ops.wm.open_mainfile(filepath=RC.EXPORT_BLEND if R3 else C.RIG_BLEND)
 sc = bpy.context.scene
 arm = bpy.data.objects['Armature']
-meshes = sorted([o for o in bpy.data.objects if o.type == 'MESH' and o.parent == arm and
-                 any(m.type == 'ARMATURE' and m.object == arm for m in o.modifiers)], key=lambda o: o.name)
-assert len(meshes) == 31, len(meshes)
+if R3:
+    # the export blend also holds the HullDetail static mesh, the LOD variants and the turrets: pick by name
+    r3_names = sorted([o.name for o in bpy.data.objects if o.type == 'MESH' and
+                       (o.name == C.HULL_OBJ or o.name.startswith(C.PROP_PREFIX))]) + \
+        [RC.MOVING + ('_LOD%d' % R3_LOD if R3_LOD else '')]
+    meshes = [bpy.data.objects[n] for n in r3_names]
+    for o in meshes:
+        assert o.parent == arm and any(m.type == 'ARMATURE' and m.object == arm for m in o.modifiers), o.name
+    assert len(meshes) == 32, len(meshes)
+    assert [o.name for o in meshes] == sorted(o.name for o in meshes), [o.name for o in meshes]   # FBX order = slot order
+    assert meshes[0].name == C.HULL_OBJ and meshes[-1].name.startswith(RC.MOVING)
+    assert [m.name for m in meshes[0].data.materials] == [RC.MAT_HULL]
+    assert all([m.name for m in o.data.materials] == [RC.MAT_PROPS] for o in meshes[1:-1])
+    assert [m.name for m in meshes[-1].data.materials] == [RC.MAT_DETAIL]
+    assert [u.name for u in meshes[0].data.uv_layers] == [RC.UV_INK, RC.UV_PAL, RC.UV_HULL_INK]
+    assert all([u.name for u in o.data.uv_layers] == [RC.UV_INK, RC.UV_PAL] for o in meshes[1:])
+    # objects in layer collections that are excluded cannot be selected: include the ones holding the export objects
+    _st = [bpy.context.view_layer.layer_collection]
+    _want = {c.name for o in [arm] + meshes for c in o.users_collection}
+    while _st:
+        _l = _st.pop()
+        if _l.collection.name in _want:
+            _l.exclude = False; _l.hide_viewport = False; _l.collection.hide_viewport = False
+        _st += list(_l.children)
+    print('[export] round 3: %d meshes, LOD %d -> %s' % (len(meshes), R3_LOD, OUT))
+else:
+    meshes = sorted([o for o in bpy.data.objects if o.type == 'MESH' and o.parent == arm and
+                     any(m.type == 'ARMATURE' and m.object == arm for m in o.modifiers)], key=lambda o: o.name)
+    assert len(meshes) == 31, len(meshes)
 assert meshes[0].name == C.HULL_OBJ    # sorted first -> its material M_Airship becomes slot 0
 bpy.context.view_layer.objects.active = arm
 if arm.mode != 'OBJECT':

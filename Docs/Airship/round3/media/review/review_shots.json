@@ -1,0 +1,6 @@
+{
+ "pilot_45": {"loc": [-38.0, 0.0, 14.0], "tgt": [2.0, 0.0, 3.0], "lens": 18, "about": "pilot chase camera, about 45 m behind, 15 deg down, UE 90 deg FOV"},
+ "pilot_45q": {"loc": [-33.0, 20.0, 15.0], "tgt": [2.0, 0.0, 3.0], "lens": 18, "about": "pilot chase camera swung 30 deg to port, about 45 m"},
+ "pilot_80": {"loc": [-72.0, 0.0, 24.0], "tgt": [2.0, 0.0, 3.0], "lens": 18, "about": "pilot chase camera, about 80 m"},
+ "broadside_60": {"loc": [3.0, 60.0, 2.0], "tgt": [3.0, 0.0, 0.0], "lens": 35, "about": "enemy ship broadside view, 60 m, level"}
+}

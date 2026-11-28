@@ -1,0 +1,72 @@
+{
+ "q34_fp": {
+  "loc": [
+   25.0,
+   30.0,
+   8.0
+  ],
+  "tgt": [
+   9.75,
+   -0.8,
+   2.0
+  ],
+  "lens": 20,
+  "about": "3/4 from front-port: about 31 m from the nearest flank (36 m from the ship's middle), a little above deck height"
+ },
+ "q34_rs": {
+  "loc": [
+   -15.0,
+   -31.0,
+   9.0
+  ],
+  "tgt": [
+   -0.65,
+   0.5,
+   -0.5
+  ],
+  "lens": 20,
+  "about": "3/4 from rear-starboard: about 30 m from the starboard flank (38 m from the ship's middle)"
+ },
+ "talal_back": {
+  "loc": [
+   -33.0,
+   17.0,
+   12.0
+  ],
+  "tgt": [
+   -16.5,
+   2.0,
+   1.5
+  ],
+  "lens": 30,
+  "about": "Talal's fan screenshot angle (zone 6): behind-port, above the deck, looking forward at both fans"
+ },
+ "below": {
+  "loc": [
+   6.0,
+   -11.0,
+   -33.0
+  ],
+  "tgt": [
+   5.85,
+   -1.06,
+   -0.64
+  ],
+  "lens": 18,
+  "about": "from below: about 27 m under the belly (36 m from the ship's middle)"
+ },
+ "deck_eye": {
+  "loc": [
+   -2.5,
+   -1.5,
+   3.99
+  ],
+  "tgt": [
+   9.0,
+   0.8,
+   4.8
+  ],
+  "lens": 20,
+  "about": "on the main deck at eye height (1.6 m), looking forward at the stairs (zone 7's stairs_eye)"
+ }
+}

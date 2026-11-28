@@ -1,0 +1,208 @@
+{
+ "about": "FBX round trip: the same cameras rendered from the export blend and from a fresh Blender import of rig/detail/r3export/fbx (r3_preview.py --from-fbx). flat = base colour as emission (lossless PNG); lit = the Unreal mimic (JPEG, so a few levels of noise). share_over_N = share of pixels whose grey difference is over N of 255.",
+ "shots": {
+  "q34_fp": {
+   "flat_blend_vs_fbx": {
+    "mean": 0.0001,
+    "max": 31,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   },
+   "flat_bakestep_vs_fbx": {
+    "mean": 0.0001,
+    "max": 31,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   },
+   "lit_blend_vs_fbx": {
+    "mean": 0.0049,
+    "max": 7,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  },
+  "side": {
+   "flat_blend_vs_fbx": {
+    "mean": 0.0001,
+    "max": 76,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 1
+   },
+   "flat_bakestep_vs_fbx": {
+    "mean": 0.0001,
+    "max": 76,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 1
+   },
+   "lit_blend_vs_fbx": {
+    "mean": 0.0029,
+    "max": 6,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  },
+  "pilot_45": {
+   "flat_blend_vs_fbx": {
+    "mean": 0.0001,
+    "max": 139,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 1
+   },
+   "flat_bakestep_vs_fbx": {
+    "mean": 0.0001,
+    "max": 139,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 1
+   },
+   "lit_blend_vs_fbx": {
+    "mean": 0.0021,
+    "max": 5,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  },
+  "talal_back": {
+   "flat_blend_vs_fbx": {
+    "mean": 0.0005,
+    "max": 148,
+    "share_over_8": 3e-06,
+    "share_over_32": 2e-06,
+    "pixels_over_32": 5
+   },
+   "flat_bakestep_vs_fbx": {
+    "mean": 0.0005,
+    "max": 148,
+    "share_over_8": 3e-06,
+    "share_over_32": 2e-06,
+    "pixels_over_32": 5
+   },
+   "lit_blend_vs_fbx": {
+    "mean": 0.0096,
+    "max": 8,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  },
+  "stairs_close": {
+   "flat_blend_vs_fbx": {
+    "mean": 0.0103,
+    "max": 106,
+    "share_over_8": 0.000221,
+    "share_over_32": 5.1e-05,
+    "pixels_over_32": 105
+   },
+   "flat_bakestep_vs_fbx": {
+    "mean": 0.0103,
+    "max": 106,
+    "share_over_8": 0.000221,
+    "share_over_32": 5.1e-05,
+    "pixels_over_32": 105
+   },
+   "lit_blend_vs_fbx": {
+    "mean": 0.0233,
+    "max": 39,
+    "share_over_8": 0.000252,
+    "share_over_32": 5e-06,
+    "pixels_over_32": 10
+   }
+  },
+  "fan_close_L": {
+   "flat_blend_vs_fbx": {
+    "mean": 0.0009,
+    "max": 146,
+    "share_over_8": 8e-06,
+    "share_over_32": 4e-06,
+    "pixels_over_32": 8
+   },
+   "flat_bakestep_vs_fbx": {
+    "mean": 0.0009,
+    "max": 146,
+    "share_over_8": 8e-06,
+    "share_over_32": 4e-06,
+    "pixels_over_32": 8
+   },
+   "lit_blend_vs_fbx": {
+    "mean": 0.0131,
+    "max": 7,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  },
+  "keel_low": {
+   "flat_blend_vs_fbx": {
+    "mean": 0.0004,
+    "max": 165,
+    "share_over_8": 1e-06,
+    "share_over_32": 1e-06,
+    "pixels_over_32": 2
+   },
+   "flat_bakestep_vs_fbx": {
+    "mean": 0.0004,
+    "max": 165,
+    "share_over_8": 1e-06,
+    "share_over_32": 1e-06,
+    "pixels_over_32": 2
+   },
+   "lit_blend_vs_fbx": {
+    "mean": 0.0047,
+    "max": 7,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  },
+  "deck_eye": {
+   "flat_blend_vs_fbx": {
+    "mean": 0.0005,
+    "max": 47,
+    "share_over_8": 1.3e-05,
+    "share_over_32": 0.0,
+    "pixels_over_32": 1
+   },
+   "flat_bakestep_vs_fbx": {
+    "mean": 0.0005,
+    "max": 47,
+    "share_over_8": 1.3e-05,
+    "share_over_32": 0.0,
+    "pixels_over_32": 1
+   },
+   "lit_blend_vs_fbx": {
+    "mean": 0.0047,
+    "max": 10,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  },
+  "fan_close_L_lod1": {
+   "lit_blend_vs_fbx": {
+    "mean": 0.013,
+    "max": 7,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  },
+  "pilot_45_lod1": {
+   "lit_blend_vs_fbx": {
+    "mean": 0.0022,
+    "max": 5,
+    "share_over_8": 0.0,
+    "share_over_32": 0.0,
+    "pixels_over_32": 0
+   }
+  }
+ },
+ "worst_share_over_32": 5.1e-05
+}

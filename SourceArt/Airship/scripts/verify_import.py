@@ -8,6 +8,12 @@
 Round 2: SM_Airship is Talal's mesh minus the islands in scripts/deck_removals.json (vertex i = his kept vertex i).
 
   blender -b --factory-startup --python rig/scripts/verify_import.py -- [--fbx F] [--out rig/checks/verify/import_verify.json]
+Round 3 (2026-11-28), only with --r3: --fbx default rig/detail/r3export/fbx/SK_Airship.fbx (or an _LOD1 / _LOD2 file),
+the low-level reader's report is rig/detail/r3export/checks/fbx_verify.json (verify_fbx.py --r3, which also resolves
+the round 3 base edits: SM_Airship = Talal's mesh minus deck_removals.json minus those islands), the Moving detail
+object's expected bone per vertex comes from rig/detail/r3export/manifest_arrays.npz, so the deformation test covers
+every detail vertex too; the prop atlas test leaves the Moving object out (its UV0 is the detail page) and expects two UV
+layers (UVMap, R3Palette) on the props and on the turret meshes next to the FBX. Without --r3 nothing changes.
 """
 import bpy, sys, os, json, math
 import numpy as np
@@ -18,9 +24,11 @@ RES = '/mnt/new_partition/UnrealProjects/_AirshipWork/Docs/Airship/research'
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 def arg(k, d):
     return argv[argv.index(k) + 1] if k in argv else d
-FBX = arg('--fbx', RIG + '/export/SK_Airship.fbx')
-OUT = arg('--out', RIG + '/checks/verify/import_verify.json')
-LOW = RIG + '/checks/verify/fbx_verify.json'
+R3 = '--r3' in argv or '--round3' in argv
+R3X = RIG + '/detail/r3export'
+FBX = arg('--fbx', R3X + '/fbx/SK_Airship.fbx' if R3 else RIG + '/export/SK_Airship.fbx')
+OUT = arg('--out', R3X + '/checks/import_verify.json' if R3 else RIG + '/checks/verify/import_verify.json')
+LOW = arg('--low', R3X + '/checks/fbx_verify.json' if R3 else RIG + '/checks/verify/fbx_verify.json')
 
 rep = {'fbx': FBX, 'defects': [], 'notes': []}
 def defect(m):
@@ -75,6 +83,14 @@ isl = {i['id']: i for i in islands['islands']}
 pn = vparts['parts']
 DR = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deck_removals.json')))
 REMOVED = sorted(i for p in DR['pieces'] for i in p['islands'])
+if R3:
+    # round 3: the base-edit islands as the low-level reader resolved them (their guards are checked there)
+    REMOVED = sorted(set(REMOVED) | {i for e in low.get('r3_base_edits', []) for i in e['islands']})
+    rep['r3_removed_islands'] = REMOVED
+    if not low.get('r3_base_edits'):
+        defect('%s has no r3_base_edits: run verify_fbx.py --r3 on this FBX first' % LOW)
+    R3_ARR = np.load(R3X + '/manifest_arrays.npz')
+    R3_BONES = [str(b) for b in R3_ARR['bone_names']]
 KEEP = np.nonzero(~np.isin(np.array(vparts['vertex_island']), REMOVED))[0]
 rep['sm_airship_expected_verts'] = int(len(KEEP))
 def exp_sm(vi):
@@ -101,6 +117,12 @@ for o in meshes:
     if o.name == 'SM_Airship' and nv != len(KEEP):
         defect('imported SM_Airship has %d vertices, expected %d (Talal\'s minus the removed deck pieces)' % (nv, len(KEEP)))
         nv = min(nv, len(KEEP))
+    if R3 and o.name.startswith('SM_AirshipR3Detail_Moving'):
+        _vb = R3_ARR[o.name.replace('SM_Airship', '').strip('_') + '__vert_bone']
+        if len(_vb) != nv:
+            defect('%s has %d vertices, the manifest %d' % (o.name, nv, len(_vb)))
+        expected[o.name] = [R3_BONES[int(_vb[i])] if i < len(_vb) else None for i in range(nv)]
+        continue
     expected[o.name] = [exp_sm(i) for i in range(nv)] if o.name == 'SM_Airship' else [exp_prop(o.name)] * nv
 if 'SM_Airship' not in expected:
     defect('imported SM_Airship missing')
@@ -176,7 +198,7 @@ RESN = 4096
 cover = np.zeros((RESN, RESN), np.int32)
 owner = np.full((RESN, RESN), -1, np.int32)
 pairs = {}
-props = [o for o in meshes if o.name != 'SM_Airship']
+props = [o for o in meshes if o.name != 'SM_Airship' and not (R3 and o.name.startswith('SM_AirshipR3Detail_Moving'))]
 # round 2: the turret static meshes share the prop atlas (separate FBX files next to the SK)
 before = set(bpy.data.objects)
 for n in ('SM_AirshipTurret_Base', 'SM_AirshipTurret_Gun'):
@@ -230,7 +252,7 @@ if over > 50:
     defect('prop atlas UV overlap: %d texels at %d^2 (pairs: %s)' % (over, RESN, rep['prop_uv']['overlap_pairs']))
 elif over:
     note('prop atlas: %d texels touch (raster tolerance)' % over)
-bad_layers = {n: l for n, l in uvinfo.items() if len(l) != 1}
+bad_layers = {n: l for n, l in uvinfo.items() if (l != ['UVMap', 'R3Palette'] if R3 else len(l) != 1)}
 if bad_layers: defect('prop UV layer counts: %s' % bad_layers)
 # SM_Airship vs props overlap is irrelevant (different materials / textures)
 

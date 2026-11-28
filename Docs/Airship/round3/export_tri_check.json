@@ -1,0 +1,196 @@
+{
+ "about": "Round 3 review fixes (EXPORT_R3.md section 15, review nit \"use_triangles\"): how far could the ink lines move if Unreal",
+ "export_blend_md5": "cf3adecb2c324523793eb6eb09ed7de9",
+ "pages": {
+  "hull": {
+   "object": "SM_Airship",
+   "uv": "R3Ink",
+   "faces": 37943,
+   "textured": 28277,
+   "quads": {
+    "n": 17145,
+    "blender_split_0_2": 17142,
+    "sampled": 17145,
+    "shift_cm": {
+     "p50": 0.0003,
+     "p95": 0.707,
+     "p99": 1.796,
+     "p999": 4.609,
+     "max": 6.613
+    },
+    "over_0p1cm": 3231,
+    "over_0p5cm": 1209,
+    "over_1cm": 578,
+    "over_2cm": 157,
+    "near_edges": {
+     "0.5cm_from_edge": {
+      "p99": 0.156,
+      "p999": 0.343,
+      "max": 0.808,
+      "pixel_cm_there": 0.45,
+      "p999_px": 0.75,
+      "max_px": 1.78,
+      "over_quarter_px": 371
+     },
+     "2.0cm_from_edge": {
+      "p99": 0.626,
+      "p999": 1.025,
+      "max": 1.578,
+      "pixel_cm_there": 1.82,
+      "p999_px": 0.56,
+      "max_px": 0.87,
+      "over_quarter_px": 335
+     },
+     "4.0cm_from_edge": {
+      "p99": 1.094,
+      "p999": 1.258,
+      "max": 1.568,
+      "pixel_cm_there": 4.71,
+      "p999_px": 0.27,
+      "max_px": 0.33,
+      "over_quarter_px": 124
+     }
+    }
+   },
+   "ngons": {
+    "n": 1226,
+    "checked": 1226,
+    "shift_cm": {
+     "p50": 0.0004,
+     "p99": 10.657,
+     "max": 21.833
+    },
+    "over_0p5cm": 96
+   }
+  },
+  "H": {
+   "object": "SM_AirshipR3_HullDetail",
+   "uv": "UVMap",
+   "faces": 137608,
+   "textured": 39730,
+   "quads": {
+    "n": 37398,
+    "blender_split_0_2": 37398,
+    "sampled": 37398,
+    "shift_cm": {
+     "p50": 0.0002,
+     "p95": 0.078,
+     "p99": 0.295,
+     "p999": 0.637,
+     "max": 0.963
+    },
+    "over_0p1cm": 1496,
+    "over_0p5cm": 66,
+    "over_1cm": 0,
+    "over_2cm": 0,
+    "near_edges": {
+     "0.5cm_from_edge": {
+      "p99": 0.049,
+      "p999": 0.158,
+      "max": 0.458,
+      "pixel_cm_there": 0.45,
+      "p999_px": 0.35,
+      "max_px": 1.01,
+      "over_quarter_px": 123
+     },
+     "2.0cm_from_edge": {
+      "p99": 0.154,
+      "p999": 0.472,
+      "max": 0.896,
+      "pixel_cm_there": 1.82,
+      "p999_px": 0.26,
+      "max_px": 0.49,
+      "over_quarter_px": 58
+     },
+     "4.0cm_from_edge": {
+      "p99": 0.21,
+      "p999": 0.471,
+      "max": 0.9,
+      "pixel_cm_there": 4.71,
+      "p999_px": 0.1,
+      "max_px": 0.19,
+      "over_quarter_px": 0
+     }
+    }
+   },
+   "ngons": {
+    "n": 1739,
+    "checked": 1739,
+    "shift_cm": {
+     "p50": 0.0002,
+     "p99": 0.0,
+     "max": 0.001
+    },
+    "over_0p5cm": 0
+   }
+  },
+  "M": {
+   "object": "SM_AirshipR3Detail_Moving",
+   "uv": "UVMap",
+   "faces": 71205,
+   "textured": 20102,
+   "quads": {
+    "n": 19136,
+    "blender_split_0_2": 19136,
+    "sampled": 19136,
+    "shift_cm": {
+     "p50": 0.0001,
+     "p95": 0.086,
+     "p99": 0.319,
+     "p999": 0.483,
+     "max": 0.555
+    },
+    "over_0p1cm": 903,
+    "over_0p5cm": 11,
+    "over_1cm": 0,
+    "over_2cm": 0,
+    "near_edges": {
+     "0.5cm_from_edge": {
+      "p99": 0.056,
+      "p999": 0.095,
+      "max": 0.104,
+      "pixel_cm_there": 0.45,
+      "p999_px": 0.21,
+      "max_px": 0.23,
+      "over_quarter_px": 0
+     },
+     "2.0cm_from_edge": {
+      "p99": 0.225,
+      "p999": 0.379,
+      "max": 0.416,
+      "pixel_cm_there": 1.82,
+      "p999_px": 0.21,
+      "max_px": 0.23,
+      "over_quarter_px": 0
+     },
+     "4.0cm_from_edge": {
+      "p99": 0.286,
+      "p999": 0.483,
+      "max": 0.555,
+      "pixel_cm_there": 4.71,
+      "p999_px": 0.1,
+      "max_px": 0.12,
+      "over_quarter_px": 0
+     }
+    }
+   },
+   "ngons": {
+    "n": 895,
+    "checked": 895,
+    "shift_cm": {
+     "p50": 0.0001,
+     "p99": 0.0,
+     "max": 0.0
+    },
+    "over_0p5cm": 0
+   }
+  },
+  "P": {
+   "objects": 30,
+   "quads_max_cm": 1.505,
+   "quads_over_0p5cm": 86,
+   "quads": 15268
+  }
+ },
+ "protected_unchanged": true
+}

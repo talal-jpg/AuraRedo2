@@ -1,0 +1,1470 @@
+{
+ "started": "2026-11-28 22:06:54",
+ "protected_start": {
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/StylizedAirship.blend": {
+   "md5": "4cb832deaa0fa005bf6a9359e34692bb",
+   "mtime": "2026-10-31 14:30:57"
+  },
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/AirshipRig.blend": {
+   "md5": "50f895b0bd50be523e3aaa0a6ecbfa31",
+   "mtime": "2026-11-24 20:46:39"
+  },
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/AirshipRig_src.blend": {
+   "md5": "4cb832deaa0fa005bf6a9359e34692bb",
+   "mtime": "2026-11-22 16:57:29"
+  },
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/AirshipRig_detail.blend": {
+   "md5": "31317912621726b5e647c78bfc0cf948",
+   "mtime": "2026-11-28 09:05:54"
+  },
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/props/AirshipProps.blend": {
+   "md5": "b253e788be1d887028d3110c0e0c65a2",
+   "mtime": "2026-11-24 20:45:47"
+  }
+ },
+ "defects": [],
+ "notes": [
+  "SM_AirshipR3_HullDetail: 38 corner normals on 11 faces under 1 cm^2 (largest 2.5 mm^2) differ by up to 2.34 deg (Mesh.transform re-encoding custom normals of tiny faces; invisible)",
+  "SM_AirshipR3_HullDetail_LOD1: 38 corner normals on 11 faces under 1 cm^2 (largest 2.5 mm^2) differ by up to 2.34 deg (Mesh.transform re-encoding custom normals of tiny faces; invisible)",
+  "SM_AirshipR3_HullDetail_LOD2: 38 corner normals on 11 faces under 1 cm^2 (largest 2.5 mm^2) differ by up to 2.34 deg (Mesh.transform re-encoding custom normals of tiny faces; invisible)"
+ ],
+ "files": {
+  "SK_Airship.fbx": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SK_Airship.fbx",
+   "bytes": 12243564,
+   "md5": "490dab8a1333f923a492f0c5d79a94c7",
+   "lod": 0,
+   "global_settings_same_as_round2": true,
+   "skeleton": {
+    "nodes": 119,
+    "nodes_ref": 119,
+    "parent_or_type_diff": [],
+    "local_props_max_diff": 0.0,
+    "global_max_diff_cm": 0.0,
+    "rotation_active_diff": [],
+    "bindpose_max_diff": 0.0,
+    "bindpose_missing": [],
+    "cluster_transformlink_max_diff": 0.0,
+    "bones": 118
+   },
+   "mesh_order": [
+    "SM_Airship",
+    "SM_AirshipProp_Cannon_L1_Barrel",
+    "SM_AirshipProp_Cannon_L1_Carriage",
+    "SM_AirshipProp_Cannon_L1_Quoin",
+    "SM_AirshipProp_Cannon_L1_Wheel_BL",
+    "SM_AirshipProp_Cannon_L1_Wheel_BR",
+    "SM_AirshipProp_Cannon_L1_Wheel_FL",
+    "SM_AirshipProp_Cannon_L1_Wheel_FR",
+    "SM_AirshipProp_Cannon_L2_Barrel",
+    "SM_AirshipProp_Cannon_L2_Carriage",
+    "SM_AirshipProp_Cannon_L2_Quoin",
+    "SM_AirshipProp_Cannon_L2_Wheel_BL",
+    "SM_AirshipProp_Cannon_L2_Wheel_BR",
+    "SM_AirshipProp_Cannon_L2_Wheel_FL",
+    "SM_AirshipProp_Cannon_L2_Wheel_FR",
+    "SM_AirshipProp_Cannon_R1_Barrel",
+    "SM_AirshipProp_Cannon_R1_Carriage",
+    "SM_AirshipProp_Cannon_R1_Quoin",
+    "SM_AirshipProp_Cannon_R1_Wheel_BL",
+    "SM_AirshipProp_Cannon_R1_Wheel_BR",
+    "SM_AirshipProp_Cannon_R1_Wheel_FL",
+    "SM_AirshipProp_Cannon_R1_Wheel_FR",
+    "SM_AirshipProp_Cannon_R2_Barrel",
+    "SM_AirshipProp_Cannon_R2_Carriage",
+    "SM_AirshipProp_Cannon_R2_Quoin",
+    "SM_AirshipProp_Cannon_R2_Wheel_BL",
+    "SM_AirshipProp_Cannon_R2_Wheel_BR",
+    "SM_AirshipProp_Cannon_R2_Wheel_FL",
+    "SM_AirshipProp_Cannon_R2_Wheel_FR",
+    "SM_AirshipProp_Helm_Pedestal",
+    "SM_AirshipProp_Helm_Wheel",
+    "SM_AirshipR3Detail_Moving"
+   ],
+   "material_slot_order": [
+    "M_Airship",
+    "M_AirshipProps",
+    "M_AirshipR3_Detail"
+   ],
+   "meshes": {
+    "SM_Airship": {
+     "verts": 36244,
+     "polys": 37943,
+     "tris": 68006,
+     "materials": [
+      "M_Airship"
+     ],
+     "uv_layers": [
+      "UVMap",
+      "R3Palette",
+      "R3Ink"
+     ],
+     "node_identity_dev": 7.549790126404332e-08,
+     "palette": {
+      "integral_err": 0.0,
+      "y_max": 0.0,
+      "constant_per_face": true,
+      "range": [
+       2,
+       16
+      ],
+      "equals_manifest": true,
+      "slots": {
+       "paint_orange": 1668,
+       "rust_red": 844,
+       "dark_metal": 9756,
+       "machinery": 152,
+       "copper": 14360,
+       "bolt": 480,
+       "wood": 290,
+       "hull_paint": 1750,
+       "deck": 143,
+       "recess": 119,
+       "keel_block": 8381
+      }
+     },
+     "skin": {
+      "verts": 36244,
+      "not_rigid": 0,
+      "wrong_bone": 0,
+      "bones": 75
+     },
+     "vs_source": {
+      "verts": [
+       36244,
+       36244
+      ],
+      "pos_max_m": 1.6873843888964493e-06,
+      "corners_identical": true,
+      "uv_layers": [
+       "UVMap",
+       "R3Palette",
+       "R3Ink"
+      ],
+      "uv_max_delta": {
+       "UVMap": 0.0,
+       "R3Palette": 0.0,
+       "R3Ink": 0.0
+      },
+      "normal_max_deg": 0.13390825950684238,
+      "normal_corners_over_0p5deg": 0,
+      "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+     },
+     "ue": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 4096,
+        "max": 1.0,
+        "p99": 0.992
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       },
+       "R3Ink": {
+        "page": 4096,
+        "max": 1.0,
+        "p99": 0.99
+       }
+      },
+      "weld": {
+       "pairs": 240,
+       "worst_uv_delta": 0.0009676218032836914,
+       "worst_texels_4096": 3.963,
+       "pairs_over_1_65536": 234,
+       "pairs_over_quarter_texel_4096": 210,
+       "pairs_over_1_texel_4096": 125,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 106505
+     }
+    },
+    "SM_AirshipR3Detail_Moving": {
+     "verts": 75898,
+     "polys": 71205,
+     "tris": 134904,
+     "materials": [
+      "M_AirshipR3_Detail"
+     ],
+     "uv_layers": [
+      "UVMap",
+      "R3Palette"
+     ],
+     "node_identity_dev": 7.549790126404332e-08,
+     "palette": {
+      "integral_err": 0.0,
+      "y_max": 0.0,
+      "constant_per_face": true,
+      "range": [
+       1,
+       10
+      ],
+      "equals_manifest": true,
+      "slots": {
+       "paint_ochre": 1836,
+       "paint_orange": 2732,
+       "rust_red": 10328,
+       "rust_dark": 4260,
+       "dark_metal": 12472,
+       "machinery": 3648,
+       "steel": 7166,
+       "copper": 2474,
+       "brass": 3600,
+       "bolt": 22689
+      }
+     },
+     "skin": {
+      "verts": 75898,
+      "not_rigid": 0,
+      "wrong_bone": 0,
+      "bones": 73
+     },
+     "vs_source": {
+      "verts": [
+       75898,
+       75898
+      ],
+      "pos_max_m": 1.9842135126618545e-06,
+      "corners_identical": true,
+      "uv_layers": [
+       "UVMap",
+       "R3Palette"
+      ],
+      "uv_max_delta": {
+       "UVMap": 0.0,
+       "R3Palette": 0.0
+      },
+      "normal_max_deg": 0.35953323190432074,
+      "normal_corners_over_0p5deg": 0,
+      "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+     },
+     "ue": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 4096,
+        "max": 1.0,
+        "p99": 0.971
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 188424
+     }
+    }
+   },
+   "props": {
+    "count": 30,
+    "all_same_as_round2_except_uv1": true,
+    "tris": 35520,
+    "palette_slots": {
+     "SM_AirshipProp_Helm_Pedestal": {
+      "prop_metal": 1442
+     },
+     "SM_AirshipProp_Helm_Wheel": {
+      "prop_wood": 2166
+     }
+    },
+    "ue": {
+     "SM_AirshipProp_Cannon_L1_Barrel": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 2048,
+        "max": 0.5,
+        "p99": 0.494
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 2656
+     },
+     "SM_AirshipProp_Cannon_L1_Carriage": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 2048,
+        "max": 0.5,
+        "p99": 0.495
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 2956
+     },
+     "SM_AirshipProp_Cannon_L1_Quoin": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 2048,
+        "max": 0.498,
+        "p99": 0.498
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 174
+     },
+     "SM_AirshipProp_Cannon_L1_Wheel_BL": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 2048,
+        "max": 0.499,
+        "p99": 0.494
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 408
+     },
+     "SM_AirshipProp_Cannon_L1_Wheel_BR": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 2048,
+        "max": 0.496,
+        "p99": 0.494
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 408
+     },
+     "SM_AirshipProp_Cannon_L1_Wheel_FL": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 2048,
+        "max": 0.496,
+        "p99": 0.491
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 408
+     },
+     "SM_AirshipProp_Cannon_L1_Wheel_FR": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 2048,
+        "max": 0.496,
+        "p99": 0.491
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 408
+     }
+    }
+   },
+   "tris": 238430,
+   "bounds_ue": {
+    "min_cm": [
+     -2039.11,
+     -1195.92,
+     -617.22
+    ],
+    "max_cm": [
+     3150.0,
+     1190.31,
+     1090.37
+    ]
+   },
+   "bounds_vs_round2_cm": {
+    "min": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "max": [
+     0.0,
+     0.0,
+     9.94
+    ]
+   },
+   "bounds_size_cm": [
+    5189.1,
+    2386.2,
+    1707.6
+   ]
+  },
+  "SK_Airship_LOD1.fbx": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SK_Airship_LOD1.fbx",
+   "bytes": 10833340,
+   "md5": "1dbeba84e1b9effc0310bf24a0e12f54",
+   "lod": 1,
+   "global_settings_same_as_round2": true,
+   "skeleton": {
+    "nodes": 119,
+    "nodes_ref": 119,
+    "parent_or_type_diff": [],
+    "local_props_max_diff": 0.0,
+    "global_max_diff_cm": 0.0,
+    "rotation_active_diff": [],
+    "bindpose_max_diff": 0.0,
+    "bindpose_missing": [],
+    "cluster_transformlink_max_diff": 0.0,
+    "bones": 118
+   },
+   "mesh_order": [
+    "SM_Airship",
+    "SM_AirshipProp_Cannon_L1_Barrel",
+    "SM_AirshipProp_Cannon_L1_Carriage",
+    "SM_AirshipProp_Cannon_L1_Quoin",
+    "SM_AirshipProp_Cannon_L1_Wheel_BL",
+    "SM_AirshipProp_Cannon_L1_Wheel_BR",
+    "SM_AirshipProp_Cannon_L1_Wheel_FL",
+    "SM_AirshipProp_Cannon_L1_Wheel_FR",
+    "SM_AirshipProp_Cannon_L2_Barrel",
+    "SM_AirshipProp_Cannon_L2_Carriage",
+    "SM_AirshipProp_Cannon_L2_Quoin",
+    "SM_AirshipProp_Cannon_L2_Wheel_BL",
+    "SM_AirshipProp_Cannon_L2_Wheel_BR",
+    "SM_AirshipProp_Cannon_L2_Wheel_FL",
+    "SM_AirshipProp_Cannon_L2_Wheel_FR",
+    "SM_AirshipProp_Cannon_R1_Barrel",
+    "SM_AirshipProp_Cannon_R1_Carriage",
+    "SM_AirshipProp_Cannon_R1_Quoin",
+    "SM_AirshipProp_Cannon_R1_Wheel_BL",
+    "SM_AirshipProp_Cannon_R1_Wheel_BR",
+    "SM_AirshipProp_Cannon_R1_Wheel_FL",
+    "SM_AirshipProp_Cannon_R1_Wheel_FR",
+    "SM_AirshipProp_Cannon_R2_Barrel",
+    "SM_AirshipProp_Cannon_R2_Carriage",
+    "SM_AirshipProp_Cannon_R2_Quoin",
+    "SM_AirshipProp_Cannon_R2_Wheel_BL",
+    "SM_AirshipProp_Cannon_R2_Wheel_BR",
+    "SM_AirshipProp_Cannon_R2_Wheel_FL",
+    "SM_AirshipProp_Cannon_R2_Wheel_FR",
+    "SM_AirshipProp_Helm_Pedestal",
+    "SM_AirshipProp_Helm_Wheel",
+    "SM_AirshipR3Detail_Moving_LOD1"
+   ],
+   "material_slot_order": [
+    "M_Airship",
+    "M_AirshipProps",
+    "M_AirshipR3_Detail"
+   ],
+   "meshes": {
+    "SM_Airship": {
+     "verts": 36244,
+     "polys": 37943,
+     "tris": 68006,
+     "materials": [
+      "M_Airship"
+     ],
+     "uv_layers": [
+      "UVMap",
+      "R3Palette",
+      "R3Ink"
+     ],
+     "node_identity_dev": 7.549790126404332e-08,
+     "palette": {
+      "integral_err": 0.0,
+      "y_max": 0.0,
+      "constant_per_face": true,
+      "range": [
+       2,
+       16
+      ],
+      "equals_manifest": true,
+      "slots": {
+       "paint_orange": 1668,
+       "rust_red": 844,
+       "dark_metal": 9756,
+       "machinery": 152,
+       "copper": 14360,
+       "bolt": 480,
+       "wood": 290,
+       "hull_paint": 1750,
+       "deck": 143,
+       "recess": 119,
+       "keel_block": 8381
+      }
+     },
+     "skin": {
+      "verts": 36244,
+      "not_rigid": 0,
+      "wrong_bone": 0,
+      "bones": 75
+     },
+     "same_as_lod0": true
+    },
+    "SM_AirshipR3Detail_Moving_LOD1": {
+     "verts": 43865,
+     "polys": 41382,
+     "tris": 82966,
+     "materials": [
+      "M_AirshipR3_Detail"
+     ],
+     "uv_layers": [
+      "UVMap",
+      "R3Palette"
+     ],
+     "node_identity_dev": 7.549790126404332e-08,
+     "palette": {
+      "integral_err": 0.0,
+      "y_max": 0.0,
+      "constant_per_face": true,
+      "range": [
+       1,
+       9
+      ],
+      "equals_manifest": true,
+      "slots": {
+       "paint_ochre": 1836,
+       "paint_orange": 2732,
+       "rust_red": 10328,
+       "rust_dark": 4260,
+       "dark_metal": 8904,
+       "machinery": 2572,
+       "steel": 5246,
+       "copper": 2474,
+       "brass": 3030
+      }
+     },
+     "skin": {
+      "verts": 43865,
+      "not_rigid": 0,
+      "wrong_bone": 0,
+      "bones": 72
+     },
+     "vs_source": {
+      "verts": [
+       43865,
+       43865
+      ],
+      "pos_max_m": 1.9842135126618545e-06,
+      "corners_identical": true,
+      "uv_layers": [
+       "UVMap",
+       "R3Palette"
+      ],
+      "uv_max_delta": {
+       "UVMap": 0.0,
+       "R3Palette": 0.0
+      },
+      "normal_max_deg": 0.35953323190432074,
+      "normal_corners_over_0p5deg": 0,
+      "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+     },
+     "ue": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 4096,
+        "max": 1.0,
+        "p99": 0.98
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 114703
+     }
+    }
+   },
+   "props": {
+    "count": 30,
+    "all_same_as_round2_except_uv1": true,
+    "tris": 35520,
+    "palette_slots": {
+     "SM_AirshipProp_Helm_Pedestal": {
+      "prop_metal": 1442
+     },
+     "SM_AirshipProp_Helm_Wheel": {
+      "prop_wood": 2166
+     }
+    }
+   },
+   "tris": 186492,
+   "bounds_ue": {
+    "min_cm": [
+     -2039.11,
+     -1195.92,
+     -617.22
+    ],
+    "max_cm": [
+     3150.0,
+     1190.31,
+     1090.37
+    ]
+   },
+   "bounds_vs_round2_cm": {
+    "min": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "max": [
+     0.0,
+     0.0,
+     9.94
+    ]
+   },
+   "bounds_size_cm": [
+    5189.1,
+    2386.2,
+    1707.6
+   ]
+  },
+  "SK_Airship_LOD2.fbx": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SK_Airship_LOD2.fbx",
+   "bytes": 10189388,
+   "md5": "8077a138708cdcdf6ff36ef499d6ecc2",
+   "lod": 2,
+   "global_settings_same_as_round2": true,
+   "skeleton": {
+    "nodes": 119,
+    "nodes_ref": 119,
+    "parent_or_type_diff": [],
+    "local_props_max_diff": 0.0,
+    "global_max_diff_cm": 0.0,
+    "rotation_active_diff": [],
+    "bindpose_max_diff": 0.0,
+    "bindpose_missing": [],
+    "cluster_transformlink_max_diff": 0.0,
+    "bones": 118
+   },
+   "mesh_order": [
+    "SM_Airship",
+    "SM_AirshipProp_Cannon_L1_Barrel",
+    "SM_AirshipProp_Cannon_L1_Carriage",
+    "SM_AirshipProp_Cannon_L1_Quoin",
+    "SM_AirshipProp_Cannon_L1_Wheel_BL",
+    "SM_AirshipProp_Cannon_L1_Wheel_BR",
+    "SM_AirshipProp_Cannon_L1_Wheel_FL",
+    "SM_AirshipProp_Cannon_L1_Wheel_FR",
+    "SM_AirshipProp_Cannon_L2_Barrel",
+    "SM_AirshipProp_Cannon_L2_Carriage",
+    "SM_AirshipProp_Cannon_L2_Quoin",
+    "SM_AirshipProp_Cannon_L2_Wheel_BL",
+    "SM_AirshipProp_Cannon_L2_Wheel_BR",
+    "SM_AirshipProp_Cannon_L2_Wheel_FL",
+    "SM_AirshipProp_Cannon_L2_Wheel_FR",
+    "SM_AirshipProp_Cannon_R1_Barrel",
+    "SM_AirshipProp_Cannon_R1_Carriage",
+    "SM_AirshipProp_Cannon_R1_Quoin",
+    "SM_AirshipProp_Cannon_R1_Wheel_BL",
+    "SM_AirshipProp_Cannon_R1_Wheel_BR",
+    "SM_AirshipProp_Cannon_R1_Wheel_FL",
+    "SM_AirshipProp_Cannon_R1_Wheel_FR",
+    "SM_AirshipProp_Cannon_R2_Barrel",
+    "SM_AirshipProp_Cannon_R2_Carriage",
+    "SM_AirshipProp_Cannon_R2_Quoin",
+    "SM_AirshipProp_Cannon_R2_Wheel_BL",
+    "SM_AirshipProp_Cannon_R2_Wheel_BR",
+    "SM_AirshipProp_Cannon_R2_Wheel_FL",
+    "SM_AirshipProp_Cannon_R2_Wheel_FR",
+    "SM_AirshipProp_Helm_Pedestal",
+    "SM_AirshipProp_Helm_Wheel",
+    "SM_AirshipR3Detail_Moving_LOD2"
+   ],
+   "material_slot_order": [
+    "M_Airship",
+    "M_AirshipProps",
+    "M_AirshipR3_Detail"
+   ],
+   "meshes": {
+    "SM_Airship": {
+     "verts": 36244,
+     "polys": 37943,
+     "tris": 68006,
+     "materials": [
+      "M_Airship"
+     ],
+     "uv_layers": [
+      "UVMap",
+      "R3Palette",
+      "R3Ink"
+     ],
+     "node_identity_dev": 7.549790126404332e-08,
+     "palette": {
+      "integral_err": 0.0,
+      "y_max": 0.0,
+      "constant_per_face": true,
+      "range": [
+       2,
+       16
+      ],
+      "equals_manifest": true,
+      "slots": {
+       "paint_orange": 1668,
+       "rust_red": 844,
+       "dark_metal": 9756,
+       "machinery": 152,
+       "copper": 14360,
+       "bolt": 480,
+       "wood": 290,
+       "hull_paint": 1750,
+       "deck": 143,
+       "recess": 119,
+       "keel_block": 8381
+      }
+     },
+     "skin": {
+      "verts": 36244,
+      "not_rigid": 0,
+      "wrong_bone": 0,
+      "bones": 75
+     },
+     "same_as_lod0": true
+    },
+    "SM_AirshipR3Detail_Moving_LOD2": {
+     "verts": 31717,
+     "polys": 30664,
+     "tris": 61162,
+     "materials": [
+      "M_AirshipR3_Detail"
+     ],
+     "uv_layers": [
+      "UVMap",
+      "R3Palette"
+     ],
+     "node_identity_dev": 7.549790126404332e-08,
+     "palette": {
+      "integral_err": 0.0,
+      "y_max": 0.0,
+      "constant_per_face": true,
+      "range": [
+       1,
+       9
+      ],
+      "equals_manifest": true,
+      "slots": {
+       "paint_ochre": 1636,
+       "paint_orange": 2552,
+       "rust_red": 9084,
+       "rust_dark": 3672,
+       "dark_metal": 5598,
+       "machinery": 1756,
+       "steel": 2184,
+       "copper": 2114,
+       "brass": 2068
+      }
+     },
+     "skin": {
+      "verts": 31717,
+      "not_rigid": 0,
+      "wrong_bone": 0,
+      "bones": 22
+     },
+     "vs_source": {
+      "verts": [
+       31717,
+       31717
+      ],
+      "pos_max_m": 1.8227983659726408e-06,
+      "corners_identical": true,
+      "uv_layers": [
+       "UVMap",
+       "R3Palette"
+      ],
+      "uv_max_delta": {
+       "UVMap": 0.0,
+       "R3Palette": 0.0
+      },
+      "normal_max_deg": 0.05663909496867892,
+      "normal_corners_over_0p5deg": 0,
+      "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+     },
+     "ue": {
+      "half_float_texel_err": {
+       "UVMap": {
+        "page": 4096,
+        "max": 1.0,
+        "p99": 0.98
+       },
+       "R3Palette": {
+        "max_abs": 0.0,
+        "note": "integer index: exact in half float"
+       }
+      },
+      "weld": {
+       "pairs": 0,
+       "worst_uv_delta": 0.0,
+       "worst_texels_4096": 0.0,
+       "pairs_over_1_65536": 0,
+       "pairs_over_quarter_texel_4096": 0,
+       "pairs_over_1_texel_4096": 0,
+       "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+      },
+      "render_vertices_est": 76365
+     }
+    }
+   },
+   "props": {
+    "count": 30,
+    "all_same_as_round2_except_uv1": true,
+    "tris": 35520,
+    "palette_slots": {
+     "SM_AirshipProp_Helm_Pedestal": {
+      "prop_metal": 1442
+     },
+     "SM_AirshipProp_Helm_Wheel": {
+      "prop_wood": 2166
+     }
+    }
+   },
+   "tris": 164688,
+   "bounds_ue": {
+    "min_cm": [
+     -2039.11,
+     -1195.92,
+     -617.22
+    ],
+    "max_cm": [
+     3150.0,
+     1190.31,
+     1087.2
+    ]
+   },
+   "bounds_vs_round2_cm": {
+    "min": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "max": [
+     0.0,
+     0.0,
+     6.77
+    ]
+   },
+   "bounds_size_cm": [
+    5189.1,
+    2386.2,
+    1704.4
+   ]
+  },
+  "SM_AirshipR3_HullDetail.fbx": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipR3_HullDetail.fbx",
+   "bytes": 7576668,
+   "md5": "c3201ca2a570a85f7f67c00681eb775a",
+   "lod": 0,
+   "model_types": [
+    "Mesh"
+   ],
+   "verts": 146983,
+   "tris": 258238,
+   "materials": [
+    "M_AirshipR3_Detail"
+   ],
+   "uv_layers": [
+    "UVMap",
+    "R3Palette"
+   ],
+   "node_global_identity_dev": 7.549790126404332e-08,
+   "palette": {
+    "integral_err": 0.0,
+    "y_max": 0.0,
+    "constant_per_face": true,
+    "range": [
+     0,
+     11
+    ],
+    "equals_manifest": true,
+    "slots": {
+     "paint_yellow": 8900,
+     "paint_ochre": 9580,
+     "rust_red": 18082,
+     "rust_dark": 4694,
+     "dark_metal": 24470,
+     "machinery": 1714,
+     "steel": 3108,
+     "copper": 8274,
+     "brass": 11278,
+     "bolt": 47142,
+     "wood": 366
+    }
+   },
+   "vs_source": {
+    "verts": [
+     146983,
+     146983
+    ],
+    "pos_max_m": 1.9854658142789573e-06,
+    "corners_identical": true,
+    "uv_layers": [
+     "UVMap",
+     "R3Palette"
+    ],
+    "uv_max_delta": {
+     "UVMap": 0.0,
+     "R3Palette": 0.0
+    },
+    "normal_max_deg": 2.3433061006173737,
+    "normal_corners_over_0p5deg": 38,
+    "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+   },
+   "ue": {
+    "half_float_texel_err": {
+     "UVMap": {
+      "page": 4096,
+      "max": 1.0,
+      "p99": 0.97
+     },
+     "R3Palette": {
+      "max_abs": 0.0,
+      "note": "integer index: exact in half float"
+     }
+    },
+    "weld": {
+     "pairs": 9,
+     "worst_uv_delta": 9.03010368347168e-05,
+     "worst_texels_4096": 0.37,
+     "pairs_over_1_65536": 3,
+     "pairs_over_quarter_texel_4096": 1,
+     "pairs_over_1_texel_4096": 0,
+     "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+    },
+    "render_vertices_est": 343785
+   },
+   "bounds_ue": {
+    "min_cm": [
+     -1749.22,
+     -878.43,
+     -553.88
+    ],
+    "max_cm": [
+     3156.7,
+     877.21,
+     849.9
+    ]
+   },
+   "bounds_vs_manifest_cm": 0.0
+  },
+  "SM_AirshipR3_HullDetail_LOD1.fbx": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipR3_HullDetail_LOD1.fbx",
+   "bytes": 5202940,
+   "md5": "0842b5d0a10e41ae60a80034289b5acd",
+   "lod": 1,
+   "model_types": [
+    "Mesh"
+   ],
+   "verts": 91533,
+   "tris": 170538,
+   "materials": [
+    "M_AirshipR3_Detail"
+   ],
+   "uv_layers": [
+    "UVMap",
+    "R3Palette"
+   ],
+   "node_global_identity_dev": 7.549790126404332e-08,
+   "palette": {
+    "integral_err": 0.0,
+    "y_max": 0.0,
+    "constant_per_face": true,
+    "range": [
+     0,
+     11
+    ],
+    "equals_manifest": true,
+    "slots": {
+     "paint_yellow": 8900,
+     "paint_ochre": 9580,
+     "rust_red": 18082,
+     "rust_dark": 4694,
+     "dark_metal": 21272,
+     "machinery": 1714,
+     "steel": 404,
+     "copper": 8214,
+     "brass": 10378,
+     "wood": 366
+    }
+   },
+   "vs_source": {
+    "verts": [
+     91533,
+     91533
+    ],
+    "pos_max_m": 1.9854658142789573e-06,
+    "corners_identical": true,
+    "uv_layers": [
+     "UVMap",
+     "R3Palette"
+    ],
+    "uv_max_delta": {
+     "UVMap": 0.0,
+     "R3Palette": 0.0
+    },
+    "normal_max_deg": 2.3433061006173737,
+    "normal_corners_over_0p5deg": 38,
+    "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+   },
+   "ue": {
+    "half_float_texel_err": {
+     "UVMap": {
+      "page": 4096,
+      "max": 1.0,
+      "p99": 0.98
+     },
+     "R3Palette": {
+      "max_abs": 0.0,
+      "note": "integer index: exact in half float"
+     }
+    },
+    "weld": {
+     "pairs": 9,
+     "worst_uv_delta": 9.03010368347168e-05,
+     "worst_texels_4096": 0.37,
+     "pairs_over_1_65536": 3,
+     "pairs_over_quarter_texel_4096": 1,
+     "pairs_over_1_texel_4096": 0,
+     "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+    },
+    "render_vertices_est": 226935
+   },
+   "bounds_ue": {
+    "min_cm": [
+     -1749.22,
+     -877.76,
+     -553.88
+    ],
+    "max_cm": [
+     3155.5,
+     876.74,
+     849.9
+    ]
+   },
+   "bounds_vs_manifest_cm": 0.0
+  },
+  "SM_AirshipR3_HullDetail_LOD2.fbx": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipR3_HullDetail_LOD2.fbx",
+   "bytes": 3686604,
+   "md5": "1ab67f31354aa3b1fd3e224b2a6411f5",
+   "lod": 2,
+   "model_types": [
+    "Mesh"
+   ],
+   "verts": 62508,
+   "tris": 119664,
+   "materials": [
+    "M_AirshipR3_Detail"
+   ],
+   "uv_layers": [
+    "UVMap",
+    "R3Palette"
+   ],
+   "node_global_identity_dev": 7.549790126404332e-08,
+   "palette": {
+    "integral_err": 0.0,
+    "y_max": 0.0,
+    "constant_per_face": true,
+    "range": [
+     0,
+     11
+    ],
+    "equals_manifest": true,
+    "slots": {
+     "paint_yellow": 6096,
+     "paint_ochre": 6874,
+     "rust_red": 14461,
+     "rust_dark": 3948,
+     "dark_metal": 12838,
+     "machinery": 1344,
+     "steel": 152,
+     "copper": 6834,
+     "brass": 7114,
+     "wood": 366
+    }
+   },
+   "vs_source": {
+    "verts": [
+     62508,
+     62508
+    ],
+    "pos_max_m": 1.9854658142789573e-06,
+    "corners_identical": true,
+    "uv_layers": [
+     "UVMap",
+     "R3Palette"
+    ],
+    "uv_max_delta": {
+     "UVMap": 0.0,
+     "R3Palette": 0.0
+    },
+    "normal_max_deg": 2.3433061006173737,
+    "normal_corners_over_0p5deg": 38,
+    "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+   },
+   "ue": {
+    "half_float_texel_err": {
+     "UVMap": {
+      "page": 4096,
+      "max": 1.0,
+      "p99": 0.98
+     },
+     "R3Palette": {
+      "max_abs": 0.0,
+      "note": "integer index: exact in half float"
+     }
+    },
+    "weld": {
+     "pairs": 9,
+     "worst_uv_delta": 9.03010368347168e-05,
+     "worst_texels_4096": 0.37,
+     "pairs_over_1_65536": 3,
+     "pairs_over_quarter_texel_4096": 1,
+     "pairs_over_1_texel_4096": 0,
+     "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+    },
+    "render_vertices_est": 143299
+   },
+   "bounds_ue": {
+    "min_cm": [
+     -1749.22,
+     -877.76,
+     -552.53
+    ],
+    "max_cm": [
+     3155.5,
+     876.74,
+     765.0
+    ]
+   },
+   "bounds_vs_manifest_cm": 0.0
+  },
+  "SM_AirshipTurret_Base.fbx": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipTurret_Base.fbx",
+   "bytes": 135164,
+   "md5": "47c1e97b358ba153d4dd6ae9b3bdf9ed",
+   "meshes": [
+    "SM_AirshipTurret_Base"
+   ],
+   "verts": 2177,
+   "tris": 3766,
+   "materials": [
+    "M_AirshipProps"
+   ],
+   "uv_layers": [
+    "UVMap",
+    "R3Palette"
+   ],
+   "skin": false,
+   "palette": {
+    "integral_err": 0.0,
+    "y_max": 0.0,
+    "constant_per_face": true,
+    "range": [
+     18,
+     18
+    ],
+    "equals_manifest": true,
+    "slots": {
+     "prop_metal": 2196
+    }
+   },
+   "vs_source": {
+    "verts": [
+     2177,
+     2177
+    ],
+    "pos_max_m": 1.4215107877856341e-07,
+    "corners_identical": true,
+    "uv_layers": [
+     "UVMap",
+     "R3Palette"
+    ],
+    "uv_max_delta": {
+     "UVMap": 0.0,
+     "R3Palette": 0.0
+    },
+    "normal_max_deg": 0.0020646686481009856,
+    "normal_corners_over_0p5deg": 0,
+    "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+   },
+   "ue": {
+    "half_float_texel_err": {
+     "UVMap": {
+      "page": 2048,
+      "max": 0.5,
+      "p99": 0.494
+     },
+     "R3Palette": {
+      "max_abs": 0.0,
+      "note": "integer index: exact in half float"
+     }
+    },
+    "weld": {
+     "pairs": 4,
+     "worst_uv_delta": 0.0006700754165649414,
+     "worst_texels_4096": 2.745,
+     "pairs_over_1_65536": 4,
+     "pairs_over_quarter_texel_4096": 4,
+     "pairs_over_1_texel_4096": 4,
+     "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+    },
+    "render_vertices_est": 4301
+   },
+   "same_frame_and_uv0_as_round2": true,
+   "bounds_ue": {
+    "min_cm": [
+     -42.0,
+     -42.0,
+     -1.0
+    ],
+    "max_cm": [
+     43.6,
+     42.0,
+     187.68
+    ]
+   }
+  },
+  "SM_AirshipTurret_Gun.fbx": {
+   "path": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/fbx/SM_AirshipTurret_Gun.fbx",
+   "bytes": 117004,
+   "md5": "5a029d4a05be915e68a6024cac25f939",
+   "meshes": [
+    "SM_AirshipTurret_Gun"
+   ],
+   "verts": 2076,
+   "tris": 4012,
+   "materials": [
+    "M_AirshipProps"
+   ],
+   "uv_layers": [
+    "UVMap",
+    "R3Palette"
+   ],
+   "skin": false,
+   "palette": {
+    "integral_err": 0.0,
+    "y_max": 0.0,
+    "constant_per_face": true,
+    "range": [
+     19,
+     19
+    ],
+    "equals_manifest": true,
+    "slots": {
+     "prop_gun": 2228
+    }
+   },
+   "vs_source": {
+    "verts": [
+     2076,
+     2076
+    ],
+    "pos_max_m": 5.946219422314294e-08,
+    "corners_identical": true,
+    "uv_layers": [
+     "UVMap",
+     "R3Palette"
+    ],
+    "uv_max_delta": {
+     "UVMap": 0.0,
+     "R3Palette": 0.0
+    },
+    "normal_max_deg": 0.001465941533162659,
+    "normal_corners_over_0p5deg": 0,
+    "normal_corners_over_0p5deg_faces_ge_1cm2": 0
+   },
+   "ue": {
+    "half_float_texel_err": {
+     "UVMap": {
+      "page": 2048,
+      "max": 0.5,
+      "p99": 0.496
+     },
+     "R3Palette": {
+      "max_abs": 0.0,
+      "note": "integer index: exact in half float"
+     }
+    },
+    "weld": {
+     "pairs": 0,
+     "worst_uv_delta": 0.0,
+     "worst_texels_4096": 0.0,
+     "pairs_over_1_65536": 0,
+     "pairs_over_quarter_texel_4096": 0,
+     "pairs_over_1_texel_4096": 0,
+     "rule": "same vertex + normal, all UV channels within 1/1024 but not equal: Unreal's builders weld these (static: fixed 1/1024; skeletal: the LOD build settings' ThresholdUV, default 1/1024)"
+    },
+    "render_vertices_est": 4376
+   },
+   "same_frame_and_uv0_as_round2": true,
+   "bounds_ue": {
+    "min_cm": [
+     -44.4,
+     -21.5,
+     -24.0
+    ],
+    "max_cm": [
+     180.0,
+     21.5,
+     36.5
+    ]
+   }
+  }
+ },
+ "export_blend_md5": "cf3adecb2c324523793eb6eb09ed7de9",
+ "round2": {
+  "fbx": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/export/SK_Airship.fbx",
+  "md5": "4ca667ffe1a3a9c2f2686746025792ad",
+  "tris": 104030,
+  "meshes": 31,
+  "bounds_ue": {
+   "min_cm": [
+    -2039.11,
+    -1195.92,
+    -617.22
+   ],
+   "max_cm": [
+    3150.0,
+    1190.31,
+    1080.43
+   ]
+  },
+  "bones": 118
+ },
+ "round2_reproducible": {
+  "fresh": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/r3export/checks/r2_repro/SK_Airship_round2_fresh.fbx",
+  "reference": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/export/SK_Airship.fbx",
+  "element_diffs": [],
+  "same": true,
+  "skipped": [
+   "FileId",
+   "CreationTime",
+   "Creator",
+   "FBXHeaderExtension"
+  ],
+  "uids": "mapped to (element, name): the exporter draws them from Python hashes",
+  "paths": "the texture paths name the output folder (path_mode STRIP): compared without it"
+ },
+ "summary": {
+  "sk_tris": {
+   "SK_Airship.fbx": 238430,
+   "SK_Airship_LOD1.fbx": 186492,
+   "SK_Airship_LOD2.fbx": 164688
+  },
+  "hull_detail_tris": {
+   "SM_AirshipR3_HullDetail.fbx": 258238,
+   "SM_AirshipR3_HullDetail_LOD1.fbx": 170538,
+   "SM_AirshipR3_HullDetail_LOD2.fbx": 119664
+  },
+  "turret_tris": {
+   "SM_AirshipTurret_Base.fbx": 3766,
+   "SM_AirshipTurret_Gun.fbx": 4012
+  },
+  "skeleton_same_as_round2": true,
+  "defects": 0
+ },
+ "protected_end": {
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/StylizedAirship.blend": {
+   "md5": "4cb832deaa0fa005bf6a9359e34692bb",
+   "mtime": "2026-10-31 14:30:57"
+  },
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/AirshipRig.blend": {
+   "md5": "50f895b0bd50be523e3aaa0a6ecbfa31",
+   "mtime": "2026-11-24 20:46:39"
+  },
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/AirshipRig_src.blend": {
+   "md5": "4cb832deaa0fa005bf6a9359e34692bb",
+   "mtime": "2026-11-22 16:57:29"
+  },
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/AirshipRig_detail.blend": {
+   "md5": "31317912621726b5e647c78bfc0cf948",
+   "mtime": "2026-11-28 09:05:54"
+  },
+  "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/props/AirshipProps.blend": {
+   "md5": "b253e788be1d887028d3110c0e0c65a2",
+   "mtime": "2026-11-24 20:45:47"
+  }
+ },
+ "protected_unchanged": true,
+ "export_blend_md5_end": "cf3adecb2c324523793eb6eb09ed7de9",
+ "seconds": 21.5
+}

@@ -1,0 +1,1142 @@
+{
+ "zone": "Z5",
+ "knobs": {
+  "seed": 1315,
+  "x_aft": -11.55,
+  "x_fwd": 8.6,
+  "x_fwd_plates": 6.95,
+  "chart_x": [
+   -12.0,
+   9.0,
+   0.05
+  ],
+  "chart_phi": [
+   30.0,
+   -80.0,
+   -0.5
+  ],
+  "chart_clear": 0.3,
+  "bilge_phi": -56.0,
+  "touch_tol": 0.02,
+  "step_tol": 0.012,
+  "plate": {
+   "gap": 0.015,
+   "t": 0.045,
+   "bevel": 0.014,
+   "cell_u": 0.6,
+   "cell_v": 0.25,
+   "cut": [
+    0.07,
+    0.17
+   ],
+   "cut_p": 0.3
+  },
+  "layer": 0.006,
+  "seam": 0.024,
+  "rivet": {
+   "r": 0.022,
+   "h": 0.012,
+   "inset": 0.07,
+   "spacing": 0.28
+  },
+  "upper": {
+   "w": [
+    0.8,
+    1.7
+   ],
+   "row_h": [
+    0.55,
+    0.95
+   ],
+   "top_off": 0.27,
+   "min_w": 0.35,
+   "min_h": 0.22,
+   "keep": 0.25,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "lower": {
+   "w": [
+    0.8,
+    1.6
+   ],
+   "row_h": [
+    0.7,
+    1.1
+   ],
+   "top_off": 0.04,
+   "min_w": 0.35,
+   "min_h": 0.22,
+   "keep": 0.25,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "fill": {
+   "w": [
+    0.35,
+    0.8
+   ],
+   "h": [
+    0.3,
+    0.6
+   ],
+   "min_w": 0.3,
+   "min_h": 0.24,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "shingle": {
+   "p": 0.3,
+   "overlap": 0.08,
+   "t": 0.04,
+   "armour": 0.5
+  },
+  "frame": {
+   "p": 0.4,
+   "rim": 0.075,
+   "t": 0.035,
+   "inset_p": 0.0,
+   "min_w": 0.6,
+   "min_h": 0.45,
+   "edge": 0.09
+  },
+  "patch": {
+   "p": 0.7,
+   "t": 0.04,
+   "w": [
+    0.4,
+    0.8
+   ],
+   "h": [
+    0.3,
+    0.55
+   ],
+   "mats": [
+    [
+     "rust_red",
+     0.7
+    ],
+    [
+     "paint_ochre",
+     0.3
+    ]
+   ]
+  },
+  "batten": {
+   "p": 0.75,
+   "w": 0.12,
+   "t": 0.05,
+   "mat": "rust_red"
+  },
+  "slots": {
+   "up": 3,
+   "mid": 2,
+   "w": [
+    0.55,
+    0.8
+   ],
+   "h": [
+    0.32,
+    0.45
+   ],
+   "n": [
+    3,
+    4
+   ],
+   "slot_w": 0.05,
+   "ang": 58.0
+  },
+  "strake": {
+   "h": 0.2,
+   "t": 0.085,
+   "back_h": 0.6,
+   "back_t": 0.02,
+   "smooth": 0.9
+  },
+  "teeth": {
+   "w": [
+    0.7,
+    0.9
+   ],
+   "h": [
+    0.62,
+    0.78
+   ],
+   "gap": [
+    0.14,
+    0.2
+   ],
+   "t": 0.09,
+   "chamfer": 0.07
+  },
+  "channel": {
+   "v": [
+    1.02,
+    1.52
+   ],
+   "r": [
+    0.07,
+    0.058
+   ],
+   "clamp_step": 1.0
+  },
+  "bay": {
+   "v": [
+    1.62,
+    2.78
+   ],
+   "w": [
+    2.1,
+    1.6
+   ],
+   "rim": 0.1,
+   "rim_t": 0.05,
+   "depth": 0.11,
+   "pump_r": 0.068
+  },
+  "ubay": {
+   "v": [
+    0.1,
+    0.86
+   ],
+   "w": [
+    1.8,
+    1.6
+   ],
+   "x_pref": [
+    -7.4,
+    -2.3
+   ],
+   "rim": 0.08,
+   "depth": 0.1
+  },
+  "conduit": {
+   "r_up": [
+    0.03,
+    0.026
+   ],
+   "clamp_step": 0.7,
+   "fittings": 3,
+   "smooth": 0.75
+  },
+  "gusset": {
+   "step": 0.51,
+   "depth": 0.1,
+   "height": 0.22,
+   "t": 0.025
+  },
+  "pocket": {
+   "r": 2.85,
+   "rim_w": [
+    0.03,
+    0.19
+   ],
+   "rim_t": 0.05,
+   "cavity_bottom_h": -1.84,
+   "roof_h": -2.8,
+   "cols": [
+    -0.5,
+    9.5
+   ]
+  },
+  "pod": {
+   "gap": 0.012,
+   "t": 0.035,
+   "bevel": 0.01,
+   "rib_rivet_step": 20.0,
+   "hull_clear": 0.05,
+   "bundle_r": 0.05,
+   "hug_r": [
+    0.06,
+    0.05
+   ],
+   "act_r": 2.04,
+   "hoops": [
+    3.25,
+    3.6
+   ],
+   "mats": [
+    [
+     "rust_red",
+     0.45
+    ],
+    [
+     "rust_dark",
+     0.35
+    ],
+    [
+     "dark_metal",
+     0.2
+    ]
+   ]
+  },
+  "pa_boxes": "/mnt/new_partition/UnrealProjects/_AirshipWork/Saved/Airship/pa_hull_boxes.json",
+  "z5": {
+   "chart_x": [
+    -16.5,
+    7.1,
+    0.05
+   ],
+   "chart_psi": [
+    -70.0,
+    70.0,
+    0.25
+   ],
+   "AZ": 0.3,
+   "clear": 0.3,
+   "dv": 0.04,
+   "vmax": 5.4,
+   "margin": 0.12,
+   "other_r": 0.17,
+   "rudder": {
+    "c": [
+     -16.364,
+     0.0
+    ],
+    "r": 1.05
+   },
+   "girder": {
+    "back": 0.4,
+    "strake": 0.23,
+    "back_t": 0.02,
+    "t": 0.085,
+    "seg": 2.25,
+    "joint": 0.008,
+    "piece": 3.0,
+    "min_len": 3.0,
+    "rivet_in": 0.06,
+    "back_rivet_step": 0.56
+   },
+   "channel": {
+    "v": [
+     0.47,
+     0.97
+    ],
+    "pipes": [
+     [
+      0.07,
+      0.15,
+      "copper"
+     ],
+     [
+      0.058,
+      0.38,
+      "brass"
+     ]
+    ],
+    "min_len": 2.5,
+    "flange_step": 4.0,
+    "clamp_step": 1.2,
+    "back_t": 0.015
+   },
+   "ribs": {
+    "xs": [
+     -14.0,
+     -11.6,
+     -9.2,
+     -6.8,
+     -4.4,
+     -2.0,
+     0.4,
+     2.8,
+     5.2
+    ],
+    "w": 0.16,
+    "t": 0.1,
+    "min_len": 0.5,
+    "gap": 0.02
+   },
+   "bays": [
+    [
+     1,
+     -13.86,
+     1.7,
+     1.1,
+     1.16,
+     true,
+     true
+    ],
+    [
+     -1,
+     -13.86,
+     1.7,
+     1.1,
+     1.16,
+     true,
+     false
+    ],
+    [
+     1,
+     -3.86,
+     1.7,
+     1.1,
+     1.16,
+     false,
+     true
+    ],
+    [
+     -1,
+     -3.86,
+     1.7,
+     1.1,
+     1.16,
+     true,
+     true
+    ]
+   ],
+   "hoses": [
+    [
+     1,
+     -11.93,
+     -4.07,
+     1.68,
+     0.26
+    ],
+    [
+     -1,
+     -11.93,
+     -4.07,
+     1.68,
+     0.26
+    ]
+   ],
+   "hose": {
+    "r": 0.09,
+    "sides": 12,
+    "band_step": 0.75,
+    "fitting": 0.26,
+    "rise": 0.16
+   },
+   "chains": [],
+   "chain": {
+    "link": 0.3,
+    "wire": 0.032
+   },
+   "stringer": {
+    "v": [
+     2.2,
+     3.7
+    ],
+    "w": 0.16,
+    "t": 0.1,
+    "pad": 0.02,
+    "min_len": 2.0,
+    "x": [
+     -14.3,
+     5.5
+    ],
+    "seg": 2.4,
+    "joint": 0.008
+   },
+   "knee": {
+    "L": 0.3,
+    "w_end": 0.06,
+    "t": 0.06,
+    "keep_armour_off": 0.5
+   },
+   "rows": {
+    "w": [
+     0.8,
+     1.6
+    ],
+    "row_h": [
+     0.7,
+     1.1
+    ],
+    "min_w": 0.35,
+    "min_h": 0.22,
+    "keep": 0.25,
+    "mats": [
+     [
+      "paint_yellow",
+      0.5
+     ],
+     [
+      "paint_ochre",
+      0.5
+     ]
+    ]
+   },
+   "style_slots": 3,
+   "frame_p": 0.4,
+   "patch_p": 0.65,
+   "armour_p": 0.3,
+   "bay_depth": 0.095,
+   "rows_v0": 1.01
+  }
+ },
+ "log": {
+  "other_zones_as_obstacles": [
+   "Z1",
+   "Z2",
+   "Z3",
+   "Z4",
+   "Z6",
+   "Z7"
+  ],
+  "free_m2": {
+   "port": 63.9,
+   "stbd": 67.8
+  },
+  "t_mask": 14.1,
+  "girder": {
+   "runs": [
+    [
+     -15.23,
+     6.43
+    ]
+   ],
+   "rivets": 240,
+   "top_off": 0.126
+  },
+  "channels": {
+   "port": [
+    {
+     "x": [
+      -15.33,
+      6.43
+     ],
+     "pipes": 2
+    }
+   ],
+   "stbd": [
+    {
+     "x": [
+      -15.33,
+      6.43
+     ],
+     "pipes": 2
+    }
+   ]
+  },
+  "stringer": {
+   "port": {
+    "v": 2.28,
+    "runs": [
+     [
+      -14.3,
+      -9.8
+     ],
+     [
+      -5.6,
+      1.1
+     ]
+    ],
+    "segments": 5,
+    "rivets": 42
+   },
+   "stbd": {
+    "v": 2.4,
+    "runs": [
+     [
+      -14.3,
+      0.65
+     ]
+    ],
+    "segments": 6,
+    "rivets": 54
+   }
+  },
+  "ribs": {
+   "port": {
+    "ribs": [
+     {
+      "x": -14.0,
+      "v": [
+       1.02,
+       2.28
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": -11.6,
+      "v": [
+       1.02,
+       2.28
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": -9.2,
+      "v": [
+       1.02,
+       1.98
+      ],
+      "end": "knee"
+     },
+     {
+      "x": -6.8,
+      "v": [
+       1.02,
+       1.9
+      ],
+      "end": "knee"
+     },
+     {
+      "x": -4.4,
+      "v": [
+       1.02,
+       2.28
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": -2.0,
+      "v": [
+       1.02,
+       2.28
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": 0.4,
+      "v": [
+       1.02,
+       2.28
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": 5.2,
+      "v": [
+       1.02,
+       1.58
+      ],
+      "end": "knee"
+     }
+    ],
+    "rivets": 36
+   },
+   "stbd": {
+    "ribs": [
+     {
+      "x": -14.0,
+      "v": [
+       1.02,
+       2.4
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": -11.6,
+      "v": [
+       1.02,
+       2.4
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": -9.2,
+      "v": [
+       1.02,
+       2.4
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": -6.8,
+      "v": [
+       1.02,
+       2.4
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": -4.4,
+      "v": [
+       1.02,
+       2.4
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": -2.0,
+      "v": [
+       1.02,
+       2.4
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": 0.4,
+      "v": [
+       1.02,
+       2.4
+      ],
+      "end": "stringer"
+     },
+     {
+      "x": 2.8,
+      "v": [
+       1.02,
+       1.7
+      ],
+      "end": "knee"
+     },
+     {
+      "x": 5.2,
+      "v": [
+       1.02,
+       1.62
+      ],
+      "end": "knee"
+     }
+    ],
+    "rivets": 41
+   }
+  },
+  "bays": [
+   {
+    "tag": "port -13.9",
+    "x": [
+     -13.86,
+     -12.16
+    ],
+    "v": [
+     1.1,
+     2.22
+    ]
+   },
+   {
+    "tag": "stbd -13.9",
+    "x": [
+     -13.86,
+     -12.16
+    ],
+    "v": [
+     1.1,
+     2.26
+    ]
+   }
+  ],
+  "bays_skipped": [
+   [
+    1,
+    -3.86
+   ],
+   [
+    -1,
+    -3.86
+   ]
+  ],
+  "skipped_on_step": 4,
+  "skipped_on_step_at": [
+   [
+    "port",
+    -15.91,
+    2.91,
+    0.93,
+    0.38,
+    "plate"
+   ],
+   [
+    "port",
+    -15.66,
+    0.99,
+    1.13,
+    0.9,
+    "plate_raised"
+   ],
+   [
+    "stbd",
+    -15.66,
+    0.99,
+    1.28,
+    1.06,
+    "plate_raised"
+   ],
+   [
+    "stbd",
+    5.79,
+    0.99,
+    0.68,
+    1.06,
+    "plate_raised"
+   ]
+  ],
+  "layers": {
+   "port": {
+    "plates": 83,
+    "raised": 9,
+    "armour": 0,
+    "battens": 10,
+    "slotted": 3,
+    "frames": 3,
+    "patches": 9,
+    "calm_plates": 59,
+    "calm_share_of_area": 0.37,
+    "plate_area_m2": 29.4,
+    "built": {
+     "base": 73,
+     "raised": 8,
+     "battens": 10,
+     "frames": 3,
+     "patches": 9,
+     "slotted": 2
+    },
+    "rivets": 221
+   },
+   "stbd": {
+    "plates": 85,
+    "raised": 12,
+    "armour": 2,
+    "battens": 4,
+    "slotted": 3,
+    "frames": 6,
+    "patches": 2,
+    "calm_plates": 62,
+    "calm_share_of_area": 0.4,
+    "plate_area_m2": 31.5,
+    "built": {
+     "base": 73,
+     "raised": 10,
+     "battens": 4,
+     "frames": 6,
+     "patches": 2,
+     "slotted": 2
+    },
+    "rivets": 205
+   }
+  },
+  "tab_rivets": {
+   "tabs": [
+    394,
+    395,
+    396,
+    397,
+    398,
+    404,
+    405,
+    406,
+    407
+   ],
+   "rivets": 36
+  },
+  "chains": [],
+  "hoses": [
+   {
+    "side": 1,
+    "x": [
+     -11.93,
+     -4.07
+    ],
+    "v": 1.68,
+    "sag": 0.26,
+    "low_z": -5.437,
+    "built": true
+   },
+   {
+    "side": -1,
+    "x": [
+     -11.93,
+     -4.07
+    ],
+    "v": 1.68,
+    "sag": 0.26,
+    "low_z": -5.437,
+    "built": true
+   }
+  ],
+  "t_build": 15.7,
+  "dropped_intersecting": {
+   "ship_parts": {
+    "rivet": 22
+   }
+  },
+  "floating_pieces_removed": {
+   "Belly": {
+    "rivet": 3
+   }
+  },
+  "inside_out_pieces_flipped": {
+   "Belly": 0
+  }
+ },
+ "base_edits": {
+  "z6_fan_back_L": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "port fan: remove the flat disc behind the rotor (duct_back_wall, island 1028) and the big tail cone that closed the duct exit (tail_cone, island 1030, r 2.46 at x -18.76, flat end at x -19.91), so the fan blades are visible from behind and the duct reads as an open exhaust"
+  },
+  "z6_fan_back_R": {
+   "file": "z6.json",
+   "zone": "Z6",
+   "faces": 60,
+   "tris": 216,
+   "guard_ok": true,
+   "why": "starboard fan: the same (islands 1088 and 1091)"
+  },
+  "z7_chain_aft_bars": {
+   "file": "z7.json",
+   "zone": "Z7",
+   "faces": 36,
+   "tris": 72,
+   "guard_ok": true,
+   "why": "replace the ChainAft bars by a heavy link chain (detail object, Hull bone)"
+  }
+ },
+ "tris": {
+  "SM_AirshipDetail_Z5_Belly": 58782
+ },
+ "tris_total": 58782,
+ "tris_by_kind": {
+  "Belly": {
+   "rivet": {
+    "tris": 15988,
+    "share": 0.272
+   },
+   "pipe": {
+    "tris": 7952,
+    "share": 0.135
+   },
+   "plate": {
+    "tris": 6470,
+    "share": 0.11
+   },
+   "fill": {
+    "tris": 4966,
+    "share": 0.084
+   },
+   "hose": {
+    "tris": 3104,
+    "share": 0.053
+   },
+   "clamp": {
+    "tris": 2944,
+    "share": 0.05
+   },
+   "plate_raised": {
+    "tris": 1950,
+    "share": 0.033
+   },
+   "channel": {
+    "tris": 1792,
+    "share": 0.03
+   },
+   "bay": {
+    "tris": 1768,
+    "share": 0.03
+   },
+   "girder": {
+    "tris": 1408,
+    "share": 0.024
+   },
+   "frame": {
+    "tris": 1344,
+    "share": 0.023
+   },
+   "slotted": {
+    "tris": 1312,
+    "share": 0.022
+   },
+   "rib": {
+    "tris": 1136,
+    "share": 0.019
+   },
+   "gland": {
+    "tris": 1008,
+    "share": 0.017
+   },
+   "keel": {
+    "tris": 960,
+    "share": 0.016
+   },
+   "stringer": {
+    "tris": 952,
+    "share": 0.016
+   },
+   "housing": {
+    "tris": 920,
+    "share": 0.016
+   },
+   "patch": {
+    "tris": 840,
+    "share": 0.014
+   },
+   "pump": {
+    "tris": 680,
+    "share": 0.012
+   },
+   "batten": {
+    "tris": 664,
+    "share": 0.011
+   },
+   "valve": {
+    "tris": 368,
+    "share": 0.006
+   },
+   "tank": {
+    "tris": 256,
+    "share": 0.004
+   }
+  }
+ },
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z5_Belly",
+   "tris": 58782,
+   "verts": 32999,
+   "pieces": 1804,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 4880,
+    "bolt": 10278,
+    "rust_red": 2578,
+    "copper": 2188,
+    "brass": 2458,
+    "machinery": 128,
+    "steel": 460,
+    "paint_ochre": 4386,
+    "paint_yellow": 3732
+   },
+   "collections": [
+    "Detail_Z5"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z5",
+   "verts_tested": 16500,
+   "sample_every": 2,
+   "outside_zone": {},
+   "outside_by_kind": {},
+   "on_seam_with": {},
+   "within_margin_of": {},
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 32999,
+   "verts_inside_a_box": 40,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.279,
+   "worst": [
+    -6.31,
+    1.717,
+    -5.482
+   ],
+   "verts_over_limit": 220,
+   "over_limit_by_kind": {},
+   "verts": 16500,
+   "limit_m": 0.2,
+   "p99_m": 0.212
+  },
+  "bbox": [
+   [
+    -15.935,
+    -4.761,
+    -5.539
+   ],
+   [
+    6.485,
+    4.699,
+    -1.898
+   ]
+  ]
+ },
+ "silhouette": {
+  "fixed": {
+   "name": "belly details except the hanging chains and hoses",
+   "max_dist_m": 0.211,
+   "worst": [
+    -13.289,
+    1.419,
+    -4.818
+   ],
+   "verts_over_limit": 26,
+   "over_limit_by_kind": {
+    "valve": 4,
+    "housing": 22
+   },
+   "verts": 31391,
+   "limit_m": 0.2,
+   "p99_m": 0.181
+  },
+  "hanging": {
+   "name": "hanging chains, hoses, padeyes",
+   "max_dist_m": 0.291,
+   "worst": [
+    -6.466,
+    1.701,
+    -5.503
+   ],
+   "verts_over_limit": 426,
+   "over_limit_by_kind": {
+    "hose": 426
+   },
+   "verts": 1608,
+   "limit_m": 0.2,
+   "p99_m": 0.279
+  },
+  "lowest_z": -5.539,
+  "lowest_nozzle_petal_z": -6.172
+ },
+ "seam_margin_detail": {},
+ "density": {
+  "z5_faces_m2": 214.1,
+  "z5_free_skin_m2": 131.7,
+  "tris_per_m2_of_z5_faces": 274.6,
+  "tris_per_m2_of_free_skin": 446.3,
+  "tris_per_m2_of_free_skin_without_hanging": 422.8,
+  "rivet_share": 0.272,
+  "calm_share_of_plate_area": 0.39,
+  "armour_plates": 2,
+  "plates": 168,
+  "zone1": {
+   "hull_tris_per_m2_of_faces": 128.3,
+   "free_skin_tris_per_m2": 611,
+   "rivet_share": 0.241,
+   "calm_share": 0.3,
+   "armour_plates": "2 of 49",
+   "source": "z2_report.json density, ZONE_2.md section 3, zone1_report.json"
+  },
+  "about": "Z5 faces are nearly all free skin; zone 1 face area includes the ship's own bands, steam pipes and pocket, so compare the free-skin numbers"
+ },
+ "seconds": 21.8,
+ "all_objects_ok": true
+}

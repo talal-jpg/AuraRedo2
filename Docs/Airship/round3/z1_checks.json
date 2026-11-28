@@ -1,0 +1,192 @@
+{
+ "zone": "Z1",
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z1_Hull",
+   "tris": 32676,
+   "verts": 18336,
+   "pieces": 999,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 1506,
+    "bolt": 4662,
+    "paint_yellow": 1684,
+    "paint_ochre": 1182,
+    "dark_metal": 3799,
+    "copper": 1006,
+    "brass": 2270,
+    "machinery": 384,
+    "steel": 624
+   },
+   "collections": [
+    "Detail_Z1"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z1_Nozzle_FL",
+   "tris": 2160,
+   "verts": 1248,
+   "pieces": 86,
+   "inside_out_pieces": 38,
+   "inside_out_volume_m3": 0.119165,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_FL_Nozzle"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "bolt": 432,
+    "steel": 744
+   },
+   "collections": [
+    "Detail_Z1"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": false
+  },
+  {
+   "object": "SM_AirshipDetail_Z1_Petals_FL",
+   "tris": 4032,
+   "verts": 2280,
+   "pieces": 132,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_FL_Petal00",
+    "Thruster_FL_Petal01",
+    "Thruster_FL_Petal02",
+    "Thruster_FL_Petal03",
+    "Thruster_FL_Petal04",
+    "Thruster_FL_Petal05",
+    "Thruster_FL_Petal06",
+    "Thruster_FL_Petal07",
+    "Thruster_FL_Petal08",
+    "Thruster_FL_Petal09",
+    "Thruster_FL_Petal10",
+    "Thruster_FL_Petal11"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 1176,
+    "machinery": 240,
+    "brass": 120,
+    "bolt": 216
+   },
+   "collections": [
+    "Detail_Z1"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z1_Pod_FL",
+   "tris": 12336,
+   "verts": 6944,
+   "pieces": 389,
+   "inside_out_pieces": 13,
+   "inside_out_volume_m3": 0.120579,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Thruster_FL"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 1080,
+    "bolt": 2610,
+    "rust_dark": 700,
+    "dark_metal": 942,
+    "steel": 312,
+    "copper": 506,
+    "brass": 464,
+    "machinery": 66
+   },
+   "collections": [
+    "Detail_Z1"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": false
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z1",
+   "verts_tested": 9603,
+   "sample_every": 3,
+   "outside_zone": {
+    "Z4": 3,
+    "Z5": 5
+   },
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "Z4": 7,
+    "Z5": 54,
+    "Z3": 43
+   },
+   "within_margin_of": {
+    "Z4": 3,
+    "Z3": 38,
+    "Z5": 18
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 28808,
+   "verts_inside_a_box": 1585,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.299,
+   "worst": [
+    3.671,
+    7.125,
+    -2.676
+   ],
+   "verts_over_limit": 103,
+   "over_limit_by_kind": {},
+   "verts": 9603,
+   "limit_m": 0.2,
+   "p99_m": 0.203
+  },
+  "bbox": [
+   [
+    -11.589,
+    1.82,
+    -5.856
+   ],
+   [
+    7.282,
+    8.784,
+    2.232
+   ]
+  ]
+ }
+}

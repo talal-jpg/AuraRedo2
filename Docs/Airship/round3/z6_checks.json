@@ -1,0 +1,294 @@
+{
+ "zone": "Z6",
+ "objects": [
+  {
+   "object": "SM_AirshipDetail_Z6_Hull",
+   "tris": 6812,
+   "verts": 3938,
+   "pieces": 266,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Hull"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "paint_ochre": 178,
+    "bolt": 1593,
+    "paint_yellow": 368,
+    "rust_red": 246,
+    "dark_metal": 560,
+    "copper": 300,
+    "brass": 456
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rod_L",
+   "tris": 176,
+   "verts": 96,
+   "pieces": 4,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_L_Rod"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 40,
+    "rust_red": 28
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rod_R",
+   "tris": 176,
+   "verts": 96,
+   "pieces": 4,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_R_Rod"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 40,
+    "rust_red": 28
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rotor_L",
+   "tris": 4136,
+   "verts": 2312,
+   "pieces": 123,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_L_Rotor"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 18,
+    "machinery": 742,
+    "bolt": 576,
+    "rust_red": 336,
+    "steel": 728
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rotor_R",
+   "tris": 4136,
+   "verts": 2312,
+   "pieces": 123,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_R_Rotor"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 18,
+    "machinery": 742,
+    "bolt": 576,
+    "rust_red": 336,
+    "steel": 728
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Rudder",
+   "tris": 6784,
+   "verts": 3828,
+   "pieces": 218,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Rudder"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "dark_metal": 812,
+    "bolt": 1512,
+    "rust_red": 546,
+    "rust_dark": 874
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Turbine_L",
+   "tris": 19482,
+   "verts": 10985,
+   "pieces": 622,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_L"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 2404,
+    "bolt": 3465,
+    "dark_metal": 1088,
+    "paint_orange": 1360,
+    "paint_ochre": 1056,
+    "rust_dark": 60,
+    "machinery": 418,
+    "steel": 312,
+    "copper": 180,
+    "brass": 188
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  },
+  {
+   "object": "SM_AirshipDetail_Z6_Turbine_R",
+   "tris": 19216,
+   "verts": 10844,
+   "pieces": 618,
+   "inside_out_pieces": 0,
+   "inside_out_volume_m3": 0,
+   "nonmanifold_edges": 0,
+   "not_rigid_vertices": 0,
+   "bones": [
+    "Turbine_R"
+   ],
+   "parent": "Armature",
+   "armature_modifier": true,
+   "faces_without_role": 0,
+   "faces_by_role": {
+    "rust_red": 2470,
+    "bolt": 3456,
+    "dark_metal": 1162,
+    "paint_ochre": 780,
+    "rust_dark": 54,
+    "paint_orange": 1372,
+    "machinery": 418,
+    "steel": 312,
+    "copper": 180,
+    "brass": 188
+   },
+   "collections": [
+    "Detail_Z6"
+   ],
+   "name_ok": true,
+   "collection_ok": true,
+   "ok": true
+  }
+ ],
+ "zone_checks": {
+  "ownership": {
+   "zone": "Z6",
+   "verts_tested": 17206,
+   "sample_every": 2,
+   "outside_zone": {},
+   "outside_by_kind": {},
+   "on_seam_with": {
+    "Z3": 45,
+    "Z5": 8
+   },
+   "within_margin_of": {
+    "Z5": 36,
+    "Z3": 70
+   },
+   "keep_clear": {},
+   "about": "outside_zone: nearest SM_Airship face belongs to another zone and no face of this zone lies within margin + 0.2 m (must be 0, or explained in the zone doc); on_seam_with: nearest face is the neighbour's but this zone's skin is within margin + 0.2 m (a part ending on the seam, or standing 0.2 m off the skin there); within_margin_of: inside the zone but within the 10 cm margin of a neighbour (only for runs continued across the seam)"
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 34411,
+   "verts_inside_a_box": 164,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "to_ship": {
+   "name": "detail vertices vs any SM_Airship face",
+   "max_dist_m": 0.408,
+   "worst": [
+    -17.15,
+    7.6,
+    -3.6
+   ],
+   "verts_over_limit": 278,
+   "over_limit_by_kind": {},
+   "verts": 17206,
+   "limit_m": 0.2,
+   "p99_m": 0.222
+  },
+  "bbox": [
+   [
+    -20.282,
+    -11.355,
+    -3.6
+   ],
+   [
+    -14.368,
+    11.764,
+    5.695
+   ]
+  ]
+ }
+}

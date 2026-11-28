@@ -1,0 +1,237 @@
+{
+ "blend": "/mnt/new_partition/BlenderProjects/StylizedAirship/rig/detail/zones/AirshipRig_detail_z3.blend",
+ "prefix": "SM_AirshipDetail_Z3_",
+ "objects": {
+  "SM_AirshipDetail_Z3_Hull": {
+   "verts": 13995,
+   "faces": 13178,
+   "tris": 24758,
+   "co_0p1mm_md5": "e1ea1d50bc7918fd23328e97e1007cfb",
+   "faces_md5": "a8cf8d257345aa70074b4bc3c9ac37b9",
+   "roles_md5": "5c212598a83d8e890412c855f0150961",
+   "bones_md5": "73e977535572441affc0037fb17e89ce",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z3"
+   ]
+  },
+  "SM_AirshipDetail_Z3_Nozzle_RL": {
+   "verts": 1182,
+   "faces": 1112,
+   "tris": 2056,
+   "co_0p1mm_md5": "caccc6f9d63f50c3febef6d4a461a32e",
+   "faces_md5": "60678f9070c8c1933cbf1207e7ae123a",
+   "roles_md5": "4cfc3fec1d41f1d97f7cabfd93b8141a",
+   "bones_md5": "0c48dc796205b7f9d7d9fac0b6dc1ff6",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z3"
+   ]
+  },
+  "SM_AirshipDetail_Z3_Nozzle_RR": {
+   "verts": 1248,
+   "faces": 1176,
+   "tris": 2160,
+   "co_0p1mm_md5": "bd6bf8e32557df1fbaa79a501432c304",
+   "faces_md5": "cf973d5f8d74d948b73ad1dbac2898da",
+   "roles_md5": "9a18d3edc8bd3cdc865df1ca6450720c",
+   "bones_md5": "9331282ed9439b6917555b55166ef99f",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z3"
+   ]
+  },
+  "SM_AirshipDetail_Z3_Petals_RL": {
+   "verts": 2280,
+   "faces": 1752,
+   "tris": 4032,
+   "co_0p1mm_md5": "475ad1b6b56402c33f5f65b2aa337263",
+   "faces_md5": "4558e260a12abe6f2897a6690721c061",
+   "roles_md5": "777c1d036eac8171eefb10856968757a",
+   "bones_md5": "be34039d904d41cfcbaa72a8653eb124",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z3"
+   ]
+  },
+  "SM_AirshipDetail_Z3_Petals_RR": {
+   "verts": 2280,
+   "faces": 1752,
+   "tris": 4032,
+   "co_0p1mm_md5": "1aa40f3044b5f11edbcfc25c40548de4",
+   "faces_md5": "4558e260a12abe6f2897a6690721c061",
+   "roles_md5": "777c1d036eac8171eefb10856968757a",
+   "bones_md5": "767daa9f3e7a320a9e3f27cca1a7f89a",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z3"
+   ]
+  },
+  "SM_AirshipDetail_Z3_Pod_RL": {
+   "verts": 6378,
+   "faces": 6129,
+   "tris": 11388,
+   "co_0p1mm_md5": "1ac0d879d122f5922bafa14966b7e5b7",
+   "faces_md5": "b0238915c58a4a6836045d15af8f9739",
+   "roles_md5": "b5dfc7fbee60cc812e60d1ff99aa05f5",
+   "bones_md5": "a114d43ff991e2b2717a63943115744d",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z3"
+   ]
+  },
+  "SM_AirshipDetail_Z3_Pod_RR": {
+   "verts": 6539,
+   "faces": 6285,
+   "tris": 11642,
+   "co_0p1mm_md5": "f8e7bec4aedeb825991548cbbba5944e",
+   "faces_md5": "fd976e3bba87508650ac8011019467cc",
+   "roles_md5": "26e61693b183e43de23b51fcee9d758b",
+   "bones_md5": "8494baed704ea77b65772731588d7841",
+   "materials": [
+    "DM_Yellow",
+    "DM_Ochre",
+    "DM_Orange",
+    "DM_Rust",
+    "DM_RustDark",
+    "DM_Dark",
+    "DM_Machinery",
+    "DM_Steel",
+    "DM_Copper",
+    "DM_Brass",
+    "DM_Rivet",
+    "DM_Wood"
+   ],
+   "parent": "Armature",
+   "modifiers": [
+    [
+     "ARMATURE",
+     "Armature"
+    ]
+   ],
+   "collections": [
+    "Detail_Z3"
+   ]
+  }
+ }
+}

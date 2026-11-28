@@ -1,24 +1,37 @@
-"""Preview renders for the detail pass (round 3): before / after, flat palette + ink (toon) or clay + cavity.
+"""Preview renders for the detail pass (round 3): before / after, the FINAL look (toon), paper, clay, any zones.
 
-  blender -b --factory-startup --python detail_render.py -- --look toon|clay --states before,after \
-      --shots side,q34,close_flank,close_pod --out DIR [--res 1920x1080] [--samples 48]
+  blender_capped.sh --python detail_render.py -- --look toon|paper|clay --states before,after \
+      --shots side,q34,close_flank,close_pod --out DIR [--res 1920x1080] [--samples 48] [--scale 50] \
+      [--blend FILE] [--zones 1,2,3] [--base-edits all|none|z6,z7] [--turrets on|off] \
+      [--turret-yaw L,R] [--turret-pitch L,R] [--cam 'name:x,y,z:tx,ty,tz:lens[:WxH]'] [--shots-file shots.json] \
+      [--pose poseA|poseB|poseA:FR|'{json}'] [--tag TEXT]
 
-Opens rig/detail/AirshipRig_detail.blend and never saves it. "before" hides every Detail_* collection; "after" shows
-them. Looks:
-  toon   reference 1's palette by part (hull paint, bands, pipes, pods, nozzles ...), three-band cel shading, ink
-  paper  the in-game look: paper white everywhere, blue-grey cel shading, navy ink, dark recesses
+Opens --blend (default: zone 1's rig/detail/zones/AirshipRig_detail_z1.blend; any zone file or rig/AirshipRig.blend)
+and NEVER saves it. --zones appends the Detail_ZN collections of those zones' .blends (missing ones are skipped and
+listed), so one render shows several zones (the assembler view). States: "before" = the ship as it is (no details, no
+base edits); "after" = every loaded Detail_* collection + the base edits (scripts/base_edits/z*.json, applied to an
+in-memory copy of SM_Airship) + the base colour overrides (scripts/base_recolor/z*.json, r3_base_recolor.py: since
+2026-11-28 the keel block under the bow is rust; --base-recolor none leaves them out). The two front machine-gun turrets (separate props in rig/props/AirshipProps.blend, read
+only) are placed at both mounts in every render (--turrets off leaves them out; --turret-yaw / --turret-pitch in
+degrees, Blender convention: + yaw turns the muzzle toward +Y, + pitch raises it).
+Looks:
+  toon   THE FINAL LOOK (Talal 2026-11-28: reference 1's yellow and rust): flat colours by role / by part, three-band
+         cel shading, ink weighted by size; alias: final
+  paper  the old in-game look: paper white, blue-grey cel shading, navy ink (kept for comparison)
   clay   grey clay + cavity (Cycles ambient occlusion), like Talal's Burrower screenshot
-Ink (toon, paper) is weighted by size: a heavy line on silhouettes and outer contours, a thin one on creases and borders,
-none on rivets (their faces carry a Freestyle face mark; comic artists draw rivet rows as dots, which the bake will do).
+Shots: the built-in SHOTS below, plus --cam (repeatable; lens 'o58' = orthographic, scale 58) and --shots-file (JSON
+{name: {"loc": [..], "tgt": [..], "lens": 35 or "ortho": 58, "res": [w, h]}}). --shots lists the names to render.
+Output: <out>/<shot>_<look>_<state>[_<pose>][_<tag>].jpg
+Ink: heavy on silhouettes and outer contours, thin on creases and borders, none on rivets (Freestyle face marks).
 """
-import bpy, sys, os, math, time
+import bpy, sys, os, math, time, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
-from mathutils import Vector as V
+from mathutils import Vector as V, Matrix
 import rig_common as C
 import detail_common as D
 
-DETAIL_BLEND = C.RIG + '/detail/AirshipRig_detail.blend'
+DETAIL_BLEND = D.zone_blend(1)          # read only; never saved
 INK = (0.075, 0.085, 0.12)
 BG = (0.62, 0.66, 0.74)
 EXTRA = {                        # colours for the ship's own parts in the toon look (palette of reference 1)
@@ -27,7 +40,11 @@ EXTRA = {                        # colours for the ship's own parts in the toon 
     'wood':       (0.45, 0.30, 0.18),
     'glass':      (0.85, 0.85, 0.70),
     'recess':     (0.20, 0.17, 0.16),
+    # palette slot of a base colour override (r3_base_recolor.py; EXPORT_R3.md slot 16): Talal 2026-11-28 made the
+    # keel block rust. The registry's colour_key sets the colour (apply_toon); this is the same default.
+    'keel_block': D.PALETTE['rust_red'],
 }
+AFTER_IDX = None                 # toon looks: material index per SM_Airship face for the 'after' state (with overrides)
 
 SHOTS = {
     # name: (camera location, target, lens mm or ('ortho', scale), resolution)
@@ -38,22 +55,73 @@ SHOTS = {
     'pocket': ((9.5, 12.5, -0.8), (3.9, 4.9, 0.6), 30.0, (1920, 1080)),
     'below': ((-1.5, 10.5, -10.0), (-1.5, 6.0, -1.5), 32.0, (1920, 1080)),
     'pod_low': ((7.2, 9.8, -8.6), (3.7, 5.0, -4.2), 30.0, (1920, 1080)),
+    # round 3 whole-ship shots (2026-11-28)
+    'side_stbd': ((6.0, -70.0, 2.0), (6.0, 0.0, 2.0), ('ortho', 58.0), (2560, 1100)),
+    'top': ((6.0, -0.001, 80.0), (6.0, 0.0, 0.0), ('ortho', 58.0), (2560, 1100)),
+    'bottom': ((6.0, 0.001, -80.0), (6.0, 0.0, 0.0), ('ortho', 58.0), (2560, 1100)),
+    'q34_stbd': ((12.25, -25.75, -9.85), (-1.5, -7.0, -0.6), 35.0, (1920, 1080)),
+    'q34_aft': ((-36.0, 21.0, 9.0), (-9.0, 2.0, 0.5), 35.0, (1920, 1080)),
+    'q34_aft_stbd': ((-36.0, -21.0, 9.0), (-9.0, -2.0, 0.5), 35.0, (1920, 1080)),
+    'q34_bow': ((44.0, 20.0, 6.0), (17.0, 0.0, 2.5), 35.0, (1920, 1080)),
+    'q34_bow_stbd': ((44.0, -20.0, 6.0), (17.0, 0.0, 2.5), 35.0, (1920, 1080)),
+    'stern': ((-48.0, 0.001, 3.0), (-16.0, 0.0, 1.2), 30.0, (1920, 1080)),
+    'stern_q34': ((-36.0, 17.0, 5.0), (-17.0, 4.0, 1.2), 30.0, (1920, 1080)),
+    'fan_back_L': ((-27.0, 12.5, 3.0), (-17.4, 7.6, 1.4), 32.0, (1920, 1080)),
+    'fan_back_R': ((-27.0, -12.5, 3.0), (-17.4, -7.6, 1.4), 32.0, (1920, 1080)),
+    'fwd_deck': ((-4.0, 9.0, 13.0), (13.0, 0.0, 4.5), 28.0, (1920, 1080)),
+    'stairs_area': ((1.0, 8.5, 7.0), (9.0, 0.0, 4.0), 24.0, (1920, 1080)),
+    'gantry_port': ((20.0, 22.0, 6.0), (20.0, 0.0, 4.0), 30.0, (1920, 1080)),
+    'belly': ((-1.5, -9.0, -24.0), (-1.5, 0.0, -3.0), 28.0, (1920, 1080)),
+    'q34_belly': ((14.0, 18.0, -20.0), (-2.0, 0.0, -3.5), 32.0, (1920, 1080)),
 }
-POSES = {   # rig check poses (RIG_CONTRACT limits): pod pitch/roll +-3, nozzle pitch/roll +-5, petal flare -10..+35
-    'poseA': {'PodPitchDeg_FL': 3.0, 'PodRollDeg_FL': 3.0, 'NozzlePitchDeg_FL': -5.0, 'NozzleRollDeg_FL': 5.0,
-              'NozzleFlareDeg_FL': 35.0},
-    'poseB': {'PodPitchDeg_FL': -3.0, 'PodRollDeg_FL': -3.0, 'NozzlePitchDeg_FL': 5.0, 'NozzleRollDeg_FL': -5.0,
-              'NozzleFlareDeg_FL': -10.0},
-}
+
+
+def pose_ctrl(name):
+    """rig poses for renders: 'poseA' / 'poseB' (pod FL), 'poseA:FR' (any pod), or a JSON dict of control values
+    (RIG_CONTRACT names, e.g. '{"TurbineYawDeg_L": 12, "RudderDeg": -30}')"""
+    if name.startswith('{'):
+        return json.loads(name)
+    base, _, pod = name.partition(':')
+    pod = pod or 'FL'
+    s = {'poseA': (3.0, 3.0, -5.0, 5.0, 35.0), 'poseB': (-3.0, -3.0, 5.0, -5.0, -10.0)}[base]
+    return {'PodPitchDeg_' + pod: s[0], 'PodRollDeg_' + pod: s[1], 'NozzlePitchDeg_' + pod: s[2],
+            'NozzleRollDeg_' + pod: s[3], 'NozzleFlareDeg_' + pod: s[4]}
 
 
 def argv_opts():
     a = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-    o = {}
+    o = {'cam': []}
     for i, k in enumerate(a):
         if k.startswith('--'):
-            o[k[2:]] = a[i + 1] if i + 1 < len(a) and not a[i + 1].startswith('--') else True
+            v = a[i + 1] if i + 1 < len(a) and not a[i + 1].startswith('--') else True
+            if k == '--cam':
+                o['cam'].append(v)
+            else:
+                o[k[2:]] = v
     return o
+
+
+def parse_cam(spec):
+    """'name:x,y,z:tx,ty,tz:lens[:WxH]' (lens 'o58' = orthographic, scale 58)"""
+    parts = spec.split(':')
+    name = parts[0]
+    loc = tuple(float(v) for v in parts[1].split(','))
+    tgt = tuple(float(v) for v in parts[2].split(','))
+    lens = ('ortho', float(parts[3][1:])) if parts[3].startswith('o') else float(parts[3])
+    res = tuple(int(v) for v in parts[4].split('x')) if len(parts) > 4 else (1920, 1080)
+    return name, (loc, tgt, lens, res)
+
+
+def load_shots(o):
+    shots = dict(SHOTS)
+    if o.get('shots-file'):
+        for k, v in json.load(open(o['shots-file'])).items():
+            lens = ('ortho', float(v['ortho'])) if 'ortho' in v else float(v.get('lens', 35.0))
+            shots[k] = (tuple(v['loc']), tuple(v['tgt']), lens, tuple(v.get('res', (1920, 1080))))
+    for spec in o.get('cam', []):
+        k, v = parse_cam(spec)
+        shots[k] = v
+    return shots
 
 
 # ------------------------------------------------------------------ materials
@@ -113,8 +181,19 @@ def clay_material():
     return m
 
 
-def ship_face_classes():
-    """palette key per SM_Airship polygon, from the research island classifier"""
+def ship_face_classes(recolor='all'):
+    """palette key per SM_Airship polygon: the research island classifier, then the registered base colour overrides
+    (r3_base_recolor.py; recolor 'none' = the ship as it is). The round 3 export takes its palette from here too."""
+    ship, out = _part_classes()
+    if recolor not in (None, 'none'):
+        import r3_base_recolor as BR
+        for k, sl in enumerate(BR.face_slots(ship, recolor)):
+            if sl is not None:
+                out[k] = sl
+    return ship, out
+
+
+def _part_classes():
     import detail_ship as S
     ship = S.Ship(bpy)
     me = ship.ob.data
@@ -200,35 +279,7 @@ def ink_lines(scene, heavy, fine, color, material_boundary):
         st.thickness_position = 'CENTER'
 
 
-def apply_toon(scene, look='toon'):
-    pal = dict(D.PALETTE); pal.update(EXTRA)
-    if look == 'paper':
-        dark = {'recess'}
-        mats = {k: toon_material('MP_' + k, (0.20, 0.22, 0.30) if k in dark else PAPER, paper=True) for k in pal}
-    else:
-        mats = {k: toon_material('MT_' + k, c) for k, c in pal.items()}
-    ship, keys = ship_face_classes()
-    me = ship.ob.data
-    me.materials.clear()
-    order = sorted(set(keys))
-    for k in order:
-        me.materials.append(mats[k])
-    idx = np.array([order.index(k) for k in keys], np.int32)
-    me.polygons.foreach_set('material_index', idx)
-    me.update()
-    # detail objects: swap the placeholder palette materials for their toon versions
-    for ob in bpy.data.objects:
-        if ob.type != 'MESH':
-            continue
-        if ob.name.startswith('SM_AirshipDetail_'):
-            for i, m in enumerate(ob.data.materials):
-                k = m.get('palette_key') if m else None
-                if k:
-                    ob.data.materials[i] = mats[k]
-        elif ob.name.startswith('SM_AirshipProp_'):
-            k = 'wood' if 'Wheel' in ob.name or 'Carriage' in ob.name else 'dark_metal'
-            ob.data.materials.clear(); ob.data.materials.append(mats[k])
-    # light + world + ink
+def toon_world(scene):
     sun = bpy.data.lights.get('PreviewSunToon') or bpy.data.lights.new('PreviewSunToon', 'SUN')
     sun.energy = 4.0
     sun.angle = math.radians(0.5)
@@ -254,12 +305,52 @@ def apply_toon(scene, look='toon'):
         scene.eevee.taa_render_samples = 16
     except Exception:
         pass
+    scene.view_settings.view_transform = 'Standard'
+    scene.view_settings.look = 'None'
+
+
+def apply_toon(scene, look='toon'):
+    global AFTER_IDX
+    import r3_base_recolor as BR
+    pal = dict(D.PALETTE); pal.update(EXTRA)
+    pal.update({sl: D.PALETTE[ck] for sl, ck in BR.slot_colours().items() if ck in D.PALETTE})
+    if look == 'paper':
+        dark = {'recess'}
+        mats = {k: toon_material('MP_' + k, (0.20, 0.22, 0.30) if k in dark else PAPER, paper=True) for k in pal}
+    else:
+        mats = {k: toon_material('MT_' + k, c) for k, c in pal.items()}
+    ship, keys = ship_face_classes('none')            # the ship as it is ('before')
+    slots = BR.face_slots(ship, 'all')
+    keys1 = [sl if sl is not None else k for k, sl in zip(keys, slots)]    # with the overrides ('after')
+    me = ship.ob.data
+    me.materials.clear()
+    order = sorted(set(keys) | set(keys1))
+    for k in order:
+        me.materials.append(mats[k])
+    idx = np.array([order.index(k) for k in keys], np.int32)
+    me.polygons.foreach_set('material_index', idx)
+    me.update()
+    idx1 = np.array([order.index(k) for k in keys1], np.int32)
+    AFTER_IDX = idx1 if (idx1 != idx).any() else None
+    # detail objects: swap the role materials for their toon versions
+    for ob in bpy.data.objects:
+        if ob.type != 'MESH':
+            continue
+        if ob.name.startswith('SM_AirshipDetail_'):
+            for i, m in enumerate(ob.data.materials):
+                k = m.get('palette_key') if m else None
+                if k:
+                    ob.data.materials[i] = mats[k]
+        elif ob.name.startswith('SM_AirshipProp_'):
+            k = 'wood' if 'Wheel' in ob.name or 'Carriage' in ob.name else \
+                ('machinery' if ob.name.endswith('_Gun') else 'dark_metal')
+            ob.data.materials.clear(); ob.data.materials.append(mats[k])
+    toon_world(scene)
     if look == 'paper':
         ink_lines(scene, 2.6, 1.1, NAVY, material_boundary=False)
     else:
         ink_lines(scene, 2.4, 1.2, INK, material_boundary=True)
-    scene.view_settings.view_transform = 'Standard'
-    scene.view_settings.look = 'None'
+    return ship
 
 
 def apply_clay(scene, samples):
@@ -333,8 +424,8 @@ def base_scene():
     return sc, cam
 
 
-def set_shot(sc, cam, name, res=None):
-    loc, tgt, lens, rs = SHOTS[name]
+def set_shot(sc, cam, name, res=None, shots=None):
+    loc, tgt, lens, rs = (shots or SHOTS)[name]
     cam.location = V(loc)
     cam.rotation_euler = (V(tgt) - V(loc)).to_track_quat('-Z', 'Y').to_euler()
     if isinstance(lens, tuple):
@@ -356,32 +447,126 @@ def show_details(on):
             c.hide_viewport = not on
 
 
-def main():
-    o = argv_opts()
+# ------------------------------------------------------------------ turrets (separate props, read only)
+def add_turrets(yaw=(0.0, 0.0), pitch=(0.0, 0.0)):
+    """append Turret_Base / Turret_Gun from rig/props/AirshipProps.blend and place a pair at each mount (UE (2100,
+    -+245, 655) cm = Blender (21, +-2.45, 6.55); base origin = yaw axis on the deck top, gun origin = trunnion 1.5 m
+    above it). yaw / pitch per (L, R) in degrees (Blender: + yaw turns the muzzle toward +Y, + pitch raises it)."""
+    with bpy.data.libraries.load(C.PROPS_BLEND, link=False) as (src, dst):
+        dst.objects = [n for n in ('Turret_Base', 'Turret_Gun') if n in src.objects]
+    got = {o.name.split('.')[0]: o for o in dst.objects if o is not None}
+    if len(got) < 2:
+        print('[render] turrets not found in', C.PROPS_BLEND)
+        return []
+    tb, tg = got['Turret_Base'], got['Turret_Gun']
+    # trunnion 1.50 m above the yaw axis (turret_dims.json pivot_height_cm 150; model_turret.py PIVOT_H). Appended
+    # objects are not in the scene yet, so their matrix_world is not evaluated: never derive the pivot from it.
+    pivot = V((0.0, 0.0, 1.50))
+    coll = bpy.data.collections.get('Preview_Turrets') or bpy.data.collections.new('Preview_Turrets')
+    if coll.name not in [c.name for c in bpy.context.scene.collection.children]:
+        bpy.context.scene.collection.children.link(coll)
+    out = []
+    for k, s in enumerate(('L', 'R')):
+        mount = V(tuple(C.TURRET_MOUNTS[s]) + (6.55,))
+        Mb = Matrix.Translation(mount) @ Matrix.Rotation(math.radians(yaw[k]), 4, 'Z')
+        Mg = Mb @ Matrix.Translation(pivot) @ Matrix.Rotation(math.radians(-pitch[k]), 4, 'Y')
+        for src_ob, M, nm in ((tb, Mb, 'Base'), (tg, Mg, 'Gun')):
+            ob = src_ob.copy()
+            ob.name = 'SM_AirshipProp_Turret_%s_%s' % (s, nm)
+            ob.parent = None
+            ob.matrix_world = M
+            coll.objects.link(ob)
+            out.append(ob)
+    for o in (tb, tg):
+        bpy.data.objects.remove(o)
+    return out
+
+
+def edited_ship(which, recolor=False):
+    """an in-memory copy of SM_Airship minus the faces the registered base edits delete (None if there are none and
+    no colour override applies). recolor: give the copy the 'after' classes of apply_toon (AFTER_IDX)"""
+    import detail_base_edits as BE
+    import detail_ship as S
+    rep = {}
+    ship_ob = bpy.data.objects[C.HULL_OBJ]
+    m = np.zeros(len(ship_ob.data.polygons), bool)
+    if which not in (None, 'none'):
+        ship = S.Ship(bpy)
+        m = BE.deleted_mask(ship, which, rep)
+    if not m.any() and not (recolor and AFTER_IDX is not None):
+        return None, rep
+    ed = BE.edited_copy(bpy, ship_ob, m)
+    if recolor and AFTER_IDX is not None:
+        ed.data.polygons.foreach_set('material_index', AFTER_IDX[~m].astype(np.int32))
+        ed.data.update()
+    return ed, rep
+
+
+def setup(o):
+    """open the base file, add zones / turrets / base edits, apply the look. Returns (scene, camera, info, edited)"""
     look = o.get('look', 'toon')
-    states = o.get('states', 'before,after').split(',')
-    shots = o.get('shots', 'side,q34,close_flank,close_pod').split(',')
-    out = o.get('out', '/tmp')
-    os.makedirs(out, exist_ok=True)
+    look = 'toon' if look == 'final' else look
     bpy.ops.wm.open_mainfile(filepath=o.get('blend', DETAIL_BLEND))
     sc, cam = base_scene()
+    info = dict(blend=o.get('blend', DETAIL_BLEND), zones_loaded=[], zones_missing=[])
+    arm = bpy.data.objects['Armature']
+    for z in [z for z in str(o.get('zones', '')).split(',') if z.strip()]:
+        c = D.append_zone(z.strip(), arm)
+        (info['zones_loaded'] if c else info['zones_missing']).append(z.strip())
+    info['detail_collections'] = sorted(c.name for c in bpy.data.collections if c.name.startswith('Detail_'))
+    if str(o.get('turrets', 'on')) != 'off':
+        ty = tuple(float(v) for v in str(o.get('turret-yaw', '0,0')).split(','))
+        tp = tuple(float(v) for v in str(o.get('turret-pitch', '0,0')).split(','))
+        info['turrets'] = [t.name for t in add_turrets(ty, tp)]
     if look in ('toon', 'paper'):
         apply_toon(sc, look)
     else:
-        dev = apply_clay(sc, int(o.get('samples', 48)))
-        print('[render] cycles device', dev)
+        info['cycles_device'] = apply_clay(sc, int(o.get('samples', 48)))
+    rc = look in ('toon', 'paper') and str(o.get('base-recolor', 'all')) != 'none'
+    ed, rep = edited_ship(o.get('base-edits', 'all'), recolor=rc)
+    info['base_edits'] = rep
+    info['edited'] = ed is not None
+    info['base_recolor'] = (sorted({sl for sl in __import__('r3_base_recolor').slot_colours()}) if rc and
+                            AFTER_IDX is not None else [])
     pose = o.get('pose')
     if pose:
-        arm = bpy.data.objects['Armature']
         spec = C.load_json(C.CHECKS + '/bones_spec.json')
-        C.apply_pose(arm, spec, POSES[pose])
+        C.apply_pose(arm, spec, pose_ctrl(pose))
         bpy.context.view_layer.update()
+    return sc, cam, info, ed
+
+
+def show_state(st, ed):
+    show_details(st == 'after')
+    ship = bpy.data.objects[C.HULL_OBJ]
+    if ed is not None:
+        ship.hide_render = st == 'after'
+        ed.hide_render = st != 'after'
+
+
+def main():
+    o = argv_opts()
+    look = o.get('look', 'toon')
+    look = 'toon' if look == 'final' else look
+    states = o.get('states', 'before,after').split(',')
+    shots_all = load_shots(o)
+    shots = o.get('shots', 'side,q34,close_flank,close_pod').split(',')
+    out = o.get('out', D.TMP_DIR + '/renders')
+    res = tuple(int(v) for v in o['res'].split('x')) if o.get('res') else None
+    os.makedirs(out, exist_ok=True)
+    sc, cam, info, ed = setup(o)
+    if o.get('scale'):
+        sc.render.resolution_percentage = int(o['scale'])
+    print('[render] setup', json.dumps(info))
+    pose = o.get('pose')
+    ptag = ('_' + pose.replace(':', '')) if pose and not pose.startswith('{') else ('_pose' if pose else '')
+    tag = ('_' + o['tag']) if o.get('tag') else ''
     for st in states:
-        show_details(st == 'after')
+        show_state(st, ed)
         for sh in shots:
             t0 = time.time()
-            set_shot(sc, cam, sh)
-            sc.render.filepath = os.path.join(out, '%s_%s_%s%s.jpg' % (sh, look, st, '_' + pose if pose else ''))
+            set_shot(sc, cam, sh, res, shots_all)
+            sc.render.filepath = os.path.join(out, '%s_%s_%s%s%s.jpg' % (sh, look, st, ptag, tag))
             bpy.ops.render.render(write_still=True)
             print('[render]', sc.render.filepath, '%.1f s' % (time.time() - t0))
 
