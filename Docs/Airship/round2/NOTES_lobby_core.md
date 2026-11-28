@@ -315,3 +315,175 @@ The widget and HUD code, the pause menu, the main menu statics, `SessionEntry3`,
 7. **`UPauseMenu3::NativeDestruct`** gives the input back when it is removed while open (`PauseMenu3.cpp:315`).
 
 The UI side (widget, rows, scripts) is in `NOTES_lobby_ui.md` section 7.
+
+## 9. Editor stage fixes (2026-11-28, step 2: the solo run as_79)
+
+First run: `{'PASS': 13, 'FAIL': 4, 'SKIP': 1}`. After the fixes below, every check passed in a re-run of only the
+failing or affected checks (`AS79_ONLY` wrappers, three re-runs): `{'PASS': 17, 'SKIP': 1}` in all. Reports:
+`Saved/Match/b79_run1/`, `b79_run2_fix1/`, `b79_run3_fix2/`, `b79/` (the last run, LB1.8).
+
+**C++ (one change, rebuilt with `build_r2.sh`, exit 0, no new warnings)**
+
+1. `MyHUD.cpp:109-122`, `AMyHUD::AddLobbyWidget`: the panel now goes into the viewport layer
+   (`UGameViewportSubsystem::AddWidget`, ZOrder 5), not the player layer (`AddWidgetForPlayer`). The engine draws the
+   whole player layer under every `AddToViewport` widget (`SGameLayerManager.cpp:131-143`: `EGameLayerOrder::Player` <
+   `Viewport`), so the HUD overlay (`OverlayWidget->AddToViewport()`, ZOrder 0) drew its globes, ability icons and
+   crosshair over the panel, its LANE ASSIST box and its START button, and could take their clicks. Seen in the window
+   grabs of the first run (`media/r2b_lobby_before_layer_fix.jpg`); fixed in `media/r2b_lobby_panel.jpg`. The pause
+   menu (viewport layer, 50) stays above the panel. The match HUD (2) and the minimap (1) stay in the player layer.
+   Checks: LB1.1_panel and LB1.4_rules, re-run, PASS.
+
+**Widget (as_77, `AS77_REBUILD = True`, 0 missing / wrong class / not variable, 0 style fallbacks)**
+
+2. `as_77_lobby_widget.py:555-570`, the player row: the name column is 270 px (was 250), clipped, with an ellipsis, and
+   the status keeps a 12 px gap. The PIE name "talal-01A2215176EF71" ran past the 250 px column into HOST.
+
+**Harness (no threshold changed)**
+
+3. `as_70_matchlib.py:1026`, `ground_at`: `HitResult.to_tuple()`. UE 5.8 Python has no
+   `GameplayStatics.break_hit_result` (as_62 found this), so every ground trace failed with a script error.
+   as_74 uses this too.
+4. `as_79_pie_lobby.py:130`, `placed()`: exact names. The prefix `BP_MyHexPlatform_C_1` also matched the path spawner's
+   `BP_MyHexPlatform_C_10` .. `_19`, and LB1.8 destroyed ten path platforms with the floor.
+5. `as_79_lobbylib.py:33-44`, `log_wait` / `event_wait`. The log tail reads the editor log file, and a C++ line reaches
+   it a frame or more after it is logged. LB1.3 (`:247`), LB1.5_cancel (`:360`) and LB1.9 (`:506`) read their line in
+   the same frame as the state change, so they found none, although the lines are in the log. They now wait up to
+   1-2 s for it. The timed parts of these checks read the state, not the log.
+6. `as_79_pie_lobby.py:466-485`, LB1.8: the respawn's platform comes from the pawn's movement base, then from a trace
+   that ignores the pawn, then from the path platform whose bounds hold him. The trace used to hit the pawn's own
+   capsule. One respawn stood on `BP_MyHexBridge2_C_26`, a bridge end on a path tile (`FindRespawnTile` picks path
+   tiles first). The passing run stood on `BP_MyHexPlatformBottom_C_1` (SplineDistance 4000) through its base.
+7. `as_79_pie_lobby.py:329`, the new knob `AS79_HOLD` (default 0): after LB1.4's and LB1.7's checks it holds the open
+   panel for window grabs. `xgrab_loop.sh` takes about 3 s per grab of the 5094 x 1366 editor window, and the panel is
+   open for under a second between those tests.
+
+### 9.1 Lane check (as_74 main pass, only T2.1, T2.4, T2.7, T2.10; settle always runs)
+
+This is Talal's first ask, and the lean runs never exercise it. First run: settle T1.1 / T1.2 PASS, **T2.7 PASS**
+("parked in the lane again and unmounted": Cruising 0.0 s after the exit, 6 m/s after 2.2 s), T2.1, T2.4 and T2.10
+FAIL. Reports: `Saved/Match/b74_main_lanes_run1/`, `b74_main_lanes_fix1/`, `b74_main/` (the last run, T2.4).
+
+8. `as_74_pie_match.py:763-783`, T2.4: before `RequestFire`, the harness aims the view 200 m abeam until the camera is
+   at least 75 deg off the bow. Round 2 part A added the driver turret arc (`DriverTurretArcDeg` 50): in that arc
+   `RequestFire` drives the turrets and fires no broadside (`AirshipPawn.cpp:3711-3715`, `:3214`). as_74 was written
+   before that. Setting the control rotation for 3 frames was not enough, because the camera lags. After the fix the
+   ball spawned at once with the camera 77.7 deg off the bow: PASS. Assist and 6 +-0.5 m/s held in every run.
+9. `as_74_pie_match.py:1024`, T2.10: the `ShipReturning` event is read after the wait for Cruising. It is logged in the
+   same frame as Parked -> Returning, and the same-frame read found no line (the log lag of fix 5). PASS: Returning at
+   20.0 s, Cruising at 46.0 s, no hull damage.
+10. **T2.1 is still FAIL, and it is not fixed here (the threshold rule).** Everything in T2.1 passes except the peak:
+    the ship settled 40.11 m ahead in TeamPace, overshoot 0.33 m, ramp 2.50 m/s^2. The peak was 25.2 m/s, and the
+    harness wants 27-29 m/s (`as_74_pie_match.py:630`). SPEC_B T2.1 says "speeds up ... to **at most** 28 +-1 m/s". At
+    the 2.5 m/s^2 ramp that the same check requires, 28 m/s and back needs about 310 m: 4 -> 28 m/s takes about 154 m,
+    and 28 -> 0 takes about 157 m. The player at u 200 m gave the ship 250 m (210 m behind him plus the 40 m lead), so
+    25.2 m/s is the most it could reach. Two choices for the lead: read "at most" as written (`peak <= 29.0`), or put
+    the T2.1 player at u >= 320 m.
+
+## 10. Editor stage fixes (2026-11-28, step 3: the multiplayer run as_80, and the review of steps 1-3)
+
+Step 3's runs: `Saved/Match/b80_run1/` (`{'PASS': 14, 'FAIL': 6, 'SKIP': 4}`, stopped) and `b80_fix1/` (`{'PASS': 7,
+'FAIL': 2, 'SKIP': 8}`, the worlds did not come back after the lobby return). Backups of the files changed here:
+`Saved/Match/backup/step3/` (step 3) and `Saved/Match/backup/step4/` (the review fixes).
+
+**C++ (rebuilt with `build_r2.sh`, exit 0, only the two old bIsFocusable warnings: `build_r2_095101.log`, then
+`build_r2_101738.log`)**
+
+1. `MyGameModeLobby.cpp:1673-1680`, `AMyGameMode::TravelToRound`: `ServerTravel(TravelURL, /*bAbsolute=*/false)` (was
+   `true`), plus `?Lobby=0` when this map's URL had a Lobby option and the next round has no lobby. Why: an absolute URL
+   takes FURL's default port (7777) for the next map (`GameModeBase.cpp:490`, `UnrealEngine.cpp:15955` browse
+   `FURL(&LastURL, NextURL, NextTravelType)`), while every remote client is sent `ClientTravel(URL, TRAVEL_Relative)`
+   (`ProcessClientTravel`) and comes back to its old host and port: 17777 in PIE (`UGameInstance::EnableListenServer` sets
+   `LastURL.Port` to the PIE ServerPort), `-port=` elsewhere. The host listened on 7777, and the client was left frozen on
+   the end screen ("Back to the lobby in 0 s", `xgrab_b80/x_LM1.8_return_092839_client.png`). A relative URL keeps
+   `LastURL`'s port and options (`URL.cpp:159-175`); a new option replaces an old one with the same key (`FURL::AddOption`).
+   Every option InitGame reads is written again here (Teams, ShipLives, Swarm, TimeLimit, FF, GrappleShips, LaneAssist,
+   Players, Match, Round, Lobby when returning to the lobby; SeamlessTravel whenever the setting is on), and the `?Lobby=0`
+   covers a restart without the lobby after a lobby round. Check: LM1.8_return (and LM1.9 to LM1.13 after it).
+2. `AirshipPawn.cpp:416-418`, the constructor: `StationAims.Init(FVector_NetQuantize(ForceInitToZero), NumStations)` (was
+   `SetNum`). `FVector_NetQuantize()` leaves the vector uninitialized, and every team ship's first replication logged
+   "LogCore: Error: WriteQuantizedVector: Value isn't finite" plus a NetSerialize warning (pre-existing from PR A,
+   `Aura-backup-2026.11.28-09.42.30.log:5349`). Not serialized in BP_AirshipPawn or StartupMap (no `StationAims` name in
+   either file), so the constructor value is what every ship starts with. Check: the as_80 log's error list.
+3. `MyMatchHUDWidget.cpp:448-449`: in a lobby round the match bar's countdown reads "MATCH STARTS IN n" like the lobby
+   widget's large text (it said "FIGHT STARTS IN n" under "MATCH STARTS IN n" in versus); outside the lobby, versus keeps
+   "FIGHT STARTS". `:489-492`: DEFEAT is drawn in ink, not in the winner's colour (the orange loser saw a blue DEFEAT).
+   Cosmetic; seen in the as_80 window grabs.
+
+**Widget (as_77, `AS77_REBUILD = True`: 0 missing / wrong class / not variable, 0 style fallbacks, 106 widgets)**
+
+4. `as_77_lobby_widget.py:605-621`: LobbyPanel (1640 x 960) now sits in a SizeBox in a ScaleBox (`PanelScale`, ScaleToFit,
+   DownOnly, the full viewport less 24 px; both SelfHitTestInvisible). The DPI scale follows the short side, so a viewport
+   narrower than about 16:10 cut the LOBBY tag, the names and START off at both sides (the editor's PIE viewport:
+   `xgrab_b80/x_None_092725_main.png`). The C++ only shows and hides LobbyPanel, so nothing else changes.
+5. `as_77_lobby_widget.py`, the team lists: 236 px high (was 272). With the SWITCH TO row shown, the column ran past 960
+   and the START label sat on the card's bottom edge (`media/r2b_lobby_panel.jpg`).
+
+**Harness (no threshold loosened; two checks got a positive control)**
+
+6. `as_80_pie_lobby_mp.py` (step 3): `core.EnsureAlwaysEnabled 0` for the run (the engine's PIE-only ensure in
+   `PackageMapClient.cpp:3145` dumped a callstack on every client move while the old client world waited for the hard
+   travel, taking PIE to 3 fps); a world swap is detected by the server clock going back (the new world came back behind
+   the old Python wrapper); LMF restaged (players aboard their own ships where LM1.6 put them, the ships held by debug
+   input, a settled aim before each window, hull shots at z 150 below the deck plane so `FindTurretBehindHullHit` cannot
+   move them to a turret; turret health and crosshair data); LMF_players on one platform with a settled aim; the
+   TeamEliminated / LobbyCancelled reads wait for the log line.
+7. `as_80_pie_lobby_mp.py`, LM1.3_no_damage: also needs >= 1 server hit on the client in its window (the "HitActor:
+   <pawn>" line GA_GunShoot prints to the log once a target passed the friendly-fire and ship filters, before the
+   damage-off attribute set), after a settled aim. Before, "no drop" passed whenever every shot missed. LMF_players logs
+   the same hit counts as data.
+8. `as_79_pie_lobby.py`, LB1.2_locks: the free ship from `Aura.Airship.Spawn` had the player behind its stern, outside
+   both turret arcs (yaw -110 .. 30 / -30 .. 110 deg from the bow, pitch -20 .. 40): its turrets never fired at him, and
+   the log shows "TurretFire: fire at" then "stop" with no hit. Now the ship is turned to face him 100 m out (about 16 deg
+   down from the forward-deck turrets), and the check needs >= 1 "hit <pawn>" line (`log LogAirshipTurret VeryVerbose` for
+   the window, `AAirshipTurret::ApplyBulletDamage`) besides no health drop.
+9. `as_80_pie_lobby_mp.py`, LM1.6_input: a WARN line when the injected IA_Move moved the client 0 cm (the flags decide;
+   run 1 had 0.0 cm, fix 1 had 522 cm).
+
+**Found by the step 4 runs (C++ rebuilt: `build_r2_104022.log`, exit 0, no new warnings)**
+
+10. `MechSentinelClientBubble.h:88` / `.cpp:245`, new `AMechSentinelClientBubbleInfo::Tick`: returns without ticking when
+    the serializer's World is null or not the actor's world. A client keeps its copy of this replicated actor through a
+    seamless travel (`FSeamlessTravelHandler` keeps every non-startup actor the client does not own, `World.cpp:8743`), and
+    GC nulls the serializer's World (a Transient UPROPERTY, `MassClientBubbleSerializerBase.h:48`) with the old world. The
+    engine handler's `check(World)` (`MassClientBubbleHandler.h:736`) then killed the process on the seamless return to the
+    lobby: as_80 run 1 of step 4, LM1.13, "Assertion failed: World" in `TClientBubbleHandlerBase<FMechSentinelFastArrayItem>
+    ::Tick` (`Saved/Match/b80_s4run1/Aura_crash_LM1.13.log`). In a packaged game this is every client on every seamless
+    lobby return (the Steam path), whenever the sentinel bubbles exist. With the guard, run 2's seamless return completed:
+    "Match: seamless arrival, 2 carried player state(s)", both players "arrives (seamless)", phase Lobby, no assert or
+    ensure after it. Check: LM1.13 (its checks did not complete, see 13).
+11. `as_80_pie_lobby_mp.py:650-668`, LMF stage: the client is put back on his spot aboard team 1's ship (hull space) after
+    the ship is moved beside team 0's. A teleported ship does not carry its deck riders: run 1 left him 91 m beside it,
+    falling, and his shots at team 0's hull went into the platforms.
+12. `as_80_pie_lobby_mp.py:893-901`, LM1.12_reopen: the menu world's name is read before the `open` (the open replaces
+    that world, and the check text's `mw.get_path_name()` raised "World: Internal Error" in run 1, so the reopen never
+    reported). Run 2: PASS, back after 0.2 s.
+13. `as_80_pie_lobby_mp.py:921-934`, LM1.13: after the seamless travel the client is mapped again once his new world is
+    there. B75 found the server's new world first and mapped the client to his OLD world (still listed until his own
+    travel ends); every read of it then failed (run 2: 601 `phase_of` errors, then the test stopped). Written after the
+    last run: **not run**.
+
+**Results (step 4)**
+
+* as_79 (standalone, `AS79_ONLY = ('LB1.2',)`, `Saved/Match/b79/`): `{'PASS': 5, 'SKIP': 1}`. LB1.2_locks: 12 rounds hit
+  the player, no health drop. LB1.1_panel PASS with the ScaleBox panel (`media/r2b_lobby_panel_scalebox.jpg`).
+* as_80 run 1 (listen 2, LM1.3, LM1.6, LMF, LMS, LM1.8 to LM1.13; `Saved/Match/b80_s4run1/`, no report: the editor
+  crashed in LM1.13): PASS LM1.1 x2, LM1.3 (6 server hits, no drop), LM1.6 x3, LMF_players (enemy [1.0] with 6 hits,
+  teammate none with the crosshair on him 8 of 8 samples and 0 hits), LMS x2, **LM1.8_return** (teams, rules kept, ready
+  false), **LM1.9, LM1.10, LM1.11**, LM1.12_cancel. FAIL LMF_own_ship (the client's stage, fix 11), LM1.12 (harness, fix
+  12), LM1.13 (editor crash, fix 10).
+* as_80 run 2 (LM1.6, LMF, LMS, LM1.8, LM1.12, LM1.13; `Saved/Match/b80_s4run2/`): `{'PASS': 10, 'FAIL': 3, 'SKIP': 3}`.
+  PASS LM1.1 x2, LM1.6 x3, LMS x2, LM1.8_return, LM1.12_cancel, LM1.12_reopen. FAIL LMF_own_ship, LMF_players (see
+  below), LM1.13 (harness, fix 13; the product's seamless return worked, fix 10).
+* The panel fits the editor's narrow PIE viewport (`media/r2b_lobby_panel_pie_narrow.jpg`); DEFEAT in ink
+  (`media/r2b_defeat_ink.jpg`); the bar and the lobby both read "MATCH STARTS IN n" in a lobby countdown.
+
+**Open: the listen host's gun in LMF.** Friendly fire is shown working across the two runs, never in one run: run 1
+(the host's gun hit the enemy hull [5.0]) gave no drop on his own ship with his crosshair on it 7 of 7 samples; run 2
+(the client's gun hit the enemy hull [5.0]) gave no drop on the client's own ship, crosshair 8 of 8; run 1's teammate
+window gave no drop and no server hit with the crosshair on the teammate. But in run 2 the host's gun made no server hit
+at all: crosshair on the enemy hull 7 of 8 samples, hull and turret health unchanged, crosshair on the enemy player 6 of
+8, no "HitActor" line in the whole session. Step 3's fix 1 showed the same on the enemy hull (crosshair on it 6 times,
+no drop), with another stage and no turret data. A possible pattern, from too few runs to be sure: run 2 and fix 1 began
+with LM1.6 (the host's first shot came after the match start), while run 1, where the host's gun worked, fired it in the
+lobby first (LM1.3). Next step (the review's): debug GA_GunShoot activation on the listen host after the start
+(`log LogAbilitySystem Verbose`, `showdebug abilitysystem`), or run LMF with and without LM1.3 before it.

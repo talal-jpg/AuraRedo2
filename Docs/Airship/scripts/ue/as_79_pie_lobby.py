@@ -6,7 +6,9 @@
 # Run (StartupMap open, no PIE, the PR B lobby C++ built, as_77 + as_78 done so BP_MyHUD has WBP_Lobby3):
 #   Docs/Airship/scripts/harness/inbox.sh 79 Docs/Airship/scripts/ue/as_79_pie_lobby.py 60
 #   status: inbox.sh 79s Docs/Airship/scripts/ue/as_79s_status.py 30     stop: inbox.sh 79x Docs/Airship/scripts/ue/as_79x_stop.py 30
-# Knobs (inbox globals, read at arm): AS79_MAP = 'StartupMap'; AS79_ONLY = () test-name prefixes (LB1.1 always runs).
+# Knobs (inbox globals, read at arm): AS79_MAP = 'StartupMap'; AS79_ONLY = () test-name prefixes (LB1.1 always runs);
+#   AS79_HOLD = 0.0 game seconds to keep the open panel on screen after LB1.4's checks and after LB1.7's check (for window
+#   grabs of the panel: xgrab_loop.sh needs ~3 s per grab of the editor window; the checks are made before the hold).
 # Results: Saved/Match/b79/ (b79_result.json, b79_report.txt, b79_log.txt, b79_status.txt, dump/).
 # In memory only, restored at the end: UnrealEdEngine fixed frame rate 30, LevelEditorPlaySettings Standalone / 1 player,
 # the UMyMatchSettings / UAirshipSettings / UBurrowerSettings class defaults (Burrowers off: the harness standard; their
@@ -18,8 +20,9 @@
 #  LB1.1  load with the lobby: phase Lobby within 1 s, bInLobby, the spawn log line, the zone holds (0, 0, 205) and the
 #         placed platform's root, the pawn within 8 m of (0, 0, 205), no team ship, every wave spawner stopped and 0
 #         sentinels at 15 s, ExpectedPlayers = DefaultExpectedPlayers, the panel opened by itself (panel 1, IgnoreInput 1)
-#  LB1.2  a free ship (Aura.Airship.Spawn) fires its turrets at the player: Health unchanged; Aura.Airship.Board 0 refused
-#         with Locked (log); BP_Potion_C_1 without collision
+#  LB1.2  a free ship (Aura.Airship.Spawn, then turned to face the player 100 m out so he is in its turret arcs) fires its
+#         turrets at the player: >= 1 round hits him (LogAirshipTurret VeryVerbose "hit <pawn>"), Health unchanged;
+#         Aura.Airship.Board 0 refused with Locked (log); BP_Potion_C_1 without collision
 #  LB1.3  the pawn put on a path platform at u 50 m: back in the zone within 1.0 s (+ the zone log line); CurrentPlatform
 #         spline distance -1, no ranking (the dump's lead spline distance -1)
 #  LB1.4  Aura.Match.Rules Teams=practice ShipLives=5 Swarm=3: applied at once (team mode included); the game mode's
@@ -55,7 +58,7 @@ _as79_src74 = open(os.path.join(_AS79_UE, 'as_74_pie_match.py')).read()
 exec(compile(_as79_src74[:_as79_src74.index('\n_old74 = ')], os.path.join(_AS79_UE, 'as_74_pie_match.py'), 'exec'), globals())
 exec(compile(open(os.path.join(_AS79_UE, 'as_79_lobbylib.py')).read(), os.path.join(_AS79_UE, 'as_79_lobbylib.py'), 'exec'), globals())
 
-AS79_VERSION = 'as_79_pie_lobby 2026-11-28b'
+AS79_VERSION = 'as_79_pie_lobby 2026-11-28d'
 AS79_START = (0.0, 0.0, 205.0)            # PlayerStart_0 (SPEC_B_LOBBY 1, decoded)
 AS79_PLATFORM_ROOT = (16.0, -199.0, 1678.0)  # BP_MyHexPlatform_C_1's root
 AS79_POTION = 'BP_Potion_C'
@@ -71,7 +74,7 @@ class B79(LobbyMix, B74):
     def __init__(self):
         g = globals()
         self.cfg_in = {'map': str(g.get('AS79_MAP') or 'StartupMap'), 'pass': 'lobby', 'only': tuple(g.get('AS79_ONLY') or ()),
-                       'scheme': 3, 'curve_yaw': 60.0}
+                       'scheme': 3, 'curve_yaw': 60.0, 'hold': float(g.get('AS79_HOLD') or 0.0)}
         self.OUTDIR = os.path.join(MB_MATCH, 'b79')
         MBRun.__init__(self)
         self.cfg.update(self.cfg_in)
@@ -124,7 +127,8 @@ class B79(LobbyMix, B74):
                 lab = a.get_actor_label()
             except Exception:  # noqa: BLE001
                 lab = a.get_name()
-            if lab == 'Floor' or lab.startswith('BP_MyHexPlatform_C_1') or a.get_name().startswith('BP_MyHexPlatform_C_1'):
+            # exact names: a prefix match also took the path spawner's BP_MyHexPlatform_C_10 .. _19 (b79 run 2026-11-28, LB1.8)
+            if lab in ('Floor', 'BP_MyHexPlatform_C_1') or a.get_name() == 'BP_MyHexPlatform_C_1':
                 out.append(a)
         return out
 
@@ -206,11 +210,29 @@ class B79(LobbyMix, B74):
         free = yield from self.until(lambda: next((s for s in self.ships(w) if s.get_name() not in before), None), 3.0)
         self.free = free
         tr = []
+        hits = []
+        stage = {}
         if free is not None and c is not None:
             yield from self.wait(1.0)
+            # Aura.Airship.Spawn puts the ship 60 m ahead of the pawn, 15 m up, facing his way: he is behind its stern, outside
+            # both turret arcs (yaw -110 .. 30 / -30 .. 110 deg from the bow, pitch -20 .. 40), so its turrets never fired at
+            # him and "no drop" proved nothing (review 2026-11-28: "TurretFire: fire at" then "stop", no hit). Turned to face
+            # him 100 m out at the same height: he is ahead of its bow, about 16 deg down from the forward-deck turrets.
+            p, q = self.loc(c), self.loc(free)
+            d = math.hypot(q[0] - p[0], q[1] - p[1]) or 1.0
+            ux, uy = (q[0] - p[0]) / d, (q[1] - p[1]) / d
+            self.teleport(free, [p[0] + ux * 10000.0, p[1] + uy * 10000.0, q[2]], math.degrees(math.atan2(-uy, -ux)))
+            yield from self.wait(0.5)
+            stage = {'ship': r(self.loc(free), 0), 'yaw': r(self.yaw(free), 1), 'pawn': r(p, 0)}
+            # the positive control: the rounds that reach the pawn (AAirshipTurret::ApplyBulletDamage logs "<turret>: hit <target>
+            # for <damage>." at VeryVerbose once the target passed the turret's filter, before the damage-off attribute set)
+            self.cmd(w, 'log LogAirshipTurret VeryVerbose')
+            t_fire = self.now
             self.cmd(w, 'Aura.Airship.TurretFire 1 %.0f %.0f %.0f' % tuple(self.loc(c)))
             tr = yield from self.watch_health(lambda: self.health(self.me()), 2.5)
             self.cmd(w, 'Aura.Airship.TurretFire 0')
+            hits = yield from self.log_wait(t_fire, 1.0, 'LogAirshipTurret', ': hit %s for' % c.get_name())
+            self.cmd(w, 'log LogAirshipTurret Log')
         drops = self.drops(tr)
         tb = self.now
         self.cmd(w, 'Aura.Airship.Board 0')
@@ -218,10 +240,11 @@ class B79(LobbyMix, B74):
         refused = [l[-160:] for _, l in self.log_since(tb, 'refused (Locked')]
         flying = self.piloting()
         pots = self.potion_collision(w)
-        ok = free is not None and not drops and refused and not flying and pots and not any(x[1] for x in pots)
-        self.check('LB1.2_locks', self.ok(ok), 'free ship %s; its turret rounds at the player: health drops %s (want none: damage off); '
-                   'Aura.Airship.Board 0 -> %s, flying %s (want a Locked refusal, not flying); potions (name, collision) %s (want no collision)' % (
-                       mb_name(free), drops, refused[:1], flying, pots))
+        ok = free is not None and hits and not drops and refused and not flying and pots and not any(x[1] for x in pots)
+        self.check('LB1.2_locks', self.ok(ok), 'free ship %s %s; its turret rounds at the player: %d hit him (want >= 1: the rounds reach him; '
+                   'first %s), health drops %s (want none: damage off); Aura.Airship.Board 0 -> %s, flying %s (want a Locked refusal, not '
+                   'flying); potions (name, collision) %s (want no collision)' % (
+                       mb_name(free), stage, len(hits), [l[-110:] for _, l in hits[:1]], drops, refused[:1], flying, pots))
         if free is not None and valid(free):
             free.destroy_actor()
 
@@ -241,7 +264,8 @@ class B79(LobbyMix, B74):
         self.tp_char(c, spot, self.frame['yaw'])
         back = yield from self.until(lambda: self.me() is not None and self.zone_has(st, self.loc(self.me())), 2.0)
         dt = (self.now - tz) if back else None
-        lines = [l[-180:] for _, l in self.log_since(tz, 'back to the lobby (')]
+        got = yield from self.log_wait(tz, 1.0, 'back to the lobby (')
+        lines = [l[-180:] for _, l in got]
         psd = None
         try:
             psd = float(self.ps0().get_platform_spline_distance())
@@ -320,6 +344,14 @@ class B79(LobbyMix, B74):
                        (sw.get('line') or '')[-200:] or None, sw.get('difficulty'), sw.get('health'), sw.get('damage'), sw.get('max_alive'),
                        sw.get('count'), sw.get('count_factor'), vh, mb_name(sp), old_sw, rat,
                        '' if rat else ' (spawner numbers not readable: the log line is the check)'))
+        yield from self.hold_panel('lb1_4_rules')
+
+    def hold_panel(self, label):
+        """AS79_HOLD (default 0): keep the open panel on screen for window grabs, after the test's checks"""
+        h = float(self.cfg.get('hold') or 0.0)
+        if h > 0.0:
+            self.say('holding %.1f s for window grabs (%s)' % (h, label))
+            yield from self.wait(h)
 
     def t_cancel(self):
         """LB1.5"""
@@ -345,6 +377,7 @@ class B79(LobbyMix, B74):
         tc = self.now
         self.cmd(w, 'Aura.Lobby.Cancel')
         back = yield from self.until(lambda: self.phase_of(w) == 'lobby' and not self.team_ships(w), 1.5)
+        yield from self.event_wait(tc, 'LobbyCancelled', 1.0)
         ev = [(e['event'], e['t']) for e in self.events_since(t0) if e['event'] in ('Countdown', 'LobbyCancelled')]
         names = [e[0] for e in ev]
         ok = bool(back) and 'Countdown' in names and 'LobbyCancelled' in names and names.index('Countdown') < names.index('LobbyCancelled')
@@ -420,6 +453,7 @@ class B79(LobbyMix, B74):
                    'again %s s later (want 3 +-0.5); travel log %s (want Lobby=1, OpenLevel in standalone); phase Lobby %s; rules %s (want LB1.4\'s: '
                    'practice / 5 / 3); RoundIndex %s (want 0: practice keeps the round)' % (
                        bool(ended), g_end.get('lobby_round'), r(dt, 2), trav[:1], bool(lob), ru, g.get('round')))
+        yield from self.hold_panel('lb1_7_back_in_lobby')
 
     def t_no_floor(self):
         """LB1.8"""
@@ -449,16 +483,28 @@ class B79(LobbyMix, B74):
         newc = yield from self.until(lambda: self.me() if (self.me() is not None and self.me().get_name() != old and self.alive(self.me())) else None, 25.0)
         p = self.loc(newc) if newc is not None else None
         yield from self.wait(1.0)
-        pf = None
-        if p is not None:
-            g = self.ground_at(w, p[0], p[1], p[2], p[2] - 3000.0)
-            pf = g['actor'] if g else None
+        # the platform the new pawn stands on: its movement base, else a trace down that ignores the pawn (the b79 run of
+        # 2026-11-28 traced without the ignore and hit the pawn's own capsule: "on BP_MyCharMech_C_2"), else the path
+        # platform whose bounds hold him (FindRespawnTile puts him on a path tile, where a bridge end can be his base:
+        # the next run stood "on BP_MyHexBridge2_C_26")
+        base = self.base_owner(newc) if newc is not None else None
+        pf = base
+        if p is not None and not (pf is not None and mb_isa(pf, 'platform')):
+            g = self.ground_at(w, p[0], p[1], p[2], p[2] - 3000.0, ignore=[newc])
+            pf = g['actor'] if g else pf
+        how = 'base / trace'
+        if newc is not None and not (pf is not None and mb_isa(pf, 'platform')):
+            q = self.loc(newc)
+            inside = sorted([x for x in self.path_platforms(w) if self.on_platform(newc, x['a'])],
+                            key=lambda x: math.hypot(self.loc(x['a'])[0] - q[0], self.loc(x['a'])[1] - q[1]))
+            if inside:
+                pf, how = inside[0]['a'], 'bounds (base %s)' % mb_name(base)
         sd = self.spline_d(pf) if pf is not None and mb_isa(pf, 'platform') else None
         d0 = dist(p, AS79_START) if p else None
         ok = ip and gone and died and dt_die is not None and dt_die <= 8.0 and newc is not None and sd is not None and sd >= 0.0 and d0 > 3000.0
         self.check('LB1.8_no_floor', self.ok(ok), 'started %s, aboard %s; PIE copies destroyed %s; 150 m below the lane: fall death %s s later (want '
-                   '<= 8; log %s); respawn %s at %s on %s (SplineDistance %s, want >= 0), %s cm from (0, 0, 205) (want > 3000)' % (
-                       bool(ip), bool(on), gone, r(dt_die, 2), fall[:1], mb_name(newc), r(p, 0), mb_name(pf), sd, r(d0, 0)))
+                   '<= 8; log %s); respawn %s at %s on %s by %s (SplineDistance %s, want >= 0), %s cm from (0, 0, 205) (want > 3000)' % (
+                       bool(ip), bool(on), gone, r(dt_die, 2), fall[:1], mb_name(newc), r(p, 0), mb_name(pf), how, sd, r(d0, 0)))
         self.cmd(w, 'Aura.Lobby.Return')
         yield from self.new_world_after('LB1.8_return', 20.0)
         yield from self.until(lambda: self.phase_of(self.w) == 'lobby', 6.0)
@@ -477,7 +523,8 @@ class B79(LobbyMix, B74):
         first = pp[0] if pp else None
         on = yield from self.until(lambda: first is not None and self.me() is not None and self.on_platform(self.me(), first['a']), 10.0)
         dt = (self.now - t0) if on else None
-        picked = [l[-200:] for _, l in self.log_since(t0, 'Lobby: spawn PathStart')]
+        got = yield from self.log_wait(t0, 2.0, 'Lobby: spawn PathStart')
+        picked = [l[-200:] for _, l in got]
         yield from self.wait(10.0)
         psd = None
         try:

@@ -138,8 +138,9 @@ All line numbers are in the worktree as it is at the end of this pass.
 ### 2.3 HUD (6.1)
 
 * `AMyHUD::LobbyWidgetClass` is `EditAnywhere` and empty by default (`MyHUD.h:52`). as_78 sets it on BP_MyHUD.
-* `AddLobbyWidget` runs from `BeginPlay` and from `InitOverlay` (`MyHUD.cpp:32`, `:84`). It is added the same way as the
-  match widget: the whole viewport, ZOrder 5, local controllers only.
+* `AddLobbyWidget` runs from `BeginPlay` and from `InitOverlay` (`MyHUD.cpp:32`, `:84`). It covers the whole viewport,
+  for local controllers only. Since the editor stage it goes in the viewport layer at ZOrder 5, above the HUD overlay and
+  under the pause menu. The match widget stays in the player layer. See `NOTES_lobby_core.md` section 9.
 * `EndPlay` removes it, and `GetLobbyWidget()` returns it (`MyHUD.h:28`).
 * There is no C++ default class. A bare `UMyLobbyWidget` has no tree, so it would register as an invisible panel with
   UI-only input.

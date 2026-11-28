@@ -24,7 +24,8 @@
 #         host sees START (not READY), the client READY (not START), each button's label shown or hidden with it (every
 #         parent's visibility counts)
 #  LM1.2  the client 100 m out of the zone (server copy and his own): back within 1.0 s; the zone message in the client's log
-#  LM1.3  the host's gun on the client in the lobby: Health unchanged (damage off)
+#  LM1.3  the host's gun on the client in the lobby: >= 1 server hit on him ("HitActor: <pawn>" log line), Health unchanged
+#         (damage off)
 #  LM1.4  bots: Bots 1 -> {2, 1}; Team 0 1 moves the host at once ({1, 2}); Bots 2 -> {2, 2}; the client asks for 0 ->
 #         pending (RequestedTeam 0 on the client); the team 0 bot asks for 1: both swap, requests cleared; Teams=2v2
 #         rebalances in join order (host, bot 1 on 0; client, bot 2 on 1); Move <client> 0 swaps him with bot 1 (the last
@@ -35,9 +36,10 @@
 #  LM1.6  Teams=auto ShipLives=2; Start strict refused (NotReady); the client ready; Start strict: the countdown. At its start
 #         both panels closed, IgnoreInput 0 and cursor 0 on both machines (the client's injected IA_Move distance is data
 #         only: injection bypasses IgnoreInput); at 0 both on their own ship's deck within 1 s, teams as in the lobby
-#  LMF    friendly fire (rules FF off), the ships past their spawn protection: the host's gun on his own team's ship and the
-#         client's gun on his own team's ship do NO damage; each one's gun on the other team's ship does ShipDamageGunHit
-#         per hit; the host's gun on the client (enemies) does the GE value; with the client moved to team 0 (teammates) none
+#  LMF    friendly fire (rules FF off), the ships past their spawn protection and held (Aura.Airship.Input 0 0): the host's gun
+#         on his own team's ship and the client's gun on his own team's ship do NO damage; each one's gun on the other team's
+#         ship does ShipDamageGunHit per hit; on foot on one platform, the host's gun on the client (enemies) does the GE value;
+#         with the client moved to team 0 (teammates) none. Data: what each crosshair hit first
 #  LM1.7  rejoin InProgress: the client's world opens 127.0.0.1:<port>; back within 10 s, on team 1, aboard team 1's ship
 #  LMS    ship lives: Aura.Match.KillShip 1: lives 2 -> 1, ShipDestroyed, a new team 1 ship 10 +-0.5 s later; KillShip 1
 #         again: TeamEliminated, Ended, TeamWon 0 on both machines
@@ -56,7 +58,8 @@
 # Deviations from SPEC_B_LOBBY 8.4 (for the lead's spec update):
 #  * LMF and LMS are new (the lead's lean plan: friendly fire with own-ship hits, ship lives, the end back to the lobby).
 #  * LM1.3's lobby gun test and LMF's player hits read the target's Health; a gun that never fires would also show no drop,
-#    so LMF's enemy hits (which must drop) are the positive control of the same aim / fire path.
+#    so LMF's enemy hits (which must drop) are the positive control of the same aim / fire path, and LM1.3 also needs the
+#    server's "HitActor: <client pawn>" lines (GA_GunShoot's PrintString) in its window.
 #  * LM1.5 reads the client's rules from his own Aura.Match.Status line (GetMatchRules is not BlueprintPure).
 #  * LM1.11 uses EndScreenSeconds 12 so the rejoin completes before the return.
 #  * LM1.13: "the overlay widget exists" and "the ASC has its startup abilities" are logged as data, not checked.
@@ -69,8 +72,11 @@ exec(compile(_as80_src75[:_as80_src75.index('\n_old75 = ')], os.path.join(_AS80_
 exec(compile(open(os.path.join(_AS80_UE, 'as_79_lobbylib.py')).read(), os.path.join(_AS80_UE, 'as_79_lobbylib.py'), 'exec'), globals())
 # the engine's travel lines too (log_poll reads this global)
 MB_LOG_KEEP = tuple(MB_LOG_KEEP) + ('SeamlessTravel', 'ProcessServerTravel', 'not cleaned up by garbage collection', 'LogGameMode', 'Browse:')
+# the server's gun hits on characters: UGA_GunShoot::MyFunc prints "HitActor: <target>" (PrintString, also to the log) once
+# the target passed the friendly-fire and ship filters, before the damage-off attribute set (LM1.3's positive control)
+MB_LOG_KEEP = tuple(MB_LOG_KEEP) + ('HitActor: ',)
 
-AS80_VERSION = 'as_80_pie_lobby_mp 2026-11-28b'
+AS80_VERSION = 'as_80_pie_lobby_mp 2026-11-28d'
 AS80_RULES_RE = re.compile(r'Teams=(\S+) ShipLives=(\d+) Swarm=(\d+) TimeLimit=(\d+) FF=(\d) GrappleShips=(\d) LaneAssist=(\d)')
 
 
@@ -117,18 +123,25 @@ class B80(LobbyMix, B75):
 
     def snapshot_settings(self):
         MBRun.snapshot_settings(self)
-        for n in ('Aura.Lobby.Enable', 'net.AllowPIESeamlessTravel'):
+        for n in ('Aura.Lobby.Enable', 'net.AllowPIESeamlessTravel', 'core.EnsureAlwaysEnabled'):
             self.orig['cvars'][n] = mb_cvar_int(n)
         if self.orig['cvars'].get('Aura.Lobby.Enable') is None:
             self.orig['cvars']['Aura.Lobby.Enable'] = -1
         if self.orig['cvars'].get('net.AllowPIESeamlessTravel') is None:
             self.orig['cvars']['net.AllowPIESeamlessTravel'] = 0
+        if self.orig['cvars'].get('core.EnsureAlwaysEnabled') is None:
+            self.orig['cvars']['core.EnsureAlwaysEnabled'] = 1
 
     def apply_scenario_settings(self, sets):
         B75.apply_scenario_settings(self, sets)
         mb_editor_cmd('Aura.Lobby.Enable 1')
         mb_editor_cmd('net.AllowPIESeamlessTravel 0')
-        self.line('INFO', 'Aura.Lobby.Enable 1, net.AllowPIESeamlessTravel 0 for the run')
+        # The engine's PIE-only ensureAlways in FNetGUIDCache::SupportsObject (PackageMapClient.cpp:3145) fires on every
+        # client move while the client's old world waits for the hard travel (its net driver is gone, InstanceID -1). Its
+        # callstack dump took PIE to 3 fps, the server's ServerTravelPause to 2 min, and the client never got back in
+        # (b80 2026-11-28, LM1.8 to LM1.11). Reported once, then silent; no check reads it.
+        mb_editor_cmd('core.EnsureAlwaysEnabled 0')
+        self.line('INFO', 'Aura.Lobby.Enable 1, net.AllowPIESeamlessTravel 0, core.EnsureAlwaysEnabled 0 for the run')
 
     def arm(self):
         try:
@@ -155,13 +168,47 @@ class B80(LobbyMix, B75):
     def counts(self, st):
         return (st or {}).get('teams')
 
-    def remap(self, timeout=20.0, old_world=None):
+    def wt(self, w):
+        try:
+            return self.wtime(w)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def same_world(self, w, old, old_t):
+        """w is still the old world: the same object, its clock not gone back. A new world can come back behind the old
+        world's Python wrapper (same path, same address): its clock starts again at 0."""
+        if not mb_same(w, old):
+            return False
+        t = self.wt(w) if old_t is not None else None
+        return t is None or t >= old_t - 0.01
+
+    def worlds_ok(self):
+        """B75's test, plus the server world's clock: after the hard lobby ServerTravel the old server world's wrapper came
+        back as the new UEDPIE_0 world, and B75 never saw the swap (b80 2026-11-28: LM1.8 waited 60 s for new worlds while
+        the game time had gone back from 62 s to 1 s). While B75 handles a swap (_gone_wall) it stays false until B75 has
+        mapped the new worlds and players."""
+        if '_gone_wall' in self.D:
+            return False
+        if not B75.worlds_ok(self):
+            self.D.pop('_sw_t', None)
+            return False
+        t = self.wt(self.sw)
+        last = self.D.get('_sw_t')
+        if t is not None and last is not None and t < last - 0.5:
+            self.line('INFO', 'the server world\'s clock went back %.1f -> %.1f s: a new world behind the old wrapper (travel)' % (last, t))
+            self.D.pop('_sw_t', None)
+            return False
+        if t is not None:
+            self.D['_sw_t'] = t
+        return True
+
+    def remap(self, timeout=20.0, old_world=None, old_t=None):
         """yield: the worlds and players again (after a client's open / disconnect); the client's world must be a new one when
-        old_world is given"""
+        old_world is given (old_t: its clock when it was left)"""
         def ok():
             if not self.find_worlds():
                 return False
-            if old_world is not None and any(mb_same(w, old_world) for w in self.cws):
+            if old_world is not None and any(self.same_world(w, old_world, old_t) for w in self.cws):
                 return False
             return self.map_players()
         got = yield from self.until(ok, timeout)
@@ -174,9 +221,10 @@ class B80(LobbyMix, B75):
         """yield: the client's own world opens the server's address; True once he is mapped again in a new world"""
         old = self.cl()['w']
         old_id = self.cl()['id']
+        old_t = self.wt(old)
         t0 = self.now
         self.cmd(old, 'open 127.0.0.1:%d' % self.port)
-        got = yield from self.remap(timeout, old_world=old)
+        got = yield from self.remap(timeout, old_world=old, old_t=old_t)
         dt = (self.now - t0) if got else None
         self.event('rejoin', key=key, ok=got, dt=r(dt, 2), old_id=old_id, new_id=self.cl()['id'] if got else None)
         if not got:
@@ -231,13 +279,103 @@ class B80(LobbyMix, B75):
     def ship_hp_track(self, ship, seconds, pre):
         return (yield from self.watch_health(lambda: self.ship_hp(ship) if valid(ship) else None, seconds, pre))
 
-    def fire_at(self, p, target_fn):
-        """one frame: player p's own machine aims at target_fn() (server coordinates) and holds the gun"""
+    def fire_at(self, p, target_fn, rec=None):
+        """one frame: player p's own machine aims at target_fn() (server coordinates) and holds the gun. rec (a list): every
+        6th frame the actor his crosshair sweep hits first (data)"""
         try:
             self.aim(p['w'], p['lpc'], target_fn())
             self.inject(p['w'], 'IA_LMB')
+            if rec is not None and self.frames % 6 == 0:
+                rec.append(self.aim_hit(p))
         except Exception:  # noqa: BLE001
             self.err('fire_at')
+
+    def gun_hits(self, t0, target):
+        """the server's GA_GunShoot hits on target (a server pawn) since t0: its "HitActor: <name>" log lines"""
+        n = target.get_name() if target is not None else None
+        if not n:
+            return []
+        return [l for _, l in self.log_since(t0, 'HitActor: ' + n) if re.search(r'HitActor: %s\s*$' % re.escape(n), l)]
+
+    def settle_aim(self, p, target_fn, seconds=0.6):
+        """yield: player p's view on target_fn() for seconds without firing (the camera lags the control rotation: the first
+        shots of a window went where the last window looked, b80 2026-11-28)"""
+        t0 = self.now
+        while self.now - t0 < seconds:
+            try:
+                self.aim(p['w'], p['lpc'], target_fn())
+            except Exception:  # noqa: BLE001
+                self.err('settle_aim')
+            yield
+
+    def turret_hp(self, s):
+        """data: the sum of a ship's living turrets' health (server)"""
+        try:
+            return r(sum(float(t.get_health()) for t in (s.get_editor_property('Turrets') or []) if valid(t)), 2)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def aim_hit(self, p):
+        """data: what player p's crosshair hits first on his own machine, as AMyPlayerController2::Tick finds it (a 10 cm
+        Visibility sphere from the view along its centre, his own pawn ignored) -> 'actor/component' or None"""
+        try:
+            w = p['w']
+            pawn = self.schar(p) if mb_same(w, self.sw) else self.ochar(p)
+            loc, rot = self.cam(w)
+            f = rot.get_forward_vector()
+            res = unreal.SystemLibrary.sphere_trace_single(w, loc + f * 10.0, loc + f * 2000000.0, 10.0, unreal.TraceTypeQuery.TRACE_TYPE_QUERY1,
+                                                           True, [pawn] if pawn is not None else [], unreal.DrawDebugTrace.NONE, True)
+            hit = res
+            if isinstance(res, tuple):
+                hit = next((x for x in res if isinstance(x, unreal.HitResult)), None)
+            if hit is None:
+                return None
+            t = tuple(hit.to_tuple())
+            if not [x for x in t if isinstance(x, bool)][:1] == [True]:
+                return None
+            act = next((x for x in t if isinstance(x, unreal.Actor)), None)
+            comp = next((x for x in t if isinstance(x, unreal.PrimitiveComponent)), None)
+            if act is None and comp is not None:
+                act = comp.get_owner()
+            name = mb_name(act)
+            # a ship or turret by the team ship it is (or rides) nearest to: replicated actors have other names on a client
+            cn = act.get_class().get_name() if act is not None else ''
+            if 'AirshipPawn' in cn or 'AirshipTurret' in cn:
+                q = self.loc(act)
+                ships = [(t, self.ship(t)) for t in (0, 1) if self.ship(t) is not None]
+                if ships:
+                    t = min(ships, key=lambda x: dist(self.loc(x[1]), q))[0]
+                    name = ('turret@ship%d' if 'Turret' in cn else 'ship%d') % t
+            return '%s/%s' % (name, mb_name(comp))
+        except Exception:  # noqa: BLE001
+            self.err('aim_hit')
+            return 'error'
+
+    @staticmethod
+    def hits_summary(rec):
+        out = {}
+        for h in rec:
+            out[str(h)] = out.get(str(h), 0) + 1
+        return out
+
+    def stage_info(self, s0, s1):
+        """data: where the LMF stage put everyone (server copies): hull-space positions on team 0's ship, movement bases,
+        the ships' lane states and gap"""
+        out = {}
+        try:
+            for k, p, s in (('host', self.host(), s0), ('client', self.cl(), s1)):
+                c = self.schar(p)
+                if c is not None and s is not None:
+                    d = unreal.MathLibrary.inverse_transform_location(s.get_actor_transform(), unreal.Vector(*self.loc(c)))
+                    out[k] = {'hull_own': r([d.x, d.y, d.z], 0), 'base': mb_name(self.base_owner(c)), 'on_own_deck': self.on_deck(c, s),
+                              'alive': self.alive(c)}
+            d = self.dump(self.sw, 'lmf_stage', 0.0)
+            out['lanes'] = [(mb_get(d, 'ships', i, 'name'), mb_get(d, 'ships', i, 'lane_state'), mb_get(d, 'ships', i, 'speed_ms'))
+                            for i in range(len(mb_get(d, 'ships') or []))]
+            out['gap_m'] = r(dist(self.loc(s0), self.loc(s1)) / 100.0, 1) if s0 is not None and s1 is not None else None
+        except Exception:  # noqa: BLE001
+            self.err('stage_info')
+        return out
 
     def put_on_deck(self, p, ship, hx, hy):
         """player p (on foot, both copies) onto ship's deck at hull-space (hx, hy)"""
@@ -313,12 +451,19 @@ class B80(LobbyMix, B75):
         q = [p[0] + 1500.0 * math.cos(yaw), p[1] + 1500.0 * math.sin(yaw), p[2] + 50.0]
         self.tp(cl, q)
         yield from self.wait(0.8)
+        yield from self.settle_aim(host, lambda: self.loc(self.schar(cl)))
         h0 = self.health(self.schar(cl))
+        t0 = self.now
         tr = yield from self.watch_health(lambda: self.health(self.schar(cl)), 1.5,
                                           lambda: self.fire_at(host, lambda: self.loc(self.schar(cl))))
         dr = self.drops(tr)
-        self.check('LM1.3_no_damage', self.ok(h0 is not None and not dr), 'the host\'s gun on the client in the lobby for 1.5 s: Health %s, drops %s '
-                   '(want none: damage off in the lobby)' % (h0, dr))
+        # The positive control (review 2026-11-28): "no drop" alone passes when every shot misses. The server's hit lines on
+        # the client's pawn (they reach the log file a frame or more later: the b79 log lag)
+        yield from self.until(lambda: self.gun_hits(t0, self.schar(cl)), 1.0)
+        hits = self.gun_hits(t0, self.schar(cl))
+        self.check('LM1.3_no_damage', self.ok(h0 is not None and hits and not dr), 'the host\'s gun on the client in the lobby for 1.5 s: %d server hits '
+                   'on him (want >= 1: "HitActor: %s"), Health %s, drops %s (want none: damage off in the lobby)' % (
+                       len(hits), mb_name(self.schar(cl)), h0, dr))
 
     def t_teams(self):
         """LM1.4"""
@@ -467,6 +612,9 @@ class B80(LobbyMix, B75):
         self.check('LM1.6_input', self.ok(ok1), 'the lobby countdown %s: (panel widget open, panel, IgnoreInput, cursor) host %s, client %s (want all 0: game '
                    'input, M2); data: the client\'s injected IA_Move moved his pawn %s cm in 1 s (moves with UI-only input too, not checked)' % (
                        bool(cd), views[0], views[1], r(moved, 0)))
+        if not moved or moved < 1.0:
+            # the flags decide; a pawn that did not move at all is worth a look (b80 run 1: 0.0 cm, fix 1: 522 cm), not a FAIL
+            self.line('WARN', 'LM1.6_input: the client\'s injected IA_Move moved his pawn %s cm in 1 s during the countdown' % r(moved, 0))
         ip = yield from self.wait_phase('inprogress', 7.0)
         t_ip = self.now
         on = yield from self.until(lambda: all(self.on_deck(self.schar(p), self.ship(self.team(p))) for p in self.P), 1.0)
@@ -491,48 +639,95 @@ class B80(LobbyMix, B75):
         s0, s1 = self.ship(0), self.ship(1)
         gd = float(self.setting('ShipDamageGunHit', 5.0))
         res = {'unprotected': bool(unp), 'rules_ff': mb_get(self.dump(self.sw, 'lmf', 0.0), 'rules', 'friendly_fire')}
-        # the stage: the host on team 0's forward deck, the client on team 0's aft deck, team 1's ship 50 m beside team 0's on
-        # the outer side (only sky behind it)
-        self.put_on_deck(host, s0, 2850.0, 0.0)
-        self.put_on_deck(cl, s0, -2300.0, 0.0)
+        # The stage: each player where the match put him, aboard his own team's ship (LM1.6_aboard); the ships held, and team
+        # 1's ship brought 50 m beside team 0's on the outer side (only sky behind it), its crew carried along on its deck.
+        # b80 2026-11-28: both players put on team 0's deck by a hull-top trace stood in the air (the hull ignores Pawn since
+        # the deck collision rebuild, the walkable deck is the Mesh's physics asset) and fell off, the client 500 m away.
+        # Debug input parks every lane (AirshipLaneComponent, B2.3) and stops its recall clock: a cruising team 1 ship
+        # steered straight back across team 0's lane, bow first ("lane blocked", "bow contact"). Cleared below.
+        self.scmd('Aura.Airship.Input 0 0')
+        yield from self.wait(0.5)
+        # team 0's ship stopped where it is (parked, it drifts on at its cruise speed and would leave team 1's behind it)
+        self.teleport(s0, self.loc(s0), self.yaw(s0))
+        aboard = yield from self.until(lambda: self.on_deck(self.schar(host), s0) and self.on_deck(self.schar(cl), s1), 3.0)
+        res['aboard_before'] = bool(aboard)
+        # The client's spot aboard team 1's ship in its hull space: a teleported ship does not carry the players on its deck
+        # (b80 step 4 run 1: the client was left 91 m beside it and 7 m below, falling, and his shots at team 0's hull went
+        # into the platforms), so he is put back on the same spot after the move
+        c1 = self.schar(cl)
+        hp1 = v3(unreal.MathLibrary.inverse_transform_location(s1.get_actor_transform(), unreal.Vector(*self.loc(c1)))) if c1 is not None else None
+        res['client_hull_before'] = r(hp1, 0)
         u0, v0, z0 = self.uv(self.loc(s0))
         self.teleport(s1, self.world(u0, v0 + self.side_of(0) * 5000.0, z0), self.yaw(s0))
-        yield from self.wait(1.0)
-        # a player's gun on his OWN team's ship: no damage (Talal: "players of the same team shouldn't be able to damage the
-        # ship of the same team")
-        tr = yield from self.ship_hp_track(s0, 1.5, lambda: self.fire_at(host, lambda: self.hull_aim(s0, self.loc(self.schar(host)), z=150.0)))
-        res['host_own_ship'] = self.drops(tr)
-        tr = yield from self.ship_hp_track(s1, 1.5, lambda: self.fire_at(cl, lambda: self.hull_aim(s1, self.loc(self.schar(cl)))))
-        res['client_own_ship'] = self.drops(tr)
-        # the other team's ship: ShipDamageGunHit per hit (the positive control of the same aim and fire path)
-        tr = yield from self.ship_hp_track(s1, 1.5, lambda: self.fire_at(host, lambda: self.hull_aim(s1, self.loc(self.schar(host)))))
-        res['host_enemy_ship'] = sorted(set(self.drops(tr)))
-        tr = yield from self.ship_hp_track(s0, 1.5, lambda: self.fire_at(cl, lambda: self.hull_aim(s0, self.loc(self.schar(cl)), z=150.0)))
-        res['client_enemy_ship'] = sorted(set(self.drops(tr)))
+        yield
+        if hp1 is not None:
+            self.tp(cl, v3(unreal.MathLibrary.transform_location(s1.get_actor_transform(), unreal.Vector(*hp1))), self.yaw(s1))
+        yield from self.wait(1.5)
+        res['stage'] = self.stage_info(s0, s1)
+        hits, thp = {}, {}
+        # Every shot at a hull's body below its deck plane (z 150): a hull hit above it goes on to a turret behind it
+        # (AAirshipPawn::FindTurretBehindHullHit), and the turret, not the hull, takes it. Each window first settles the view.
+        wins = (('host_own_ship', host, s0), ('client_own_ship', cl, s1), ('host_enemy_ship', host, s1), ('client_enemy_ship', cl, s0))
+        for key, p, tgt in wins:
+            # a player's gun on his OWN team's ship: no damage (Talal: "players of the same team shouldn't be able to damage
+            # the ship of the same team"); on the other team's ship: ShipDamageGunHit per hit (the positive control)
+            def tfn(p=p, tgt=tgt):
+                return self.hull_aim(tgt, self.loc(self.schar(p)), z=150.0)
+            yield from self.settle_aim(p, tfn)
+            rec = hits[key] = []
+            t0hp = self.turret_hp(tgt)
+            tr = yield from self.ship_hp_track(tgt, 1.5, lambda: self.fire_at(p, tfn, rec))
+            thp[key] = (t0hp, self.turret_hp(tgt))
+            res[key] = self.drops(tr) if 'own' in key else sorted(set(self.drops(tr)))
+        res['aim_hits'] = dict((k, self.hits_summary(v)) for k, v in hits.items())
+        res['turret_hp'] = thp
+        self.line('INFO', 'LMF stage %s; crosshair hits %s; turret health (before, after) %s' % (res['stage'], res['aim_hits'], thp))
         own_ok = unp and not res['host_own_ship'] and not res['client_own_ship']
         enemy_ok = res['host_enemy_ship'] == [round(gd, 3)] and res['client_enemy_ship'] == [round(gd, 3)]
         self.check('LMF_own_ship', self.ok(own_ok and enemy_ok), 'ships unprotected %s, rules FF %s; hull drops: the host on his own team\'s ship %s, the '
                    'client on his own team\'s ship %s (want none); the host on the other team\'s ship %s, the client on the other team\'s ship %s (want '
                    '[%s] each: ShipDamageGunHit)' % (unp, res['rules_ff'], res['host_own_ship'], res['client_own_ship'], res['host_enemy_ship'],
                                                     res['client_enemy_ship'], gd), res)
-        # players: enemies hurt, teammates not
-        tr = yield from self.watch_health(lambda: self.health(self.schar(cl)), 1.5, lambda: self.fire_at(host, lambda: self.loc(self.schar(cl))))
+        # players: enemies hurt, teammates not. On foot on one platform 15 m apart (as_75 M3.1's stage): on team 0's ship the
+        # deckhouse stands between its forward and aft decks, and a hit on it is a hit on the host's own ship
+        got = yield from self.pair_on_platform(host, cl)
+        res['players_stage'] = {'paired': bool(got), 'gap_m': r(dist(self.loc(self.schar(host)), self.loc(self.schar(cl))) / 100.0, 1)
+                                if self.schar(host) is not None and self.schar(cl) is not None else None}
+        rec_e, rec_t = [], []
+        yield from self.settle_aim(host, lambda: self.loc(self.schar(cl)))
+        t_e = self.now
+        tr = yield from self.watch_health(lambda: self.health(self.schar(cl)), 1.5, lambda: self.fire_at(host, lambda: self.loc(self.schar(cl)), rec_e))
         res['enemy_player'] = sorted(set(self.drops(tr)))
         self.scmd('Aura.Match.Team %d 0' % cl['i'])
         yield from self.until(lambda: self.team(cl) == 0, 1.0)
-        tr = yield from self.watch_health(lambda: self.health(self.schar(cl)), 1.5, lambda: self.fire_at(host, lambda: self.loc(self.schar(cl))))
+        # data: the server's hit lines on the client in the enemy window (a teammate's hit stops at the friendly-fire filter
+        # before the line)
+        res['server_hits'] = {'enemy': len(self.gun_hits(t_e, self.schar(cl)))}
+        yield from self.settle_aim(host, lambda: self.loc(self.schar(cl)))
+        t_t = self.now
+        tr = yield from self.watch_health(lambda: self.health(self.schar(cl)), 1.5, lambda: self.fire_at(host, lambda: self.loc(self.schar(cl)), rec_t))
         res['teammate_player'] = self.drops(tr)
+        yield from self.wait(0.3)
+        res['server_hits']['teammate'] = len(self.gun_hits(t_t, self.schar(cl)))
         self.scmd('Aura.Match.Team %d 1' % cl['i'])
         yield from self.until(lambda: self.team(cl) == 1, 1.0)
+        res['aim_hits_players'] = {'enemy': self.hits_summary(rec_e), 'teammate': self.hits_summary(rec_t)}
         ok = res['enemy_player'] == [round(self.gun_base, 3)] and not res['teammate_player'] and self.team(cl) == 1
         self.check('LMF_players', self.ok(ok), 'the host\'s gun on the client: enemies %s (want [%s]: the GE value), teammates (Aura.Match.Team %d 0) %s '
-                   '(want none); the client back on team %s' % (res['enemy_player'], self.gun_base, cl['i'], res['teammate_player'], self.team(cl)))
-        # team 1's ship back into its lane, the client back aboard it
+                   '(want none); the client back on team %s; on one platform %s; crosshair hits (data) %s; the server\'s HitActor lines on the client '
+                   '(data) %s' % (res['enemy_player'], self.gun_base, cl['i'], res['teammate_player'], self.team(cl), res['players_stage'],
+                                  res['aim_hits_players'], res.get('server_hits')))
+        # the ships free again, team 1's ship back into its lane, the client back aboard it (team 0's ship, parked in its
+        # lane, cruises again after LaneParkSettleTime)
+        self.scmd('Aura.Airship.InputClear')
+        yield from self.wait(0.2)
         self.scmd('Aura.Lane.Teleport 1 %.1f' % (u0 / 100.0))
         yield from self.wait(1.0)
         s1 = self.ship(1)
-        if s1 is not None:
-            self.put_on_deck(cl, s1, 0.0, 0.0)
+        hp = mb_get(res, 'stage', 'client', 'hull_own')
+        if s1 is not None and hp:
+            # where he stood aboard it (a hull-top trace point is in the air, see the stage above)
+            self.tp(cl, v3(unreal.MathLibrary.transform_location(s1.get_actor_transform(), unreal.Vector(*hp))), self.yaw(s1))
         yield from self.wait(0.6)
 
     def t_rejoin_match(self):
@@ -577,7 +772,10 @@ class B80(LobbyMix, B75):
         self.scmd('Aura.Match.KillShip 1')
         end = yield from self.until(lambda: self.phase_of(self.sw) == 'ended' and self.phase_of(self.cl()['w']) == 'ended', 3.0)
         rs, rc = self.result_of(self.sw), self.result_of(self.cl()['w'])
-        elim = [e['event'] for e in self.events_since(t1, 'TeamEliminated', team=1)]
+        # the event line reaches the log file a frame or more after the phase change (the b79 log lag): wait up to 1 s for it
+        # (the end screen lasts 3 s)
+        elim = yield from self.until(lambda: self.events_since(t1, 'TeamEliminated', team=1), 1.0)
+        elim = [e['event'] for e in (elim or [])]
         ok2 = end and rs.get('result') == 'teamwon' and rs.get('winner') == 0 and rc.get('result') == 'teamwon' and rc.get('winner') == 0 and elim
         self.check('LMS_eliminated', self.ok(ok2), 'the last KillShip 1: Ended on both %s, result server %s / client %s (want TeamWon 0 on both), '
                    'TeamEliminated %s, lobby round %s (the end panel says "Back to the lobby")' % (
@@ -675,12 +873,14 @@ class B80(LobbyMix, B75):
         cd = yield from self.wait_phase('countdown', 1.0)
         yield from self.wait(2.0)
         old = self.cl()['w']
+        old_t = self.wt(old)
         td = self.now
         self.cmd(old, 'disconnect')
         canc = yield from self.until(lambda: self.phase_of(self.sw) == 'lobby', 1.5)
         dt = (self.now - td) if canc else None
-        ev = [(e['event'], e['value']) for e in self.events_since(td, 'LobbyCancelled')]
         yield from self.wait(0.5)
+        # read after the wait: the event line reaches the log file a frame or more after the phase change (the b79 log lag)
+        ev = [(e['event'], e['value']) for e in self.events_since(td, 'LobbyCancelled')]
         ships = [mb_name(s) for s in self.team_ships(self.sw)]
         ok = cd and dt is not None and dt <= 0.5 + 0.25 and ev and ev[0][1] == LB_BLOCKS.index('NeedOpponent') and not ships
         self.check('LM1.12_cancel', self.ok(ok), 'Teams=1v1, Start, the client disconnects 2 s in: cancelled after %s s (want <= 0.5 + one 0.25 s tick), '
@@ -692,9 +892,14 @@ class B80(LobbyMix, B75):
             self.check('LM1.12_reopen', 'FAIL', 'no menu world for the disconnected client within 15 s')
             return
         yield from self.wait(1.0)
+        # the menu world's name first: the open replaces that world, and its wrapper is dead after it (b80 2026-11-28, step 4:
+        # "World: Internal Error - ObjectInstance is null!" from this check's text, 0.2 s after the open)
+        mw_name = mw.get_path_name()
+        t_open = self.now
         self.cmd(mw, 'open 127.0.0.1:%d' % self.port)
-        got = yield from self.remap(25.0, old_world=old)
-        self.check('LM1.12_reopen', self.ok(got), 'the client opened 127.0.0.1:%d from %s: mapped again %s' % (self.port, mw.get_path_name(), got))
+        got = yield from self.remap(25.0, old_world=old, old_t=old_t)
+        self.check('LM1.12_reopen', self.ok(got), 'the client opened 127.0.0.1:%d from %s: mapped again %s after %s s' % (
+            self.port, mw_name, got, r(self.now - t_open, 2)))
         self.scmd('Aura.Match.Rules Teams=auto')
         yield from self.wait(0.5)
 
@@ -713,10 +918,20 @@ class B80(LobbyMix, B75):
         yield from self.wait_phase('inprogress', 8.0)
         yield from self.wait(1.0)
         self.scmd('Aura.Match.Set EndScreenSeconds 3')
+        cw_old = self.cl()['w']
+        t_cw_old = self.wt(cw_old)
         t0 = self.now
         self.D.pop('new_worlds', None)
         self.scmd('Aura.Match.End 0')
         back = yield from self.until(lambda: self.D.get('new_worlds'), 80.0)
+        # The server's new world is found as soon as it loads, and the client's OLD world is still in the PIE world list then
+        # (a seamless travel keeps it until the client's own travel ends): B75 mapped the client to it, and every read of
+        # it failed once it was gone (b80 step 4 run 2: 601 phase_of errors, "World: Internal Error"). Map him again once
+        # his new world is there
+        remapped = False
+        if back:
+            remapped = yield from self.remap(30.0, old_world=cw_old, old_t=t_cw_old)
+        self.R.setdefault('lm1_13_pre', {})['client_remapped'] = bool(remapped)
         lob = yield from self.until(lambda: self.phase_of(self.sw) == 'lobby' and self.phase_of(self.cl()['w']) == 'lobby', 20.0)
         seam = [l[-200:] for _, l in self.log_since(t0, 'SeamlessTravel')]
         trav = [l[-200:] for _, l in self.log_since(t0, 'Match: back to the lobby')]

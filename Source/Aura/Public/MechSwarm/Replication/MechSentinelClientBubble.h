@@ -84,6 +84,9 @@ public:
 
 	FMechSentinelClientBubbleSerializer& GetSentinelSerializer() { return SentinelSerializer; }
 
+	/** Skips a stale client copy kept through a seamless travel (its serializer's world is gone). */
+	virtual void Tick(float DeltaTime) override;
+
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

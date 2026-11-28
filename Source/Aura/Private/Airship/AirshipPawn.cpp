@@ -413,7 +413,9 @@ AAirshipPawn::AAirshipPawn()
 
 	// Gunner stations (replicated, fixed size) and the turrets the server spawns at BeginPlay
 	StationGunners.SetNum(Airship::NumStations);
-	StationAims.SetNum(Airship::NumStations);
+	// Zeroed: FVector_NetQuantize's default constructor leaves it uninitialized, and a non-finite value logged a LogCore
+	// Error ("WriteQuantizedVector: Value isn't finite") on every ship's first replication
+	StationAims.Init(FVector_NetQuantize(ForceInitToZero), Airship::NumStations);
 	Turrets.SetNum(Airship::NumTurrets);
 
 	for (int32 Station = 0; Station < Airship::NumStations; ++Station)

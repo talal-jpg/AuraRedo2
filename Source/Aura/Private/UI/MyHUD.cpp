@@ -106,16 +106,17 @@ void AMyHUD::AddLobbyWidget()
 		return;
 	}
 
-	// The whole viewport, above the match HUD (2) and the minimap (1), under the pause menu (50)
+	// The whole viewport, in the viewport layer like the overlay (AddToViewport, 0) and the pause menu (50): the player
+	// layer sits under every viewport-layer widget (SGameLayerManager), so the overlay's globes, ability icons and
+	// crosshair drew over the panel and its START button. ZOrder 5: above the overlay, under the pause menu; still above
+	// the match HUD (2) and the minimap (1)
 	FGameViewportWidgetSlot Slot;
 	Slot.Anchors = FAnchors(0.f, 0.f, 1.f, 1.f);
 	Slot.Alignment = FVector2D::ZeroVector;
 	Slot.Offsets = FMargin(0.f);
 	Slot.ZOrder = 5;
 
-	ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
-
-	if (!(LocalPlayer ? ViewportSubsystem->AddWidgetForPlayer(LobbyWidget, LocalPlayer, Slot) : ViewportSubsystem->AddWidget(LobbyWidget, Slot)))
+	if (!ViewportSubsystem->AddWidget(LobbyWidget, Slot))
 	{
 		LobbyWidget = nullptr;
 	}

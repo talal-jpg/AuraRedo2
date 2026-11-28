@@ -70,7 +70,7 @@ import json, math, os, time, traceback  # unreal = inbox namespace
 _AS74_UE = os.path.join(os.path.abspath(unreal.Paths.project_dir()), 'Docs/Airship/scripts/ue')
 exec(compile(open(os.path.join(_AS74_UE, 'as_70_matchlib.py')).read(), os.path.join(_AS74_UE, 'as_70_matchlib.py'), 'exec'), globals())
 
-AS74_VERSION = 'as_74_pie_match 2026-11-25'
+AS74_VERSION = 'as_74_pie_match 2026-11-28'
 AS74_MAPS = {'StartupMap': '/Game/Maps/StartupMap', 'L_AirshipTest': '/Game/Assets/MyShip/Drivable/Maps/L_AirshipTest'}
 AS74_PARK = (0.0, 0.0, -100000.0)            # TEMP blocks wait 1 km under the map
 AS74_FLOOR = (-4000.0, 4000.0, -4000.0, 4000.0)  # StartupMap's start floor (x, y bounds; Appendix C)
@@ -760,6 +760,23 @@ class B74(MBRun):
             if abs(self.now - t0 - 5.0) < 0.02:
                 self.xgrab('t2_4_lane_assist')
             yield
+        # The view off the bow first: since round 2 part A the pilot's Fire in the bow arc (UAirshipSettings
+        # DriverTurretArcDeg, 50 deg) drives the unmanned turrets and RequestFire fires no broadside (AirshipPawn.cpp
+        # RequestFire / IsDriverTurretArc). The speed samples above are taken before this. The camera lags the control
+        # rotation, so the view is aimed (MBRun.aim, as_59's aim_at) at a point 200 m abeam until the camera itself is at
+        # least 75 deg off the bow (2 s at most); `aim` is that camera yaw off the bow.
+        aim = None
+        if self.pc is not None:
+            sy = math.radians(self.yaw(s) + 90.0 * self.side0)
+            q = self.loc(s)
+            pt = [q[0] + 20000.0 * math.cos(sy), q[1] + 20000.0 * math.sin(sy), q[2] - 1000.0]
+            t_a = self.now
+            while self.now - t_a < 2.0:
+                self.aim(self.w, self.pc, pt)
+                if abs(wrap180(self.cam(self.w)[1].yaw - self.yaw(s))) >= 75.0:
+                    break
+                yield
+            aim = r(abs(wrap180(self.cam(self.w)[1].yaw - self.yaw(s))), 1)
         nb = set(b.get_name() for b in self.balls())
         tf = self.now
         try:
@@ -772,9 +789,9 @@ class B74(MBRun):
         ok = (sp is not None and boarded and 'assist' in states[:3] and sv and min(sv) >= 5.5 and max(sv) <= 6.5
               and all(x[2] == 'assist' for x in speeds) and dt_ball is not None and dt_ball <= 0.2)
         self.check('T2.4_assist', self.ok(ok), 'before Board %s; Board 0: boarded %s, lane state in the first frames %s (want Assist at once); '
-                   'speed over 10 s with no input %s..%s m/s (want 6 +-0.5), always Assist %s; broadside RequestFire: ball after %s s (want '
-                   '<= 0.2)' % (pre, boarded, states, min(sv) if sv else None, max(sv) if sv else None,
-                                all(x[2] == 'assist' for x in speeds), r(dt_ball, 3)), {'speeds': speeds[::5]})
+                   'speed over 10 s with no input %s..%s m/s (want 6 +-0.5), always Assist %s; broadside RequestFire (camera %s deg off the bow, outside the '
+                   'bow arc): ball after %s s (want <= 0.2)' % (pre, boarded, states, min(sv) if sv else None, max(sv) if sv else None,
+                                                             all(x[2] == 'assist' for x in speeds), aim, r(dt_ball, 3)), {'speeds': speeds[::5]})
 
     def t_input(self):
         """T2.5"""
@@ -1000,9 +1017,11 @@ class B74(MBRun):
                 t_ret = self.now - te
                 break
             yield
-        ev = self.events_since(te, 'ShipReturning', 0)
         cru = yield from self.until(lambda: self.lane_state(s) == 'cruising', 52.0 - (self.now - te))
         t_cru = (self.now - te) if cru else None
+        # read after the wait: the event line reaches the log file a frame or more after the state change, so a read in that
+        # frame finds none (the 2026-11-28 lane run: the line was in the log at the same frame as Parked -> Returning)
+        ev = self.events_since(te, 'ShipReturning', 0)
         hp1 = self.ship_hp(s)
         ok = (out and st0 == 'parked' and t_ret is not None and abs(t_ret - float(self.setting('ShipRecallDelay', 20.0))) <= 0.5 and ev
               and t_cru is not None and t_cru <= 50.0 and hp0 == hp1)

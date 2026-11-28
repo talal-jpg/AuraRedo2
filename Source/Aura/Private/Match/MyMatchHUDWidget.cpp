@@ -445,7 +445,8 @@ void UMyMatchHUDWidget::RefreshValues(const FGeometry& MyGeometry, float DeltaSe
 	}
 
 	case EMyMatchPhase::Countdown:
-		CentreText = FString::Printf(TEXT("%s IN %d"), bVersus ? TEXT("FIGHT STARTS") : TEXT("MATCH STARTS"), FMath::CeilToInt(PhaseLeft));
+		// A lobby round's countdown also shows the lobby widget's large "MATCH STARTS IN n": the same words here
+		CentreText = FString::Printf(TEXT("%s IN %d"), bVersus && !MyGameState->IsLobbyRound() ? TEXT("FIGHT STARTS") : TEXT("MATCH STARTS"), FMath::CeilToInt(PhaseLeft));
 		break;
 
 	case EMyMatchPhase::Lobby:
@@ -486,7 +487,9 @@ void UMyMatchHUDWidget::RefreshValues(const FGeometry& MyGeometry, float DeltaSe
 		{
 			const uint8 Winner = MyGameState->GetWinningTeam();
 			CentreText = LocalTeam < MyMatch::NumTeams ? (Winner == LocalTeam ? TEXT("VICTORY") : TEXT("DEFEAT")) : FString::Printf(TEXT("%s WINS"), *TeamName(Winner));
-			CentreColor = Winner < MyMatch::NumTeams ? Darken(TeamColor(Winner), 0.75f) : InkColor;
+			// DEFEAT in ink: the winner's colour on the loser's screen read as his own team's
+			const bool bLocalLost = LocalTeam < MyMatch::NumTeams && Winner != LocalTeam;
+			CentreColor = (Winner < MyMatch::NumTeams && !bLocalLost) ? Darken(TeamColor(Winner), 0.75f) : InkColor;
 			break;
 		}
 		case EMyMatchResult::Draw: CentreText = TEXT("DRAW"); break;

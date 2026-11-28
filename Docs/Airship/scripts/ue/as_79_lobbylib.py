@@ -9,7 +9,7 @@
 #  * the game state's and the player states' lobby getters (BlueprintPure in MyGameState.h / MyPlayerState.h)
 import re  # unreal = inbox namespace
 
-LB_VERSION = 'as_79_lobbylib 2026-11-28b'
+LB_VERSION = 'as_79_lobbylib 2026-11-28c'
 LB_WIDGET_CLASS = '/Script/Aura.MyLobbyWidget'
 LB_PILOT_COMP = '/Script/Aura.AirshipPilotComponent'
 LB_IMC_BOARD = '/Game/Assets/MyShip/Drivable/Input/IMC_AirshipBoard'
@@ -28,6 +28,19 @@ LB_LOCAL_RE = re.compile(r'LogMatch:\s+local (\d+) (\S+): panel (\d) \(widget (\
 
 class LobbyMix(object):
     """mixed into the B74 / B75 based lobby harnesses"""
+
+    # ------------------------------------------------------------------------------------------------- log waits
+    def log_wait(self, t0, timeout, *pats):
+        """yield: the kept log lines since t0 with every pattern, waiting up to timeout game s for the first one. The log
+        tail reads the editor log FILE, which gets a C++ line a frame or more after it is logged: a check made in the frame
+        the state changed finds no line yet (b79 run 2026-11-28: LB1.3, LB1.5_cancel, LB1.9 had their lines in the log)."""
+        got = yield from self.until(lambda: self.log_since(t0, *pats), timeout)
+        return got or []
+
+    def event_wait(self, t0, name, timeout):
+        """yield: the match events `name` since t0, waiting up to timeout game s for the first one (same log lag)"""
+        got = yield from self.until(lambda: self.events_since(t0, name), timeout)
+        return got or []
 
     # ------------------------------------------------------------------------------------------------- Aura.Lobby.Status
     def lobby_status(self, w, timeout=2.0):

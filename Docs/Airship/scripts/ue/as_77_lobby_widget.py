@@ -119,7 +119,7 @@ L77_CLS = {'Canvas': '/Script/UMG.CanvasPanel', 'Overlay': '/Script/UMG.Overlay'
            'HBox': '/Script/UMG.HorizontalBox', 'Text': '/Script/UMG.TextBlock', 'Image': '/Script/UMG.Image',
            'Button': '/Script/UMG.Button', 'SizeBox': '/Script/UMG.SizeBox', 'Border': '/Script/UMG.Border',
            'Scroll': '/Script/UMG.ScrollBox', 'Combo': '/Script/UMG.ComboBoxString', 'Check': '/Script/UMG.CheckBox',
-           'Spacer': '/Script/UMG.Spacer', 'SafeZone': '/Script/UMG.SafeZone'}
+           'Spacer': '/Script/UMG.Spacer', 'SafeZone': '/Script/UMG.SafeZone', 'ScaleBox': '/Script/UMG.ScaleBox'}
 
 
 def l77_add(c, cls, name, parent=None, var=False):
@@ -552,14 +552,22 @@ def l77_build_row():
     l77_box(c, 'Img_LocalNotch', h='l')
     l77_add(c, 'HBox', 'Cols', 'RowRoot')
     l77_box(c, 'Cols', pad=l77_m(22, 0, 10, 0), v='c')
-    for n, w, s, fnt, col, sname in (('PlayerNameText', 250, 'Player name', l77_font('F_Barlow', 26, 'Bold'), L77_PAPER, 'PlayerNameText'),
+    # Editor stage (xgrab of the b79 run 2026-11-28): a long name ("talal-01A2215176EF71", the PIE / NULL-subsystem name) ran
+    # past its 250 px column into HOST. The name column is 270 px, clipped, with an ellipsis; the status keeps a 12 px gap.
+    for n, w, s, fnt, col, sname in (('PlayerNameText', 270, 'Player name', l77_font('F_Barlow', 26, 'Bold'), L77_PAPER, 'PlayerNameText'),
                                      ('StatusText', 160, 'NOT READY', l77_font('F_Bebas', 24, letter=40), L77_YELLOW, None),
                                      ('PingText', 80, '42 ms', l77_font('F_Barlow', 20, 'SemiBold'), L77_GREYL, 'PingText')):
-        l77_sizebox(c, 'Col_' + n, 'Cols', w=w)
-        l77_box(c, 'Col_' + n, v='c', size='auto')
+        sb = l77_sizebox(c, 'Col_' + n, 'Cols', w=w)
+        l77_box(c, 'Col_' + n, pad=l77_m(12, 0, 0, 0) if n == 'StatusText' else None, v='c', size='auto')
         t = l77_text(c, n, 'Col_' + n, s, fnt, col, var=True)
         if sname and L77_SRC.get('WBP_SessionPlayerRow3.' + sname) is not None:
             l77_copy(L77_SRC['WBP_SessionPlayerRow3.' + sname], t, ('font',), 'row text')
+        if n == 'PlayerNameText':
+            try:
+                sb.set_editor_property('clipping', unreal.WidgetClipping.CLIP_TO_BOUNDS)
+                t.set_editor_property('text_overflow_policy', unreal.TextOverflowPolicy.ELLIPSIS)
+            except Exception as e:  # noqa: BLE001
+                o77('WARN', 'row name clip / ellipsis not set: %r' % e)
     l77_add(c, 'Spacer', 'Gap', 'Cols')
     l77_box(c, 'Gap', size=1.0)
     l77_chip(c, 'Move', 'Cols', 'TO ORANGE', 'MoveButton', size=20, label_name='MoveText')
@@ -594,9 +602,26 @@ def l77_build_lobby():
     l77_text(c, 'MessageText', 'Root', 'Stay in the lobby', l77_font('F_Barlow', 28, 'Bold'), L77_YELLOW, var=True, just='center', shadow=(2, 2))
     l77_canvas(c, 'MessageText', 0, 0, anchor=(0.5, 0.86, 0.5, 0.86), align=(0.5, 0.5), auto=True, z=3)
 
-    # --- the panel: a tilted-free card (yellow shadow, yellow edge, ink fill), content upright on top
-    p = l77_add(c, 'Overlay', 'LobbyPanel', 'Root', var=True)
-    l77_canvas(c, 'LobbyPanel', 0, 0, 1640, 960, anchor=(0.5, 0.5, 0.5, 0.5), align=(0.5, 0.5), z=1)
+    # --- the panel: a tilted-free card (yellow shadow, yellow edge, ink fill), content upright on top.
+    # A 1640 x 960 card, scaled down (never up) to fit the viewport less a 24 px margin: the DPI scale follows the short
+    # side, so a viewport narrower than about 16:10 (the editor's PIE viewport, a 4:3 or 5:4 monitor, a narrow window)
+    # cut the LOBBY tag, the names and START off at both sides (review 2026-11-28, xgrab_b80/x_None_092725_main.png).
+    # PanelScale and Box_LobbyPanel are SelfHitTestInvisible: only the card takes clicks; the C++ shows / hides LobbyPanel.
+    sc = l77_add(c, 'ScaleBox', 'PanelScale', 'Root')
+    l77_canvas(c, 'PanelScale', 24, 24, 24, 24, anchor=(0, 0, 1, 1), align=(0, 0), z=1)
+    try:
+        sc.set_editor_property('stretch', unreal.Stretch.SCALE_TO_FIT)
+        sc.set_editor_property('stretch_direction', unreal.StretchDirection.DOWN_ONLY)
+    except Exception:  # noqa: BLE001
+        R77['log'].append(('scale box props', traceback.format_exc().strip().splitlines()[-1]))
+        sc.set_stretch(unreal.Stretch.SCALE_TO_FIT)
+        sc.set_stretch_direction(unreal.StretchDirection.DOWN_ONLY)
+    o77('INFO', 'PanelScale stretch %s, direction %s' % (sc.get_editor_property('stretch'), sc.get_editor_property('stretch_direction')))
+    l77_vis(sc, 'self')
+    l77_vis(l77_sizebox(c, 'Box_LobbyPanel', 'PanelScale', w=1640, h=960), 'self')
+    l77_box(c, 'Box_LobbyPanel', h='c', v='c')
+    p = l77_add(c, 'Overlay', 'LobbyPanel', 'Box_LobbyPanel', var=True)
+    l77_box(c, 'LobbyPanel')
     l77_image(c, 'Img_PanelShadow', 'LobbyPanel', L77_YELLOW)
     l77_box(c, 'Img_PanelShadow', pad=l77_m(14, 14, -14, -14))
     e = l77_add(c, 'Border', 'Img_PanelEdge', 'LobbyPanel')
@@ -640,7 +665,9 @@ def l77_build_lobby():
         l77_box(c, col, pad=l77_m(0 if i == 0 else 12, 0, 12 if i == 0 else 0, 0), size=1.0)
         l77_text(c, team + 'HeaderText', col, label, l77_font('F_Anton', 38, letter=20), L77_PAPER, var=True)
         l77_box(c, team + 'HeaderText', pad=l77_m(0, 0, 0, 6), h='l')
-        l77_sizebox(c, 'Box_' + team + 'List', col, h=272)
+        # 236 (was 272): with the SWITCH TO row shown the column ran past 960 and START sat on the card's bottom edge
+        # (review 2026-11-28, media/r2b_lobby_panel.jpg); 236 still holds 5 rows
+        l77_sizebox(c, 'Box_' + team + 'List', col, h=236)
         l77_box(c, 'Box_' + team + 'List', h='f')
         l77_scroll(c, 'Scroll_' + team, 'Box_' + team + 'List')
         l77_add(c, 'VBox', team + 'List', 'Scroll_' + team, var=True)

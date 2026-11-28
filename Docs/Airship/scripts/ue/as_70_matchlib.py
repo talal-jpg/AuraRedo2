@@ -27,7 +27,7 @@ _mb_src = open(_mb_as30).read()
 exec(compile(_mb_src[:_mb_src.index('\nclass AsRun')], _mb_as30, 'exec'), globals())   # OUT, v3, r, dist, tl_get ...
 MB_SAVED = os.path.abspath(unreal.Paths.project_saved_dir())
 MB_MATCH = os.path.join(MB_SAVED, 'Match')
-MB_VERSION = 'as_70_matchlib 2026-11-25'
+MB_VERSION = 'as_70_matchlib 2026-11-28'
 
 MB_CLS = {
     'gs': '/Script/Aura.MyGameState', 'ps': '/Script/Aura.MyPlayerState', 'gm': '/Script/Aura.MyGameMode',
@@ -1022,10 +1022,14 @@ class MBRun(object):
                 hit = next((x for x in res if isinstance(x, unreal.HitResult)), None)
             if hit is None:
                 return None
-            t = tuple(unreal.GameplayStatics.break_hit_result(hit))
+            # UE 5.8 Python has no GameplayStatics.break_hit_result (as_62 hit_info): HitResult.to_tuple() is the same tuple
+            t = tuple(hit.to_tuple())
             bools = [x for x in t if isinstance(x, bool)]
             vecs = [x for x in t if isinstance(x, unreal.Vector)]
             act = next((x for x in t if isinstance(x, unreal.Actor)), None)
+            if act is None:
+                comp = next((x for x in t if isinstance(x, unreal.PrimitiveComponent)), None)
+                act = comp.get_owner() if comp is not None else None
             if not bools or not bools[0] or len(vecs) < 2:
                 return None
             return {'p': v3(vecs[1]), 'actor': act}

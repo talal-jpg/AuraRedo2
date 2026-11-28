@@ -1670,9 +1670,14 @@ void AMyGameMode::TravelToRound(bool bLobby)
 		return;
 	}
 
-	const FString TravelURL = MapPath + (GetNetMode() == NM_ListenServer ? TEXT("?listen") : TEXT("")) + Options;
+	// Relative, so the next map listens on this one's port: an absolute URL takes FURL's default port (7777) while the
+	// clients are sent back to the current address and port (PIE listens on ServerPort 17777, -port= elsewhere), and a
+	// hard travel never got them back in (as_80 LM1.8, 2026-11-28). A relative URL keeps this map's options unless set
+	// again: every option the next round reads is set above, and a restart without the lobby says so when this map had it
+	const FString TravelURL = MapPath + (GetNetMode() == NM_ListenServer ? TEXT("?listen") : TEXT("")) + Options
+		+ (!bLobby && World->URL.HasOption(TEXT("Lobby")) ? TEXT("?Lobby=0") : TEXT(""));
 
-	if (!World->ServerTravel(TravelURL, true))
+	if (!World->ServerTravel(TravelURL, /*bAbsolute=*/false))
 	{
 		bRestarting = false;
 		UE_LOG(LogMatch, Warning, TEXT("Match: ServerTravel to %s refused"), *TravelURL);
