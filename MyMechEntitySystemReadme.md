@@ -191,8 +191,9 @@ map's GameMode override is not an `AMyGameMode`. Every value is a constant at th
    - `MaxAlive` 500, `SpawnBatchSize` 25, `MaxActiveWaves` 0 (unlimited)
    - `SegmentCorners` Top, `CornerSpawnExtent` 800 x 800 x 300, `SpawnObstacleClearance` 200
 3. Every path spawner (StartupMap has one lane, `BP_MyHexPathSpawner`): `bSpawnSentinelWaves`,
-   `FirstSegmentWithSentinelWave` = 1. Each lane's segment k (k >= 1) starts wave k at the 4 top corners of its bounds;
-   segment 0 gets none. With several lanes, every wave number runs once per lane.
+   `FirstSegmentWithSentinelWave` = 1, `SegmentsBetweenSentinelWaves` = 0. Each lane's segment k (k >= 1) starts wave
+   k at the 4 top corners of its bounds; segment 0 gets none. With several lanes, every wave number runs once per lane.
+   `SegmentsBetweenSentinelWaves` = 2 would put waves 1, 2, 3 on segments 1, 4, 7 instead.
 4. It saves what changed and prints every value, the first waves as the curves resolve them, and the files to expect in
    `git status`: `Content/Maps/StartupMap.umap` and `Content/Level/BP_MyGameMode.uasset`, nothing else. A re-run with
    everything already set changes and saves nothing (`SAVE = False` changes the loaded assets only).
@@ -706,6 +707,10 @@ Amount control:
 * Caps: `MaxAlive` per spawner, `MaxAliveSentinels` in the rules (soft global cap).
 * Pacing: `SpawnDuration`, `SpawnBatchSize`, `DelayBefore`, `TimeLimit`.
 * Per-wave stat multipliers scale the trait's attribute defaults at spawn.
+* Kill XP: the player who kills a sentinel gets the rules' `KillXP` (10) x its wave's `XPMultiplier`, rounded to a
+  whole number (0 = none). The repeat growth (`StatScalePerRepeat`) multiplies it too, and the XP wave curve sets it in
+  curve mode. Sentinels spawned outside a wave give `KillXP`. It is sent to the killer's avatar as the gameplay event
+  `Attribute.Meta.XP` (server only).
 * `SpawnSentinelsNow(n)`, `StartNextWave()`, `StopWaves()`, `DespawnAll(bKill)`. `SpawnSentinelsNow` and `DespawnAll`
   only queue the request, because the caller may run next to a Mass phase: the spawner's tick carries it out later the
   same frame. Manual spawns are created at most `SpawnBatchSize` per frame within `MaxAlive` and the rules'
@@ -744,8 +749,11 @@ listens to every path spawner in the level and starts one wave per new segment a
         |
         v
  AMechSentinelWaveSpawner::HandlePathSegmentSpawned   (External mode, lanes with bSpawnSentinelWaves)
-   wave number   segment index - FirstSegmentWithSentinelWave + 1 (earlier segments get none; every lane counts
-                 from its own first segment, so the lanes' segment k all get wave k)
+   wave number   GetSentinelWaveNumberForSegment: with Offset = segment index - FirstSegmentWithSentinelWave and
+                 Step = SegmentsBetweenSentinelWaves + 1, a segment with Offset >= 0 and Offset % Step == 0 starts
+                 wave Offset / Step + 1; the others get none. The skipped segments use up no wave number (gap 2:
+                 segments 1, 4, 7 are waves 1, 2, 3). Every lane counts from its own first segment and skips its own
+                 gaps, so the lanes' k-th wave segments all get wave k
    points        the box's Top / Bottom / All corners (SegmentCorners), CornerInset toward the centre,
                  CornerHeightOffset up
    StartWaveAtPoints(points, wave number, segment)   queued; the spawner's tick turns it into a run
@@ -791,6 +799,7 @@ spawners). The default keys are linear, flat before wave 1 and growing on past t
  Damage          (1, 1)  (10, 1.5)  (20, 2.3)   (40, 4)                  x DamageMultiplier
  AttackSpeed     (1, 1)  (20, 1.3)  (40, 1.5)                            x AttackSpeedMultiplier
  MoveSpeed       (1, 1)  (20, 1.2)  (40, 1.35)                           x MoveSpeedMultiplier
+ XP              (1, 1)  (10, 1.5)  (20, 2.25)  (40, 3.5)                x XPMultiplier (x the rules' KillXP)
  SelfBuffChance  (1, 0)  (2, 0)     (3, 0.5)    (6, 1)      (20, 1.5)    x SelfBuffChanceMultiplier (none in W1-2)
 ```
 

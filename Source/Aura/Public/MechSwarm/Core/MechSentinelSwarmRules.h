@@ -138,7 +138,8 @@ public:
 	// Rewards
 
 	/**
-	 * XP the player who lands the killing hit gets for each sentinel. Sent like an enemy character's XP reward
+	 * XP the player who lands the killing hit gets for each sentinel, times that sentinel's wave XPMultiplier (wave
+	 * spawner: each wave's XPMultiplier, or the XP wave curve), rounded. Sent like an enemy character's XP reward
 	 * (UMyAttributeSet): the gameplay event Attribute.Meta.XP with this magnitude to the killer's avatar, whose
 	 * GA_ListenForAttribEvents turns it into IncomingXP (the avatar needs that ability among its passive startup
 	 * abilities). Only player avatars (IMyPlayerInterface) are rewarded; kills without an instigator (DespawnAll) give none. 0 = off.

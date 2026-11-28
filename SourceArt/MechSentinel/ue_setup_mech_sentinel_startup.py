@@ -56,7 +56,8 @@ SPAWNER_EXTRA = {}
 # Curve mode. Empty = leave curve_base_wave and wave_curves alone (their C++ defaults on a new spawner).
 # CURVE_BASE_WAVE: MechSentinelWave field -> value, e.g. {"count": 30, "delay_before": 3.0}.
 CURVE_BASE_WAVE = {}
-# WAVE_CURVES: curve -> keys or asset. Curves: count, health, armor, damage, attack_speed, move_speed, self_buff_chance.
+# WAVE_CURVES: curve -> keys or asset. Curves: count, health, armor, damage, attack_speed, move_speed, self_buff_chance,
+# xp.
 # A list of (wave number, factor) keys replaces the curve (linear, flat before the first key and growing on past the
 # last one at its slope, like the C++ defaults); a CurveFloat asset path becomes the curve's External Curve.
 # e.g. {"count": [(1, 1.0), (10, 2.0), (40, 6.0)], "health": "/Game/MechSentinel/Data/C_SentinelHealth"}
@@ -65,7 +66,9 @@ WAVE_CURVES = {}
 # Path spawners (AMyHexPathSpawner; StartupMap has one lane, BP_MyHexPathSpawner).
 EXPECTED_PATH_SPAWNERS = 1  # another count only warns; none at all stops (External mode would never start a wave)
 PATH_SPAWN_SENTINEL_WAVES = True  # each new segment of the lane starts a wave at its corners
-PATH_FIRST_SEGMENT_WITH_SENTINEL_WAVE = 1  # segment index that gets wave 1; wave = index - this + 1
+PATH_FIRST_SEGMENT_WITH_SENTINEL_WAVE = 1  # segment index that gets wave 1; earlier segments get none
+# Segments skipped after each wave segment (0 = a wave on every segment; 2 = waves 1, 2, 3 on segments 1, 4, 7).
+PATH_SEGMENTS_BETWEEN_SENTINEL_WAVES = 0
 # Any other path spawner property, e.g. {"draw_segment_bounds": True} to see the boxes the waves spawn on.
 PATH_SPAWNER_EXTRA = {}
 
@@ -81,7 +84,7 @@ WAVE_PREVIEW = (1, 2, 3, 5, 10, 20, 40, 60)  # wave numbers resolved in the summ
 
 PACKAGE_TAG = b"\xc1\x83\x2a\x9e"  # first bytes of a .umap / .uasset
 LFS_POINTER = b"vers"  # first bytes of a Git LFS pointer file ("version https://git-lfs...")
-CURVE_NAMES = ("count", "health", "armor", "damage", "attack_speed", "move_speed", "self_buff_chance")
+CURVE_NAMES = ("count", "health", "armor", "damage", "attack_speed", "move_speed", "self_buff_chance", "xp")
 REBUILD = ("Close the editor, build AuraEditor (Development Editor) from the current source and start it again "
            "(Live Coding cannot add properties or enum values).")
 
@@ -520,7 +523,8 @@ def curve_plan():
 
 def path_plan():
     plan = [("spawn_sentinel_waves", PATH_SPAWN_SENTINEL_WAVES),
-            ("first_segment_with_sentinel_wave", PATH_FIRST_SEGMENT_WITH_SENTINEL_WAVE)]
+            ("first_segment_with_sentinel_wave", PATH_FIRST_SEGMENT_WITH_SENTINEL_WAVE),
+            ("segments_between_sentinel_waves", PATH_SEGMENTS_BETWEEN_SENTINEL_WAVES)]
     plan.extend(PATH_SPAWNER_EXTRA.items())
     return plan
 
@@ -669,10 +673,11 @@ def wave_preview(spawner, lanes):
         get = wave.get_editor_property
         count = max(0, int(math.floor(get("count") * multiplier + 0.5)))
         lines.append("wave %3d: %4d per lane (%d lanes), health x%.2f, armor x%.2f, damage x%.2f, attack speed x%.2f, "
-                     "move speed x%.2f, self-buff chance x%.2f, countdown %.0f s, spawned over %.0f s"
+                     "move speed x%.2f, self-buff chance x%.2f, kill XP x%.2f, countdown %.0f s, spawned over %.0f s"
                      % (number, count, lanes, get("health_multiplier"), get("armor_multiplier"),
                         get("damage_multiplier"), get("attack_speed_multiplier"), get("move_speed_multiplier"),
-                        get("self_buff_chance_multiplier"), get("delay_before"), get("spawn_duration")))
+                        get("self_buff_chance_multiplier"), get("xp_multiplier"), get("delay_before"),
+                        get("spawn_duration")))
     return lines
 
 
@@ -762,8 +767,8 @@ def print_summary(report, outcome):
     for note in report.notes:
         lines.append("Note: " + note)
     if report.preview:
-        lines.append("Waves (count after count_multiplier; each lane's segment k starts wave k - "
-                     "first_segment_with_sentinel_wave + 1 at its corners):")
+        lines.append("Waves (count after count_multiplier; each lane's first_segment_with_sentinel_wave starts wave 1, "
+                     "then every (segments_between_sentinel_waves + 1)-th segment the next one, at its corners):")
         lines.extend("    " + line for line in report.preview)
     if report.saved:
         lines.append("Saved. git status should show these files as modified, and nothing else:")

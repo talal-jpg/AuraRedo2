@@ -158,6 +158,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Sentinel Waves")
 	int32 GetFirstSegmentWithSentinelWave() const { return FirstSegmentWithSentinelWave; }
 
+	UFUNCTION(BlueprintPure, Category = "Sentinel Waves")
+	int32 GetSegmentsBetweenSentinelWaves() const { return SegmentsBetweenSentinelWaves; }
+
+	/**
+	 * The sentinel wave a segment of this lane starts (1 based), or 0 for none: before FirstSegmentWithSentinelWave, or
+	 * one of the SegmentsBetweenSentinelWaves skipped after each wave segment.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Sentinel Waves")
+	int32 GetSentinelWaveNumberForSegment(int32 SegmentIndex) const;
+
 	// -------------------------------------------------------------------------
 	// Path frame for the team lanes (UMyLaneSubsystem). Server values: StartYaw and StartZ are set in BeginPlay on the
 	// server only, so read them once the first segment has spawned.
@@ -312,9 +322,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sentinel Waves")
 	bool bSpawnSentinelWaves = true;
 
-	/** Segment index that gets wave 1; earlier segments get none. Wave number = SegmentIndex - this + 1. */
+	/** Segment index that gets wave 1; earlier segments get none. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sentinel Waves", meta = (ClampMin = "0"))
 	int32 FirstSegmentWithSentinelWave = 1;
+
+	/**
+	 * Segments skipped after each segment with a wave. 0 = a wave on every segment; 2 = waves on segments First,
+	 * First + 3, First + 6... Skipped segments use up no wave number, so those are waves 1, 2, 3 and the wave curves
+	 * move one step per wave that spawns.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sentinel Waves", meta = (ClampMin = "0"))
+	int32 SegmentsBetweenSentinelWaves = 0;
 
 
 	// -------------------------------------------------------------------------
