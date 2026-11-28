@@ -319,8 +319,11 @@ protected:
 	/** Mirrors gameplay tags / health / self-buffs into Mass tags and the state fragment. */
 	void SyncStateFromGAS(FMassEntityManager& EntityManager, FMassEntityHandle Entity, AActor* Instigator);
 
-	/** Server, on a kill: sends the rules' KillXP to the killer's player avatar as the Attribute.Meta.XP gameplay event. */
-	void GrantKillXP(AActor* Instigator) const;
+	/**
+	 * Server, on a kill: sends the rules' KillXP x XPMultiplier (the sentinel's wave), rounded, to the killer's player
+	 * avatar as the Attribute.Meta.XP gameplay event.
+	 */
+	void GrantKillXP(AActor* Instigator, float XPMultiplier) const;
 
 	/** Applies the queued self-buffs, up to the rules' MaxSelfBuffsPerFrame (next-tick timer, outside the Mass phases). */
 	void FlushSelfBuffs();

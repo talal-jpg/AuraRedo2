@@ -251,6 +251,24 @@ void AMyHexPathSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 
 // =============================================================================
+// Sentinel waves
+// =============================================================================
+
+int32 AMyHexPathSpawner::GetSentinelWaveNumberForSegment(const int32 SegmentIndex) const
+{
+	const int32 Offset = SegmentIndex - FirstSegmentWithSentinelWave;
+	if (Offset < 0)
+	{
+		return 0;
+	}
+
+	// One wave segment, then SegmentsBetweenSentinelWaves skipped ones: only every Step-th segment gets a wave.
+	const int32 Step = FMath::Max(0, SegmentsBetweenSentinelWaves) + 1;
+	return Offset % Step == 0 ? Offset / Step + 1 : 0;
+}
+
+
+// =============================================================================
 // Player check
 // =============================================================================
 

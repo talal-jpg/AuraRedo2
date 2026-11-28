@@ -138,6 +138,10 @@ struct AURA_API FMechSentinelAttributesFragment : public FMassFragment
 	UPROPERTY(VisibleAnywhere, Category = "Attributes")
 	float MoveSpeedMultiplier = 1.f;
 
+	/** Scales the rules' KillXP when this sentinel is killed (its wave's XPMultiplier; 1 outside waves). Not a GAS attribute. */
+	UPROPERTY(VisibleAnywhere, Category = "Attributes")
+	float XPMultiplier = 1.f;
+
 	float GetHealthFraction() const { return MaxHealth > 0.f ? FMath::Clamp(Health / MaxHealth, 0.f, 1.f) : 0.f; }
 };
 

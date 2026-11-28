@@ -98,6 +98,13 @@ struct AURA_API FMechSentinelWave
 	/** Scales the rules' SelfBuffChance for this wave's sentinels (0 = never). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave|Scaling", meta = (ClampMin = "0"))
 	float SelfBuffChanceMultiplier = 1.f;
+
+	/**
+	 * Scales the rules' KillXP for each of this wave's sentinels: the player who kills one gets KillXP x this, rounded
+	 * (0 = no XP). The endless repeat growth (StatScalePerRepeat) multiplies it like health, armor and damage.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave|Scaling", meta = (ClampMin = "0"))
+	float XPMultiplier = 1.f;
 };
 
 /**
@@ -141,6 +148,10 @@ struct AURA_API FMechSentinelWaveCurves
 	/** x SelfBuffChanceMultiplier (0 = these waves never self-buff). */
 	UPROPERTY(EditAnywhere, Category = "Wave Curves")
 	FRuntimeFloatCurve SelfBuffChance;
+
+	/** x XPMultiplier: the XP each sentinel of the wave gives its killer (x the rules' KillXP). */
+	UPROPERTY(EditAnywhere, Category = "Wave Curves")
+	FRuntimeFloatCurve XP;
 };
 
 /**
@@ -406,7 +417,7 @@ protected:
 
 	/**
 	 * External mode: on BeginPlay, listen to every AMyHexPathSpawner in the level and start a wave at the corners of each
-	 * new segment (lanes with bSpawnSentinelWaves; wave number = segment index - FirstSegmentWithSentinelWave + 1).
+	 * new segment that gets a wave (lanes with bSpawnSentinelWaves; see AMyHexPathSpawner::GetSentinelWaveNumberForSegment).
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mech Sentinels|Waves|Path")
 	bool bBindToPathSpawners = true;

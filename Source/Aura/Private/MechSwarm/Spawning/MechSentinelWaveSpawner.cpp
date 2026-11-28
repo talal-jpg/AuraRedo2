@@ -64,6 +64,8 @@ FMechSentinelWaveCurves::FMechSentinelWaveCurves()
 	SetGrowthCurve(MoveSpeed, { FVector2f(1.f, 1.f), FVector2f(20.f, 1.2f), FVector2f(40.f, 1.35f) });
 	// No self-buffs in waves 1 and 2, then more and more often.
 	SetGrowthCurve(SelfBuffChance, { FVector2f(1.f, 0.f), FVector2f(2.f, 0.f), FVector2f(3.f, 0.5f), FVector2f(6.f, 1.f), FVector2f(20.f, 1.5f) });
+	// Tougher sentinels are worth more.
+	SetGrowthCurve(XP, { FVector2f(1.f, 1.f), FVector2f(10.f, 1.5f), FVector2f(20.f, 2.25f), FVector2f(40.f, 3.5f) });
 }
 
 AMechSentinelWaveSpawner::AMechSentinelWaveSpawner()
@@ -283,6 +285,7 @@ FMechSentinelWave AMechSentinelWaveSpawner::ResolveWave(const int32 WaveNumber, 
 		Wave.AttackSpeedMultiplier *= EvalWaveCurve(WaveCurves.AttackSpeed, WaveNumber);
 		Wave.MoveSpeedMultiplier *= EvalWaveCurve(WaveCurves.MoveSpeed, WaveNumber);
 		Wave.SelfBuffChanceMultiplier *= EvalWaveCurve(WaveCurves.SelfBuffChance, WaveNumber);
+		Wave.XPMultiplier *= EvalWaveCurve(WaveCurves.XP, WaveNumber);
 	}
 	else if (!Waves.IsEmpty() && WaveNumber >= 1)
 	{
@@ -327,6 +330,7 @@ void AMechSentinelWaveSpawner::ClampWave(FMechSentinelWave& Wave) const
 	Wave.AttackSpeedMultiplier = FMath::Max(Wave.AttackSpeedMultiplier, 0.05f);
 	Wave.MoveSpeedMultiplier = FMath::Max(Wave.MoveSpeedMultiplier, 0.f);
 	Wave.SelfBuffChanceMultiplier = FMath::Max(Wave.SelfBuffChanceMultiplier, 0.f);
+	Wave.XPMultiplier = FMath::Max(Wave.XPMultiplier, 0.f);
 }
 
 FMechSentinelWave AMechSentinelWaveSpawner::ResolveWaveFolded(const int32 WaveNumber) const
@@ -336,6 +340,7 @@ FMechSentinelWave AMechSentinelWaveSpawner::ResolveWaveFolded(const int32 WaveNu
 	Wave.HealthMultiplier *= StatScale;
 	Wave.ArmorMultiplier *= StatScale;
 	Wave.DamageMultiplier *= StatScale;
+	Wave.XPMultiplier *= StatScale;
 	// StatScalePerRepeat may have been set out of the editor's range at runtime.
 	ClampWave(Wave);
 	return Wave;
@@ -534,6 +539,7 @@ void AMechSentinelWaveSpawner::CopyWaveStats(const FMechSentinelWave& From, FMec
 	To.AttackSpeedMultiplier = From.AttackSpeedMultiplier;
 	To.MoveSpeedMultiplier = From.MoveSpeedMultiplier;
 	To.SelfBuffChanceMultiplier = From.SelfBuffChanceMultiplier;
+	To.XPMultiplier = From.XPMultiplier;
 }
 
 void AMechSentinelWaveSpawner::BeginCountdown(const int32 NextWaveNumber)
@@ -1134,8 +1140,9 @@ void AMechSentinelWaveSpawner::HandlePathSegmentSpawned(AMyHexPathSpawner* PathS
 		return;
 	}
 
-	// Every lane counts from its own first segment, so the lanes' segment k all get wave k.
-	const int32 WaveNumber = Segment->GetSegmentIndex() - PathSpawner->GetFirstSegmentWithSentinelWave() + 1;
+	// Every lane counts from its own first segment and skips its own gap segments, so the lanes' k-th wave segments all
+	// get wave k.
+	const int32 WaveNumber = PathSpawner->GetSentinelWaveNumberForSegment(Segment->GetSegmentIndex());
 	if (WaveNumber < 1)
 	{
 		return;
@@ -1281,6 +1288,7 @@ int32 AMechSentinelWaveSpawner::SpawnBatch(const int32 Count, const FMechSentine
 				Attributes->BaseAttackDamage = Attributes->AttackDamage = Attributes->BaseAttackDamage * Def.DamageMultiplier * StatScale;
 				Attributes->BaseAttackSpeed = Attributes->AttackSpeed = FMath::Max(0.05f, Attributes->BaseAttackSpeed * Def.AttackSpeedMultiplier);
 				Attributes->BaseMoveSpeedMultiplier = Attributes->MoveSpeedMultiplier = Attributes->BaseMoveSpeedMultiplier * Def.MoveSpeedMultiplier;
+				Attributes->XPMultiplier = FMath::Max(0.f, Def.XPMultiplier * StatScale);
 				AttackSpeed = Attributes->AttackSpeed;
 			}
 

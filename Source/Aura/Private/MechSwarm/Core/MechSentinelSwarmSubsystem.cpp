@@ -1037,10 +1037,15 @@ void UMechSentinelSwarmSubsystem::KillSentinel(const FMassEntityHandle Entity, A
 	}
 }
 
-void UMechSentinelSwarmSubsystem::GrantKillXP(AActor* Instigator) const
+void UMechSentinelSwarmSubsystem::GrantKillXP(AActor* Instigator, const float XPMultiplier) const
 {
 	const UMechSentinelSwarmRules* Rules = GetRules();
-	if (!Instigator || !Rules || Rules->KillXP <= 0.f || !HasAuthority())
+	if (!Instigator || !Rules || !HasAuthority())
+	{
+		return;
+	}
+	const float XP = FMath::RoundToFloat(Rules->KillXP * FMath::Max(0.f, XPMultiplier));
+	if (XP <= 0.f)
 	{
 		return;
 	}
@@ -1056,11 +1061,11 @@ void UMechSentinelSwarmSubsystem::GrantKillXP(AActor* Instigator) const
 
 	FGameplayEventData EventData;
 	EventData.EventTag = MyTags::Attribute_Meta_XP;
-	EventData.EventMagnitude = Rules->KillXP;
+	EventData.EventMagnitude = XP;
 	EventData.Instigator = Instigator;
 	EventData.Target = KillerAvatar;
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(KillerAvatar, MyTags::Attribute_Meta_XP, EventData);
-	UE_LOG(LogMechSentinel, Verbose, TEXT("Kill XP %.1f to %s."), Rules->KillXP, *GetNameSafe(KillerAvatar));
+	UE_LOG(LogMechSentinel, Verbose, TEXT("Kill XP %.0f (KillXP %.1f x wave %.2f) to %s."), XP, Rules->KillXP, XPMultiplier, *GetNameSafe(KillerAvatar));
 }
 
 void UMechSentinelSwarmSubsystem::SyncStateFromGAS(FMassEntityManager& EntityManager, const FMassEntityHandle Entity, AActor* Instigator)
@@ -1075,6 +1080,7 @@ void UMechSentinelSwarmSubsystem::SyncStateFromGAS(FMassEntityManager& EntityMan
 	// Every fragment read / write happens first: outside processing, a tag change below moves the entity to another
 	// archetype right away, which invalidates the view and the fragment pointers.
 	bool bKilled = false;
+	float KillXPMultiplier = 1.f;
 	bool bStunned = false;
 	bool bEnteredStun = false;
 	FVector Location = FVector::ZeroVector;
@@ -1101,6 +1107,7 @@ void UMechSentinelSwarmSubsystem::SyncStateFromGAS(FMassEntityManager& EntityMan
 			State->BuffMask = 0;
 			GAS->OwnedTags.AddTag(MechSentinelTags::State_Sentinel_Dead);
 			Location = View.GetFragmentData<FTransformFragment>().GetTransform().GetLocation();
+			KillXPMultiplier = Attributes->XPMultiplier;
 			bKilled = true;
 		}
 		else
@@ -1132,7 +1139,7 @@ void UMechSentinelSwarmSubsystem::SyncStateFromGAS(FMassEntityManager& EntityMan
 		SetMassTag<FMechSentinelAttackingTag>(EntityManager, Entity, false);
 		SetMassTag<FMechSentinelStunnedTag>(EntityManager, Entity, false);
 		OnSentinelKilled.Broadcast(FMechSentinelHandle(Entity), Location, Instigator);
-		GrantKillXP(Instigator);
+		GrantKillXP(Instigator, KillXPMultiplier);
 		return;
 	}
 
