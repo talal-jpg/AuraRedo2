@@ -127,7 +127,9 @@ enum class EAirshipUseRefusal : uint8
 	/** No free helm or gun station in range. */
 	NothingInRange,
 	/** The helm or a station in range belongs to the other team's ship. */
-	EnemyShip
+	EnemyShip,
+	/** The lobby or its countdown: ships unlock when the match starts (UMyTeamLibrary::AreShipsLocked, SPEC_B_LOBBY 3.3). */
+	Locked
 };
 
 /** A turret mount in hull space (cm), its yaw limits (deg about hull +Z, 0 = bow, + = toward starboard) and pitch limits. */

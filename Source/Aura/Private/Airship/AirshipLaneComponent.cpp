@@ -868,7 +868,7 @@ void UAirshipLaneComponent::UpdateFollow(const UMyLaneSubsystem& Lanes, UAirship
 
 	const bool bReel = Ship && Ship->HasIncomingReel();
 	const bool bContactHold = Now < ContactHoldUntil;
-	const bool bNotStarted = Phase == EMyMatchPhase::WaitingToStart || Phase == EMyMatchPhase::Countdown;
+	const bool bNotStarted = Phase == EMyMatchPhase::WaitingToStart || Phase == EMyMatchPhase::Countdown || Phase == EMyMatchPhase::Lobby;
 	const bool bEnded = Phase == EMyMatchPhase::Ended;
 	const bool bHoldStill = bBlocked || bContactHold || bNotStarted || bEnded;
 

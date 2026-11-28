@@ -1684,8 +1684,8 @@ bool AAirshipPawn::CanBoard(const APawn* Candidate) const
 		return false;
 	}
 
-	// Team match: nobody takes the other team's helm (a free ship, or no match: anyone)
-	if (!UMyTeamLibrary::CanUseShip(Character, this))
+	// Team match: nobody takes the other team's helm (a free ship, or no match: anyone). The lobby: no helm at all
+	if (!UMyTeamLibrary::CanUseShip(Character, this) || UMyTeamLibrary::AreShipsLocked(this))
 	{
 		return false;
 	}
@@ -2543,8 +2543,8 @@ bool AAirshipPawn::CanMount(const ACharacter* Candidate, int32 Station) const
 		return false;
 	}
 
-	// Team match: nobody mans the other team's guns
-	if (!UMyTeamLibrary::CanUseShip(Candidate, this))
+	// Team match: nobody mans the other team's guns. The lobby: no guns at all
+	if (!UMyTeamLibrary::CanUseShip(Candidate, this) || UMyTeamLibrary::AreShipsLocked(this))
 	{
 		return false;
 	}

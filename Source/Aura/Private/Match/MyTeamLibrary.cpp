@@ -135,6 +135,39 @@ bool UMyTeamLibrary::IsFriendlyFireBlocked(const AActor* Instigator, const AActo
 	return !GetRules(Target).bFriendlyFire && AreTeammates(Instigator, Target);
 }
 
+uint8 UMyTeamLibrary::GetFiringTeamId(const AAirshipPawn* Ship, const AActor* Shooter)
+{
+	if (!IsValid(Ship))
+	{
+		return GetTeamId(Shooter);
+	}
+
+	const uint8 ShipTeam = Ship->GetTeamId();
+
+	if (ShipTeam != MyMatch::NoTeam)
+	{
+		return ShipTeam;
+	}
+
+	// A free ship is anyone's (CanUseShip): its fire belongs to whoever fires it
+	if (IsValid(Shooter) && Shooter != Ship)
+	{
+		return GetTeamId(Shooter);
+	}
+
+	return MyTeamLibraryPrivate::TeamOfPlayerState(Ship->GetPlayerState());
+}
+
+bool UMyTeamLibrary::IsTeamFireBlocked(uint8 SourceTeam, const AActor* Target)
+{
+	if (SourceTeam == MyMatch::NoTeam || !IsValid(Target) || !IsMatchActive(Target))
+	{
+		return false;
+	}
+
+	return !GetRules(Target).bFriendlyFire && GetTeamId(Target) == SourceTeam;
+}
+
 bool UMyTeamLibrary::CanUseShip(const AActor* User, const AAirshipPawn* Ship)
 {
 	if (!IsValid(Ship))
@@ -189,4 +222,112 @@ FLinearColor UMyTeamLibrary::GetTeamColor(uint8 TeamId)
 FText UMyTeamLibrary::GetTeamName(uint8 TeamId)
 {
 	return TeamId < MyMatch::NumTeams ? UMyMatchSettings::Get()->TeamNames[TeamId] : FText::GetEmpty();
+}
+
+// -----------------------------------------------------------------------------
+// Lobby (SPEC_B_LOBBY 3.3, 4.7)
+// -----------------------------------------------------------------------------
+
+bool UMyTeamLibrary::IsInLobby(const UObject* WorldContext)
+{
+	const AMyGameState* GameState = MyTeamLibraryPrivate::GetGameState(WorldContext);
+	return GameState && GameState->IsInLobby();
+}
+
+bool UMyTeamLibrary::IsLobbyCountingDown(const UObject* WorldContext)
+{
+	const AMyGameState* GameState = MyTeamLibraryPrivate::GetGameState(WorldContext);
+	return GameState && GameState->IsLobbyCountingDown();
+}
+
+bool UMyTeamLibrary::AreShipsLocked(const UObject* WorldContext)
+{
+	return IsInLobby(WorldContext);
+}
+
+bool UMyTeamLibrary::IsDamageOff(const UObject* WorldContext)
+{
+	return IsInLobby(WorldContext) && !UMyMatchSettings::Get()->bLobbyDamage;
+}
+
+int32 UMyTeamLibrary::GetTeamModeMaxPlayers(EMyTeamMode Mode)
+{
+	switch (Mode)
+	{
+	case EMyTeamMode::OneVsOne: return 2;
+	case EMyTeamMode::TwoVsTwo: return 4;
+	default: return 0;
+	}
+}
+
+bool UMyTeamLibrary::IsHardLobbyStartBlock(EMyLobbyStartBlock Block)
+{
+	switch (Block)
+	{
+	case EMyLobbyStartBlock::Arriving:
+	case EMyLobbyStartBlock::Counting:
+	case EMyLobbyStartBlock::Traveling:
+	case EMyLobbyStartBlock::NeedOpponent:
+		return true;
+	case EMyLobbyStartBlock::NotReady:
+		return UMyMatchSettings::Get()->bLobbyRequireReady;
+	default:
+		return false;
+	}
+}
+
+FText UMyTeamLibrary::GetLobbyStartBlockText(const UObject* WorldContext, EMyLobbyStartBlock Block, int32 NotReady)
+{
+	const AMyGameState* GameState = MyTeamLibraryPrivate::GetGameState(WorldContext);
+	const int32 Count0 = GameState ? GameState->GetTeamState(0).NumPlayers : 0;
+	const int32 Count1 = GameState ? GameState->GetTeamState(1).NumPlayers : 0;
+	const EMyTeamMode Mode = GetRules(WorldContext).TeamMode;
+
+	switch (Block)
+	{
+	case EMyLobbyStartBlock::Arriving:
+		return FText::Format(NSLOCTEXT("MyLobby", "BlockArriving", "Waiting for {0} {0}|plural(one=player,other=players) to load"),
+			GameState ? GameState->CountArrivingPlayers() : 0);
+	case EMyLobbyStartBlock::Counting:
+		return NSLOCTEXT("MyLobby", "BlockCounting", "The match is starting");
+	case EMyLobbyStartBlock::Traveling:
+		return NSLOCTEXT("MyLobby", "BlockTraveling", "Loading the next round");
+	case EMyLobbyStartBlock::NeedOpponent:
+		return FText::Format(NSLOCTEXT("MyLobby", "BlockNeedOpponent", "{0} needs a player on {1}"),
+			FText::FromString(GetTeamModeOption(Mode)), GetTeamName(Count0 == 0 ? 0 : 1));
+	case EMyLobbyStartBlock::NotReady:
+		return FText::Format(NSLOCTEXT("MyLobby", "BlockNotReady", "{0} not ready"), FMath::Max(1, NotReady));
+	case EMyLobbyStartBlock::NeedTwoPerTeam:
+		return FText::Format(NSLOCTEXT("MyLobby", "BlockNeedTwo", "2v2 with {0} and {1}: plays {0}v{1}"), Count0, Count1);
+	case EMyLobbyStartBlock::Uneven:
+		return FText::Format(NSLOCTEXT("MyLobby", "BlockUneven", "Teams uneven ({0} - {1})"), Count0, Count1);
+	case EMyLobbyStartBlock::OneShip:
+		return NSLOCTEXT("MyLobby", "BlockOneShip", "Everyone on one team: one ship");
+	default:
+		return FText::GetEmpty();
+	}
+}
+
+const TCHAR* UMyTeamLibrary::GetMatchPhaseName(EMyMatchPhase Phase)
+{
+	switch (Phase)
+	{
+	case EMyMatchPhase::WaitingToStart: return TEXT("WaitingToStart");
+	case EMyMatchPhase::Countdown: return TEXT("Countdown");
+	case EMyMatchPhase::InProgress: return TEXT("InProgress");
+	case EMyMatchPhase::Ended: return TEXT("Ended");
+	case EMyMatchPhase::Lobby: return TEXT("Lobby");
+	default: return TEXT("None");
+	}
+}
+
+const TCHAR* UMyTeamLibrary::GetTeamModeOption(EMyTeamMode Mode)
+{
+	switch (Mode)
+	{
+	case EMyTeamMode::Practice: return TEXT("practice");
+	case EMyTeamMode::OneVsOne: return TEXT("1v1");
+	case EMyTeamMode::TwoVsTwo: return TEXT("2v2");
+	default: return TEXT("auto");
+	}
 }

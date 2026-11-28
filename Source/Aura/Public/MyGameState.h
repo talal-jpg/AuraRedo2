@@ -46,6 +46,9 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	/** Every machine: the lobby actor state (ApplyLobbyActorState) for what replicated before play began. */
+	virtual void BeginPlay() override;
+
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
 
@@ -134,6 +137,53 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Match")
 	bool IsPlayGoingOn() const { return bPlayGoesOn; }
 
+	// -------------------------------------------------------------------------
+	// Lobby (Docs/Airship/round2/SPEC_B_LOBBY.md 4.3): written by AMyGameMode on the server, replicated (OnRep_Match,
+	// OnMatchChanged). Reused for the lobby: MatchPhase, MatchRules, Teams[].NumPlayers, ExpectedPlayers (= Max Players
+	// with the lobby), PhaseEndServerTime (the lobby countdown's end), RoundIndex.
+	// -------------------------------------------------------------------------
+
+	/** This match ends in the lobby: the end panel says "Back to the lobby", the pause menu's Restart reads BACK TO LOBBY. */
+	UFUNCTION(BlueprintPure, Category = "Lobby")
+	bool IsLobbyRound() const { return bLobbyRound; }
+
+	/** Lobby rules apply (no race, no damage, ships locked, waves paused): phase Lobby and the lobby's countdown. */
+	UFUNCTION(BlueprintPure, Category = "Lobby")
+	bool IsInLobby() const { return bInLobby; }
+
+	/** The lobby's countdown runs: PR B's Countdown phase started from the lobby (PhaseEndServerTime = its end). */
+	UFUNCTION(BlueprintPure, Category = "Lobby")
+	bool IsLobbyCountingDown() const { return bInLobby && MatchPhase == EMyMatchPhase::Countdown; }
+
+	/** The first reason the host can't start now (UMyTeamLibrary::GetLobbyStartBlockText, IsHardLobbyStartBlock). */
+	UFUNCTION(BlueprintPure, Category = "Lobby")
+	EMyLobbyStartBlock GetLobbyStartBlock() const { return LobbyStartBlock; }
+
+	/**
+	 * The soft block the host's Start still has to confirm with a second click (AMyGameMode::GetLobbyConfirmBlock over every
+	 * block, not only the first): None = the first click starts. Meaningful while the first block is not a hard one.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Lobby")
+	EMyLobbyStartBlock GetLobbyConfirmBlock() const { return LobbyConfirmBlock; }
+	
+	/** Players (not the host) whose ready flag is off. */
+	UFUNCTION(BlueprintPure, Category = "Lobby")
+	int32 GetLobbyNotReady() const { return LobbyNotReady; }
+
+	/** The same players on the same teams as last match (valid net ids only): the host's Start needs no second click for NotReady. */
+	UFUNCTION(BlueprintPure, Category = "Lobby")
+	bool IsLobbyRematch() const { return bLobbyRematch; }
+
+	/** Player states still loading after a seamless return (AMyPlayerState::IsArriving). Any machine. */
+	int32 CountArrivingPlayers() const;
+
+	/**
+	 * Every machine: actors tagged UMyMatchSettings::LobbyOnlyActorTag are shown (with collision) while the phase is None
+	 * or IsInLobby, else hidden without collision; AMyEffectActor pickups have no collision while IsInLobby. Acts only
+	 * when a state differs from what it applied last. From NotifyMatchWritten, OnRep_Match and BeginPlay.
+	 */
+	void ApplyLobbyActorState();
+
 	/** Server -> every machine: OnMatchEvent (HUD toasts). */
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastMatchEvent(EMyMatchEvent Event, uint8 TeamId, int32 Value);
@@ -159,6 +209,12 @@ public:
 	void SetExpectedPlayers(int32 NewExpectedPlayers);
 	void SetRoundIndex(int32 NewRoundIndex);
 	void MarkTeamsDirty();
+
+	// Lobby writers (server, AMyGameMode only); each writes only on a change
+	void SetLobbyRound(bool bNewLobbyRound);
+	void SetInLobby(bool bNewInLobby);
+	void SetLobbyStartBlock(EMyLobbyStartBlock NewBlock, int32 NewNotReady, EMyLobbyStartBlock NewConfirmBlock);
+	void SetLobbyRematch(bool bNewRematch);
 
 protected:
 
@@ -220,6 +276,24 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_Match)
 	bool bPlayGoesOn = false;
 
+	UPROPERTY(ReplicatedUsing = OnRep_Match)
+	bool bLobbyRound = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Match)
+	bool bInLobby = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Match)
+	EMyLobbyStartBlock LobbyStartBlock = EMyLobbyStartBlock::None;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Match)
+	EMyLobbyStartBlock LobbyConfirmBlock = EMyLobbyStartBlock::None;
+	
+	UPROPERTY(ReplicatedUsing = OnRep_Match)
+	uint8 LobbyNotReady = 0;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Match)
+	bool bLobbyRematch = false;
+
 	/** Every match property: the engine calls the notifies after the whole update is applied, so the state is consistent. */
 	UFUNCTION()
 	void OnRep_Match();
@@ -236,4 +310,12 @@ private:
 
 	/** EditTeam's answer for an invalid id, so a bad caller can't write into a real team. */
 	FMyTeamState ScratchTeam;
+
+	/** ApplyLobbyActorState: what it applied last (the map's authored state counts as shown / pickups on). */
+	bool bLobbyActorsShown = true;
+	bool bPickupsOff = false;
+
+	/** The actors ApplyLobbyActorState changed, so only those are given back (an actor authored hidden stays hidden). */
+	TArray<TWeakObjectPtr<AActor>> HiddenLobbyActors;
+	TArray<TWeakObjectPtr<AActor>> DisabledPickups;
 };

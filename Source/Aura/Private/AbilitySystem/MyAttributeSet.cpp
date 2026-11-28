@@ -18,6 +18,7 @@
 #include "Interfaces/MyPlayerInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Match/MyTeamLibrary.h"
 #include "NativeGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "PlayerInput/MyPlayerController.h"
@@ -79,7 +80,9 @@ void UMyAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 		// (gun, beam, splash, cannonballs, turret rounds, sentinel bullets, hull impacts all end here). No Health loss
 		// also means no crew share
 		const bool bSpawnProtected=Data.Target.HasMatchingGameplayTag(MyAttributeSetPrivate::TAG_MyAttributeSet_SpawnProtected);
-		if (LocalIncomingDamage>0.f && !bSpawnProtected)
+		// The lobby and its countdown: no damage at all (SPEC_B_LOBBY 3.3), unless UMyMatchSettings::bLobbyDamage
+		const bool bLobbyNoDamage=UMyTeamLibrary::IsDamageOff(GetOwningActor());
+		if (LocalIncomingDamage>0.f && !bSpawnProtected && !bLobbyNoDamage)
 		{
 			const float NewHealth=GetHealth()-LocalIncomingDamage;
 			SetHealth(FMath::Clamp(NewHealth,0.0f,GetMaxHealth()));

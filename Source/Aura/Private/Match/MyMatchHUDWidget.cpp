@@ -18,8 +18,10 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "Match/MyLobbyPanel.h"
 #include "Match/MyMatchSettings.h"
 #include "Match/MyTeamLibrary.h"
+#include "PlayerInput/MyPlayerController2.h"
 #include "Rendering/DrawElements.h"
 #include "Rendering/SlateRenderer.h"
 #include "Styling/CoreStyle.h"
@@ -170,6 +172,26 @@ uint8 UMyMatchHUDWidget::GetLocalTeam() const
 	return MyPlayerState ? MyPlayerState->GetTeamId() : MyMatch::NoTeam;
 }
 
+bool UMyMatchHUDWidget::IsLocalHost() const
+{
+	const APlayerController* PC = GetOwningPlayer();
+	const AMyPlayerState* MyPlayerState = PC ? PC->GetPlayerState<AMyPlayerState>() : nullptr;
+
+	if (MyPlayerState && MyPlayerState->IsHost())
+	{
+		return true;
+	}
+
+	const UWorld* World = GetWorld();
+	return PC && World && PC->IsLocalController() && World->GetNetMode() != NM_Client;
+}
+
+bool UMyMatchHUDWidget::HasLobbyPanel() const
+{
+	const AMyPlayerController2* PC = Cast<AMyPlayerController2>(GetOwningPlayer());
+	return PC && PC->GetLobbyPanel() != nullptr;
+}
+
 bool UMyMatchHUDWidget::IsSoloPractice(uint8 TeamId) const
 {
 	// The server's rule (B3.2): one active team with one player doesn't count lives
@@ -262,6 +284,63 @@ void UMyMatchHUDWidget::HandleMatchEvent(EMyMatchEvent Event, uint8 TeamId, int3
 		AddToast(Value >= 55 ? FString(TEXT("1 minute left")) : FString::Printf(TEXT("%d s left"), FMath::Max(0, Value)), PaperColor);
 		break;
 
+	// The lobby (SPEC_B_LOBBY 4.3): value = the cause's EMyLobbyStartBlock (0 = the host)
+	case EMyMatchEvent::LobbyCancelled:
+	{
+		const EMyLobbyStartBlock Cause = static_cast<EMyLobbyStartBlock>(FMath::Clamp(Value, 0, 255));
+		const FString Why = Cause == EMyLobbyStartBlock::None ? FString() : UMyTeamLibrary::GetLobbyStartBlockText(this, Cause, 0).ToString();
+		AddToast(Why.IsEmpty() ? FString(TEXT("The host cancelled the start")) : FString::Printf(TEXT("Start cancelled: %s"), *Why), WarningColor);
+		break;
+	}
+
+	// Team = the new team, value = the player's PlayerId (-1 = every team again, a rebalance)
+	case EMyMatchEvent::LobbyTeamChanged:
+	{
+		if (Value < 0)
+		{
+			AddToast(TEXT("Teams rebalanced for the new team mode"), PaperColor);
+			break;
+		}
+
+		const APlayerController* PC = GetOwningPlayer();
+		const APlayerState* LocalState = PC ? PC->PlayerState : nullptr;
+		const AMyGameState* MyGameState = GameState.Get();
+		const APlayerState* Mover = nullptr;
+
+		if (MyGameState)
+		{
+			for (const APlayerState* PlayerState : MyGameState->PlayerArray)
+			{
+				if (PlayerState && PlayerState->GetPlayerId() == Value)
+				{
+					Mover = PlayerState;
+					break;
+				}
+			}
+		}
+
+		if (Mover && Mover == LocalState)
+		{
+			AddToast(FString::Printf(TEXT("You are on %s now"), *Name), Color);
+		}
+		else if (Mover)
+		{
+			AddToast(FString::Printf(TEXT("%s joined %s"), *Mover->GetPlayerName(), *Name), Color);
+		}
+		break;
+	}
+
+	case EMyMatchEvent::LobbyRulesChanged:
+		if (!IsLocalHost())
+		{
+			AddToast(TEXT("The host changed the rules"), PaperColor);
+		}
+		break;
+
+	case EMyMatchEvent::LobbyReturn:
+		AddToast(TEXT("Back to the lobby"), PaperColor);
+		break;
+
 	default:
 		break;
 	}
@@ -270,7 +349,19 @@ void UMyMatchHUDWidget::HandleMatchEvent(EMyMatchEvent Event, uint8 TeamId, int3
 void UMyMatchHUDWidget::HandleUseRefused(const APlayerController* Player, EAirshipUseRefusal Reason)
 {
 	// The delegate is process-wide: in single-process PIE another window's player was refused
-	if (Reason != EAirshipUseRefusal::EnemyShip || Phase == EMyMatchPhase::None || (Player && Player != GetOwningPlayer()))
+	if (Phase == EMyMatchPhase::None || (Player && Player != GetOwningPlayer()))
+	{
+		return;
+	}
+
+	// The lobby and its countdown lock every ship (SPEC_B_LOBBY 3.3)
+	if (Reason == EAirshipUseRefusal::Locked)
+	{
+		AddToast(TEXT("Ships unlock when the match starts"), PaperColor);
+		return;
+	}
+
+	if (Reason != EAirshipUseRefusal::EnemyShip)
 	{
 		return;
 	}
@@ -357,6 +448,11 @@ void UMyMatchHUDWidget::RefreshValues(const FGeometry& MyGeometry, float DeltaSe
 		CentreText = FString::Printf(TEXT("%s IN %d"), bVersus ? TEXT("FIGHT STARTS") : TEXT("MATCH STARTS"), FMath::CeilToInt(PhaseLeft));
 		break;
 
+	case EMyMatchPhase::Lobby:
+		// The lobby widget shows its own strip; without it this one-line strip stands in (SPEC_B_LOBBY 6.6)
+		CentreText = TEXT("LOBBY");
+		break;
+
 	case EMyMatchPhase::InProgress:
 	{
 		const double MatchEnd = MyGameState->GetMatchEndServerTime();
@@ -406,6 +502,29 @@ void UMyMatchHUDWidget::RefreshValues(const FGeometry& MyGeometry, float DeltaSe
 
 	StatusText = GetShipStatusText();
 
+	// The lobby without a lobby widget (no LobbyWidgetClass on the HUD): the strip, and one warning
+	LobbyStripText.Reset();
+
+	if (Phase == EMyMatchPhase::Lobby && !HasLobbyPanel())
+	{
+		LobbyStripText = Rules.TeamMode == EMyTeamMode::Practice
+			? FString::Printf(TEXT("LOBBY   PRACTICE %d   "), Teams[0].NumPlayers)
+			: FString::Printf(TEXT("LOBBY   %s %d - %s %d   "), *TeamName(0), Teams[0].NumPlayers, *TeamName(1), Teams[1].NumPlayers);
+		LobbyStripText += IsLocalHost() ? TEXT("host: Esc > Start match") : TEXT("waiting for the host");
+		LobbyNoPanelTime += DeltaSeconds;
+
+		if (LobbyNoPanelTime > 2.f && !bWarnedNoLobbyPanel)
+		{
+			bWarnedNoLobbyPanel = true;
+			UE_LOG(LogMatch, Warning, TEXT("Lobby: no lobby widget on %s (AMyHUD LobbyWidgetClass unset or failed): the match HUD's strip and the pause menu's START MATCH stand in"),
+				*GetNameSafe(GetOwningPlayer()));
+		}
+	}
+	else
+	{
+		LobbyNoPanelTime = 0.f;
+	}
+
 	// The objective (B8.1): at the start and at a practice -> versus start
 	if (bVersus && Enemy != MyMatch::NoTeam)
 	{
@@ -433,9 +552,15 @@ void UMyMatchHUDWidget::RefreshValues(const FGeometry& MyGeometry, float DeltaSe
 		EndShipsLine = bVersus
 			? FString::Printf(TEXT("%s %d ships left  -  %s %d"), *TeamName(0), Teams[0].LivesLeft, *TeamName(1), Teams[1].LivesLeft)
 			: FString::Printf(TEXT("Ships lost: %d"), Teams[LocalTeam < MyMatch::NumTeams ? LocalTeam : 0].ShipsLost);
-		EndRestartLine = MyGameState->GetPhaseEndServerTime() > 0.0
-			? FString::Printf(TEXT("Restarting in %d s"), FMath::CeilToInt(PhaseLeft))
-			: FString(TEXT("Host: Esc > Restart match"));
+		// A match that ends in the lobby says so on every machine (EndMatch writes bLobbyRound, SPEC_B_LOBBY 2.5)
+		const bool bToLobby = MyGameState->IsLobbyRound();
+		const bool bTimed = MyGameState->GetPhaseEndServerTime() > 0.0;
+		const int32 SecondsLeft = FMath::CeilToInt(PhaseLeft);
+		EndRestartLine = !bTimed ? FString(bToLobby ? TEXT("Host: Esc > Back to lobby") : TEXT("Host: Esc > Restart match"))
+			: (bToLobby ? FString::Printf(TEXT("Back to the lobby in %d s"), SecondsLeft) : FString::Printf(TEXT("Restarting in %d s"), SecondsLeft));
+		EndHostLine = bTimed && IsLocalHost()
+			? FString(bToLobby ? TEXT("Esc > Back to lobby to go now") : TEXT("Esc > Restart match to go now"))
+			: FString();
 	}
 
 	const APlayerController* PC = GetOwningPlayer();
@@ -916,100 +1041,111 @@ int32 UMyMatchHUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Al
 		Tag(Size.X * 0.5f, Size.Y * 0.5f + 28.f, TEXT("TEAMMATE"), LabelFont, TeamColor(LocalTeam), 1.f, Layer + 8);
 	}
 
-	// --- Match bar, top centre ---
-	const FVector2f BarSizeF(BarSize);
-	const FVector2f BarPos((Size.X - BarSizeF.X) * 0.5f, BarTop);
-	const int32 BarLayer = Layer + 10;
-	Box(BarPos + FVector2f(4.f, 4.f), BarSizeF, ShadowBrush, FLinearColor::White, BarLayer);
-	Box(BarPos, BarSizeF, PanelBrush, FLinearColor::White, BarLayer + 1);
-
-	const float Pad = 14.f;
-	const float BoxStep = 14.f;
-	const FVector2f LifeBox(11.f, 13.f);
-	const float HullWidth = 80.f;
-
-	for (uint8 Team = 0; Team < MyMatch::NumTeams; ++Team)
+	// The lobby (SPEC_B_LOBBY 6.6): no match bar; the lobby widget shows its strip, or this one stands in
+	if (Phase == EMyMatchPhase::Lobby)
 	{
-		const FMyTeamState& State = Teams[Team];
-
-		// Practice shows the own team only; waiting shows both (the player counts)
-		if (Phase != EMyMatchPhase::WaitingToStart && !State.bActive)
+		if (!LobbyStripText.IsEmpty())
 		{
-			continue;
+			Tag(Size.X * 0.5f, BarTop, LobbyStripText, LabelFont, PaperColor, 1.f, Layer + 10);
 		}
-		if (!bVersus && Phase != EMyMatchPhase::WaitingToStart && Team != LocalTeam && LocalTeam < MyMatch::NumTeams)
+	}
+	else
+	{
+		// --- Match bar, top centre ---
+		const FVector2f BarSizeF(BarSize);
+		const FVector2f BarPos((Size.X - BarSizeF.X) * 0.5f, BarTop);
+		const int32 BarLayer = Layer + 10;
+		Box(BarPos + FVector2f(4.f, 4.f), BarSizeF, ShadowBrush, FLinearColor::White, BarLayer);
+		Box(BarPos, BarSizeF, PanelBrush, FLinearColor::White, BarLayer + 1);
+
+		const float Pad = 14.f;
+		const float BoxStep = 14.f;
+		const FVector2f LifeBox(11.f, 13.f);
+		const float HullWidth = 80.f;
+
+		for (uint8 Team = 0; Team < MyMatch::NumTeams; ++Team)
 		{
-			continue;
-		}
+			const FMyTeamState& State = Teams[Team];
 
-		const bool bLeft = Team == 0;
-		const FLinearColor Color = TeamColor(Team);
-		const FString Name = TeamName(Team) + (Team == LocalTeam ? TEXT(" (YOU)") : TEXT(""))
-			+ (Phase == EMyMatchPhase::WaitingToStart ? FString::Printf(TEXT("  %d"), State.NumPlayers) : FString());
-		const float NameWidth = MeasureWidth(Name, LabelFont, Scale);
-		const float NameX = bLeft ? BarPos.X + Pad : BarPos.X + BarSizeF.X - Pad - NameWidth;
-		Text(FVector2f(NameX, BarPos.Y + 6.f), Name, LabelFont, Darken(Color, 0.8f), BarLayer + 2);
-
-		if (Phase == EMyMatchPhase::WaitingToStart)
-		{
-			continue;
-		}
-
-		const float RowY = BarPos.Y + 30.f;
-
-		// Lives: boxes, filled = left (solo practice: SHIPS LOST n), then the hull bar toward the centre
-		float Cursor = bLeft ? BarPos.X + Pad : BarPos.X + BarSizeF.X - Pad;
-
-		if (IsSoloPractice(Team))
-		{
-			const FString Lost = FString::Printf(TEXT("SHIPS LOST %d"), State.ShipsLost);
-			const float LostWidth = MeasureWidth(Lost, ValueFont, Scale);
-			Text(FVector2f(bLeft ? Cursor : Cursor - LostWidth, RowY - 2.f), Lost, ValueFont, InkColor, BarLayer + 2);
-			Cursor += bLeft ? LostWidth + 8.f : -(LostWidth + 8.f);
-		}
-		else
-		{
-			const int32 NumBoxes = FMath::Clamp(FMath::Max(State.LivesLeft, Rules.ShipLives + State.BonusLives), 1, 9);
-
-			for (int32 Index = 0; Index < NumBoxes; ++Index)
+			// Practice shows the own team only; waiting shows both (the player counts)
+			if (Phase != EMyMatchPhase::WaitingToStart && !State.bActive)
 			{
-				const float X = bLeft ? Cursor + Index * BoxStep : Cursor - (Index + 1) * BoxStep + (BoxStep - LifeBox.X);
-				Box(FVector2f(X, RowY), LifeBox, TrackBrush, FLinearColor::White, BarLayer + 2);
-
-				if (Index < State.LivesLeft)
-				{
-					Box(FVector2f(X + 2.f, RowY + 2.f), LifeBox - FVector2f(4.f, 4.f), FillBrush, Color, BarLayer + 3);
-				}
+				continue;
+			}
+			if (!bVersus && Phase != EMyMatchPhase::WaitingToStart && Team != LocalTeam && LocalTeam < MyMatch::NumTeams)
+			{
+				continue;
 			}
 
-			Cursor += bLeft ? NumBoxes * BoxStep + 6.f : -(NumBoxes * BoxStep + 6.f);
+			const bool bLeft = Team == 0;
+			const FLinearColor Color = TeamColor(Team);
+			const FString Name = TeamName(Team) + (Team == LocalTeam ? TEXT(" (YOU)") : TEXT(""))
+				+ (Phase == EMyMatchPhase::WaitingToStart ? FString::Printf(TEXT("  %d"), State.NumPlayers) : FString());
+			const float NameWidth = MeasureWidth(Name, LabelFont, Scale);
+			const float NameX = bLeft ? BarPos.X + Pad : BarPos.X + BarSizeF.X - Pad - NameWidth;
+			Text(FVector2f(NameX, BarPos.Y + 6.f), Name, LabelFont, Darken(Color, 0.8f), BarLayer + 2);
+
+			if (Phase == EMyMatchPhase::WaitingToStart)
+			{
+				continue;
+			}
+
+			const float RowY = BarPos.Y + 30.f;
+
+			// Lives: boxes, filled = left (solo practice: SHIPS LOST n), then the hull bar toward the centre
+			float Cursor = bLeft ? BarPos.X + Pad : BarPos.X + BarSizeF.X - Pad;
+
+			if (IsSoloPractice(Team))
+			{
+				const FString Lost = FString::Printf(TEXT("SHIPS LOST %d"), State.ShipsLost);
+				const float LostWidth = MeasureWidth(Lost, ValueFont, Scale);
+				Text(FVector2f(bLeft ? Cursor : Cursor - LostWidth, RowY - 2.f), Lost, ValueFont, InkColor, BarLayer + 2);
+				Cursor += bLeft ? LostWidth + 8.f : -(LostWidth + 8.f);
+			}
+			else
+			{
+				const int32 NumBoxes = FMath::Clamp(FMath::Max(State.LivesLeft, Rules.ShipLives + State.BonusLives), 1, 9);
+
+				for (int32 Index = 0; Index < NumBoxes; ++Index)
+				{
+					const float X = bLeft ? Cursor + Index * BoxStep : Cursor - (Index + 1) * BoxStep + (BoxStep - LifeBox.X);
+					Box(FVector2f(X, RowY), LifeBox, TrackBrush, FLinearColor::White, BarLayer + 2);
+
+					if (Index < State.LivesLeft)
+					{
+						Box(FVector2f(X + 2.f, RowY + 2.f), LifeBox - FVector2f(4.f, 4.f), FillBrush, Color, BarLayer + 3);
+					}
+				}
+
+				Cursor += bLeft ? NumBoxes * BoxStep + 6.f : -(NumBoxes * BoxStep + 6.f);
+			}
+
+			const float HullX = bLeft ? Cursor : Cursor - HullWidth;
+			Bar(FVector2f(HullX, RowY), FVector2f(HullWidth, 13.f), State.ShipHealthPct / 100.f, bShipAlive[Team] ? Color : Darken(PaperColor, 0.6f), BarLayer + 2);
 		}
 
-		const float HullX = bLeft ? Cursor : Cursor - HullWidth;
-		Bar(FVector2f(HullX, RowY), FVector2f(HullWidth, 13.f), State.ShipHealthPct / 100.f, bShipAlive[Team] ? Color : Darken(PaperColor, 0.6f), BarLayer + 2);
-	}
+		// The phase or the clock
+		CentredText(BarPos.X + BarSizeF.X * 0.5f, BarPos.Y + 14.f, CentreText, Phase == EMyMatchPhase::WaitingToStart ? LabelFont : BigFont, CentreColor, BarLayer + 3, false);
 
-	// The phase or the clock
-	CentredText(BarPos.X + BarSizeF.X * 0.5f, BarPos.Y + 14.f, CentreText, Phase == EMyMatchPhase::WaitingToStart ? LabelFont : BigFont, CentreColor, BarLayer + 3, false);
+		if (!CentreSubText.IsEmpty())
+		{
+			CentredText(BarPos.X + BarSizeF.X * 0.5f, BarPos.Y + 34.f, CentreSubText, SmallFont, InkColor * 0.7f, BarLayer + 3, false);
+		}
 
-	if (!CentreSubText.IsEmpty())
-	{
-		CentredText(BarPos.X + BarSizeF.X * 0.5f, BarPos.Y + 34.f, CentreSubText, SmallFont, InkColor * 0.7f, BarLayer + 3, false);
-	}
+		if (!StatusText.IsEmpty() && Phase != EMyMatchPhase::WaitingToStart)
+		{
+			CentredText(BarPos.X + BarSizeF.X * 0.5f, BarPos.Y + BarSizeF.Y - 20.f, StatusText, SmallFont, InkColor, BarLayer + 3, false);
+		}
 
-	if (!StatusText.IsEmpty() && Phase != EMyMatchPhase::WaitingToStart)
-	{
-		CentredText(BarPos.X + BarSizeF.X * 0.5f, BarPos.Y + BarSizeF.Y - 20.f, StatusText, SmallFont, InkColor, BarLayer + 3, false);
-	}
+		float BelowBar = BarPos.Y + BarSizeF.Y + 10.f;
 
-	float BelowBar = BarPos.Y + BarSizeF.Y + 10.f;
-
-	// The objective line
-	if (ObjectiveTimeLeft > 0.f && Phase == EMyMatchPhase::InProgress)
-	{
-		const float Alpha = FMath::Clamp(ObjectiveTimeLeft / 0.5f, 0.f, 1.f);
-		Tag(BarPos.X + BarSizeF.X * 0.5f, BelowBar, ObjectiveText, ValueFont, PaperColor, Alpha, BarLayer);
-		BelowBar += 28.f;
+		// The objective line
+		if (ObjectiveTimeLeft > 0.f && Phase == EMyMatchPhase::InProgress)
+		{
+			const float Alpha = FMath::Clamp(ObjectiveTimeLeft / 0.5f, 0.f, 1.f);
+			Tag(BarPos.X + BarSizeF.X * 0.5f, BelowBar, ObjectiveText, ValueFont, PaperColor, Alpha, BarLayer);
+			BelowBar += 28.f;
+		}
 	}
 
 	// --- Toasts, centre, newest at the bottom ---
@@ -1035,7 +1171,12 @@ int32 UMyMatchHUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Al
 		CentredText(CentreX, PanelPos.Y + 28.f, EndTitle, EndTitleFont, CentreColor, EndLayer + 2, false);
 		CentredText(CentreX, PanelPos.Y + 110.f, EndReason, EndFont, InkColor, EndLayer + 2, false);
 		CentredText(CentreX, PanelPos.Y + 150.f, EndShipsLine, EndFont, InkColor, EndLayer + 2, false);
-		CentredText(CentreX, PanelPos.Y + 205.f, EndRestartLine, ValueFont, InkColor * 0.7f, EndLayer + 2, false);
+		CentredText(CentreX, PanelPos.Y + 200.f, EndRestartLine, ValueFont, InkColor * 0.7f, EndLayer + 2, false);
+
+		if (!EndHostLine.IsEmpty())
+		{
+			CentredText(CentreX, PanelPos.Y + 224.f, EndHostLine, SmallFont, InkColor * 0.7f, EndLayer + 2, false);
+		}
 	}
 
 	return Layer + 40;

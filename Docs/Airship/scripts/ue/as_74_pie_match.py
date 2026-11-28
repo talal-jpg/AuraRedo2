@@ -22,7 +22,8 @@
 # removed after PIE; the map is never saved. The user's own Play ("Repeating last play command" in the log) is never stopped.
 #
 # Tests (main pass, in this order; game-second budgets in build_tests). Spec IDs as in section 4.1:
-#  settle   T1.1 practice countdown 5.0 +-0.2 s, Teams[0] active / [1] not, player team 0 on the floor; T1.2 one team
+#  settle   T1.1 practice countdown 5.0 +-0.2 s, Teams[0] active / [1] not, player team 0 aboard team 0's ship
+#           (SPEC_B_LOBBY 7.7: practice starts aboard); T1.2 one team
 #           ship, team 0, at the lane spawn point +-1 m, yaw +-2 deg, Waiting / Cruising, protected
 #  T2.3     Aura.Lane.Debug 1: the dump's lane points at v = +-(H + LaneClearance) within 50 cm; capture
 #  T2.1     player on a platform at u 200 m: peak 27-29 m/s, settles 40 +-3 m ahead (TeamPace), overshoot <= 1 m, errors
@@ -381,6 +382,16 @@ class B74(MBRun):
     def ship0(self):
         return self.team_ship(self.w, 0)
 
+    def aboard(self, c, s):
+        """c rides ship s (its base, its attach parent, or inside its bounds): practice starts aboard (SPEC_B_LOBBY 7.7)"""
+        if c is None or s is None:
+            return False
+        if mb_same(self.base_owner(c), s) or mb_same(c.get_attach_parent_actor(), s):
+            return True
+        o, e = s.get_actor_bounds(True)
+        p = self.loc(c)
+        return abs(p[0] - o.x) <= e.x + 50.0 and abs(p[1] - o.y) <= e.y + 50.0 and abs(p[2] - o.z) <= e.z + 300.0
+
     def u_of(self, a):
         return self.uv(self.loc(a))[0]
 
@@ -508,10 +519,8 @@ class B74(MBRun):
         first = self.ptl[0] if self.ptl else None
         c = self.me()
         p = self.loc(c) if c is not None else None
-        if self.lat:
-            on_floor = p is not None and abs(p[0]) <= AS74_LAT_PLATFORM and abs(p[1]) <= AS74_LAT_PLATFORM
-        else:
-            on_floor = p is not None and AS74_FLOOR[0] <= p[0] <= AS74_FLOOR[1] and AS74_FLOOR[2] <= p[1] <= AS74_FLOOR[3]
+        # SPEC_B_LOBBY 7.7: practice starts aboard team 0's ship (bStartAboard), no pawn during the countdown
+        on_floor = self.aboard(c, s)
         t0s = mb_get(d, 'teams', 0) or {}
         t1s = mb_get(d, 'teams', 1) or {}
         team = self.ps_team(self.pc.get_editor_property('player_state')) if self.pc else None
@@ -519,7 +528,7 @@ class B74(MBRun):
               and t0s.get('active') is True and t1s.get('active') is False and team == 0 and on_floor)
         self.check('T1.1_practice_start', self.ok(ok), 'phase timeline (game t, world t, phase) %s: first %s, InProgress at world %.2f s (want '
                    'Countdown from the load, InProgress at %.1f +-0.2 s); Teams[0] active %s, Teams[1] active %s (want true / false); '
-                   'player team %s (want 0), at %s on the floor %s' % (
+                   'player team %s (want 0), at %s aboard team 0\'s ship 1 s after InProgress %s (SPEC_B_LOBBY 7.7)' % (
                        self.ptl[:6], first, ip[1] if ip else -1, delay, t0s.get('active'), t1s.get('active'), team, r(p, 0) if p else None, on_floor),
                    {'timeline': self.ptl, 'teams': mb_get(d, 'teams'), 'rules': mb_get(d, 'rules')})
         ships = [x for x in self.ships(self.w, alive=True) if self.ship_team(x) == 0]

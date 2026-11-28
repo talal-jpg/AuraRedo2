@@ -41,6 +41,10 @@
 #include "Camera/CameraModifier_CameraShake.h"
 #include "EOS/MultiplayerSessionsSubsystem.h"
 #include "EOS/PauseMenu3.h"
+#include "MyGameMode.h"
+#include "MyGameState.h"
+#include "Match/MyLobbyPanel.h"
+#include "Match/MyTeamLibrary.h"
 #include "UI/Settings/MyGameUserSettings.h"
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 #include "StaticLib/MyBPFuncLib.h"
@@ -401,19 +405,205 @@ void AMyPlayerController2::UpdateDamageCircle()
 	}
 }
 
-void AMyPlayerController2::TogglePauseMenu()
+bool AMyPlayerController2::EnsurePauseMenu()
 {
-	if (!IsLocalController() || !PauseMenuClass) return;
+	if (!IsLocalController() || !PauseMenuClass) return false;
 	
 	if (!PauseMenu)
 	{
 		PauseMenu=CreateWidget<UPauseMenu3>(this,PauseMenuClass);
-		if (!PauseMenu) return;
 	}
+	return PauseMenu!=nullptr;
+}
+
+void AMyPlayerController2::TogglePauseMenu()
+{
+	if (!IsLocalController()) return;
+	
+	// The lobby (SPEC_B_LOBBY 6.1): Esc opens / closes the lobby panel instead, while the pause menu is closed. With the
+	// panel open its UI-only input eats IA_Pause, so the panel closes itself on Esc (NativeOnKeyDown)
+	if (!IsPauseMenuOpen() && UMyTeamLibrary::IsInLobby(this))
+	{
+		if (IMyLobbyPanel* Panel=GetLobbyPanel())
+		{
+			if (Panel->IsPanelOpen()) Panel->ClosePanel();
+			else Panel->OpenPanel();
+			return;
+		}
+	}
+	
+	if (!EnsurePauseMenu()) return;
 	
 	// While it's open the menu has the input (Esc / Start close it there), this only runs to open it
 	if (PauseMenu->IsMenuOpen()) PauseMenu->CloseMenu();
 	else PauseMenu->OpenMenu();
+}
+
+void AMyPlayerController2::OpenPauseMenu()
+{
+	if (EnsurePauseMenu() && !PauseMenu->IsMenuOpen())
+	{
+		PauseMenu->OpenMenu();
+	}
+}
+
+bool AMyPlayerController2::IsPauseMenuOpen() const
+{
+	return PauseMenu && PauseMenu->IsMenuOpen();
+}
+
+void AMyPlayerController2::OpenLeaveSessionConfirm()
+{
+	if (EnsurePauseMenu())
+	{
+		PauseMenu->RequestLeaveSession();
+	}
+}
+
+void AMyPlayerController2::SetLobbyPanel(UObject* Panel)
+{
+	LobbyPanel=Cast<IMyLobbyPanel>(Panel) ? Panel : nullptr;
+}
+
+IMyLobbyPanel* AMyPlayerController2::GetLobbyPanel() const
+{
+	return Cast<IMyLobbyPanel>(LobbyPanel.Get());
+}
+
+// -----------------------------------------------------------------------------
+// Lobby requests (SPEC_B_LOBBY 4.8): checked on the server by AMyGameMode, refusals answered with ClientLobbyMessage
+// -----------------------------------------------------------------------------
+
+namespace MyPlayerController2Lobby
+{
+	AMyGameMode* GetLobbyGameMode(const AActor* Context)
+	{
+		UWorld* World=Context?Context->GetWorld():nullptr;
+		AMyGameMode* GameMode=World?World->GetAuthGameMode<AMyGameMode>():nullptr;
+		return GameMode && GameMode->IsMatchOn()?GameMode:nullptr;
+	}
+	
+	const FText& HostOnly()
+	{
+		static const FText Text=NSLOCTEXT("MyLobby","HostOnly","Only the host can do that");
+		return Text;
+	}
+}
+
+void AMyPlayerController2::ServerLobbySetReady_Implementation(bool bReady)
+{
+	AMyGameMode* GameMode=MyPlayerController2Lobby::GetLobbyGameMode(this);
+	FText Why;
+	
+	if (GameMode && !GameMode->SetLobbyReady(GetPlayerState<AMyPlayerState>(),bReady,Why) && !Why.IsEmpty())
+	{
+		ClientLobbyMessage(Why);
+	}
+}
+
+void AMyPlayerController2::ServerLobbyRequestTeam_Implementation(uint8 TeamId)
+{
+	AMyGameMode* GameMode=MyPlayerController2Lobby::GetLobbyGameMode(this);
+	FText Why;
+	
+	// A pending request or a swap answers too ("You swap when ...")
+	if (GameMode)
+	{
+		GameMode->RequestLobbyTeam(GetPlayerState<AMyPlayerState>(),TeamId,Why);
+		
+		if (!Why.IsEmpty())
+		{
+			ClientLobbyMessage(Why);
+		}
+	}
+}
+
+void AMyPlayerController2::ServerLobbySetRules_Implementation(const FMyMatchRules& Rules,int32 MaxPlayers)
+{
+	AMyGameMode* GameMode=MyPlayerController2Lobby::GetLobbyGameMode(this);
+	
+	if (!GameMode || !GameMode->IsLobbyHost(this))
+	{
+		ClientLobbyMessage(MyPlayerController2Lobby::HostOnly());
+		return;
+	}
+	
+	FText Why;
+	
+	if (!GameMode->ApplyLobbyRules(Rules,MaxPlayers,Why) && !Why.IsEmpty())
+	{
+		ClientLobbyMessage(Why);
+	}
+}
+
+void AMyPlayerController2::ServerLobbyStart_Implementation(bool bForce)
+{
+	AMyGameMode* GameMode=MyPlayerController2Lobby::GetLobbyGameMode(this);
+	
+	if (!GameMode || !GameMode->IsLobbyHost(this))
+	{
+		ClientLobbyMessage(MyPlayerController2Lobby::HostOnly());
+		return;
+	}
+	
+	FText Why;
+	
+	if (!GameMode->StartFromLobby(bForce,Why) && !Why.IsEmpty())
+	{
+		ClientLobbyMessage(Why);
+	}
+}
+
+void AMyPlayerController2::ServerLobbyCancelStart_Implementation()
+{
+	AMyGameMode* GameMode=MyPlayerController2Lobby::GetLobbyGameMode(this);
+	
+	if (!GameMode || !GameMode->IsLobbyHost(this))
+	{
+		ClientLobbyMessage(MyPlayerController2Lobby::HostOnly());
+		return;
+	}
+	
+	if (!GameMode->CancelLobbyStart(TEXT("the host cancelled")))
+	{
+		ClientLobbyMessage(NSLOCTEXT("MyLobby","NothingToCancel","No start to cancel"));
+	}
+}
+
+void AMyPlayerController2::ServerLobbyMovePlayer_Implementation(APlayerState* TargetPlayer,uint8 TeamId)
+{
+	AMyGameMode* GameMode=MyPlayerController2Lobby::GetLobbyGameMode(this);
+	
+	if (!GameMode || !GameMode->IsLobbyHost(this))
+	{
+		ClientLobbyMessage(MyPlayerController2Lobby::HostOnly());
+		return;
+	}
+	
+	// Only a player of this game (a stale pointer from the widget resolves to null)
+	AMyPlayerState* Target=Cast<AMyPlayerState>(TargetPlayer);
+	const AGameStateBase* GameState=GetWorld()?GetWorld()->GetGameState():nullptr;
+	
+	if (!Target || !GameState || !GameState->PlayerArray.Contains(Target))
+	{
+		return;
+	}
+	
+	FText Why;
+	
+	if (!GameMode->MoveLobbyPlayer(Target,TeamId,Why) && !Why.IsEmpty())
+	{
+		ClientLobbyMessage(Why);
+	}
+}
+
+void AMyPlayerController2::ClientLobbyMessage_Implementation(const FText& Text)
+{
+	// The harnesses read the receipt on the receiving machine (as_80 LM1.2)
+	const ENetMode NetMode=GetNetMode();
+	UE_LOG(LogMatch,Log,TEXT("Lobby message (%s %s): %s"),NetMode==NM_Client?TEXT("client"):(NetMode==NM_Standalone?TEXT("standalone"):TEXT("server")),
+		*GetNameSafe(GetWorld()),*Text.ToString());
+	OnLobbyMessage.Broadcast(Text);
 }
 
 void AMyPlayerController2::PawnLeavingGame()

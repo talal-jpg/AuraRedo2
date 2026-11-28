@@ -317,6 +317,25 @@ void UPauseMenu3::NativeDestruct()
 	ButtonFXState.Reset();
 	UnbindMatchChanged();
 
+	// Removed while open without CloseMenu (a world cleanup, a HUD rebuild): the flag and the UI-only input must not
+	// outlive it. A seamless travel gives the host a new controller whose BeginPlay sets game input anyway
+	// (GameModeBase.cpp HandleSeamlessTravelPlayer); this covers every other removal
+	if (bMenuOpen)
+	{
+		bMenuOpen = false;
+		PendingConfirmAction = EPauseMenu3ConfirmAction::None;
+		PendingKickTarget.Reset();
+		APlayerController* PlayerController = GetOwningPlayer();
+
+		if (IsValid(PlayerController) && PlayerController->IsLocalController() && !PlayerController->IsActorBeingDestroyed())
+		{
+			FInputModeGameOnly InputModeData;
+			InputModeData.SetConsumeCaptureMouseDown(false);
+			PlayerController->SetInputMode(InputModeData);
+			PlayerController->SetShowMouseCursor(bCursorWasShown);
+		}
+	}
+
 	Super::NativeDestruct();
 }
 
@@ -373,6 +392,15 @@ void UPauseMenu3::LeaveSessionButtonClicked()
 			? LOCTEXT("LeaveHostMessage", "Return to the main menu? You are the host: everyone else will be disconnected.")
 			: LOCTEXT("LeaveMessage", "Return to the main menu?"),
 		EPauseMenu3ConfirmAction::LeaveSession);
+}
+
+void UPauseMenu3::RequestLeaveSession()
+{
+	if (!bMenuOpen)
+	{
+		OpenMenu();
+	}
+	LeaveSessionButtonClicked();
 }
 
 void UPauseMenu3::QuitGameButtonClicked()
@@ -446,12 +474,45 @@ void UPauseMenu3::RefreshMatchButtons()
 {
 	const UWorld* World = GetWorld();
 	const AMyGameState* GameState = World ? World->GetGameState<AMyGameState>() : nullptr;
-	const EMyMatchPhase Phase = (GetHostMatchGameMode() && GameState) ? GameState->GetMatchPhase() : EMyMatchPhase::None;
+	AMyGameMode* GameMode = GetHostMatchGameMode();
+	const EMyMatchPhase Phase = (GameMode && GameState) ? GameState->GetMatchPhase() : EMyMatchPhase::None;
+	const bool bInLobby = GameState && GameState->IsInLobby();
 
-	// Start: a versus match waiting for its players starts with whoever is in (alone: practice).
-	// Restart: from the countdown on; while waiting it would only reload the same empty lobby.
-	SetMatchRowVisible(StartMatchRow, Phase == EMyMatchPhase::WaitingToStart);
-	SetMatchRowVisible(RestartMatchRow, Phase == EMyMatchPhase::Countdown || Phase == EMyMatchPhase::InProgress || Phase == EMyMatchPhase::Ended);
+	// Start: a versus match waiting for its players starts with whoever is in (alone: practice); in the lobby it starts
+	// the lobby countdown (AMyGameMode::RequestStartMatch forces it, SPEC_B_LOBBY 7.3).
+	// Restart: from the countdown on; while waiting it would only reload the same empty lobby. Never during the lobby or
+	// its countdown (phase Countdown): RestartMatch would reload the map without the lobby.
+	SetMatchRowVisible(StartMatchRow, Phase == EMyMatchPhase::WaitingToStart || Phase == EMyMatchPhase::Lobby);
+	SetMatchRowVisible(RestartMatchRow, !bInLobby && (Phase == EMyMatchPhase::Countdown || Phase == EMyMatchPhase::InProgress || Phase == EMyMatchPhase::Ended));
+
+	// A match that ends in the lobby (a lobby round, or the host has a session now): BACK TO LOBBY
+	const bool bLobby = GameMode && GameMode->WillReturnToLobby();
+	if (!bRestartRowLabelSet || bLobby != bRestartRowIsLobby)
+	{
+		bRestartRowIsLobby = bLobby;
+		bRestartRowLabelSet = true;
+		SetMatchRowLabel(RestartMatchRow, bLobby ? BackToLobbyLabel : RestartMatchLabel);
+	}
+}
+
+void UPauseMenu3::SetMatchRowLabel(FPauseMenu3MatchRow& MatchRow, const FText& Label)
+{
+	UWidget* Row = MatchRow.Row.Get();
+	if (!Row)
+	{
+		return;
+	}
+
+	const FString LabelString = Label.ToString();
+	UWidgetTree::ForWidgetAndChildren(Row, [&Label, &LabelString](UWidget* Widget)
+	{
+		if (UTextBlock* Text = Cast<UTextBlock>(Widget))
+		{
+			// The big one-letter stamp behind the label gets the label's first letter, anything longer the label
+			const bool bStamp = Text->GetText().ToString().Len() <= 1;
+			Text->SetText(bStamp ? FText::FromString(LabelString.Left(1)) : Label);
+		}
+	});
 }
 
 void UPauseMenu3::SetMatchRowVisible(FPauseMenu3MatchRow& MatchRow, bool bVisible)
@@ -504,6 +565,17 @@ void UPauseMenu3::StartMatchButtonClicked()
 
 void UPauseMenu3::RestartMatchButtonClicked()
 {
+	if (AMyGameMode* GameMode = GetHostMatchGameMode())
+	{
+		if (GameMode->WillReturnToLobby())
+		{
+			ShowConfirm(LOCTEXT("BackToLobbyTitle", "Back to the lobby"),
+				LOCTEXT("BackToLobbyMessage", "End the match and take everyone back to the lobby?"),
+				EPauseMenu3ConfirmAction::ReturnToLobby);
+			return;
+		}
+	}
+
 	ShowConfirm(LOCTEXT("RestartMatchTitle", "Restart match"),
 		LOCTEXT("RestartMatchMessage", "Restart the match? The map reloads for everyone with the same rules, and every team gets its ship lives back."),
 		EPauseMenu3ConfirmAction::RestartMatch);
@@ -577,6 +649,8 @@ void UPauseMenu3::OpenLobbyButtonClicked()
 	// only the slots its teams have, as the main menu's host panel does
 	if (UMyTeamLibrary::IsMatchActive(this))
 	{
+		// IN MATCH / IN LOBBY in the browser (SPEC_B_LOBBY 5.6)
+		Settings.bInMatch = !UMyTeamLibrary::IsInLobby(this);
 		const FMyMatchRules& Rules = UMyTeamLibrary::GetRules(this);
 		Settings.Rules = UMainMenu3::GetRuleSetForTeamMode(Rules.TeamMode);
 		Settings.Difficulty = Rules.SwarmDifficulty;
@@ -827,6 +901,15 @@ void UPauseMenu3::ConfirmYesButtonClicked()
 			return;
 		}
 		break;
+	case EPauseMenu3ConfirmAction::ReturnToLobby:
+		if (AMyGameMode* GameMode = GetHostMatchGameMode())
+		{
+			// Input back to the game first; the travel replaces this controller's menu anyway
+			CloseMenu();
+			GameMode->ReturnToLobby();
+			return;
+		}
+		break;
 	case EPauseMenu3ConfirmAction::KickPlayer:
 	case EPauseMenu3ConfirmAction::BanPlayer:
 		if (APlayerState* Target = PendingKickTarget.Get())
@@ -941,8 +1024,10 @@ void UPauseMenu3::OnCreateSession(bool bWasSuccessful)
 
 	if (bWasSuccessful)
 	{
-		// What AMyGameMode::PostLogin does for a lobby hosted from the main menu
-		if (UMultiplayerSessionsSubsystem* Sessions = GetSessions())
+		// What AMyGameMode::PostLogin does for a lobby hosted from the main menu. In the lobby the session starts with the
+		// round instead (AMyGameMode::BeginRound, SPEC_B_LOBBY 5.6)
+		UMultiplayerSessionsSubsystem* Sessions = GetSessions();
+		if (Sessions && !UMyTeamLibrary::IsInLobby(this))
 		{
 			Sessions->StartSession();
 		}

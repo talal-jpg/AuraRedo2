@@ -39,7 +39,8 @@
 #      path height stay alive; M5.1 team 1's ship killed 3 times: TeamWon 0 on both machines; M7.1 Aura.Match.Restart: both
 #      back, teams kept, sides swapped, RoundIndex 1, rules kept; M5.3 (round 1) TimeLimit=1 + DamageShip 1 500: Ended by
 #      the time limit 60 +-1 s later, team 0 wins, one TimeWarning
-#  practice (2 players, DefaultRules.TeamMode Practice)   M1.1 practice variant: pawns on the floor within 3 s, >= 2 m apart
+#  practice (2 players, DefaultRules.TeamMode Practice)   M1.1 practice variant: pawns aboard team 0's ship within the
+#                                                countdown + 1 s (SPEC_B_LOBBY 7.7), >= 2 m apart
 #  leave (2 players)                             M1.4 the client disconnects in the countdown: WaitingToStart, team 1
 #                                                inactive, no team 1 ship
 #  forfeit (2 players)                           M5.2 the client pilots team 1's ship and disconnects: the ship stays, lives
@@ -1276,13 +1277,14 @@ class B75(MBRun):
         got = yield from self.until(lambda: all(self.alive(self.schar(p)) for p in self.P), 10.0)
         dt = (self.now - t0) if got else None
         locs = [self.loc(self.schar(p)) if self.schar(p) else None for p in self.P]
-        floor = [l is not None and AS75_FLOOR[0] <= l[0] <= AS75_FLOOR[1] and AS75_FLOOR[2] <= l[1] <= AS75_FLOOR[3] for l in locs]
+        # SPEC_B_LOBBY 7.7: practice starts aboard team 0's ship (no pawn during the 5 s countdown)
+        floor = [self.on_deck(self.schar(p), self.ship(0)) for p in self.P]
         gaps = [dist(locs[i], locs[j]) for i in range(len(locs)) for j in range(i + 1, len(locs)) if locs[i] and locs[j]]
         teams = [self.team(p) for p in self.P]
         ships = [self.ship_team(s) for s in self.ships(self.sw, alive=True)]
-        ok = dt is not None and dt <= 3.0 and all(floor) and gaps and min(gaps) >= 200.0 and all(t == 0 for t in teams)
-        self.check('M1.1_practice', self.ok(ok), 'Teams=practice: every player has a pawn %s s after the countdown began (want <= 3, the spawn fix), '
-                   'on the floor %s, smallest gap %s cm (want >= 200), teams %s (want all 0), ship teams %s' % (
+        ok = dt is not None and dt <= float(self.setting('MatchStartDelay', 5.0)) + 1.0 and all(floor) and gaps and min(gaps) >= 200.0 and all(t == 0 for t in teams)
+        self.check('M1.1_practice', self.ok(ok), 'Teams=practice: every player has a pawn %s s after the countdown began (want <= the countdown + 1 s: '
+                   'no pawn during it, SPEC_B_LOBBY 7.7), aboard team 0\'s ship %s, smallest gap %s cm (want >= 200), teams %s (want all 0), ship teams %s' % (
                        r(dt, 2), floor, r(min(gaps), 0) if gaps else None, teams, ships))
 
     def t_leave(self):

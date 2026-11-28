@@ -228,6 +228,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Mech Sentinels|Waves")
 	void StopWaves();
 
+	/** StopWaves ran (or, external mode, bAutoStart was off at BeginPlay) and nothing started the waves since. The match's lobby resumes only the spawners that were running. */
+	UFUNCTION(BlueprintPure, Category = "Mech Sentinels|Waves")
+	bool IsStopped() const { return bStopped; }
+
 	/**
 	 * Skips the countdown / the rest of the current wave and starts the next one now. External mode: starts the next
 	 * wave number at the spawner (inside SpawnExtent), without a countdown.

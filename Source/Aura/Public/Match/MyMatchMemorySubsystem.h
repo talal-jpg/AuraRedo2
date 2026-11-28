@@ -10,13 +10,14 @@ class AGameStateBase;
 struct FUniqueNetIdRepl;
 
 /**
- * Team match memory across a restart (Docs/Airship/round2/SPEC_B.md B1.6), host only, not replicated. The restart is a
- * non-seamless ServerTravel / OpenLevel that rebuilds the world, the game mode and every player state, so the teams
- * live here, on the game instance: each player's unique net id -> his team, written when the host restarts, read by
- * AMyGameMode's team assignment, so friends stay together in 2v2. RoundIndex counts the restarts (the lane sides swap on
- * odd rounds).
+ * Team match memory across a restart (Docs/Airship/round2/SPEC_B.md B1.6), host only, not replicated. The restart and the
+ * return to the lobby (SPEC_B_LOBBY 5.3) rebuild the world, the game mode and every player state: a seamless ServerTravel
+ * outside PIE (the team also travels in AMyPlayerState::CopyProperties), a hard one in PIE and an OpenLevel standalone,
+ * where clients reconnect. So the teams live here too, on the game instance: each player's unique net id -> his team,
+ * written when the host restarts or returns, read by AMyGameMode's team assignment, so friends stay together in 2v2.
+ * RoundIndex counts the restarts (the lane sides swap on odd rounds).
  *
- * AMyGameMode::RestartMatch writes a Round option into the travel URL; a match map loaded without it (from the menu, a
+ * AMyGameMode::TravelToRound writes a Round option into the travel URL; a match map loaded without it (from the menu, a
  * console open) is a fresh start, and InitGame calls Reset. So nothing outside the game mode has to clear it.
  */
 UCLASS()

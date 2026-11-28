@@ -106,7 +106,7 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Match", meta = (ClampMin = "0"))
 	int32 AutoCoopPlayers = 0;
 
-	/** Versus: each team starts on its own ship's deck (the only per-round fair start without a map change). */
+	/** Each team starts on its own ship's deck (the only per-round fair start without a map change). Practice too: on team 0's ship (SPEC_B_LOBBY D10), so the match never needs the start floor. */
 	UPROPERTY(Config, EditAnywhere, Category = "Match")
 	bool bStartAboard = true;
 
@@ -196,6 +196,78 @@ public:
 
 	UPROPERTY(Config, EditAnywhere, Category = "Match")
 	FText TeamNames[MyMatch::NumTeams];
+
+	// -------------------------------------------------------------------------
+	// Lobby (Docs/Airship/round2/SPEC_B_LOBBY.md Appendix L-A): the in-level lobby on the match map
+	// -------------------------------------------------------------------------
+
+	/** The main menu's Host Game travels with ?Lobby=1: the hosted game starts in the lobby. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby")
+	bool bLobbyWhenHosting = true;
+
+	/** ReturnToLobby and RestartMatch add ?SeamlessTravel: clients stay connected (a hard travel drops Steam clients). PIE travels hard unless net.AllowPIESeamlessTravel 1. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby")
+	bool bSeamlessTravel = true;
+
+	/** Where the lobby stands. Aura.Lobby.Resolve picks again. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby")
+	EMyLobbySpawn LobbySpawn = EMyLobbySpawn::Auto;
+
+	/** The capsule sweep under each PlayerStart (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0"))
+	float LobbyGroundTraceDepth = 5000.f;
+
+	/** A lobby ground hit must be at least this flat (ImpactNormal.Z). */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float LobbyGroundMinNormalZ = 0.7f;
+
+	/** The lobby zone: the ground's bounds grown by this in X and Y (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0"))
+	float LobbyZoneMargin = 1500.f;
+
+	/** The lobby zone reaches this far above the ground's top (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0"))
+	float LobbyZoneHeight = 6000.f;
+
+	/** ... and this far below it (cm). Without a zone it is the fall catch under the PlayerStart. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0"))
+	float LobbyZoneDepth = 2000.f;
+
+	/** Seconds outside the zone before the teleport back. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0"))
+	float LobbyZoneGraceSeconds = 0.5f;
+
+	/** Seconds from the host's Start to the match (PR B's Countdown phase). */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0"))
+	float LobbyCountdownSeconds = 5.f;
+
+	/** Seconds after the lobby began during which players still loading (a seamless return) block the Start. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0"))
+	float LobbyArrivalTimeout = 45.f;
+
+	/** PathStart: seconds to wait for the path's first platform before the PlayerStart (fall catch only) is used. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby", meta = (ClampMin = "0.0"))
+	float LobbyPathStartWait = 10.f;
+
+	/** True = a player who isn't ready blocks the Start. False = shown; the host starts anyway with a second click. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby")
+	bool bLobbyRequireReady = false;
+
+	/** Players may ask to switch team in the lobby. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby")
+	bool bLobbyTeamSwitch = true;
+
+	/** A team mode or Max Players change clears every ready flag (other rules never do). */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby")
+	bool bLobbyRulesClearReady = true;
+
+	/** True = damage applies in the lobby. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby")
+	bool bLobbyDamage = false;
+
+	/** Actors with this tag are hidden (no collision) outside the lobby. None carries it today. */
+	UPROPERTY(Config, EditAnywhere, Category = "Lobby")
+	FName LobbyOnlyActorTag = TEXT("LobbyOnly");
 
 	// -------------------------------------------------------------------------
 	// Difficulty

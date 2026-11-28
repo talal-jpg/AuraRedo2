@@ -35,7 +35,13 @@ enum class EMyMatchPhase : uint8
 	WaitingToStart,
 	Countdown,
 	InProgress,
-	Ended
+	Ended,
+	/**
+	 * The in-level lobby (Docs/Airship/round2/SPEC_B_LOBBY.md): teams, ready flags and the host's rules on the match map,
+	 * before the host starts. Appended: nothing compares phases by order. AMyGameState::IsInLobby is true here and during
+	 * the lobby's countdown (phase Countdown).
+	 */
+	Lobby
 };
 
 /** Rules.TeamMode. Auto: balanced teams from the player count (1 player = practice). */
@@ -88,7 +94,54 @@ enum class EMyMatchEvent : uint8
 	Ended,
 	ShipUnderAttack,
 	ShipReturning,
-	TimeWarning
+	TimeWarning,
+	/** The host's (or an automatic) cancel of the lobby countdown; value = the EMyLobbyStartBlock that caused it (0 = the host). */
+	LobbyCancelled,
+	/** A player changed team in the lobby; team = his new team, value = his PlayerId. */
+	LobbyTeamChanged,
+	/** The host's rules were applied in the lobby; value = Max Players. */
+	LobbyRulesChanged,
+	/** The match is over and everyone goes back to the lobby; value = the next round. */
+	LobbyReturn
+};
+
+/**
+ * Why the host can't start from the lobby yet (AMyGameState::GetLobbyStartBlock, written by the server's lobby tick).
+ * In this order: the first that applies is shown. Hard blocks refuse a start; soft ones need the host's second click
+ * (UMyTeamLibrary::IsHardLobbyStartBlock).
+ */
+UENUM(BlueprintType)
+enum class EMyLobbyStartBlock : uint8
+{
+	None,
+	/** Hard: a player is still loading after a return to the lobby, until LobbyArrivalTimeout after the lobby began. */
+	Arriving,
+	/** Hard: the lobby countdown runs (the Start button reads CANCEL). */
+	Counting,
+	/** Hard: a travel (back to the lobby, a restart) is pending. */
+	Traveling,
+	/** Hard: 1v1 or 2v2 with a team at 0 players. */
+	NeedOpponent,
+	/** Soft (hard with bLobbyRequireReady; no second click for a rematch): a player other than the host isn't ready. */
+	NotReady,
+	/** Soft: 2v2 with a team at 1 player (it plays 2v1 or 1v1). */
+	NeedTwoPerTeam,
+	/** Soft: the teams differ by more than one (the host moved players). */
+	Uneven,
+	/** Soft: Auto with 2 or more players, all on one team (it plays co-op on one ship). */
+	OneShip
+};
+
+/** Where the lobby stands (UMyMatchSettings::LobbySpawn, Aura.Lobby.Resolve). */
+UENUM(BlueprintType)
+enum class EMyLobbySpawn : uint8
+{
+	/** PlayerStarts when one has walkable ground under it, else the path's first platform, else a PlayerStart with a fall catch only. */
+	Auto,
+	/** Only the PlayerStarts (Lobby-tagged ones first) with walkable ground under them. */
+	PlayerStarts,
+	/** The path platform with the smallest SplineDistance (waits up to LobbyPathStartWait for the PCG to build it). */
+	PathStart
 };
 
 /** A team ship's lane state (UAirshipLaneComponent, server, replicated). Free ships stay NoLane. */

@@ -115,6 +115,7 @@ namespace MyMatchConsole
 		case EMyMatchPhase::Countdown: return TEXT("Countdown");
 		case EMyMatchPhase::InProgress: return TEXT("InProgress");
 		case EMyMatchPhase::Ended: return TEXT("Ended");
+		case EMyMatchPhase::Lobby: return TEXT("Lobby");
 		default: return TEXT("None");
 		}
 	}
@@ -478,6 +479,12 @@ namespace MyMatchConsole
 				UE_LOG(LogMatch, Log, TEXT("  time left %.1f s"), GameState->GetMatchEndServerTime() - Now);
 			}
 
+			// One lobby line (SPEC_B_LOBBY Appendix L-B); Aura.Lobby.Status has the rest
+			UE_LOG(LogMatch, Log, TEXT("  lobby: round %d, in lobby %d, counting %d, start block %s, not ready %d, rematch %d, arriving %d"),
+				GameState->IsLobbyRound() ? 1 : 0, GameState->IsInLobby() ? 1 : 0, GameState->IsLobbyCountingDown() ? 1 : 0,
+				*EnumText(StaticEnum<EMyLobbyStartBlock>(), static_cast<int64>(GameState->GetLobbyStartBlock())), GameState->GetLobbyNotReady(),
+				GameState->IsLobbyRematch() ? 1 : 0, GameState->CountArrivingPlayers());
+
 			if (GameState->GetMatchPhase() == EMyMatchPhase::Ended)
 			{
 				UE_LOG(LogMatch, Log, TEXT("  result %s, winner %d, reason %s"), *EnumText(StaticEnum<EMyMatchResult>(), static_cast<int64>(GameState->GetMatchResult())),
@@ -541,6 +548,24 @@ namespace MyMatchConsole
 			Rules.TeamMode = GameMode->GetNextTeamMode();
 			const int32 OldTimeLimit = Rules.TimeLimitMinutes;
 			AMyGameMode::ParseRulesOptions(Options, Rules, TEXT("Aura.Match.Rules"));
+
+			// The lobby: the widget's route, so the console gets the same refusals (SPEC_B_LOBBY 4.6), Max Players kept
+			const AMyGameState* LobbyState = World->GetGameState<AMyGameState>();
+
+			if (LobbyState && LobbyState->GetMatchPhase() == EMyMatchPhase::Lobby)
+			{
+				FText Why;
+
+				if (!GameMode->ApplyLobbyRules(Rules, GameMode->GetLobbyMaxPlayers(), Why))
+				{
+					UE_LOG(LogMatch, Warning, TEXT("Aura.Match.Rules: refused in the lobby: %s"), *Why.ToString());
+					return;
+				}
+
+				UE_LOG(LogMatch, Log, TEXT("Aura.Match.Rules: %s (the lobby, max players %d)"), *RulesText(GameMode->GetMatchRules()), GameMode->GetLobbyMaxPlayers());
+				return;
+			}
+
 			GameMode->ApplyRules(Rules);
 
 			// Given and unchanged: the clock still runs again from now (ApplyRules restarts it only on a change)
@@ -624,7 +649,8 @@ namespace MyMatchConsole
 				return;
 			}
 
-			if (GameState->GetMatchPhase() == EMyMatchPhase::WaitingToStart)
+			// The lobby: Aura.Lobby.Start (soft blocks ignored)
+			if (GameState->GetMatchPhase() == EMyMatchPhase::WaitingToStart || GameState->GetMatchPhase() == EMyMatchPhase::Lobby)
 			{
 				GameMode->RequestStartMatch();
 			}

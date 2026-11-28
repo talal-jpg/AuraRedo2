@@ -52,6 +52,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Match")
 	static bool IsFriendlyFireBlocked(const AActor* Instigator, const AActor* Target);
 
+	/**
+	 * The team a ship's weapon fires for: a team ship's own; on a free ship (255) the shooter's (a gunner), else the pilot's
+	 * (the ship's player state is the pilot's). So a player on a free ship can't hit his own team's ship either.
+	 */
+	static uint8 GetFiringTeamId(const AAirshipPawn* Ship, const AActor* Shooter);
+
+	/** IsFriendlyFireBlocked for fire whose team is known (GetFiringTeamId): never for 255. */
+	static bool IsTeamFireBlocked(uint8 SourceTeam, const AActor* Target);
+
 	/** User may pilot or man Ship: a free ship (255), no match, or the same team. Any machine (replicated team ids only). */
 	UFUNCTION(BlueprintPure, Category = "Match")
 	static bool CanUseShip(const AActor* User, const AAirshipPawn* Ship);
@@ -73,4 +82,46 @@ public:
 	/** UMyMatchSettings::TeamNames (BLUE, ORANGE); empty for no team. */
 	UFUNCTION(BlueprintPure, Category = "Match")
 	static FText GetTeamName(uint8 TeamId);
+
+	// -------------------------------------------------------------------------
+	// Lobby (Docs/Airship/round2/SPEC_B_LOBBY.md): any machine, from the game state's replicated lobby state
+	// -------------------------------------------------------------------------
+
+	/** Lobby rules apply: phase Lobby, and the lobby's countdown (AMyGameState::IsInLobby). */
+	UFUNCTION(BlueprintPure, Category = "Match", meta = (WorldContext = "WorldContext"))
+	static bool IsInLobby(const UObject* WorldContext);
+
+	/** The lobby's countdown runs (phase Countdown while IsInLobby). */
+	UFUNCTION(BlueprintPure, Category = "Match", meta = (WorldContext = "WorldContext"))
+	static bool IsLobbyCountingDown(const UObject* WorldContext);
+
+	/** Nobody boards or mans a ship: the lobby and its countdown (CanBoard, CanMount, the F prompt). */
+	UFUNCTION(BlueprintPure, Category = "Match", meta = (WorldContext = "WorldContext"))
+	static bool AreShipsLocked(const UObject* WorldContext);
+
+	/** No damage at all: the lobby and its countdown, unless UMyMatchSettings::bLobbyDamage (UMyAttributeSet's IncomingDamage). */
+	UFUNCTION(BlueprintPure, Category = "Match", meta = (WorldContext = "WorldContext"))
+	static bool IsDamageOff(const UObject* WorldContext);
+
+	/** Both teams full: 2 for 1v1, 4 for 2v2, 0 (no maximum) otherwise. UMainMenu3::GetTeamModeMaxPlayers has the same numbers. */
+	UFUNCTION(BlueprintPure, Category = "Match")
+	static int32 GetTeamModeMaxPlayers(EMyTeamMode Mode);
+
+	/** A hard block refuses a start; a soft one needs the host's second click. NotReady is hard with bLobbyRequireReady. */
+	UFUNCTION(BlueprintPure, Category = "Match")
+	static bool IsHardLobbyStartBlock(EMyLobbyStartBlock Block);
+
+	/**
+	 * The reason the lobby's Start button and the server's refusals show ("1v1 needs a player on ORANGE", "1 not ready",
+	 * "Waiting for 1 player to load"). Reads the game state's team counts; NotReady = AMyGameState::GetLobbyNotReady.
+	 * Empty for None.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Match", meta = (WorldContext = "WorldContext"))
+	static FText GetLobbyStartBlockText(const UObject* WorldContext, EMyLobbyStartBlock Block, int32 NotReady);
+
+	/** "Lobby", "Countdown", ... for logs and the console. */
+	static const TCHAR* GetMatchPhaseName(EMyMatchPhase Phase);
+
+	/** The URL option value of a team mode: auto, practice, 1v1, 2v2. */
+	static const TCHAR* GetTeamModeOption(EMyTeamMode Mode);
 };

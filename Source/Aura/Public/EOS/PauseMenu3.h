@@ -28,7 +28,9 @@ enum class EPauseMenu3ConfirmAction : uint8
 	QuitGame,
 	KickPlayer,
 	BanPlayer,
-	RestartMatch
+	RestartMatch,
+	// The match ends and everyone travels back to the lobby (SPEC_B_LOBBY 7.3)
+	ReturnToLobby
 };
 
 // A host-only team match button's row (the button plus its graffiti, stamp and label), shown and hidden as one
@@ -71,6 +73,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Aura|Menu")
 	bool IsMenuOpen() const { return bMenuOpen; }
+
+	// Opens the menu (if closed) on the Leave Session confirm: the lobby panel's LEAVE (SPEC_B_LOBBY 6.4)
+	void RequestLeaveSession();
 
 	// Called by USessionPlayerRow3
 	void ShowPlayerProfile(APlayerState* PlayerState);
@@ -117,6 +122,9 @@ protected:
 	FText StartMatchLabel = NSLOCTEXT("PauseMenu3", "StartMatchLabel", "START MATCH");
 	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
 	FText RestartMatchLabel = NSLOCTEXT("PauseMenu3", "RestartMatchLabel", "RESTART MATCH");
+	// The Restart row's label when the match ends in the lobby (AMyGameMode::WillReturnToLobby)
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
+	FText BackToLobbyLabel = NSLOCTEXT("PauseMenu3", "BackToLobbyLabel", "BACK TO LOBBY");
 
 	// Blueprint hook for panel transition animations / sounds.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Aura|Menu")
@@ -176,8 +184,11 @@ private:
 
 	// Once, from NativeOnInitialized: finds the WBP's rows or builds them after the Resume row
 	void SetupMatchButtons();
-	// Start match during WaitingToStart, Restart match from the countdown on; hidden for everyone else
+	// Start match during WaitingToStart and the lobby, Restart match (or Back to lobby) from the countdown on, never during
+	// the lobby or its countdown; hidden for everyone else
 	void RefreshMatchButtons();
+	// The labels of a row (a one-letter stamp gets the first letter), as CloneButtonRow sets them
+	void SetMatchRowLabel(FPauseMenu3MatchRow& MatchRow, const FText& Label);
 	void SetMatchRowVisible(FPauseMenu3MatchRow& MatchRow, bool bVisible);
 	// The game mode when this menu belongs to the host and the match is on, else null
 	AMyGameMode* GetHostMatchGameMode() const;
@@ -187,6 +198,9 @@ private:
 
 	FPauseMenu3MatchRow StartMatchRow;
 	FPauseMenu3MatchRow RestartMatchRow;
+	// The Restart row reads BACK TO LOBBY (and its confirm returns to the lobby)
+	bool bRestartRowIsLobby{ false };
+	bool bRestartRowLabelSet{ false };
 	TWeakObjectPtr<AMyGameState> MatchGameState;
 	FDelegateHandle MatchChangedHandle;
 

@@ -739,7 +739,7 @@ void AAirshipTurret::ApplyBulletDamage(const FHitResult& Hit, AActor* DamageInst
 	// The turret's one target filter. Team match: no damage to its ship's teammates (players, their ship, its turrets)
 	// unless the rules allow friendly fire (SPEC_B B6.2)
 	if (!TargetASC || Target == OwnShip || !TargetASC->HasAttributeSetForAttribute(UMyAttributeSet::GetHealthAttribute())
-		|| UMyTeamLibrary::IsFriendlyFireBlocked(OwnShip, Target))
+		|| UMyTeamLibrary::IsTeamFireBlocked(UMyTeamLibrary::GetFiringTeamId(OwnShip, DamageInstigator), Target))
 	{
 		return;
 	}
@@ -787,8 +787,9 @@ bool AAirshipTurret::IsFriendlyBall(const AAirshipCannonball* Ball) const
 		return false;
 	}
 
-	// Its own ship's, or a teammate ship's while friendly fire is off (the ball's team is its SourceTeamId)
-	return Ball->GetSourceShip() == OwnShip || UMyTeamLibrary::IsFriendlyFireBlocked(OwnShip, Ball);
+	// Its own ship's, or a teammate ship's while friendly fire is off (the ball's team is its SourceTeamId; a free ship
+	// fires for its pilot's team)
+	return Ball->GetSourceShip() == OwnShip || UMyTeamLibrary::IsTeamFireBlocked(UMyTeamLibrary::GetFiringTeamId(OwnShip, nullptr), Ball);
 }
 
 void AAirshipTurret::ApplyTurretDamage(float Damage, AActor* DamageInstigator)

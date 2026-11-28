@@ -1011,6 +1011,13 @@ on the server only, so the rules there are the authority.
 Shooting your own team's ship hull is blocked too (team 0 player vs team 0 ship); PR A left the shooter's own hull open
 (SPEC_A 6.4).
 
+A free ship (team 255) fires for whoever fires it (review fix, REVIEW_lobby.md row 7): its ball's `SourceTeamId` and its
+turret rounds' team come from `UMyTeamLibrary::GetFiringTeamId(Ship, Shooter)` (`MyTeamLibrary.cpp:138`): the ship's team
+for a team ship; on a free ship the gunner's, else the pilot's (the ship's player state). `AAirshipCannonball::InitCannonball`
+takes the shooter from the spec's instigator (`AirshipCannonball.cpp:93-96`); `AAirshipTurret::ApplyBulletDamage` and
+`IsFriendlyBall` test `UMyTeamLibrary::IsTeamFireBlocked` (`AirshipTurret.cpp:742`, `:792`). So a team 0 player on the
+untagged placed ship of a co-op round can't hit team 0's ship either.
+
 #### B6.3 Enemy ship access
 
 * `AAirshipPawn::CanBoard` (`AirshipPawn.cpp:1194-1219`) and `CanMount` (`:1708-1757`): false unless

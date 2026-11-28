@@ -10,7 +10,9 @@
 #include "Blueprint/UserWidget.h"
 #include "Engine/LocalPlayer.h"
 #include "PlayerInput/MyPlayerController.h"
+#include "Match/MyLobbyWidget.h"
 #include "Match/MyMatchHUDWidget.h"
+#include "Match/MyMatchTypes.h"
 #include "UI/UserWidgets/MyHexMinimapWidget.h"
 #include "UI/UserWidgets/MyUserWidget.h"
 #include "UI/WidgetControllers/MyWidgetController.h"
@@ -27,6 +29,7 @@ void AMyHUD::BeginPlay()
 	Super::BeginPlay();
 
 	AddMatchWidget();
+	AddLobbyWidget();
 }
 
 void AMyHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -35,6 +38,12 @@ void AMyHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		MatchWidget->RemoveFromParent();
 		MatchWidget = nullptr;
+	}
+
+	if (LobbyWidget)
+	{
+		LobbyWidget->RemoveFromParent();
+		LobbyWidget = nullptr;
 	}
 
 	Super::EndPlay(EndPlayReason);
@@ -72,6 +81,46 @@ void AMyHUD::AddMatchWidget()
 	}
 }
 
+void AMyHUD::AddLobbyWidget()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	UGameViewportSubsystem* ViewportSubsystem = UGameViewportSubsystem::Get();
+
+	if (LobbyWidget || !PlayerController || !PlayerController->IsLocalController() || !ViewportSubsystem)
+	{
+		return;
+	}
+
+	if (!LobbyWidgetClass)
+	{
+		// Not an error on maps without a lobby; the match HUD warns once if a lobby runs without it (6.6)
+		UE_LOG(LogMatch, Verbose, TEXT("AMyHUD: no LobbyWidgetClass (%s): no lobby panel"), *GetNameSafe(GetClass()));
+		return;
+	}
+
+	LobbyWidget = CreateWidget<UMyLobbyWidget>(PlayerController, LobbyWidgetClass);
+
+	if (!LobbyWidget)
+	{
+		UE_LOG(LogMatch, Warning, TEXT("AMyHUD: the lobby widget %s could not be created: no lobby panel (Esc opens the pause menu)"), *GetNameSafe(LobbyWidgetClass));
+		return;
+	}
+
+	// The whole viewport, above the match HUD (2) and the minimap (1), under the pause menu (50)
+	FGameViewportWidgetSlot Slot;
+	Slot.Anchors = FAnchors(0.f, 0.f, 1.f, 1.f);
+	Slot.Alignment = FVector2D::ZeroVector;
+	Slot.Offsets = FMargin(0.f);
+	Slot.ZOrder = 5;
+
+	ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
+
+	if (!(LocalPlayer ? ViewportSubsystem->AddWidgetForPlayer(LobbyWidget, LocalPlayer, Slot) : ViewportSubsystem->AddWidget(LobbyWidget, Slot)))
+	{
+		LobbyWidget = nullptr;
+	}
+}
+
 void AMyHUD::InitOverlay()
 {
 	if (APlayerController* PlayerController = GetOwningPlayerController())
@@ -105,8 +154,9 @@ void AMyHUD::InitOverlay()
 		OverlayWidgetController->BindCallbacksToDependencies();
 		OverlayWidgetController->BroadcastInitialValues();
 
-		// BeginPlay adds it; a HUD whose controller wasn't local yet then gets it here
+		// BeginPlay adds them; a HUD whose controller wasn't local yet then gets them here
 		AddMatchWidget();
+		AddLobbyWidget();
 
 		if (MinimapWidgetClass && !MinimapWidget)
 		{

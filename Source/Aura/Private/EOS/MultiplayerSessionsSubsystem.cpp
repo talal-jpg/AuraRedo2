@@ -25,6 +25,7 @@
 #include "GameFramework/Character.h"
 #include "Airship/AirshipPawn.h"
 #include "Match/MyMatchTypes.h"
+#include "EOS/MainMenu3.h"
 
 UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete)),
@@ -33,7 +34,8 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete)),
 	StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete)),
 	UpdateSessionCompleteDelegate(FOnUpdateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnUpdateSessionComplete)),
-	CancelFindSessionsCompleteDelegate(FOnCancelFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnCancelFindSessionsComplete))
+	CancelFindSessionsCompleteDelegate(FOnCancelFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnCancelFindSessionsComplete)),
+	EndSessionCompleteDelegate(FOnEndSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnEndSessionComplete))
 {
 }
 
@@ -410,6 +412,15 @@ void UMultiplayerSessionsSubsystem::StartSession()
 	{
 		return;
 	}
+	// Steam's EndSession is asynchronous (Ending until its task completes) and a start then would fail: start when it
+	// has ended (OnEndSessionComplete). A return to the lobby ends the session just before the next round starts it
+	if (SessionState == EOnlineSessionState::Ending)
+	{
+		UE_LOG(LogTemp, Log, TEXT("MultiplayerSessionsSubsystem::StartSession - the session is still ending, starting it when it has ended"));
+		bStartSessionAfterEnd = true;
+		return;
+	}
+	bStartSessionAfterEnd = false;
 
 	// Bind the completion delegate
 	StartSessionCompleteDelegateHandle = SessionInterface->AddOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegate);
@@ -420,6 +431,75 @@ void UMultiplayerSessionsSubsystem::StartSession()
 		SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
 		MultiplayerOnStartSessionComplete.Broadcast(false);
 	}
+}
+
+void UMultiplayerSessionsSubsystem::EndSession()
+{
+	if (!SessionInterface.IsValid())
+	{
+		return;
+	}
+
+	// Steam and EOS end only from InProgress (a lobby that never started, a second end)
+	const EOnlineSessionState::Type SessionState = SessionInterface->GetSessionState(NAME_GameSession);
+	if (SessionState != EOnlineSessionState::InProgress)
+	{
+		UE_LOG(LogMatch, Log, TEXT("Session: EndSession skipped (state %s)"), EOnlineSessionState::ToString(SessionState));
+		return;
+	}
+
+	// Only one end in flight: a second Add without a Clear would leave a stale binding behind
+	SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteDelegateHandle);
+	EndSessionCompleteDelegateHandle = SessionInterface->AddOnEndSessionCompleteDelegate_Handle(EndSessionCompleteDelegate);
+	UE_LOG(LogMatch, Log, TEXT("Session: EndSession (InProgress -> Ended)"));
+
+	if (!SessionInterface->EndSession(NAME_GameSession))
+	{
+		SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteDelegateHandle);
+		UE_LOG(LogMatch, Warning, TEXT("Session: EndSession failed to start"));
+	}
+}
+
+void UMultiplayerSessionsSubsystem::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	if (SessionInterface)
+	{
+		SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteDelegateHandle);
+	}
+
+	UE_LOG(LogMatch, Log, TEXT("Session: EndSession complete (%s)%s"), bWasSuccessful ? TEXT("ok") : TEXT("failed"),
+		bStartSessionAfterEnd ? TEXT(", starting it again") : TEXT(""));
+
+	if (bStartSessionAfterEnd)
+	{
+		bStartSessionAfterEnd = false;
+		StartSession();
+	}
+}
+
+void UMultiplayerSessionsSubsystem::AdvertiseMatch(EMyTeamMode TeamMode, int32 Difficulty, int32 MaxPlayers, bool bInMatch)
+{
+	FAuraHostSettings Settings;
+
+	if (!IsHostingSession() || !GetCurrentHostSettings(Settings))
+	{
+		UE_LOG(LogMatch, Log, TEXT("Session: no hosted session to advertise"));
+		return;
+	}
+
+	// What the browse filters and rows read: the menu's rule set name for the mode, the swarm difficulty, the slots (a
+	// 1v1 or 2v2 only what its teams hold, as the host panel does), IN LOBBY / IN MATCH
+	Settings.Rules = UMainMenu3::GetRuleSetForTeamMode(TeamMode);
+	Settings.Difficulty = Difficulty;
+	if (MaxPlayers > 0)
+	{
+		Settings.NumPublicConnections = MaxPlayers;
+	}
+	Settings.bInMatch = bInMatch;
+
+	UE_LOG(LogMatch, Log, TEXT("Session: advertise %s, swarm %d, %d slots, %s"), *Settings.Rules, Settings.Difficulty, Settings.NumPublicConnections,
+		bInMatch ? TEXT("IN MATCH") : TEXT("IN LOBBY"));
+	UpdateHostSettings(Settings);
 }
 
 void UMultiplayerSessionsSubsystem::LeaveSession()
@@ -905,6 +985,7 @@ bool UMultiplayerSessionsSubsystem::GetCurrentHostSettings(FAuraHostSettings& Ou
 	OutSettings.JoinCode = Info.JoinCode;
 	OutSettings.LobbyName = Info.LobbyName;
 	OutSettings.bAllowJoinInProgress = Info.bAllowJoinInProgress;
+	OutSettings.bInMatch = Info.bInMatch;
 	return true;
 }
 
@@ -1179,6 +1260,7 @@ void UMultiplayerSessionsSubsystem::ApplyHostSettings(FOnlineSessionSettings& Se
 	// CodeOnly is still advertised (so a typed code resolves) but Listed=0 tells the
 	// browse UI to filter it out - see FindSessionsFiltered / OnFindSessionsComplete.
 	Settings.Set(AuraSessionKeys::Listed, HostSettings.Privacy == EAuraSessionPrivacy::CodeOnly ? 0 : 1, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	Settings.Set(AuraSessionKeys::InMatch, HostSettings.bInMatch ? 1 : 0, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 }
 
 FAuraSessionInfo UMultiplayerSessionsSubsystem::MakeSessionInfo(const FOnlineSession& Session, int32 PingInMs, int32 ResultIndex)
@@ -1198,6 +1280,10 @@ FAuraSessionInfo UMultiplayerSessionsSubsystem::MakeSessionInfo(const FOnlineSes
 	Info.MaxSlots = Settings.NumPublicConnections;
 	Info.ResultIndex = ResultIndex;
 	Info.bAllowJoinInProgress = Settings.bAllowJoinInProgress;
+
+	int32 InMatch = 0;
+	Settings.Get(AuraSessionKeys::InMatch, InMatch);
+	Info.bInMatch = InMatch != 0;
 
 	int32 Listed = 1;
 	Settings.Get(AuraSessionKeys::Listed, Listed);

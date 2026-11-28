@@ -90,7 +90,9 @@ void AAirshipCannonball::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 void AAirshipCannonball::InitCannonball(AAirshipPawn* InShip, const FVector& InVelocity, const FGameplayEffectSpecHandle& InDamageSpec, float InDamage)
 {
 	SourceShip = InShip;
-	SourceTeamId = InShip ? InShip->GetTeamId() : MyMatch::NoTeam;
+	// The ship's team; a free ship's ball takes its shooter's (the spec's instigator: a gunner, or the ship for its pilot)
+	const AActor* Shooter = InDamageSpec.IsValid() ? InDamageSpec.Data->GetContext().GetInstigator() : nullptr;
+	SourceTeamId = InShip ? UMyTeamLibrary::GetFiringTeamId(InShip, Shooter) : MyMatch::NoTeam;
 	LaunchVelocity = InVelocity;
 	DamageSpec = InDamageSpec;
 	Damage = InDamage;
@@ -227,8 +229,9 @@ bool AAirshipCannonball::ShouldIgnore(const AActor* Actor) const
 		return true;
 	}
 
-	// Team match: the firing ship's teammates (players, their ship, its turrets), from SourceTeamId; free ships' balls
-	// and the match off: nobody (UMyTeamLibrary resolves a ball to its SourceTeamId)
+	// Team match: the firing ship's teammates (players, their ship, its turrets), from SourceTeamId (a free ship's ball
+	// carries its shooter's team, InitCannonball); a team-less ball and the match off: nobody (UMyTeamLibrary resolves a
+	// ball to its SourceTeamId)
 	return UMyTeamLibrary::IsFriendlyFireBlocked(this, Actor);
 }
 

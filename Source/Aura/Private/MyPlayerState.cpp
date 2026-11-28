@@ -23,6 +23,80 @@ void AMyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AMyPlayerState,CurrentPlatform);
 	DOREPLIFETIME(AMyPlayerState,PlatformSplineDistance);
 	DOREPLIFETIME(AMyPlayerState,TeamId);
+	DOREPLIFETIME(AMyPlayerState,bLobbyReady);
+	DOREPLIFETIME(AMyPlayerState,RequestedTeam);
+	DOREPLIFETIME(AMyPlayerState,bIsHost);
+	DOREPLIFETIME(AMyPlayerState,bArriving);
+}
+
+void AMyPlayerState::CopyProperties(APlayerState* PlayerState)
+{
+	Super::CopyProperties(PlayerState);
+	
+	// SPEC_B_LOBBY 5.4 row 7: a seamless return keeps the team; AMyGameMode::InitSeamlessTravelPlayer then checks it
+	// against the new round's mode and caps (AssignTeam's PreferredTeam)
+	if (AMyPlayerState* NewPlayerState = Cast<AMyPlayerState>(PlayerState))
+	{
+		NewPlayerState->SetTeamId(TeamId);
+	}
+}
+
+void AMyPlayerState::SetLobbyReady(bool bReady)
+{
+	if (!HasAuthority() || bLobbyReady == bReady)
+	{
+		return;
+	}
+	
+	bLobbyReady = bReady;
+	ForceNetUpdate();
+	OnLobbyChanged.Broadcast();
+}
+
+void AMyPlayerState::SetRequestedTeam(uint8 Team, double ServerTime)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	
+	RequestServerTime = Team == MyMatch::NoTeam ? 0.0 : ServerTime;
+	
+	if (RequestedTeam != Team)
+	{
+		RequestedTeam = Team;
+		ForceNetUpdate();
+		OnLobbyChanged.Broadcast();
+	}
+}
+
+void AMyPlayerState::SetIsHost(bool bHost)
+{
+	if (!HasAuthority() || bIsHost == bHost)
+	{
+		return;
+	}
+	
+	bIsHost = bHost;
+	ForceNetUpdate();
+	OnLobbyChanged.Broadcast();
+}
+
+void AMyPlayerState::SetArriving(bool bNewArriving)
+{
+	if (!HasAuthority() || bArriving == bNewArriving)
+	{
+		return;
+	}
+	
+	bArriving = bNewArriving;
+	ForceNetUpdate();
+	OnLobbyChanged.Broadcast();
+}
+
+void AMyPlayerState::OnRep_Lobby()
+{
+	OnLobbyChanged.Broadcast();
 }
 
 void AMyPlayerState::SetTeamId(uint8 NewTeam)
@@ -45,6 +119,14 @@ void AMyPlayerState::OnRep_TeamId()
 void AMyPlayerState::SetCurrentPlatform(AMyHexPlatform* Platform)
 {
 	if (!HasAuthority() || !Platform || Platform == CurrentPlatform)
+	{
+		return;
+	}
+	
+	// SPEC_B_LOBBY 3.3: no ranking (so no collapse) in the lobby or its countdown, also during the zone's grace (RL7)
+	const AMyGameState* LobbyGameState = GetWorld() ? GetWorld()->GetGameState<AMyGameState>() : nullptr;
+	
+	if (LobbyGameState && LobbyGameState->IsInLobby())
 	{
 		return;
 	}

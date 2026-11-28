@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "EOS/MainMenu3.h"
+#include "Match/MyTeamLibrary.h"
 #include "EOS/SessionEntry3.h"
 #include "EOS/MultiplayerSessionsSubsystem.h"
 #include "UI/Settings/SettingsMenu3.h"
@@ -566,13 +567,28 @@ FString UMainMenu3::GetTeamsOption(EMyTeamMode Mode)
 
 int32 UMainMenu3::GetTeamModeMaxPlayers(EMyTeamMode Mode)
 {
-	// Both teams full; AMyGameMode::PreLogin refuses the next join
-	switch (Mode)
-	{
-	case EMyTeamMode::OneVsOne:  return 2;
-	case EMyTeamMode::TwoVsTwo:  return 4;
-	default:                     return 0;
-	}
+	// Both teams full; AMyGameMode::PreLogin refuses the next join. One place for the numbers: the lobby uses them too
+	return UMyTeamLibrary::GetTeamModeMaxPlayers(Mode);
+}
+
+const TArray<FString>& UMainMenu3::GetDefaultRuleSets()
+{
+	return GetDefault<UMainMenu3>()->RuleSets;
+}
+
+const TArray<FString>& UMainMenu3::GetDefaultDifficultyNames()
+{
+	return GetDefault<UMainMenu3>()->DifficultyNames;
+}
+
+const TArray<int32>& UMainMenu3::GetDefaultMaxPlayerChoices()
+{
+	return GetDefault<UMainMenu3>()->MaxPlayerChoices;
+}
+
+const TArray<int32>& UMainMenu3::GetDefaultShipLivesChoices()
+{
+	return GetDefault<UMainMenu3>()->ShipLivesChoices;
 }
 
 //
@@ -1308,8 +1324,9 @@ void UMainMenu3::OnCreateSession(bool bWasSuccessful)
 		ShowBusy(LOCTEXT("LoadingLobby", "Loading lobby..."), false);
 		if (UWorld* World = GetWorld())
 		{
-			// The host's match rules ride on the URL; clients join later and their options are never read for rules
-			const FString Options = BuildMatchOptions(false);
+			// The host's match rules ride on the URL; clients join later and their options are never read for rules. The
+			// hosted game starts in the in-level lobby (SPEC_B_LOBBY 2.1); this travel has no clients and stays hard
+			const FString Options = BuildMatchOptions(false) + (UMyMatchSettings::Get()->bLobbyWhenHosting ? TEXT("?Lobby=1") : TEXT(""));
 			UE_LOG(LogMatch, Log, TEXT("MainMenu3: hosting %s%s"), *PathToLobby, *Options);
 			World->ServerTravel(PathToLobby + Options);
 		}

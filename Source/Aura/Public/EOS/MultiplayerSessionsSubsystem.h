@@ -12,6 +12,8 @@
 #include "EOS/MultiplayerSessionTypes.h"
 #include "MultiplayerSessionsSubsystem.generated.h"
 
+enum class EMyTeamMode : uint8;
+
 class UNetDriver;
 class APlayerController;
 struct FUniqueNetIdRepl;
@@ -63,7 +65,14 @@ class AURA_API UMultiplayerSessionsSubsystem : public UGameInstanceSubsystem
 	void FindSessions(int32 MaxSearchResults);
 	void JoinSession(const FOnlineSessionSearchResult& SessionResult);
 	void DestroySession();
+	// While Steam is still ending the session (Ending) the start waits for the end to complete (SPEC_B_LOBBY 5.6)
 	void StartSession();
+	// The host: InProgress -> Ended (both engines end only from InProgress), with a log. AMyGameMode calls it at a match's
+	// end and at a return to the lobby
+	void EndSession();
+	// The host: the running match into the advertised settings (Rules = UMainMenu3::GetRuleSetForTeamMode, Difficulty,
+	// NumPublicConnections when MaxPlayers > 0, InMatch), one UpdateHostSettings. Nothing without a hosted session.
+	void AdvertiseMatch(EMyTeamMode TeamMode, int32 Difficulty, int32 MaxPlayers, bool bInMatch);
 	
 	void JoinSessionAtInitialisation();
 	
@@ -178,6 +187,7 @@ protected:
 	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 	void OnStartSessionComplete(FName SessionName, bool bWasSuccessful);
+	void OnEndSessionComplete(FName SessionName, bool bWasSuccessful);
 	
 	//my
 	void OnFindSessionsCompleteForHeadless(const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessful);
@@ -223,6 +233,11 @@ private:
 	FDelegateHandle CancelFindSessionsCompleteDelegateHandle;
 	FDelegateHandle NetworkFailureDelegateHandle;
 	FDelegateHandle TravelFailureDelegateHandle;
+	FOnEndSessionCompleteDelegate EndSessionCompleteDelegate;
+	FDelegateHandle EndSessionCompleteDelegateHandle;
+
+	// StartSession came while the session was Ending: it starts when the end completes
+	bool bStartSessionAfterEnd{ false };
 
 	bool bCreateSessionOnDestroy{ false };
 	int32 LastNumPublicConnections;

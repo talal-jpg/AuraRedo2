@@ -54,7 +54,8 @@ public:
 
 	/**
 	 * The firing ship's team at spawn (server, replicated once): UMyTeamLibrary::GetTeamId reads it, so the friendly
-	 * fire rule holds after the ship is gone (a gone ship would resolve to 255). 255 = a free ship's ball, or no match.
+	 * fire rule holds after the ship is gone (a gone ship would resolve to 255). A free ship's ball takes its shooter's team
+	 * (UMyTeamLibrary::GetFiringTeamId: the gunner, else the pilot). 255 = nobody's team, or no match.
 	 */
 	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Airship|Cannonball")
 	uint8 SourceTeamId = MyMatch::NoTeam;

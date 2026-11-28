@@ -28,7 +28,10 @@ enum class EAirshipUseRefusal : uint8;
  *    "that ship isn't yours" (UAirshipPilotComponent::OnLocalUseRefused).
  *  - Name tags over other players in team colour (teammates always, enemies within 100 m or in sight), TEAMMATE under
  *    the crosshair on a teammate.
- *  - End panel: VICTORY / DEFEAT / DRAW / PRACTICE OVER, why, ships left, the restart countdown.
+ *  - End panel: VICTORY / DEFEAT / DRAW / PRACTICE OVER, why, ships left, the restart countdown ("Back to the lobby in
+ *    n s" when the match ends in the lobby, SPEC_B_LOBBY 2.5).
+ *  - The lobby (SPEC_B_LOBBY 6.6): no match bar (UMyLobbyWidget shows its strip); without a lobby widget a one-line
+ *    strip; lobby toasts (start cancelled, team changes, rules, the return) and "ships unlock when the match starts".
  */
 UCLASS(Blueprintable)
 class AURA_API UMyMatchHUDWidget : public UUserWidget
@@ -165,6 +168,12 @@ private:
 	/** The team the local player plays for (his player state), 255 for none. */
 	uint8 GetLocalTeam() const;
 
+	/** The local player is the host (his player state's lobby flag, or the listen server's / standalone own player). */
+	bool IsLocalHost() const;
+
+	/** This machine's controller has a lobby panel registered (UMyLobbyWidget, SPEC_B_LOBBY 6.1). */
+	bool HasLobbyPanel() const;
+
 	bool IsSoloPractice(uint8 TeamId) const;
 
 	TWeakObjectPtr<AMyGameState> GameState;
@@ -186,6 +195,12 @@ private:
 	FString EndReason;
 	FString EndShipsLine;
 	FString EndRestartLine;
+	/** The host's "Esc > Back to lobby to go now" under the end panel's countdown (SPEC_B_LOBBY 2.5). */
+	FString EndHostLine;
+	/** Phase Lobby without a lobby widget: the one-line strip (SPEC_B_LOBBY 6.6); empty while the widget shows its own. */
+	FString LobbyStripText;
+	float LobbyNoPanelTime = 0.f;
+	bool bWarnedNoLobbyPanel = false;
 	FLinearColor CentreColor = FLinearColor::White;
 	bool bTeammateUnderCrosshair = false;
 	TArray<FShipMarker> Markers;

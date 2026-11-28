@@ -90,8 +90,15 @@ public:
 	// The URL value of the Teams option: auto, practice, 1v1, 2v2.
 	static FString GetTeamsOption(EMyTeamMode Mode);
 
-	// Players a team mode has room for: 2 for 1v1, 4 for 2v2, 0 = any number.
+	// Players a team mode has room for: 2 for 1v1, 4 for 2v2, 0 = any number (UMyTeamLibrary::GetTeamModeMaxPlayers).
 	static int32 GetTeamModeMaxPlayers(EMyTeamMode Mode);
+
+	// The option lists of the C++ class defaults, so the in-level lobby (UMyLobbyWidget, SPEC_B_LOBBY 6.3) offers what the
+	// host menu offers. A value changed only on WBP_MainMenu3 doesn't reach them (as_78 warns).
+	static const TArray<FString>& GetDefaultRuleSets();
+	static const TArray<FString>& GetDefaultDifficultyNames();
+	static const TArray<int32>& GetDefaultMaxPlayerChoices();
+	static const TArray<int32>& GetDefaultShipLivesChoices();
 
 protected:
 	virtual bool Initialize() override;

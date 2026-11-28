@@ -49,12 +49,13 @@ for _n in ('IA_AirshipFire', 'IA_AirshipBoard', 'IA_AirshipExit', 'IA_AirshipLoo
            'IA_AirshipSteer'):
     MB_IA[_n] = '/Game/Assets/MyShip/Drivable/Input/' + _n
 # MyMatchTypes.h order (the telemetry carries LaneState / LaneClamp as uint8, the dump as names)
-MB_PHASE = ['None', 'WaitingToStart', 'Countdown', 'InProgress', 'Ended']
+MB_PHASE = ['None', 'WaitingToStart', 'Countdown', 'InProgress', 'Ended', 'Lobby']   # Lobby appended (SPEC_B_LOBBY D1)
 MB_TEAMMODE = ['Auto', 'Practice', 'OneVsOne', 'TwoVsTwo']
 MB_RESULT = ['None', 'TeamWon', 'Draw', 'PracticeOver']
 MB_REASON = ['None', 'Eliminated', 'Forfeit', 'TimeLimit', 'Host']
 MB_EVENTS = ['Countdown', 'Started', 'ShipDestroyed', 'ShipRespawned', 'TeamEliminated', 'ForfeitWarning', 'Forfeited',
-             'PracticeToVersus', 'Ended', 'ShipUnderAttack', 'ShipReturning', 'TimeWarning']
+             'PracticeToVersus', 'Ended', 'ShipUnderAttack', 'ShipReturning', 'TimeWarning',
+             'LobbyCancelled', 'LobbyTeamChanged', 'LobbyRulesChanged', 'LobbyReturn']   # lobby events appended (SPEC_B_LOBBY 4.3)
 MB_LANE = ['NoLane', 'Cruising', 'Waiting', 'Assist', 'PilotedInLane', 'OutOfLane', 'Parked', 'Returning']
 MB_CLAMP = ['None', 'TeamPace', 'PathEnd', 'Blocked', 'NotStarted', 'Ended', 'Bypass', 'Reel']
 MB_UNPILOTED = ['None', 'Coast', 'Drift', 'Hold', 'Lane']        # EAirshipUnpilotedMode (AirshipTypes.h)

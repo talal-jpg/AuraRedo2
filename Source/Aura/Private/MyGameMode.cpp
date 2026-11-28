@@ -50,6 +50,7 @@ namespace MyGameModeMatch
 		case EMyMatchPhase::Countdown: return TEXT("Countdown");
 		case EMyMatchPhase::InProgress: return TEXT("InProgress");
 		case EMyMatchPhase::Ended: return TEXT("Ended");
+		case EMyMatchPhase::Lobby: return TEXT("Lobby");
 		default: return TEXT("None");
 		}
 	}
@@ -222,8 +223,9 @@ void AMyGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
-	// Check if this is the hosting player (the first local controller on the server)
-	if (NewPlayer && NewPlayer->IsLocalController())
+	// Check if this is the hosting player (the first local controller on the server). With the lobby the session starts
+	// with each round instead (BeginRound, SPEC_B_LOBBY 5.6)
+	if (NewPlayer && NewPlayer->IsLocalController() && !bLobbyRound)
 	{
 		UGameInstance* GameInstance = GetGameInstance();
 		if (GameInstance)
@@ -238,40 +240,66 @@ void AMyGameMode::PostLogin(APlayerController* NewPlayer)
 		}
 	}
 
+	// The hard arrival; a seamless one comes through InitSeamlessTravelPlayer
+	OnPlayerArrived(NewPlayer, false);
 }
 
-namespace
+// The ASC is on the PlayerState and goes on to the next pawn, which shouldn't start with any of it. A static member (it was
+// an anonymous-namespace function) so MyGameModeLobby.cpp uses the same one
+void AMyGameMode::CancelActiveAbilities(const AController* Controller, const APawn* Pawn)
 {
-	/**
-	 * Ends what Pawn was doing (boost, beam, ...) while it is still the ASC's avatar. The ASC is on the PlayerState
-	 * and goes on to the next pawn, which shouldn't start with any of it.
-	 */
-	void CancelActiveAbilities(const AController* Controller, const APawn* Pawn)
+	const AMyPlayerState* MyPlayerState = Controller ? Controller->GetPlayerState<AMyPlayerState>() : nullptr;
+	UAbilitySystemComponent* ASC = MyPlayerState ? MyPlayerState->MyAbilitySystemComponent : nullptr;
+
+	if (!ASC || !Pawn || ASC->GetAvatarActor() != Pawn)
 	{
-		const AMyPlayerState* MyPlayerState = Controller ? Controller->GetPlayerState<AMyPlayerState>() : nullptr;
-		UAbilitySystemComponent* ASC = MyPlayerState ? MyPlayerState->MyAbilitySystemComponent : nullptr;
+		return;
+	}
 
-		if (!ASC || !Pawn || ASC->GetAvatarActor() != Pawn)
+	TArray<FGameplayAbilitySpecHandle> ToCancel;
+
+	for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
+	{
+		// Passives (GiveAbilityAndActivateOnce) keep running for the next pawn
+		if (Spec.IsActive() && !Spec.RemoveAfterActivation)
 		{
-			return;
-		}
-
-		TArray<FGameplayAbilitySpecHandle> ToCancel;
-
-		for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
-		{
-			// Passives (GiveAbilityAndActivateOnce) keep running for the next pawn
-			if (Spec.IsActive() && !Spec.RemoveAfterActivation)
-			{
-				ToCancel.Add(Spec.Handle);
-			}
-		}
-
-		for (const FGameplayAbilitySpecHandle& Handle : ToCancel)
-		{
-			ASC->CancelAbilityHandle(Handle);
+			ToCancel.Add(Spec.Handle);
 		}
 	}
+
+	for (const FGameplayAbilitySpecHandle& Handle : ToCancel)
+	{
+		ASC->CancelAbilityHandle(Handle);
+	}
+}
+
+bool AMyGameMode::TakeBackPawn(AController* Controller, const TCHAR* Why)
+{
+	APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+
+	if (!Pawn)
+	{
+		return false;
+	}
+
+	// A seated pilot's pawn is his ship: put him back on his feet first, the ship isn't ours to destroy
+	if (AAirshipPawn* Ship = Cast<AAirshipPawn>(Pawn))
+	{
+		Ship->UnboardPilot(false);
+		Pawn = Controller->GetPawn();
+
+		if (!Pawn || Cast<AAirshipPawn>(Pawn))
+		{
+			return false;
+		}
+	}
+
+	UE_LOG(LogMatch, Log, TEXT("Match: %s's pawn taken back (%s)"), *GetNameSafe(Controller->PlayerState), Why);
+	CancelActiveAbilities(Controller, Pawn);
+	UnwatchPlayerPawn(Pawn);
+	Controller->UnPossess();
+	Pawn->Destroy();
+	return true;
 }
 
 void AMyGameMode::SetPlayerDefaults(APawn* PlayerPawn)
@@ -375,7 +403,9 @@ void AMyGameMode::InitGame(const FString& MapName, const FString& Options, FStri
 	UMyMatchMemorySubsystem* Memory = UMyMatchMemorySubsystem::Get(this);
 	RoundIndex = 0;
 
-	if (UGameplayStatics::HasOption(Options, TEXT("Round")))
+	bLobbyFromRound = UGameplayStatics::HasOption(Options, TEXT("Round"));
+
+	if (bLobbyFromRound)
 	{
 		RoundIndex = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("Round"), 0));
 
@@ -429,6 +459,7 @@ void AMyGameMode::InitGame(const FString& MapName, const FString& Options, FStri
 	}
 
 	bMatchOn = bOn;
+	bLobbyRound = false;
 
 	if (!bMatchOn)
 	{
@@ -436,10 +467,18 @@ void AMyGameMode::InitGame(const FString& MapName, const FString& Options, FStri
 		return;
 	}
 
+	// SPEC_B_LOBBY 4.2: before ParseMatchOptions, which skips the AutoCoopPlayers switch with the lobby
+	DecideLobby(Options);
 	ParseMatchOptions(Options);
 
-	UE_LOG(LogMatch, Log, TEXT("Match on on %s (%s): %s, expected players %d, round %d"), *ShortMapName, *Reason, *RulesText(MatchRules),
-		ExpectedPlayers, RoundIndex);
+	if (bLobbyRound)
+	{
+		ResolveLobbySpawn(Settings->LobbySpawn);
+	}
+
+	UE_LOG(LogMatch, Log, TEXT("Match on on %s (%s): %s, expected players %d, round %d, lobby %s"), *ShortMapName, *Reason, *RulesText(MatchRules),
+		bLobbyRound ? GetLobbyMaxPlayers() : ExpectedPlayers, RoundIndex,
+		bLobbyRound ? *FString::Printf(TEXT("on (%s), spawn %s"), *LobbyReason, GetLobbyGroundName(LobbyGround)) : *FString::Printf(TEXT("off (%s)"), *LobbyReason));
 }
 
 void AMyGameMode::ParseMatchOptions(const FString& Options)
@@ -500,7 +539,8 @@ void AMyGameMode::ParseMatchOptions(const FString& Options)
 
 	// SPEC_B Q19's alternative, behind a setting: Auto with this many players plays co-op (one ship) instead of 2v1. This
 	// round only: NextTeamMode stays Auto, so the restart decides again from the players then in
-	if (MatchRules.TeamMode == EMyTeamMode::Auto && Settings->AutoCoopPlayers > 0 && ExpectedPlayers == Settings->AutoCoopPlayers)
+	// With the lobby, Players is Max Players (not the player count) and the host picks Practice for co-op (SPEC_B_LOBBY 4.2)
+	if (!bLobbyRound && MatchRules.TeamMode == EMyTeamMode::Auto && Settings->AutoCoopPlayers > 0 && ExpectedPlayers == Settings->AutoCoopPlayers)
 	{
 		MatchRules.TeamMode = EMyTeamMode::Practice;
 		UE_LOG(LogMatch, Log, TEXT("Match: Auto with %d players plays co-op practice (AutoCoopPlayers)"), ExpectedPlayers);
@@ -662,12 +702,17 @@ bool AMyGameMode::IsHoldingPawns() const
 	}
 
 	// No pawns while a versus match waits for its players or counts down: nobody races ahead, grows the path or starts
-	// the collapse before the others are in (B4.2). The host logs in before StartPlay (phase None): he waits too
+	// the collapse before the others are in (B4.2). The host logs in before StartPlay (phase None): he waits too. With
+	// bStartAboard practice starts aboard as well (SPEC_B_LOBBY D10): no pawn during its countdown either. The lobby
+	// gives pawns in StartPlay, and holds them only while PathStart waits for its platform
+	const bool bStartAboard = UMyMatchSettings::Get()->bStartAboard;
+
 	switch (GetPhase())
 	{
-	case EMyMatchPhase::None: return !IsPracticeStart();
+	case EMyMatchPhase::None: return bLobbyRound || !IsPracticeStart() || bStartAboard;
+	case EMyMatchPhase::Lobby: return !bLobbyGroundReady;
 	case EMyMatchPhase::WaitingToStart: return true;
-	case EMyMatchPhase::Countdown: return bCountdownVersus || bPracticeToVersus;
+	case EMyMatchPhase::Countdown: return bCountdownVersus || bPracticeToVersus || bStartAboard;
 	default: return false;
 	}
 }
@@ -697,7 +742,9 @@ void AMyGameMode::InitGameState()
 	{
 		MyGameState->SetMatchRules(MatchRules);
 		MyGameState->SetRoundIndex(RoundIndex);
-		MyGameState->SetExpectedPlayers(GetNeededPlayers());
+		// With the lobby the header shows "n / Max" from the first frame (SPEC_B_LOBBY 4.2)
+		MyGameState->SetExpectedPlayers(bLobbyRound ? GetLobbyMaxPlayers() : GetNeededPlayers());
+		MyGameState->SetLobbyRound(bLobbyRound);
 	}
 }
 
@@ -746,7 +793,7 @@ void AMyGameMode::StartPlay()
 	{
 		MyGameState->SetMatchRules(MatchRules);
 		MyGameState->SetRoundIndex(RoundIndex);
-		MyGameState->SetExpectedPlayers(GetNeededPlayers());
+		MyGameState->SetExpectedPlayers(bLobbyRound ? GetLobbyMaxPlayers() : GetNeededPlayers());
 
 		// Before Super: the path spawner builds its first segments in its BeginPlay and the wave spawners queue wave 1 from
 		// them (B5.4), so the difficulty has to be in place first
@@ -773,6 +820,13 @@ void AMyGameMode::StartPlay()
 	TimerManager.SetTimer(MatchTickTimer, this, &ThisClass::MatchTick, 0.5f, true);
 	TimerManager.SetTimer(HealthTickTimer, this, &ThisClass::HealthTick, 0.25f, true);
 
+	// The lobby (SPEC_B_LOBBY 4.7): phase Lobby, the swarm stopped, pawns at the lobby spots; the host starts later
+	if (bLobbyRound)
+	{
+		BeginLobby();
+		return;
+	}
+
 	if (IsPracticeStart())
 	{
 		UE_LOG(LogMatch, Log, TEXT("Match: practice start (%s)"), GetNetMode() == NM_Standalone ? TEXT("standalone") : MyGameModeMatch::TeamModeOption(MatchRules.TeamMode));
@@ -788,23 +842,13 @@ void AMyGameMode::StartPlay()
 	// (B4.2): take it back, before it has done anything
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
-		APlayerController* PC = It->Get();
-		APawn* Pawn = PC ? PC->GetPawn() : nullptr;
-
-		if (Pawn)
-		{
-			UE_LOG(LogMatch, Log, TEXT("Match: %s's pawn waits for the start (spawned before the listen server opened)"), *GetNameSafe(PC->PlayerState));
-			CancelActiveAbilities(PC, Pawn);
-			UnwatchPlayerPawn(Pawn);
-			PC->UnPossess();
-			Pawn->Destroy();
-		}
+		TakeBackPawn(It->Get(), TEXT("it waits for the start: spawned before the listen server opened"));
 	}
 
 	EvaluateTeams();
 }
 
-void AMyGameMode::AssignTeam(AMyPlayerState* PlayerState, const FUniqueNetIdRepl& UniqueId)
+void AMyGameMode::AssignTeam(AMyPlayerState* PlayerState, const FUniqueNetIdRepl& UniqueId, uint8 PreferredTeam)
 {
 	AMyGameState* MyGameState = GetMatchGameState();
 
@@ -825,8 +869,14 @@ void AMyGameMode::AssignTeam(AMyPlayerState* PlayerState, const FUniqueNetIdRepl
 		uint8 Remembered = MyMatch::NoTeam;
 		const UMyMatchMemorySubsystem* Memory = UMyMatchMemorySubsystem::Get(this);
 
+		// A seamless arrival's own copied team first (SPEC_B_LOBBY 5.4), with the same cap test
+		if (PreferredTeam < MyMatch::NumTeams && (Cap == 0 || Count[PreferredTeam] < Cap))
+		{
+			Pick = PreferredTeam;
+			Why = TEXT("kept");
+		}
 		// Last round was balanced, so keeping a remembered team keeps it balanced; friends stay together in 2v2
-		if (Memory && Memory->FindTeam(UniqueId, Remembered) && (Cap == 0 || Count[Remembered] < Cap))
+		else if (Memory && Memory->FindTeam(UniqueId, Remembered) && Remembered < MyMatch::NumTeams && (Cap == 0 || Count[Remembered] < Cap))
 		{
 			Pick = Remembered;
 			Why = TEXT("remembered");
@@ -865,8 +915,9 @@ void AMyGameMode::RecountTeams(const APlayerState* Leaving)
 	{
 		const AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(PlayerState);
 
+		// A player state carried by a seamless travel whose owner is still loading isn't in yet (SPEC_B_LOBBY 5.4 row 4)
 		if (MyPlayerState && MyPlayerState != Leaving && !MyPlayerState->IsActorBeingDestroyed() && !MyPlayerState->IsOnlyASpectator()
-			&& MyPlayerState->GetTeamId() < MyMatch::NumTeams)
+			&& !MyPlayerState->IsArriving() && MyPlayerState->GetTeamId() < MyMatch::NumTeams)
 		{
 			++Count[MyPlayerState->GetTeamId()];
 		}
@@ -938,6 +989,11 @@ void AMyGameMode::EvaluateTeams(const APlayerState* Leaving)
 
 	switch (Phase)
 	{
+	case EMyMatchPhase::Lobby:
+		// No auto start in the lobby: the host starts (SPEC_B_LOBBY 4.7)
+		UpdateLobbyState(Leaving);
+		break;
+
 	case EMyMatchPhase::WaitingToStart:
 		if (IsStartConditionMet())
 		{
@@ -946,6 +1002,21 @@ void AMyGameMode::EvaluateTeams(const APlayerState* Leaving)
 		break;
 
 	case EMyMatchPhase::Countdown:
+		// The lobby countdown: a 1v1 / 2v2 team that empties cancels it (back to the lobby); otherwise PR B's rules below
+		if (IsLobbyCountingDown())
+		{
+			int32 NotReady = 0;
+
+			if (GetLobbyStartBlocks(NotReady, Leaving) & (1u << static_cast<uint32>(EMyLobbyStartBlock::NeedOpponent)))
+			{
+				const uint8 Empty = MyGameState->GetTeamState(0).NumPlayers == 0 ? 0 : 1;
+				CancelLobbyStart(FString::Printf(TEXT("%s has no players"), *MyGameModeMatch::TeamLabel(Empty)), EMyLobbyStartBlock::NeedOpponent);
+				break;
+			}
+
+			UpdateLobbyState(Leaving);
+		}
+
 		if (bPracticeToVersus)
 		{
 			// The player who turned practice into versus left again before it started
@@ -1056,7 +1127,7 @@ void AMyGameMode::ResetTeamsForRound()
 	MyGameState->MarkTeamsDirty();
 }
 
-void AMyGameMode::StartCountdown(bool bForced)
+void AMyGameMode::StartCountdown(bool bForced, float DelayOverride, bool bFromLobby)
 {
 	AMyGameState* MyGameState = GetMatchGameState();
 	const UMyMatchSettings* Settings = UMyMatchSettings::Get();
@@ -1117,17 +1188,18 @@ void AMyGameMode::StartCountdown(bool bForced)
 	UpdateHandicap();
 	ResetTeamsForRound();
 
-	const float Delay = FMath::Max(0.f, Settings->MatchStartDelay);
+	const float Delay = FMath::Max(0.f, DelayOverride >= 0.f ? DelayOverride : Settings->MatchStartDelay);
 	MyGameState->SetMatchPhase(EMyMatchPhase::Countdown, GetServerTime() + Delay);
 	MyGameState->SetMatchEndServerTime(0.0);
 
-	// The ships are there to put the players on when it ends; they wait in their lanes until then (Clamp NotStarted)
-	ClaimOrSpawnShips(bCountdownVersus);
+	// The ships are there to put the players on when it ends; they wait in their lanes until then (Clamp NotStarted).
+	// From the lobby the untagged placed ship stays until the end: its removal can't be undone by a cancel (SPEC_B_LOBBY 4.7)
+	ClaimOrSpawnShips(bCountdownVersus, /*bRemoveUntaggedPlaced=*/!bFromLobby);
 	MyGameState->MarkTeamsDirty();
 	MyGameState->MulticastMatchEvent(EMyMatchEvent::Countdown, MyMatch::NoTeam, FMath::CeilToInt(Delay));
 
 	UE_LOG(LogMatch, Log, TEXT("Match: phase Countdown %.1f s (%s%s, BLUE %d / ORANGE %d players, lives %d / %d)"), Delay,
-		bCountdownVersus ? TEXT("versus") : TEXT("practice"), bForced ? TEXT(", started by the host") : TEXT(""),
+		bCountdownVersus ? TEXT("versus") : TEXT("practice"), bFromLobby ? TEXT(", from the lobby") : (bForced ? TEXT(", started by the host") : TEXT("")),
 		MyGameState->GetTeamState(0).NumPlayers, MyGameState->GetTeamState(1).NumPlayers,
 		MyGameState->GetTeamState(0).LivesLeft, MyGameState->GetTeamState(1).LivesLeft);
 
@@ -1152,6 +1224,18 @@ void AMyGameMode::OnCountdownEnd()
 
 	GetWorldTimerManager().ClearTimer(CountdownTimer);
 	RecountTeams();
+
+	// The lobby countdown: a 1v1 / 2v2 team that emptied in the last moment goes back to the lobby (SPEC_B_LOBBY 4.7)
+	if (IsLobbyCountingDown())
+	{
+		int32 NotReady = 0;
+
+		if (GetLobbyStartBlocks(NotReady) & (1u << static_cast<uint32>(EMyLobbyStartBlock::NeedOpponent)))
+		{
+			CancelLobbyStart(TEXT("a team has no players at the start"), EMyLobbyStartBlock::NeedOpponent);
+			return;
+		}
+	}
 
 	// Practice -> versus (B1.3): both teams start over, the players already in keep playing
 	if (bPracticeToVersus)
@@ -1270,11 +1354,43 @@ void AMyGameMode::BeginRound()
 		MyGameState->GetTeamState(1).NumPlayers, MyGameState->GetTeamState(1).LivesLeft, MyGameState->GetTeamState(1).bActive ? TEXT("") : TEXT(" (inactive)"),
 		MatchEnd > 0.0 ? *FString::Printf(TEXT("%d min"), MatchRules.TimeLimitMinutes) : TEXT("none"));
 
+	// The lobby's end (SPEC_B_LOBBY 4.7): lobby pawns and their timed effects go, lobby rules off, the swarm runs
+	if (MyGameState->IsInLobby())
+	{
+		TakeBackLobbyPawns();
+
+		// Ready flags and switch requests mean something in the lobby only; a player state carried to the next lobby
+		// must not arrive ready (it counts only once it has arrived, AMyPlayerState::IsArriving)
+		for (APlayerState* PlayerState : MyGameState->PlayerArray)
+		{
+			if (AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(PlayerState))
+			{
+				MyPlayerState->SetLobbyReady(false);
+				MyPlayerState->SetRequestedTeam(MyMatch::NoTeam);
+			}
+		}
+
+		MyGameState->SetInLobby(false);
+		GetWorldTimerManager().ClearTimer(LobbyTickTimer);
+		ResumeSwarm();
+		UE_LOG(LogMatch, Log, TEXT("Lobby: over, the match runs (ships unlocked, damage on, ranking on)"));
+	}
+
+	// Every round (5.6): Steam and EOS start a session from Pending or Ended only, so a running one is left alone
+	StartSessionIfHost();
+
 	SpawnWaitingPlayers();
 }
 
 void AMyGameMode::BackToWaiting()
 {
+	// Never in a lobby round: its countdown goes back to the lobby instead (SPEC_B_LOBBY 4.7)
+	if (IsInLobby())
+	{
+		CancelLobbyStart(TEXT("not enough players"));
+		return;
+	}
+
 	AMyGameState* MyGameState = GetMatchGameState();
 	GetWorldTimerManager().ClearTimer(CountdownTimer);
 	bCountdownVersus = false;
@@ -1376,8 +1492,9 @@ void AMyGameMode::SpawnWaitingPlayers()
 		const uint8 Team = GetControllerTeam(PC);
 		const AAirshipPawn* Ship = Team < MyMatch::NumTeams ? MyGameState->GetTeamState(Team).Ship.Get() : nullptr;
 
-		// Versus: on the own ship's deck, the only per-round fair start without a map change (B4.2, flag 5)
-		if (bVersusRound && Settings->bStartAboard && IsValid(Ship) && !Ship->IsAirshipDead())
+		// On the own ship's deck, the only per-round fair start without a map change (B4.2, flag 5); practice too, on team
+		// 0's ship, so the match never needs the start floor (SPEC_B_LOBBY D10, 3.4)
+		if (Settings->bStartAboard && IsValid(Ship) && !Ship->IsAirshipDead())
 		{
 			Aboard[Team].Add(PC);
 		}
@@ -1428,6 +1545,18 @@ void AMyGameMode::SpawnWaitingPlayers()
 
 void AMyGameMode::RequestStartMatch()
 {
+	// The lobby: the host's START MATCH ignores the soft blocks, as a second click would (SPEC_B_LOBBY 7.3)
+	if (bMatchOn && GetPhase() == EMyMatchPhase::Lobby)
+	{
+		FText Why;
+
+		if (!StartFromLobby(/*bForce=*/true, Why))
+		{
+			UE_LOG(LogMatch, Log, TEXT("Start match: %s"), *Why.ToString());
+		}
+		return;
+	}
+
 	if (!bMatchOn || GetPhase() != EMyMatchPhase::WaitingToStart)
 	{
 		UE_LOG(LogMatch, Log, TEXT("Start match: only while waiting for players (phase %s)"), MyGameModeMatch::PhaseName(GetPhase()));
@@ -1449,6 +1578,10 @@ void AMyGameMode::StartMatchNow()
 	{
 		StartCountdown(true);
 	}
+	else if (GetPhase() == EMyMatchPhase::Lobby)
+	{
+		RequestStartMatch();
+	}
 
 	if (GetPhase() == EMyMatchPhase::Countdown)
 	{
@@ -1462,7 +1595,9 @@ void AMyGameMode::EndMatch(EMyMatchResult Result, uint8 WinningTeam, EMyMatchEnd
 	AMyGameState* MyGameState = GetMatchGameState();
 	const EMyMatchPhase Phase = GetPhase();
 
-	if (!bMatchOn || !MyGameState || GetNetMode() == NM_Client || Phase == EMyMatchPhase::None || Phase == EMyMatchPhase::Ended)
+	// The lobby and its countdown have no match to end
+	if (!bMatchOn || !MyGameState || GetNetMode() == NM_Client || Phase == EMyMatchPhase::None || Phase == EMyMatchPhase::Ended
+		|| Phase == EMyMatchPhase::Lobby || MyGameState->IsInLobby())
 	{
 		return;
 	}
@@ -1488,82 +1623,40 @@ void AMyGameMode::EndMatch(EMyMatchResult Result, uint8 WinningTeam, EMyMatchEnd
 	// Everything else keeps running (the cruising ships stop on their own: the lane reads the phase)
 	StopSwarm();
 
+	// Back to the lobby when this load had one or the host has a session now (Play Solo + Open Lobby included); the end
+	// panel reads the game state's copy (SPEC_B_LOBBY 2.5). The session ends with the match (5.6)
+	bEndReturnsToLobby = WillReturnToLobby();
+	MyGameState->SetLobbyRound(bEndReturnsToLobby);
+	EndSessionIfHost();
+
 	if (EndScreen > 0.f)
 	{
-		GetWorldTimerManager().SetTimer(RestartTimer, this, &ThisClass::RestartMatch, EndScreen, false);
+		GetWorldTimerManager().SetTimer(RestartTimer, this, &ThisClass::OnEndScreenDone, EndScreen, false);
 	}
 
-	UE_LOG(LogMatch, Log, TEXT("Match: phase Ended, result %s, winner %s, reason %s, BLUE %d / ORANGE %d ships left, restart in %s"),
+	UE_LOG(LogMatch, Log, TEXT("Match: phase Ended, result %s, winner %s, reason %s, BLUE %d / ORANGE %d ships left, restart in %s%s"),
 		*UEnum::GetValueAsString(Result), *MyGameModeMatch::TeamLabel(Winner), *UEnum::GetValueAsString(Reason),
 		MyGameState->GetTeamState(0).LivesLeft, MyGameState->GetTeamState(1).LivesLeft,
-		EndScreen > 0.f ? *FString::Printf(TEXT("%.0f s"), EndScreen) : TEXT("(host)"));
+		EndScreen > 0.f ? *FString::Printf(TEXT("%.0f s"), EndScreen) : TEXT("(host)"), bEndReturnsToLobby ? TEXT(", back to the lobby") : TEXT(""));
+}
+
+void AMyGameMode::OnEndScreenDone()
+{
+	if (bEndReturnsToLobby)
+	{
+		ReturnToLobby();
+	}
+	else
+	{
+		RestartMatch();
+	}
 }
 
 void AMyGameMode::RestartMatch()
 {
-	UWorld* World = GetWorld();
-	AMyGameState* MyGameState = GetMatchGameState();
-
-	if (!bMatchOn || bRestarting || !World || GetNetMode() == NM_Client)
-	{
-		return;
-	}
-
-	FTimerManager& TimerManager = GetWorldTimerManager();
-	TimerManager.ClearTimer(RestartTimer);
-	TimerManager.ClearTimer(CountdownTimer);
-
-	// The round counts versus rounds: the lane sides swap on odd ones so the start floor's side alternates between the
-	// two teams (B1.6, decided in StartCountdown). A practice round never swaps (no opponent to be fair to, and its lone
-	// ship stays near the floor), and its restart keeps the round, so the next versus round still alternates
-	const bool bSwapSides = IsVersusRound();
-	int32 NextRound = bSwapSides ? RoundIndex + 1 : RoundIndex;
-
-	if (UMyMatchMemorySubsystem* Memory = UMyMatchMemorySubsystem::Get(this))
-	{
-		Memory->SetRoundIndex(RoundIndex);
-		Memory->RememberTeams(MyGameState);
-
-		if (bSwapSides)
-		{
-			Memory->NextRound();
-		}
-		NextRound = Memory->GetRoundIndex();
-	}
-
-	// The players that played come back (non-seamless travel: clients reconnect); waiting for that many starts the next
-	// round as soon as they are all in, the host's Start match covers anyone who doesn't
-	int32 NumPlayers = 0;
-
-	if (MyGameState)
-	{
-		for (const APlayerState* PlayerState : MyGameState->PlayerArray)
-		{
-			NumPlayers += (PlayerState && !PlayerState->IsOnlyASpectator()) ? 1 : 0;
-		}
-	}
-
-	const FString Options = BuildRulesOptions(MatchRules, NextTeamMode)
-		+ FString::Printf(TEXT("?Players=%d?Match=1?Round=%d"), FMath::Max(1, NumPlayers), NextRound);
-	const FString MapPath = UWorld::RemovePIEPrefix(World->GetPackage()->GetName());
-	bRestarting = true;
-
-	UE_LOG(LogMatch, Log, TEXT("Match: restart, round %d: %s%s"), NextRound, *MapPath, *Options);
-
-	if (GetNetMode() == NM_Standalone)
-	{
-		// OpenLevel adds its own '?'
-		UGameplayStatics::OpenLevel(this, FName(*MapPath), true, Options.RightChop(1));
-		return;
-	}
-
-	const FString TravelURL = MapPath + (GetNetMode() == NM_ListenServer ? TEXT("?listen") : TEXT("")) + Options;
-
-	if (!World->ServerTravel(TravelURL, true))
-	{
-		bRestarting = false;
-		UE_LOG(LogMatch, Warning, TEXT("Match: ServerTravel to %s refused"), *TravelURL);
-	}
+	// The same travel as the return to the lobby, without the lobby (SPEC_B_LOBBY 5.3): seamless outside PIE, so Steam
+	// clients stay connected (a hard travel drops them, 5.1)
+	TravelToRound(/*bLobby=*/false);
 }
 
 void AMyGameMode::SetPlayerTeam(AMyPlayerState* Player, uint8 TeamId)
@@ -1602,6 +1695,7 @@ void AMyGameMode::SetPlayerTeam(AMyPlayerState* Player, uint8 TeamId)
 
 	const uint8 OldTeam = Player->GetTeamId();
 	Player->SetTeamId(TeamId);
+	Player->SetRequestedTeam(MyMatch::NoTeam);
 	UE_LOG(LogMatch, Log, TEXT("Team change: %s %s -> %s"), *Player->GetPlayerName(), *MyGameModeMatch::TeamLabel(OldTeam), *MyGameModeMatch::TeamLabel(TeamId));
 	EvaluateTeams();
 }
@@ -1612,8 +1706,11 @@ void AMyGameMode::ApplyRules(const FMyMatchRules& NewRules)
 	MyGameModeMatch::ClampRules(Rules, TEXT("ApplyRules"));
 	NextTeamMode = Rules.TeamMode;
 
-	// The running round keeps its team mode: teams, ships and lives were set up for it. The restart takes the new one
-	if (bMatchOn && GetPhase() != EMyMatchPhase::None && Rules.TeamMode != MatchRules.TeamMode)
+	// The running round keeps its team mode: teams, ships and lives were set up for it. The restart takes the new one.
+	// In the lobby (phase Lobby, not its countdown) it applies at once: nothing is set up yet (SPEC_B_LOBBY 4.6)
+	const bool bLobbyNow = bMatchOn && GetPhase() == EMyMatchPhase::Lobby;
+
+	if (bMatchOn && GetPhase() != EMyMatchPhase::None && !bLobbyNow && Rules.TeamMode != MatchRules.TeamMode)
 	{
 		UE_LOG(LogMatch, Log, TEXT("Match rules: Teams=%s from the next restart"), MyGameModeMatch::TeamModeOption(Rules.TeamMode));
 		Rules.TeamMode = MatchRules.TeamMode;
@@ -1630,6 +1727,23 @@ void AMyGameMode::ApplyRules(const FMyMatchRules& NewRules)
 
 	MyGameState->SetMatchRules(MatchRules);
 	UE_LOG(LogMatch, Log, TEXT("Match rules: %s"), *MyGameModeMatch::RulesText(MatchRules));
+
+	// Every caller (the lobby widget, the console, the pause menu) gets the same lobby result: Max Players follows a 1v1 /
+	// 2v2, teams again in join order, ready flags off
+	if (bLobbyNow && Old.TeamMode != MatchRules.TeamMode)
+	{
+		const int32 ModeMax = UMyTeamLibrary::GetTeamModeMaxPlayers(MatchRules.TeamMode);
+
+		if (ModeMax > 0)
+		{
+			ExpectedPlayers = ModeMax;
+			MyGameState->SetExpectedPlayers(ModeMax);
+		}
+
+		RebalanceLobbyTeams();
+		ClearLobbyReady(TEXT("the team mode changed"));
+		UpdateLobbyState();
+	}
 
 	if (Old.SwarmDifficulty != MatchRules.SwarmDifficulty)
 	{
@@ -1839,7 +1953,7 @@ void AMyGameMode::RemoveUntaggedPlacedShips()
 	}
 }
 
-void AMyGameMode::ClaimOrSpawnShips(bool bTwoTeams)
+void AMyGameMode::ClaimOrSpawnShips(bool bTwoTeams, bool bRemoveUntaggedPlaced)
 {
 	AMyGameState* MyGameState = GetMatchGameState();
 	const UMyMatchSettings* Settings = UMyMatchSettings::Get();
@@ -1870,7 +1984,7 @@ void AMyGameMode::ClaimOrSpawnShips(bool bTwoTeams)
 		}
 	}
 
-	if (bTwoTeams)
+	if (bTwoTeams && bRemoveUntaggedPlaced)
 	{
 		RemoveUntaggedPlacedShips();
 	}
@@ -2462,7 +2576,8 @@ void AMyGameMode::MatchTick()
 		}
 	}
 
-	if (GetPhase() != EMyMatchPhase::None && GetPhase() != EMyMatchPhase::WaitingToStart)
+	// Not in the lobby or its countdown (phase Countdown): the lobby zone and its fall catch bring players back instead
+	if (GetPhase() != EMyMatchPhase::None && GetPhase() != EMyMatchPhase::WaitingToStart && GetPhase() != EMyMatchPhase::Lobby && !IsInLobby())
 	{
 		UpdateFallDeaths();
 	}
@@ -2731,7 +2846,8 @@ float AMyGameMode::GetTeamProgress(uint8 TeamId) const
 		const AMyPlayerState* MyPlayerState = Cast<AMyPlayerState>(PlayerState);
 		const AMyHexPlatform* Platform = MyPlayerState && MyPlayerState->GetTeamId() == TeamId ? MyPlayerState->GetCurrentPlatform() : nullptr;
 
-		if (IsValid(Platform))
+		// Only path platforms are race progress: the placed one above the start floor has no SplineDistance (SPEC_B_LOBBY 3.4)
+		if (IsValid(Platform) && Platform->HasSplineDistance())
 		{
 			Best = FMath::Max(Best, Lanes->ProjectU(Platform->GetActorLocation()));
 		}
@@ -2807,6 +2923,14 @@ AActor* AMyGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	TArray<APlayerStart*> Free;
 	TArray<APlayerStart*> TeamAny;
 	TArray<APlayerStart*> Any;
+	TArray<APlayerStart*> LobbyFree;
+	TArray<APlayerStart*> LobbyAny;
+
+	// The lobby stands on its own starts (Lobby-tagged ones first, those with ground under them: ResolveLobbySpawn); the
+	// match skips Lobby-tagged starts unless there is nothing else (SPEC_B_LOBBY 4.7)
+	// (also in phase None of a lobby round: the host's login picks his StartSpot before StartPlay, and the engine reuses it)
+	const bool bLobbyStarts = (IsInLobby() || (bLobbyRound && GetPhase() == EMyMatchPhase::None)) && LobbyGround == EMyLobbyGround::PlayerStarts;
+	static const FName LobbyTag(TEXT("Lobby"));
 
 	for (TActorIterator<APlayerStart> It(World); It; ++It)
 	{
@@ -2818,12 +2942,23 @@ AActor* AMyGameMode::ChoosePlayerStart_Implementation(AController* Player)
 			return Start;
 		}
 
+		const bool bFreeStart = !PawnToFit || !World->EncroachingBlockingGeometry(PawnToFit, Start->GetActorLocation(), Start->GetActorRotation());
+
+		if (bLobbyStarts ? LobbyStarts.Contains(Start) : Start->PlayerStartTag == LobbyTag)
+		{
+			if (bFreeStart)
+			{
+				LobbyFree.Add(Start);
+			}
+			LobbyAny.Add(Start);
+			continue;
+		}
+
 		const bool bTeam = !TeamTag.IsNone() && Start->PlayerStartTag == TeamTag;
-		const bool bFree = !PawnToFit || !World->EncroachingBlockingGeometry(PawnToFit, Start->GetActorLocation(), Start->GetActorRotation());
 
 		(bTeam ? TeamAny : Any).Add(Start);
 
-		if (bFree)
+		if (bFreeStart)
 		{
 			(bTeam ? TeamFree : Free).Add(Start);
 		}
@@ -2831,8 +2966,12 @@ AActor* AMyGameMode::ChoosePlayerStart_Implementation(AController* Player)
 
 	// The team's free starts, then any free one, then any (the team's first): never none, so the engine's "NO
 	// PLAYERSTART with positive rating" path doesn't leave a second player without a pawn (flag 7); RestartPlayer
-	// rings an occupied start
-	for (const TArray<APlayerStart*>* Starts : { &TeamFree, &Free, &TeamAny, &Any })
+	// rings an occupied start. The lobby: its own starts first; the match: Lobby-tagged ones last
+	const TArray<const TArray<APlayerStart*>*> Order = bLobbyStarts
+		? TArray<const TArray<APlayerStart*>*>{ &LobbyFree, &LobbyAny, &TeamFree, &Free, &TeamAny, &Any }
+		: TArray<const TArray<APlayerStart*>*>{ &TeamFree, &Free, &TeamAny, &Any, &LobbyFree, &LobbyAny };
+
+	for (const TArray<APlayerStart*>* Starts : Order)
 	{
 		if (Starts->Num() > 0)
 		{
@@ -2856,6 +2995,25 @@ void AMyGameMode::RestartPlayer(AController* NewPlayer)
 	const EMyMatchPhase Phase = GetPhase();
 	const AMyGameState* MyGameState = GetMatchGameState();
 
+	// The lobby (SPEC_B_LOBBY 4.7): PathStart puts the pawn on a tile of its platform; PlayerStarts and the fallback take
+	// the engine's start (ChoosePlayerStart prefers the lobby's) and the ring search below
+	if (!NewPlayer->GetPawn() && !bRestartFromRespawn && Phase == EMyMatchPhase::Lobby && IsInLobby() && LobbyGround == EMyLobbyGround::PathStart)
+	{
+		FPawnFit Fit;
+		FRespawnSpot Spot;
+
+		if (GetPawnFit(NewPlayer, Fit) && GetLobbySpot(NewPlayer, Fit, Spot))
+		{
+			RestartPlayerAtTransform(NewPlayer, Spot.PawnTransform);
+
+			if (NewPlayer->GetPawn())
+			{
+				UE_LOG(LogMatch, Log, TEXT("Lobby: %s spawns on %s"), *GetNameSafe(NewPlayer->PlayerState), *GetNameSafe(LobbyPlatform.Get()));
+				return;
+			}
+		}
+	}
+
 	if (!NewPlayer->GetPawn() && !bRestartFromRespawn && MyGameState && (Phase == EMyMatchPhase::InProgress || Phase == EMyMatchPhase::Ended))
 	{
 		const uint8 Team = GetControllerTeam(NewPlayer);
@@ -2864,12 +3022,14 @@ void AMyGameMode::RestartPlayer(AController* NewPlayer)
 		bool bHasSpot = false;
 		const TCHAR* Where = TEXT("aboard");
 
-		if (bVersusRound && UMyMatchSettings::Get()->bStartAboard)
+		// Practice too (SPEC_B_LOBBY D10): aboard team 0's ship
+		if (UMyMatchSettings::Get()->bStartAboard)
 		{
 			bHasSpot = FindAboardTransform(NewPlayer, Ship, INDEX_NONE, SpawnTransform);
 		}
 
-		if (!bHasSpot && MyGameState->GetLeadSplineDistance() >= 0.f)
+		// No landing needed: with nobody landed FindRespawnSpot gives the path's first platforms (SPEC_B_LOBBY 3.4)
+		if (!bHasSpot)
 		{
 			FPawnFit Fit;
 			FRespawnSpot Spot;
@@ -3028,6 +3188,12 @@ void AMyGameMode::ScheduleRespawn(AController* Controller)
 		return;
 	}
 
+	// Leaving the map (StartToLeaveMap cleared the timers), or the lobby countdown: everyone starts aboard at 0 anyway
+	if (bRestarting || IsLobbyCountingDown())
+	{
+		return;
+	}
+
 	FPendingRespawn& Pending = PendingRespawns.Add(Controller);
 	const TWeakObjectPtr<AController> WeakController(Controller);
 	FTimerManager& TimerManager = GetWorldTimerManager();
@@ -3081,7 +3247,8 @@ void AMyGameMode::RespawnPlayer(TWeakObjectPtr<AController> WeakController)
 
 	AController* Controller = WeakController.Get();
 
-	if (!IsValid(Controller) || Controller->IsActorBeingDestroyed())
+	// The lobby countdown began meanwhile: the start puts him aboard (BeginRound takes the dead lobby pawn back)
+	if (!IsValid(Controller) || Controller->IsActorBeingDestroyed() || IsLobbyCountingDown())
 	{
 		return;
 	}
@@ -3187,6 +3354,12 @@ bool AMyGameMode::FindRespawnSpot(AController* Controller, const FPawnFit& Fit, 
 	const AMyGameState* MyGameState = GetGameState<AMyGameState>();
 	const uint8 MatchTeam = bMatchOn ? GetControllerTeam(Controller) : MyMatch::NoTeam;
 
+	// A lobby pawn destroyed anyway (out of the world) comes back at a lobby spot (SPEC_B_LOBBY 3.3)
+	if (bMatchOn && IsInLobby() && GetLobbySpot(Controller, Fit, OutSpot))
+	{
+		return true;
+	}
+
 	// Team match option (bRespawnAboard, off by default): the own ship's deck while it is alive, in its lane and hasn't
 	// been hit for 5 s. Off because a respawn aboard leaves a runner 225 m out until a pilot flies him in (B9.7)
 	if (bMatchOn && MyGameState && MatchTeam < MyMatch::NumTeams && UMyMatchSettings::Get()->bRespawnAboard && GetPhase() == EMyMatchPhase::InProgress)
@@ -3209,7 +3382,9 @@ bool AMyGameMode::FindRespawnSpot(AController* Controller, const FPawnFit& Fit, 
 		}
 	}
 
-	if (MyGameState && MyGameState->GetLeadSplineDistance() >= 0.f)
+	// Team match: also with nobody landed yet (PastDistance -1: the path's first platforms, nearest the path start first),
+	// so a respawn never needs the start floor (SPEC_B_LOBBY 3.4). Match off: the PlayerStart until someone lands
+	if (MyGameState && (MyGameState->GetLeadSplineDistance() >= 0.f || bMatchOn))
 	{
 		// Platforms up to the furthest distance the lead has reached are collapsing. It only goes up, so a
 		// lead that walks back (or leaves) doesn't put the spot on one of them
@@ -3294,11 +3469,13 @@ bool AMyGameMode::FindRespawnSpot(AController* Controller, const FPawnFit& Fit, 
 
 		for (const FCandidate& Candidate : Candidates)
 		{
-			// Face on along the path, away from the lead
+			// Face on along the path, away from the lead (nobody landed: the path's start heading)
 			const FVector Forward = LeadPlatform && LeadPlatform != Candidate.Platform
 				? (Candidate.Platform->GetActorLocation() - LeadPlatform->GetActorLocation()).GetSafeNormal2D()
 				: FVector::ZeroVector;
-			const double Yaw = Forward.IsNearlyZero() ? Controller->GetControlRotation().Yaw : Forward.Rotation().Yaw;
+			const UMyLaneSubsystem* HeadingLanes = LeadPlatform ? nullptr : UMyLaneSubsystem::Get(this);
+			const double Yaw = !Forward.IsNearlyZero() ? Forward.Rotation().Yaw
+				: (HeadingLanes && HeadingLanes->HasLanes() ? static_cast<double>(HeadingLanes->GetStartYaw()) : Controller->GetControlRotation().Yaw);
 
 			if (FindRespawnTile(Candidate.Platform, Fit, FRotator(0.0, Yaw, 0.0), Controller, OutSpot))
 			{
