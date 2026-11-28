@@ -57,7 +57,9 @@ void USessionEntry3::Setup(UMainMenu3* InOwningMenu, const FAuraSessionInfo& Inf
 	}
 	if (RulesText)
 	{
-		RulesText->SetText(FText::FromString(Info.Rules));
+		// IN LOBBY / IN MATCH from the advertised InMatch key (SPEC_B_LOBBY 5.6)
+		RulesText->SetText(FText::Format(LOCTEXT("RulesAndState", "{0}  {1}"), FText::FromString(Info.Rules),
+			Info.bInMatch ? LOCTEXT("InMatch", "IN MATCH") : LOCTEXT("InLobby", "IN LOBBY")));
 	}
 	if (FullBadge)
 	{

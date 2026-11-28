@@ -20,6 +20,8 @@ namespace AuraSessionKeys
 	inline const FName Listed(TEXT("Listed"));
 	// MainMenu3
 	inline const FName LobbyName(TEXT("LobbyName"));
+	// The in-level lobby (SPEC_B_LOBBY 5.6): 0 = in the lobby, 1 = a match runs (Steam's Start / End only change the local state)
+	inline const FName InMatch(TEXT("InMatch"));
 }
 
 UENUM(BlueprintType)
@@ -70,6 +72,10 @@ struct FAuraHostSettings
 	// Off = the lobby stops accepting joins once the host starts the match (StartSession).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aura|Session")
 	bool bAllowJoinInProgress = true;
+
+	// Advertised as InMatch: the browser shows IN MATCH (true) or IN LOBBY (false). AMyGameMode writes it with AdvertiseMatch.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aura|Session")
+	bool bInMatch = false;
 };
 
 USTRUCT(BlueprintType)
@@ -143,4 +149,8 @@ struct FAuraSessionInfo
 
 	UPROPERTY(BlueprintReadOnly, Category = "Aura|Session")
 	bool bAllowJoinInProgress = true;
+
+	// The host's game is in a match (IN MATCH), else in its lobby (IN LOBBY). Old hosts don't advertise it: false.
+	UPROPERTY(BlueprintReadOnly, Category = "Aura|Session")
+	bool bInMatch = false;
 };

@@ -18,6 +18,8 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Match/MyMatchSettings.h"
+#include "Match/MyTeamLibrary.h"
 #include "MechSwarm/Combat/MechSentinelCombatLibrary.h"
 #include "MechSwarm/Core/MechSentinelSwarmRules.h"
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
@@ -206,10 +208,11 @@ void UGA_GunShoot::MyFunc(FVector InImpactPoint,AActor* InTargetActor)
 			if (Avatar && Avatar->HasAuthority())
 			{
 				// No friendly fire on the balls of the ship the shooter rides (deck, helm or gun station), like the
-				// ship's own turrets; the ball still took the shot
+				// ship's own turrets, nor in a match on the balls of a teammate's ship (the ball's team is stored at
+				// launch, so it holds after its ship is gone); the ball still took the shot
 				const AAirshipPawn* BallShip = Ball->GetSourceShip();
 				const bool bOwnShip = BallShip && Shooter && BallShip->IsRiderForDamage(Shooter);
-				if (!bOwnShip)
+				if (!bOwnShip && !UMyTeamLibrary::IsFriendlyFireBlocked(Avatar, Ball))
 				{
 					Ball->ApplyShotDamage(CannonballShotUnits, Avatar);
 				}
@@ -237,6 +240,33 @@ void UGA_GunShoot::MyFunc(FVector InImpactPoint,AActor* InTargetActor)
 			{
 				return;
 			}
+		}
+
+		// Match: no damage to teammates, their ship or its turrets unless the rules allow friendly fire. Both machines
+		// decide the same from replicated team ids; only the server's damage counts
+		if (UMyTeamLibrary::IsFriendlyFireBlocked(Avatar, InTargetActor))
+		{
+			return;
+		}
+
+		// Match: a team ship or its turret takes a fixed amount per hit instead of DamageEffectClass's value, which differs
+		// by 1000x between trees and would decide ship lives on its own. Through the ship's (turret's) own damage path, with
+		// the shooter in the effect context; 0 = the effect's value below
+		const float FixedShipDamage = UMyMatchSettings::Get()->ShipDamageGunHit;
+		if (FixedShipDamage > 0.f && UMyTeamLibrary::IsTeamShipTarget(InTargetActor))
+		{
+			if (Avatar && Avatar->HasAuthority())
+			{
+				if (AAirshipPawn* TargetShip = Cast<AAirshipPawn>(InTargetActor))
+				{
+					TargetShip->ApplyShipDamage(FixedShipDamage, Avatar);
+				}
+				else if (AAirshipTurret* TargetTurret = Cast<AAirshipTurret>(InTargetActor))
+				{
+					TargetTurret->ApplyTurretDamage(FixedShipDamage, Avatar);
+				}
+			}
+			return;
 		}
 
 		// Characters and any other GAS actor whose ASC has UMyAttributeSet (AAirshipPawn)

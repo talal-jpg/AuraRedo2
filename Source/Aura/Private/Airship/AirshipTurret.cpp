@@ -19,6 +19,8 @@
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameplayEffect.h"
+#include "Match/MyMatchSettings.h"
+#include "Match/MyTeamLibrary.h"
 #include "MechSwarm/Combat/MechSentinelCombatLibrary.h"
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 #include "Net/UnrealNetwork.h"
@@ -171,9 +173,13 @@ void AAirshipTurret::BeginPlay()
 		AbilitySystemComponent->SetNumericAttributeBase(UMyAttributeSet::GetHealthAttribute(), TurretMaxHealth);
 		AbilitySystemComponent->SetNumericAttributeBase(UMyAttributeSet::GetArmorAttribute(), TurretArmor);
 
-		// Sentinel bullets hit it through their Visibility trace (actor tags don't replicate; hits are server-only).
-		// The ship adds it too after spawning; this covers a turret spawned any other way.
-		Tags.AddUnique(UMechSentinelSwarmSubsystem::BulletTargetTag);
+		// Sentinel bullets hit it through their Visibility trace (actor tags don't replicate; hits are server-only). A
+		// turret with a ship leaves the tag to it (on only while the ship is driven, or a free ship, round 2 PR B,
+		// AAirshipPawn::RefreshSentinelBulletTags); this covers a turret spawned any other way.
+		if (!GetShip())
+		{
+			Tags.AddUnique(UMechSentinelSwarmSubsystem::BulletTargetTag);
+		}
 
 		CachedGunBaseDamage = ReadGunBaseDamage();
 		UE_LOG(LogAirshipTurret, Log, TEXT("%s: turret %d on %s at %s, bullet damage %.2f (%.2f x gun %.2f), health %.0f."),
@@ -580,10 +586,11 @@ bool AAirshipTurret::TraceShotLine(const FVector& Start, const FVector& End, FCo
 			return false;
 		}
 
-		// Cannonballs block Visibility: this ship's own are looked past (they stay ignored for the rest of the batch)
+		// Cannonballs block Visibility: this ship's own (and its teammates') are looked past (they stay ignored for the
+		// rest of the batch)
 		const AAirshipCannonball* Ball = Cast<AAirshipCannonball>(OutHit.GetActor());
 
-		if (Ball && OwnShip && Ball->GetSourceShip() == OwnShip && Retrace < MaxOwnBallRetraces)
+		if (Ball && OwnShip && IsFriendlyBall(Ball) && Retrace < MaxOwnBallRetraces)
 		{
 			Params.AddIgnoredActor(Ball);
 			continue;
@@ -627,7 +634,7 @@ AAirshipCannonball* AAirshipTurret::FindBallOnShot(const FVector& Start, const F
 	{
 		AAirshipCannonball* Ball = Cast<AAirshipCannonball>(Hit.GetActor());
 
-		if (!Ball || Ball->IsSpent() || (OwnShip && Ball->GetSourceShip() == OwnShip))
+		if (!Ball || Ball->IsSpent() || (OwnShip && IsFriendlyBall(Ball)))
 		{
 			continue;
 		}
@@ -673,10 +680,10 @@ void AAirshipTurret::FireOneShot(FCollisionQueryParams& Params, AActor* DamageIn
 	{
 		if (AAirshipCannonball* LineBall = Cast<AAirshipCannonball>(LineHit.GetActor()))
 		{
-			// An enemy ball on the line (own ones were looked past; one past the re-trace limit just stops the round)
+			// An enemy ball on the line (own and teammates' ones were looked past; one past the re-trace limit just stops the round)
 			const AAirshipPawn* OwnShip = GetShip();
 
-			if (!LineBall->IsSpent() && (!OwnShip || LineBall->GetSourceShip() != OwnShip))
+			if (!LineBall->IsSpent() && (!OwnShip || !IsFriendlyBall(LineBall)))
 			{
 				LineBall->ApplyShotDamage(BallUnits, DamageInstigator);
 			}
@@ -729,8 +736,10 @@ void AAirshipTurret::ApplyBulletDamage(const FHitResult& Hit, AActor* DamageInst
 		Target = Target->GetAttachParentActor();
 	}
 
-	// Team checks (a later PR) go here: this is the turret's one target filter
-	if (!TargetASC || Target == OwnShip || !TargetASC->HasAttributeSetForAttribute(UMyAttributeSet::GetHealthAttribute()))
+	// The turret's one target filter. Team match: no damage to its ship's teammates (players, their ship, its turrets)
+	// unless the rules allow friendly fire (SPEC_B B6.2)
+	if (!TargetASC || Target == OwnShip || !TargetASC->HasAttributeSetForAttribute(UMyAttributeSet::GetHealthAttribute())
+		|| UMyTeamLibrary::IsTeamFireBlocked(UMyTeamLibrary::GetFiringTeamId(OwnShip, DamageInstigator), Target))
 	{
 		return;
 	}
@@ -758,10 +767,57 @@ void AAirshipTurret::ApplyBulletDamage(const FHitResult& Hit, AActor* DamageInst
 		return;
 	}
 
-	Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, GetBulletDamage());
+	// Team match: a team ship or its turret takes a fixed amount per round, not 4 x the gun's GE value, which differs by
+	// 1000x between trees (SPEC_B B6.5). 0 = the bullet damage (PR A).
+	const float RoundDamage = UMyMatchSettings::Get()->ShipDamageTurretRound;
+	const float Damage = (RoundDamage > 0.f && UMyTeamLibrary::IsTeamShipTarget(Target)) ? RoundDamage : GetBulletDamage();
+
+	Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, Damage);
 	ShipASC->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 
-	UE_LOG(LogAirshipTurret, VeryVerbose, TEXT("%s: hit %s for %.2f."), *GetName(), *GetNameSafe(Target), GetBulletDamage());
+	UE_LOG(LogAirshipTurret, VeryVerbose, TEXT("%s: hit %s for %.2f."), *GetName(), *GetNameSafe(Target), Damage);
+}
+
+bool AAirshipTurret::IsFriendlyBall(const AAirshipCannonball* Ball) const
+{
+	const AAirshipPawn* OwnShip = GetShip();
+
+	if (!Ball || !OwnShip)
+	{
+		return false;
+	}
+
+	// Its own ship's, or a teammate ship's while friendly fire is off (the ball's team is its SourceTeamId; a free ship
+	// fires for its pilot's team)
+	return Ball->GetSourceShip() == OwnShip || UMyTeamLibrary::IsTeamFireBlocked(UMyTeamLibrary::GetFiringTeamId(OwnShip, nullptr), Ball);
+}
+
+void AAirshipTurret::ApplyTurretDamage(float Damage, AActor* DamageInstigator)
+{
+	if (!HasAuthority() || bDestroyed || Damage <= 0.f || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	// The turret's own effect from its own ASC (as the ship's ApplyShipDamage): the gun's GE spec isn't applied
+	AActor* ContextInstigator = IsValid(DamageInstigator) ? DamageInstigator : (GetShip() ? static_cast<AActor*>(GetShip()) : static_cast<AActor*>(this));
+	FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
+	Context.AddInstigator(ContextInstigator, ContextInstigator);
+	Context.AddSourceObject(this);
+
+	const TSubclassOf<UGameplayEffect> EffectClass = DamageEffectClass ? DamageEffectClass : TSubclassOf<UGameplayEffect>(UAirshipDamageEffect::StaticClass());
+	const float Level = static_cast<float>(IMyCombatInterface::Execute_GetLevel(this));
+	const FGameplayEffectSpecHandle Spec = AbilitySystemComponent->MakeOutgoingSpec(EffectClass, Level, Context);
+
+	if (!Spec.IsValid())
+	{
+		return;
+	}
+
+	Spec.Data->SetSetByCallerMagnitude(MyTags::SetDamageByCaller, Damage);
+	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+
+	UE_LOG(LogAirshipTurret, Verbose, TEXT("%s: took %.1f (fixed) from %s."), *GetName(), Damage, *GetNameSafe(ContextInstigator));
 }
 
 void AAirshipTurret::QueueSentinelSegment(const FVector& Start, const FVector& End, AActor* DamageInstigator)

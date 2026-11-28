@@ -242,6 +242,23 @@ AMechSentinelClientBubbleInfo::AMechSentinelClientBubbleInfo(const FObjectInitia
 	SetNetUpdateFrequency(20.f);
 }
 
+void AMechSentinelClientBubbleInfo::Tick(float DeltaTime)
+{
+	// A client keeps its copy of this replicated actor through a seamless travel (FSeamlessTravelHandler keeps every
+	// non-startup actor it doesn't own, World.cpp), and garbage collection then nulls the serializer's World (a Transient
+	// UPROPERTY) with the old world: the engine handler's check(World) (MassClientBubbleHandler.h:736) took the client
+	// down on the seamless return to the lobby (as_80 LM1.13, 2026-11-28). The new world's server makes new bubbles; this
+	// stale copy only waits for its channel to close
+	const UWorld* SerializerWorld = SentinelSerializer.GetWorld();
+
+	if (!SerializerWorld || SerializerWorld != GetWorld())
+	{
+		return;
+	}
+
+	Super::Tick(DeltaTime);
+}
+
 void AMechSentinelClientBubbleInfo::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

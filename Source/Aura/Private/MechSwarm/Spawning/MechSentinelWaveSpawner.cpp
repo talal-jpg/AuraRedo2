@@ -26,6 +26,8 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MechSentinelWaveSpawner)
 
+DEFINE_LOG_CATEGORY_STATIC(LogMechSentinelWaves, Log, All);
+
 namespace MechSwarm::WaveSpawnerPrivate
 {
 	/** Linear keys (X wave number, Y factor), flat before the first key and growing on past the last one at its slope. */
@@ -154,6 +156,9 @@ void AMechSentinelWaveSpawner::BeginPlay()
 	{
 		return;
 	}
+
+	// A difficulty set before play (the GameMode's StartPlay) caps this spawner from its first wave on
+	ApplyDifficultyMaxAlive();
 
 	const bool bExternal = AdvanceMode == EMechSentinelWaveAdvance::External;
 
@@ -296,6 +301,14 @@ FMechSentinelWave AMechSentinelWaveSpawner::ResolveWave(const int32 WaveNumber, 
 		}
 	}
 
+	// Runtime difficulty on top of the design, before the clamps; its Count goes with CountMultiplier (ResolveCount)
+	Wave.HealthMultiplier *= DifficultyScale.Health;
+	Wave.ArmorMultiplier *= DifficultyScale.Armor;
+	Wave.DamageMultiplier *= DifficultyScale.Damage;
+	Wave.AttackSpeedMultiplier *= DifficultyScale.AttackSpeed;
+	Wave.MoveSpeedMultiplier *= DifficultyScale.MoveSpeed;
+	Wave.SelfBuffChanceMultiplier *= DifficultyScale.SelfBuffChance;
+
 	ClampWave(Wave);
 	return Wave;
 }
@@ -335,7 +348,7 @@ FMechSentinelWave AMechSentinelWaveSpawner::GetWaveDefinition(const int32 WaveNu
 
 int32 AMechSentinelWaveSpawner::ResolveCount(const FMechSentinelWave& Wave, const int32 WaveNumber) const
 {
-	return FMath::Max(0, FMath::RoundToInt32(float(Wave.Count) * CountMultiplier));
+	return FMath::Max(0, FMath::RoundToInt32(float(Wave.Count) * CountMultiplier * DifficultyScale.Count));
 }
 
 bool AMechSentinelWaveSpawner::HasWave(const int32 WaveNumber) const
@@ -450,6 +463,77 @@ void AMechSentinelWaveSpawner::SetWaveCount(const int32 WaveIndex, const int32 N
 	{
 		ReplanRuns();
 	}
+}
+
+void AMechSentinelWaveSpawner::SetDifficultyScale(const FMechSentinelDifficultyScale& Scale)
+{
+	// Negative factors mean nothing; ClampWave keeps the resolved multipliers in their ranges
+	DifficultyScale.Count = FMath::Max(0.f, Scale.Count);
+	DifficultyScale.Health = FMath::Max(0.f, Scale.Health);
+	DifficultyScale.Armor = FMath::Max(0.f, Scale.Armor);
+	DifficultyScale.Damage = FMath::Max(0.f, Scale.Damage);
+	DifficultyScale.AttackSpeed = FMath::Max(0.f, Scale.AttackSpeed);
+	DifficultyScale.MoveSpeed = FMath::Max(0.f, Scale.MoveSpeed);
+	DifficultyScale.SelfBuffChance = FMath::Max(0.f, Scale.SelfBuffChance);
+	DifficultyScale.MaxAlive = FMath::Max(0.f, Scale.MaxAlive);
+
+	UE_LOG(LogMechSentinelWaves, Log, TEXT("%s: difficulty count x%.2f, health x%.2f, armor x%.2f, damage x%.2f, attack speed x%.2f, move speed x%.2f, self-buff x%.2f, max alive x%.2f%s."),
+		*GetName(), DifficultyScale.Count, DifficultyScale.Health, DifficultyScale.Armor, DifficultyScale.Damage, DifficultyScale.AttackSpeed,
+		DifficultyScale.MoveSpeed, DifficultyScale.SelfBuffChance, DifficultyScale.MaxAlive, HasActorBegunPlay() ? TEXT("") : TEXT(" (before play)"));
+
+	// Before play: stored. BeginPlay applies MaxAlive, and every wave resolves with the new scale from the first one on
+	if (!HasActorBegunPlay() || !HasAuthority())
+	{
+		return;
+	}
+
+	ApplyDifficultyMaxAlive();
+
+	// What is not spawned yet takes the new stats: the current wave (and what SpawnSentinelsNow spawns with) and every
+	// wave started at points, resolved again as when it started. Alive sentinels keep theirs.
+	if (CurrentWaveNumber >= 1)
+	{
+		if (AdvanceMode == EMechSentinelWaveAdvance::External)
+		{
+			CopyWaveStats(ResolveWaveFolded(CurrentWaveNumber), ActiveWave);
+		}
+		else
+		{
+			float StatScale = 1.f;
+			CopyWaveStats(ResolveWave(CurrentWaveNumber, StatScale), ActiveWave);
+		}
+	}
+	for (FWaveRun& Run : Runs)
+	{
+		if (!Run.bDropped)
+		{
+			CopyWaveStats(ResolveWaveFolded(Run.WaveNumber), Run.Def);
+		}
+	}
+
+	// Count: the current wave and the runs re-planned, as for a CountMultiplier change
+	SetCountMultiplier(CountMultiplier);
+}
+
+void AMechSentinelWaveSpawner::ApplyDifficultyMaxAlive()
+{
+	if (BaseMaxAlive == INDEX_NONE)
+	{
+		BaseMaxAlive = MaxAlive;
+	}
+
+	// 0 = no cap of its own stays that; a scaled cap never rounds down to 0, which would mean unlimited
+	MaxAlive = BaseMaxAlive > 0 ? FMath::Max(1, FMath::RoundToInt32(float(BaseMaxAlive) * DifficultyScale.MaxAlive)) : BaseMaxAlive;
+}
+
+void AMechSentinelWaveSpawner::CopyWaveStats(const FMechSentinelWave& From, FMechSentinelWave& To)
+{
+	To.HealthMultiplier = From.HealthMultiplier;
+	To.ArmorMultiplier = From.ArmorMultiplier;
+	To.DamageMultiplier = From.DamageMultiplier;
+	To.AttackSpeedMultiplier = From.AttackSpeedMultiplier;
+	To.MoveSpeedMultiplier = From.MoveSpeedMultiplier;
+	To.SelfBuffChanceMultiplier = From.SelfBuffChanceMultiplier;
 }
 
 void AMechSentinelWaveSpawner::BeginCountdown(const int32 NextWaveNumber)

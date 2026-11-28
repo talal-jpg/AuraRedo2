@@ -8,6 +8,8 @@
 #include "Interfaces/MyCombatInterface.h"
 #include "Airship/AirshipTypes.h"
 #include "Components/SlateWrapperTypes.h"
+#include "Engine/TimerHandle.h"
+#include "Match/MyMatchTypes.h"
 #include "AirshipPawn.generated.h"
 
 class AAirshipCannonball;
@@ -17,6 +19,7 @@ class ACharacter;
 class APlayerController;
 class UAirshipFlightComponent;
 class UAirshipHUDWidget;
+class UAirshipLaneComponent;
 class UCameraComponent;
 class UEnhancedInputLocalPlayerSubsystem;
 class UGameplayEffect;
@@ -78,6 +81,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnAirshipStationsChangedSignatur
  * (AAirshipTurret, spawned on the server at BeginPlay). Any other player presses F near a station's seat: the server
  * attaches their character there (it stays possessed, aims with its own camera) and lists it in StationGunners. The
  * pilot's broadside fires only the unmanned cannons; with the camera in the bow arc, Fire drives the unmanned turrets.
+ *
+ * Team match (Docs/Airship/round2/SPEC_B.md, CPP_NOTES.md section 16): TeamId (replicated, 255 = a free ship, as in PR A)
+ * is set by AMyGameMode for its team ships. Only its own team pilots or mans it (CanBoard / CanMount, UMyTeamLibrary);
+ * its fire spares only its own team's deck riders (IsRiderForDamage); sentinel bullets hit it only while it is driven
+ * (RefreshSentinelBulletTags); a new team ship is spawn protected until its team boards or mans it (SetSpawnProtected).
+ * UAirshipLaneComponent ("Lane") flies an unpiloted team ship along its lane through the flight model's Lane mode.
  */
 UCLASS()
 class AURA_API AAirshipPawn : public APawn, public IAbilitySystemInterface, public IMyCombatInterface
@@ -192,6 +201,65 @@ public:
 
 
 	// -------------------------------------------------------------------------
+	// Team match (SPEC_B; every machine reads, the server writes)
+	// -------------------------------------------------------------------------
+
+	/** 0 or 1 for a team ship, 255 (MyMatch::NoTeam) for a free ship (Aura.Airship.Spawn, a placed ship, no match). */
+	UFUNCTION(BlueprintPure, Category = "Airship|Match")
+	uint8 GetTeamId() const { return TeamId; }
+
+	/**
+	 * Server (AMyGameMode; before FinishSpawning for the ships it spawns, so the turrets and the lane see it in
+	 * BeginPlay): the team. Puts a pilot or gunner of another team on foot, refreshes the sentinel bullet tags and
+	 * tells the lane. 255 makes it a free ship again.
+	 */
+	void SetTeamId(uint8 NewTeam);
+
+	/** The lane follower (every ship has one; it only acts for team ships while the match has lanes). */
+	UAirshipLaneComponent* GetLane() const { return Lane; }
+
+	/** Every machine: the team changed (OnRep, and on the server in SetTeamId). */
+	FSimpleMulticastDelegate OnTeamChanged;
+
+	/**
+	 * Server: sentinel bullets damage this ship's hull and turrets only while it is driven (a pilot at the helm, or a
+	 * controller on it), as only a driven ship is a swarm target (SPEC_B B6.4); a free ship and
+	 * UMyMatchSettings::bSentinelBulletsHitUndrivenShips keep PR A's always. Board, exit, possession, team, turrets.
+	 */
+	void RefreshSentinelBulletTags();
+
+	/**
+	 * Server: no damage for Seconds from now (AirshipTags::State_SpawnProtected on the ship's and its turrets' ASCs,
+	 * which UMyAttributeSet honours), or until its team first boards the helm or mans a station, whichever comes
+	 * first. Seconds <= 0 ends it now. A countdown spawn passes the countdown plus the protection (SPEC_B B3.4).
+	 */
+	void SetSpawnProtected(float Seconds);
+
+	/** Every machine, from the replicated ProtectionEndServerTime. */
+	UFUNCTION(BlueprintPure, Category = "Airship|Match")
+	bool IsSpawnProtected() const;
+
+	/** Server time the protection ends (AGameStateBase::GetServerWorldTimeSeconds), 0 = none. */
+	double GetProtectionEndServerTime() const { return ProtectionEndServerTime; }
+
+	/**
+	 * Server, from GA_GrappleSwing2 (SPEC_B B7.4): Reeler reels in toward this ship with the ship hook (bActive) or
+	 * stopped. While any reel is registered the lane holds its speed and heading. An entry expires on its own after
+	 * IncomingReelSafetySeconds.
+	 */
+	void NotifyIncomingReel(const AActor* Reeler, bool bActive);
+
+	/** Server: someone reels in toward this ship now. */
+	bool HasIncomingReel() const;
+
+	/**
+	 * Server (start aboard, SPEC_B B4.2): Count standing spots on the deck for player pawns (feet on the walkable lid,
+	 * the default pawn's capsule above it, facing the bow), nearest the helm first. Fewer when the deck has no more room.
+	 */
+	void GetDeckSpawnTransforms(int32 Count, TArray<FTransform>& Out) const;
+
+
+	// -------------------------------------------------------------------------
 	// Deck passengers (every machine)
 	// -------------------------------------------------------------------------
 
@@ -213,12 +281,19 @@ public:
 	TArray<ACharacter*> GetPassengers() const;
 
 	/**
+	 * True if Character rides this ship (team-blind, every machine): attached to it (the pilot, the gunners), standing on
+	 * it (movement base owned by the ship or by an actor attached to it), or without a base inside the hull's own box
+	 * (its local bounds, turned with the ship) up to RiderZoneHeight above it, which a rider jumping on deck stays in.
+	 * Narrower than IsPassengerCandidate, whose zone is the world bounding box grown by PassengerZoneMargin: next to a
+	 * turned ship that box reaches tens of metres out, so an enemy jumping or hovering beside the ship would count. What
+	 * "ship-borne" means (UAirshipSubsystem::IsShipBorne); an enemy standing on the deck rides it too.
+	 */
+	bool IsRiding(const ACharacter* Character) const;
+
+	/**
 	 * True if this ship's own fire must spare Character (its cannonballs, turrets and aim traces; the character gun of a
-	 * rider at the ship's turrets): attached to it (the pilot, the gunners), standing on it (movement base owned by the
-	 * ship or by an actor attached to it), or without a base inside the hull's own box (its local bounds, turned with the
-	 * ship) up to RiderZoneHeight above it, which a rider jumping on deck stays in. Narrower than IsPassengerCandidate,
-	 * whose zone is the world bounding box grown by PassengerZoneMargin: next to a turned ship that box reaches tens of
-	 * metres out, so an enemy jumping or hovering beside the ship would be immune. Every machine.
+	 * rider at the ship's turrets): IsRiding, and for a rider that isn't attached, on this ship's team (any rider of a
+	 * free ship). Attached characters are its pilot and gunners, on its team by construction. Every machine.
 	 */
 	bool IsRiderForDamage(const ACharacter* Character) const;
 
@@ -443,9 +518,11 @@ public:
 	/**
 	 * Server: Damage through the project's damage path (DamageEffectClass, SetByCaller SetDamageByCaller on the ship's ASC).
 	 * UAirshipSettings::CrewDamageShare of every Health loss also reaches the pilot and the gunners (FlushCrewDamage).
+	 * DamageInstigator (round 2 PR B: the shooter of a fixed-damage gun hit, SPEC_B B6.5) goes into the effect context as
+	 * its instigator, so a shot can be told from a crash (hull impacts pass none: the ship itself).
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Airship|Damage")
-	void ApplyShipDamage(float Damage);
+	void ApplyShipDamage(float Damage, AActor* DamageInstigator = nullptr);
 
 	/** Server, console (Aura.Airship.Kill): health 0 and the normal death, without the crew's share (the crew is ejected alive). */
 	void DebugKill();
@@ -502,6 +579,9 @@ public:
 	/** Point & Fly, the pilot's machine: parked free look (entered at rest with no drive / turn key, held at any speed until one, Aim or an outside camera set above PFParkSpeed: the mouse looks around, the heading holds). */
 	UFUNCTION(BlueprintPure, Category = "Airship|PointFly")
 	bool IsPFParked() const { return bPFParked; }
+
+	/** The pilot's machine: the lane flies the ship and the pilot only looks and fires (the replicated lane state is Assist). */
+	bool IsLaneAssistLook() const;
 
 	/** The cannons' yaw limit (deg either side of their rest direction): the HUD's arc marks. */
 	float GetCannonYawLimitDeg() const { return CannonYawLimitDeg; }
@@ -592,6 +672,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Airship|Components")
 	TObjectPtr<UAirshipFlightComponent> Flight;
+
+	/** Team ships: follows the team's lane while nobody flies the ship (SPEC_B B2). Idle on free ships. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Airship|Components")
+	TObjectPtr<UAirshipLaneComponent> Lane;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Airship|Components")
 	TObjectPtr<UMyAbilitySystemComponent> AbilitySystemComponent;
@@ -841,6 +925,14 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.0"))
 	float EjectSideSpeed = 600.f;
+
+	/** Start aboard (GetDeckSpawnTransforms): spots this far apart (cm) on the deck. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "50.0"))
+	float DeckSpawnSpacing = 260.f;
+
+	/** A ship-hook reel announced with NotifyIncomingReel ends by itself after this long (s) if nobody ends it (the reel's own limit is 5 s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship|Pilot", meta = (ClampMin = "0.1"))
+	float IncomingReelSafetySeconds = 6.f;
 
 
 	// -------------------------------------------------------------------------
@@ -1346,6 +1438,17 @@ protected:
 	UPROPERTY(Replicated)
 	double DeathServerTime = 0.0;
 
+	/** Team match: 0 or 1, 255 = a free ship (SetTeamId, server). */
+	UPROPERTY(ReplicatedUsing = OnRep_TeamId, VisibleInstanceOnly, BlueprintReadOnly, Category = "Airship|Match")
+	uint8 TeamId = MyMatch::NoTeam;
+
+	/** Spawn protection's end (server world time, AGameStateBase::GetServerWorldTimeSeconds), 0 = none. HUD shield. */
+	UPROPERTY(Replicated)
+	double ProtectionEndServerTime = 0.0;
+
+	UFUNCTION()
+	void OnRep_TeamId();
+
 	/** Who mans each gunner station (EAirshipStation order; Airship::NumStations entries, set in the constructor). */
 	UPROPERTY(ReplicatedUsing = OnRep_StationGunners, VisibleInstanceOnly, BlueprintReadOnly, Category = "Airship|Stations")
 	TArray<TObjectPtr<ACharacter>> StationGunners;
@@ -1466,9 +1569,10 @@ private:
 	/**
 	 * Camera -> heading target (free look, Q/E nudge, gun lock, lead clamp, parked free look); writes the control rotation.
 	 * bMoveKeys: W/S, A/D, Q/E or boost held (ends the parked free look); bFireHeld: Fire held, arms the gun lock (so does
-	 * PFLockArmTime after an own broadside).
+	 * PFLockArmTime after an own broadside). bLaneAssistLook (round 2 PR B): the lane flies the ship, so the camera parks
+	 * at any speed (a team ship's helm also starts parked: the lane may be flying it).
 	 */
-	void UpdatePointFlyCamera(float Dt, APlayerController* PC, float NudgeAxis, bool bAimHeld, bool bMoveKeys, bool bFireHeld);
+	void UpdatePointFlyCamera(float Dt, APlayerController* PC, float NudgeAxis, bool bAimHeld, bool bMoveKeys, bool bFireHeld, bool bLaneAssistLook);
 
 	/** Broadside mode: the heading target the gun lock wants (H while it doesn't act). */
 	float PointFlyGunLock(float H, float CamYaw, float Dt);
@@ -1531,6 +1635,20 @@ private:
 	 * that would kill puts them on foot first (eject / dismount), so the normal on-foot death runs.
 	 */
 	void FlushCrewDamage();
+
+	// Team match (server)
+	/** Adds or removes AirshipTags::State_SpawnProtected on the ship's and its turrets' ASCs. */
+	void ApplySpawnProtectionTag(bool bProtected);
+
+	/** The protection's time ran out. */
+	void OnSpawnProtectionTimer();
+
+	/** The tag state RefreshSentinelBulletTags last applied (Tick re-checks it: board, exit, possession, a settings change). */
+	bool bSentinelTagsOn = true;
+	FTimerHandle SpawnProtectionTimer;
+
+	/** NotifyIncomingReel: each reeler and the server time its entry expires. */
+	TMap<TWeakObjectPtr<const AActor>, double> IncomingReels;
 
 	float PendingCrewDamage = 0.f;
 	float PendingCrewLoss = 0.f;

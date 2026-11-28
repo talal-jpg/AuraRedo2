@@ -1,13 +1,20 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "EOS/PauseMenu3.h"
+#include "EOS/MainMenu3.h"
 #include "EOS/MultiplayerSessionsSubsystem.h"
 #include "EOS/SessionPlayerRow3.h"
 #include "UI/Settings/SettingsMenu3.h"
+#include "Match/MyTeamLibrary.h"
+#include "MyGameMode.h"
+#include "MyGameState.h"
+#include "Blueprint/WidgetTree.h"
 #include "Components/Button.h"
+#include "Components/Image.h"
 #include "Components/PanelWidget.h"
 #include "Components/TextBlock.h"
 #include "Components/WidgetSwitcher.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/GameStateBase.h"
@@ -18,6 +25,152 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 #define LOCTEXT_NAMESPACE "PauseMenu3"
+
+namespace
+{
+	// The designer's look and layout of a widget, copied when a WBP row is duplicated. Never a slot, a child list,
+	// a bound event, or an object reference that would point back into the source row.
+	bool IsCopyableWidgetProperty(const FProperty* Property)
+	{
+		if (!Property->HasAnyPropertyFlags(CPF_Edit)
+			|| Property->HasAnyPropertyFlags(CPF_Transient | CPF_EditorOnly | CPF_Deprecated | CPF_InstancedReference | CPF_ContainsInstancedReference))
+		{
+			return false;
+		}
+		if (Property->IsA<FObjectPropertyBase>() || Property->IsA<FInterfaceProperty>()
+			|| Property->IsA<FDelegateProperty>() || Property->IsA<FMulticastDelegateProperty>())
+		{
+			return false;
+		}
+		if (const FArrayProperty* Array = CastField<FArrayProperty>(Property))
+		{
+			return !Array->Inner->IsA<FObjectPropertyBase>();
+		}
+		if (const FSetProperty* Set = CastField<FSetProperty>(Property))
+		{
+			return !Set->ElementProp->IsA<FObjectPropertyBase>();
+		}
+		if (const FMapProperty* Map = CastField<FMapProperty>(Property))
+		{
+			return !Map->KeyProp->IsA<FObjectPropertyBase>() && !Map->ValueProp->IsA<FObjectPropertyBase>();
+		}
+		return true;
+	}
+
+	// Source and its children as new widgets in Tree, with the same properties and slot layout. Names get From
+	// replaced by To (Graffiti_Resume -> Graffiti_StartMatch keeps the "Graffiti_" FAuraMenuButtonFX looks for).
+	UWidget* CloneWidgetTree(UWidgetTree* Tree, UWidget* Source, const FString& From, const FString& To, TMap<UWidget*, UWidget*>& OutClones)
+	{
+		FString NewName = Source->GetName().Replace(*From, *To);
+		if (NewName == Source->GetName())
+		{
+			NewName += TEXT("_") + To;
+		}
+		FName CloneName(*NewName);
+		if (StaticFindObjectFast(nullptr, Tree, CloneName))
+		{
+			CloneName = MakeUniqueObjectName(Tree, Source->GetClass(), CloneName);
+		}
+
+		UWidget* Clone = Tree->ConstructWidget<UWidget>(Source->GetClass(), CloneName);
+		for (TFieldIterator<FProperty> It(Source->GetClass()); It; ++It)
+		{
+			if (IsCopyableWidgetProperty(*It))
+			{
+				It->CopyCompleteValue_InContainer(Clone, Source);
+			}
+		}
+		OutClones.Add(Source, Clone);
+
+		if (UPanelWidget* SourcePanel = Cast<UPanelWidget>(Source))
+		{
+			UPanelWidget* ClonePanel = CastChecked<UPanelWidget>(Clone);
+			for (int32 Index = 0; Index < SourcePanel->GetChildrenCount(); ++Index)
+			{
+				if (UWidget* SourceChild = SourcePanel->GetChildAt(Index))
+				{
+					// The source child's slot is the template: padding, alignment, size rule
+					ClonePanel->AddChild(CloneWidgetTree(Tree, SourceChild, From, To, OutClones), SourceChild->Slot);
+				}
+			}
+		}
+		return Clone;
+	}
+
+	// The widget a menu button comes in: the highest ancestor that holds no other button (Wrap_Resume for
+	// ResumeButton: SizeBox > Overlay > graffiti, stamp, label, button)
+	UWidget* FindButtonRow(UButton* Button)
+	{
+		UWidget* Row = Button;
+		for (UPanelWidget* Parent = Button ? Button->GetParent() : nullptr; Parent; Parent = Parent->GetParent())
+		{
+			int32 NumButtons = 0;
+			UWidgetTree::ForWidgetAndChildren(Parent, [&NumButtons](UWidget* Widget)
+			{
+				NumButtons += (Widget && Widget->IsA<UButton>()) ? 1 : 0;
+			});
+			if (NumButtons > 1)
+			{
+				break;
+			}
+			Row = Parent;
+		}
+		return Row;
+	}
+
+	// A copy of SourceButton's row right after InsertAfter's row, reading Label. Null when the row can't be copied.
+	UButton* CloneButtonRow(UWidgetTree* Tree, UButton* SourceButton, UWidget* InsertAfter, const FText& Label, const FString& Name, UWidget*& OutRow)
+	{
+		OutRow = nullptr;
+		UWidget* SourceRow = FindButtonRow(SourceButton);
+		UPanelWidget* List = SourceRow ? SourceRow->GetParent() : nullptr;
+		if (!Tree || !List || !InsertAfter || InsertAfter->GetParent() != List)
+		{
+			return nullptr;
+		}
+
+		// A nested user widget's own tree can't be copied property by property
+		bool bHasUserWidget = false;
+		UWidgetTree::ForWidgetAndChildren(SourceRow, [&bHasUserWidget](UWidget* Widget)
+		{
+			bHasUserWidget |= Widget && Widget->IsA<UUserWidget>();
+		});
+		if (bHasUserWidget)
+		{
+			UE_LOG(LogMatch, Warning, TEXT("PauseMenu3: %s's row holds a user widget, no %s button built (Aura.Match.Start / Aura.Match.Restart still work)"),
+				*SourceButton->GetName(), *Name);
+			return nullptr;
+		}
+
+		FString From = SourceButton->GetName();
+		From.RemoveFromEnd(TEXT("Button"));
+		TMap<UWidget*, UWidget*> Clones;
+		UWidget* Row = CloneWidgetTree(Tree, SourceRow, From.IsEmpty() ? SourceButton->GetName() : From, Name, Clones);
+		List->InsertChildAt(List->GetChildIndex(InsertAfter) + 1, Row, SourceRow->Slot);
+
+		const FString LabelString = Label.ToString();
+		for (const TPair<UWidget*, UWidget*>& Pair : Clones)
+		{
+			if (UTextBlock* Text = Cast<UTextBlock>(Pair.Value))
+			{
+				// The big one-letter stamp behind the label gets the new label's first letter, anything longer the label
+				const bool bStamp = CastChecked<UTextBlock>(Pair.Key)->GetText().ToString().Len() <= 1;
+				Text->SetText(bStamp ? FText::FromString(LabelString.Left(1)) : Label);
+			}
+			else if (UImage* Image = Cast<UImage>(Pair.Value))
+			{
+				// FAuraMenuButtonFX gives every graffiti its own dynamic material; never share the source's
+				if (const UMaterialInstanceDynamic* Dynamic = Cast<UMaterialInstanceDynamic>(Image->GetBrush().GetResourceObject()))
+				{
+					Image->SetBrushResourceObject(Dynamic->Parent);
+				}
+			}
+		}
+
+		OutRow = Row;
+		return Cast<UButton>(Clones.FindRef(SourceButton));
+	}
+}
 
 void UPauseMenu3::OpenMenu()
 {
@@ -50,6 +203,11 @@ void UPauseMenu3::OpenMenu()
 	}
 
 	CurrentPanel = nullptr;
+	RefreshMatchButtons();
+	if (GetHostMatchGameMode())
+	{
+		BindMatchChanged();
+	}
 	ShowPanel(PauseHomePanel);
 }
 
@@ -69,6 +227,7 @@ void UPauseMenu3::CloseMenu()
 
 	PendingConfirmAction = EPauseMenu3ConfirmAction::None;
 	PendingKickTarget.Reset();
+	UnbindMatchChanged();
 	RemoveFromParent();
 
 	if (APlayerController* PlayerController = GetOwningPlayer())
@@ -125,6 +284,9 @@ void UPauseMenu3::NativeOnInitialized()
 		Sessions->MultiplayerOnCreateSessionComplete.AddUniqueDynamic(this, &ThisClass::OnCreateSession);
 		Sessions->MultiplayerOnSessionError.AddUniqueDynamic(this, &ThisClass::OnSessionError);
 	}
+
+	// Before the first NativeConstruct, so FAuraMenuButtonFX picks up built buttons with the others
+	SetupMatchButtons();
 }
 
 void UPauseMenu3::NativeConstruct()
@@ -153,6 +315,26 @@ void UPauseMenu3::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 void UPauseMenu3::NativeDestruct()
 {
 	ButtonFXState.Reset();
+	UnbindMatchChanged();
+
+	// Removed while open without CloseMenu (a world cleanup, a HUD rebuild): the flag and the UI-only input must not
+	// outlive it. A seamless travel gives the host a new controller whose BeginPlay sets game input anyway
+	// (GameModeBase.cpp HandleSeamlessTravelPlayer); this covers every other removal
+	if (bMenuOpen)
+	{
+		bMenuOpen = false;
+		PendingConfirmAction = EPauseMenu3ConfirmAction::None;
+		PendingKickTarget.Reset();
+		APlayerController* PlayerController = GetOwningPlayer();
+
+		if (IsValid(PlayerController) && PlayerController->IsLocalController() && !PlayerController->IsActorBeingDestroyed())
+		{
+			FInputModeGameOnly InputModeData;
+			InputModeData.SetConsumeCaptureMouseDown(false);
+			PlayerController->SetInputMode(InputModeData);
+			PlayerController->SetShowMouseCursor(bCursorWasShown);
+		}
+	}
 
 	Super::NativeDestruct();
 }
@@ -212,6 +394,15 @@ void UPauseMenu3::LeaveSessionButtonClicked()
 		EPauseMenu3ConfirmAction::LeaveSession);
 }
 
+void UPauseMenu3::RequestLeaveSession()
+{
+	if (!bMenuOpen)
+	{
+		OpenMenu();
+	}
+	LeaveSessionButtonClicked();
+}
+
 void UPauseMenu3::QuitGameButtonClicked()
 {
 	ShowConfirm(LOCTEXT("QuitTitle", "Quit game"),
@@ -219,6 +410,175 @@ void UPauseMenu3::QuitGameButtonClicked()
 			? LOCTEXT("QuitHostMessage", "Quit to desktop? You are the host: everyone else will be disconnected.")
 			: LOCTEXT("QuitMessage", "Quit to desktop?"),
 		EPauseMenu3ConfirmAction::QuitGame);
+}
+
+//
+// Home: team match
+//
+void UPauseMenu3::SetupMatchButtons()
+{
+	// Built only for the host of a match (decided at InitGame, fixed for the map; this widget lives with its
+	// controller on this map): clients and match-off games keep exactly the WBP's Home panel.
+	// After Resume, Start first: Resume, Start match, Restart match, Current Session...
+	if (GetHostMatchGameMode() && ResumeButton)
+	{
+		UWidget* InsertAfter = FindButtonRow(ResumeButton);
+		if (!StartMatchButton)
+		{
+			UWidget* Row = nullptr;
+			StartMatchButton = CloneButtonRow(WidgetTree, ResumeButton, InsertAfter, StartMatchLabel, TEXT("StartMatch"), Row);
+			InsertAfter = Row ? Row : InsertAfter;
+		}
+		if (!RestartMatchButton)
+		{
+			UWidget* Row = nullptr;
+			RestartMatchButton = CloneButtonRow(WidgetTree, ResumeButton, InsertAfter, RestartMatchLabel, TEXT("RestartMatch"), Row);
+		}
+	}
+
+	auto SetupRow = [](UButton* Button, FPauseMenu3MatchRow& MatchRow)
+	{
+		if (!Button)
+		{
+			return;
+		}
+		UWidget* Row = FindButtonRow(Button);
+		const ESlateVisibility Visibility = Row->GetVisibility();
+		MatchRow.Row = Row;
+		MatchRow.ShownVisibility = (Visibility == ESlateVisibility::Collapsed || Visibility == ESlateVisibility::Hidden) ? ESlateVisibility::Visible : Visibility;
+		// Hidden until OpenMenu knows the match phase
+		Row->SetVisibility(ESlateVisibility::Collapsed);
+	};
+	SetupRow(StartMatchButton, StartMatchRow);
+	SetupRow(RestartMatchButton, RestartMatchRow);
+
+	if (StartMatchButton)   StartMatchButton->OnClicked.AddUniqueDynamic(this, &ThisClass::StartMatchButtonClicked);
+	if (RestartMatchButton) RestartMatchButton->OnClicked.AddUniqueDynamic(this, &ThisClass::RestartMatchButtonClicked);
+}
+
+AMyGameMode* UPauseMenu3::GetHostMatchGameMode() const
+{
+	// The game mode lives on the server only, and the listen host's menu runs there, so it calls the game mode
+	// directly; a client's menu never shows the buttons
+	const APlayerController* PlayerController = GetOwningPlayer();
+	UWorld* World = GetWorld();
+	if (!World || !PlayerController || !PlayerController->IsLocalController() || !PlayerController->HasAuthority())
+	{
+		return nullptr;
+	}
+	AMyGameMode* GameMode = World->GetAuthGameMode<AMyGameMode>();
+	return GameMode && GameMode->IsMatchOn() ? GameMode : nullptr;
+}
+
+void UPauseMenu3::RefreshMatchButtons()
+{
+	const UWorld* World = GetWorld();
+	const AMyGameState* GameState = World ? World->GetGameState<AMyGameState>() : nullptr;
+	AMyGameMode* GameMode = GetHostMatchGameMode();
+	const EMyMatchPhase Phase = (GameMode && GameState) ? GameState->GetMatchPhase() : EMyMatchPhase::None;
+	const bool bInLobby = GameState && GameState->IsInLobby();
+
+	// Start: a versus match waiting for its players starts with whoever is in (alone: practice); in the lobby it starts
+	// the lobby countdown (AMyGameMode::RequestStartMatch forces it, SPEC_B_LOBBY 7.3).
+	// Restart: from the countdown on; while waiting it would only reload the same empty lobby. Never during the lobby or
+	// its countdown (phase Countdown): RestartMatch would reload the map without the lobby.
+	SetMatchRowVisible(StartMatchRow, Phase == EMyMatchPhase::WaitingToStart || Phase == EMyMatchPhase::Lobby);
+	SetMatchRowVisible(RestartMatchRow, !bInLobby && (Phase == EMyMatchPhase::Countdown || Phase == EMyMatchPhase::InProgress || Phase == EMyMatchPhase::Ended));
+
+	// A match that ends in the lobby (a lobby round, or the host has a session now): BACK TO LOBBY
+	const bool bLobby = GameMode && GameMode->WillReturnToLobby();
+	if (!bRestartRowLabelSet || bLobby != bRestartRowIsLobby)
+	{
+		bRestartRowIsLobby = bLobby;
+		bRestartRowLabelSet = true;
+		SetMatchRowLabel(RestartMatchRow, bLobby ? BackToLobbyLabel : RestartMatchLabel);
+	}
+}
+
+void UPauseMenu3::SetMatchRowLabel(FPauseMenu3MatchRow& MatchRow, const FText& Label)
+{
+	UWidget* Row = MatchRow.Row.Get();
+	if (!Row)
+	{
+		return;
+	}
+
+	const FString LabelString = Label.ToString();
+	UWidgetTree::ForWidgetAndChildren(Row, [&Label, &LabelString](UWidget* Widget)
+	{
+		if (UTextBlock* Text = Cast<UTextBlock>(Widget))
+		{
+			// The big one-letter stamp behind the label gets the label's first letter, anything longer the label
+			const bool bStamp = Text->GetText().ToString().Len() <= 1;
+			Text->SetText(bStamp ? FText::FromString(LabelString.Left(1)) : Label);
+		}
+	});
+}
+
+void UPauseMenu3::SetMatchRowVisible(FPauseMenu3MatchRow& MatchRow, bool bVisible)
+{
+	UWidget* Row = MatchRow.Row.Get();
+	if (!Row)
+	{
+		return;
+	}
+
+	// Hiding the focused button (Start match once the countdown runs) would leave a gamepad with nothing focused
+	const bool bLosesFocus = !bVisible && Row->IsVisible() && Row->HasFocusedDescendants();
+	Row->SetVisibility(bVisible ? MatchRow.ShownVisibility : ESlateVisibility::Collapsed);
+	if (bLosesFocus && CurrentPanel && !AuraMenu::FocusFirstControl(CurrentPanel))
+	{
+		SetKeyboardFocus();
+	}
+}
+
+void UPauseMenu3::BindMatchChanged()
+{
+	UnbindMatchChanged();
+	UWorld* World = GetWorld();
+	if (AMyGameState* GameState = World ? World->GetGameState<AMyGameState>() : nullptr)
+	{
+		MatchChangedHandle = GameState->OnMatchChanged.AddUObject(this, &ThisClass::RefreshMatchButtons);
+		MatchGameState = GameState;
+	}
+}
+
+void UPauseMenu3::UnbindMatchChanged()
+{
+	if (AMyGameState* GameState = MatchGameState.Get())
+	{
+		GameState->OnMatchChanged.Remove(MatchChangedHandle);
+	}
+	MatchGameState.Reset();
+	MatchChangedHandle.Reset();
+}
+
+void UPauseMenu3::StartMatchButtonClicked()
+{
+	if (AMyGameMode* GameMode = GetHostMatchGameMode())
+	{
+		GameMode->RequestStartMatch();
+		// Back to the game for the countdown
+		CloseMenu();
+	}
+}
+
+void UPauseMenu3::RestartMatchButtonClicked()
+{
+	if (AMyGameMode* GameMode = GetHostMatchGameMode())
+	{
+		if (GameMode->WillReturnToLobby())
+		{
+			ShowConfirm(LOCTEXT("BackToLobbyTitle", "Back to the lobby"),
+				LOCTEXT("BackToLobbyMessage", "End the match and take everyone back to the lobby?"),
+				EPauseMenu3ConfirmAction::ReturnToLobby);
+			return;
+		}
+	}
+
+	ShowConfirm(LOCTEXT("RestartMatchTitle", "Restart match"),
+		LOCTEXT("RestartMatchMessage", "Restart the match? The map reloads for everyone with the same rules, and every team gets its ship lives back."),
+		EPauseMenu3ConfirmAction::RestartMatch);
 }
 
 //
@@ -285,6 +645,21 @@ void UPauseMenu3::OpenLobbyButtonClicked()
 
 	FAuraHostSettings Settings = OpenLobbySettings;
 	Settings.Privacy = SelectedPrivacy;
+	// A running team match advertises what it really is (the browse filters' Rules and Difficulty), and a 1v1 or 2v2
+	// only the slots its teams have, as the main menu's host panel does
+	if (UMyTeamLibrary::IsMatchActive(this))
+	{
+		// IN MATCH / IN LOBBY in the browser (SPEC_B_LOBBY 5.6)
+		Settings.bInMatch = !UMyTeamLibrary::IsInLobby(this);
+		const FMyMatchRules& Rules = UMyTeamLibrary::GetRules(this);
+		Settings.Rules = UMainMenu3::GetRuleSetForTeamMode(Rules.TeamMode);
+		Settings.Difficulty = Rules.SwarmDifficulty;
+		const int32 ModePlayers = UMainMenu3::GetTeamModeMaxPlayers(Rules.TeamMode);
+		if (ModePlayers > 0)
+		{
+			Settings.NumPublicConnections = ModePlayers;
+		}
+	}
 	if (Settings.LobbyName.IsEmpty())
 	{
 		const FString Nickname = Sessions->GetLocalPlayerNickname();
@@ -517,6 +892,24 @@ void UPauseMenu3::ConfirmYesButtonClicked()
 			UKismetSystemLibrary::QuitGame(GetWorld(), PlayerController, EQuitPreference::Quit, false);
 		}
 		return;
+	case EPauseMenu3ConfirmAction::RestartMatch:
+		if (AMyGameMode* GameMode = GetHostMatchGameMode())
+		{
+			// Input back to the game first; the reload replaces this controller's menu anyway
+			CloseMenu();
+			GameMode->RestartMatch();
+			return;
+		}
+		break;
+	case EPauseMenu3ConfirmAction::ReturnToLobby:
+		if (AMyGameMode* GameMode = GetHostMatchGameMode())
+		{
+			// Input back to the game first; the travel replaces this controller's menu anyway
+			CloseMenu();
+			GameMode->ReturnToLobby();
+			return;
+		}
+		break;
 	case EPauseMenu3ConfirmAction::KickPlayer:
 	case EPauseMenu3ConfirmAction::BanPlayer:
 		if (APlayerState* Target = PendingKickTarget.Get())
@@ -631,8 +1024,10 @@ void UPauseMenu3::OnCreateSession(bool bWasSuccessful)
 
 	if (bWasSuccessful)
 	{
-		// What AMyGameMode::PostLogin does for a lobby hosted from the main menu
-		if (UMultiplayerSessionsSubsystem* Sessions = GetSessions())
+		// What AMyGameMode::PostLogin does for a lobby hosted from the main menu. In the lobby the session starts with the
+		// round instead (AMyGameMode::BeginRound, SPEC_B_LOBBY 5.6)
+		UMultiplayerSessionsSubsystem* Sessions = GetSessions();
+		if (Sessions && !UMyTeamLibrary::IsInLobby(this))
 		{
 			Sessions->StartSession();
 		}

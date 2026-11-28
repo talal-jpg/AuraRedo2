@@ -8,6 +8,7 @@
 #include "AbilitySystem/MyAttributeSet.h"
 #include "AbilitySystem/Data/DA_MyEnemyCharacterClassInfo.h"
 #include "Actors/MyHexPlatform.h"
+#include "Airship/AirshipSubsystem.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -23,6 +24,7 @@
 #include "GameplayEffect.h"
 #include "HAL/IConsoleManager.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "Match/MyTeamLibrary.h"
 #include "MyGameMode.h"
 #include "Net/UnrealNetwork.h"
 #include "PhysicsEngine/BodyInstance.h"
@@ -513,6 +515,15 @@ void ABurrowerCharacter::SetTargetPlayer(APawn* NewTarget)
 bool ABurrowerCharacter::IsLivingTarget(APawn* Pawn, bool bRequireCombatInterface)
 {
 	if (!IsValid(Pawn))
+	{
+		return false;
+	}
+
+	// Aboard an airship (the ship he pilots, a pilot or gunner attached to it, a rider on its deck): a Burrower chasing a
+	// ship hundreds of metres out would carve through every platform in between. He counts again once back on foot.
+	// Only while a team match runs (its ships fly in lanes 225 m out); with the match off the Burrower hunts as in PR A,
+	// the piloted ship included (SPEC_B B5.5)
+	if (UMyTeamLibrary::IsMatchActive(Pawn) && UAirshipSubsystem::IsShipBorne(Pawn))
 	{
 		return false;
 	}

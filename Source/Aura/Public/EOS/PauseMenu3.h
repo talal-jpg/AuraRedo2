@@ -8,6 +8,8 @@
 #include "EOS/MenuButtonFX.h"
 #include "PauseMenu3.generated.h"
 
+class AMyGameMode;
+class AMyGameState;
 class APlayerState;
 class UButton;
 class UPanelWidget;
@@ -25,7 +27,18 @@ enum class EPauseMenu3ConfirmAction : uint8
 	LeaveSession,
 	QuitGame,
 	KickPlayer,
-	BanPlayer
+	BanPlayer,
+	RestartMatch,
+	// The match ends and everyone travels back to the lobby (SPEC_B_LOBBY 7.3)
+	ReturnToLobby
+};
+
+// A host-only team match button's row (the button plus its graffiti, stamp and label), shown and hidden as one
+struct FPauseMenu3MatchRow
+{
+	TWeakObjectPtr<UWidget> Row;
+	// What the row shows with: the WBP's own visibility for it, or the copied Resume row's
+	ESlateVisibility ShownVisibility = ESlateVisibility::Visible;
 };
 
 /**
@@ -39,6 +52,10 @@ enum class EPauseMenu3ConfirmAction : uint8
  * Same convention as UMainMenu3: a UWidgetSwitcher "MenuSwitcher" with PauseHomePanel,
  * SessionPanel, OptionsPanel (or OptionsMenu itself) and ConfirmPanel; every widget optional.
  * AMyPlayerController2 creates it from PauseMenuClass and opens it on IA_Pause.
+ *
+ * Team match (Docs/Airship/round2/SPEC_B.md B4.2, B4.6): the host gets Start match (while a versus match waits for
+ * players) and Restart match (once it has started) on the Home panel. A WBP without StartMatchButton /
+ * RestartMatchButton gets them built at runtime as copies of the Resume button's row, so they look like the rest.
  */
 UCLASS()
 class AURA_API UPauseMenu3 : public UMyUserWidget
@@ -56,6 +73,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Aura|Menu")
 	bool IsMenuOpen() const { return bMenuOpen; }
+
+	// Opens the menu (if closed) on the Leave Session confirm: the lobby panel's LEAVE (SPEC_B_LOBBY 6.4)
+	void RequestLeaveSession();
 
 	// Called by USessionPlayerRow3
 	void ShowPlayerProfile(APlayerState* PlayerState);
@@ -95,6 +115,16 @@ protected:
 	FText BanReason = NSLOCTEXT("PauseMenu3", "BanReason", "You were banned from this lobby by the host.");
 	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
 	FText HostLeftReason = NSLOCTEXT("PauseMenu3", "HostLeftReason", "The host closed the lobby.");
+
+	// Labels of the team match buttons built when the WBP has none. A one-letter stamp behind the copied label gets
+	// the first letter.
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
+	FText StartMatchLabel = NSLOCTEXT("PauseMenu3", "StartMatchLabel", "START MATCH");
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
+	FText RestartMatchLabel = NSLOCTEXT("PauseMenu3", "RestartMatchLabel", "RESTART MATCH");
+	// The Restart row's label when the match ends in the lobby (AMyGameMode::WillReturnToLobby)
+	UPROPERTY(EditAnywhere, Category = "Aura|Menu")
+	FText BackToLobbyLabel = NSLOCTEXT("PauseMenu3", "BackToLobbyLabel", "BACK TO LOBBY");
 
 	// Blueprint hook for panel transition animations / sounds.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Aura|Menu")
@@ -138,6 +168,41 @@ private:
 	void LeaveSessionButtonClicked();
 	UFUNCTION()
 	void QuitGameButtonClicked();
+
+	//
+	// Home: team match, host only (the listen server's own player, or a standalone one, with the match on)
+	//
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* StartMatchButton;
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* RestartMatchButton;
+
+	UFUNCTION()
+	void StartMatchButtonClicked();
+	UFUNCTION()
+	void RestartMatchButtonClicked();
+
+	// Once, from NativeOnInitialized: finds the WBP's rows or builds them after the Resume row
+	void SetupMatchButtons();
+	// Start match during WaitingToStart and the lobby, Restart match (or Back to lobby) from the countdown on, never during
+	// the lobby or its countdown; hidden for everyone else
+	void RefreshMatchButtons();
+	// The labels of a row (a one-letter stamp gets the first letter), as CloneButtonRow sets them
+	void SetMatchRowLabel(FPauseMenu3MatchRow& MatchRow, const FText& Label);
+	void SetMatchRowVisible(FPauseMenu3MatchRow& MatchRow, bool bVisible);
+	// The game mode when this menu belongs to the host and the match is on, else null
+	AMyGameMode* GetHostMatchGameMode() const;
+	// The buttons follow the phase while the menu is open
+	void BindMatchChanged();
+	void UnbindMatchChanged();
+
+	FPauseMenu3MatchRow StartMatchRow;
+	FPauseMenu3MatchRow RestartMatchRow;
+	// The Restart row reads BACK TO LOBBY (and its confirm returns to the lobby)
+	bool bRestartRowIsLobby{ false };
+	bool bRestartRowLabelSet{ false };
+	TWeakObjectPtr<AMyGameState> MatchGameState;
+	FDelegateHandle MatchChangedHandle;
 
 	//
 	// Current Session

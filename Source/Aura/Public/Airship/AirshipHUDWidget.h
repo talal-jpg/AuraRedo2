@@ -26,6 +26,10 @@ class AAirshipPawn;
  * when manned); PORT / STBD read MANNED when both cannons of that side have gunners. Gunner mode (the gunner's own
  * machine, over the whole viewport, UAirshipPilotComponent): a crosshair, the mark where the gun points, and a panel
  * bottom-left with the station, its reload (cannons, OUT OF ARC) or heat and health (turrets), the hull and F LEAVE.
+ *
+ * Team match (round 2 PR B, SPEC_B B8.6): on a team ship both panels grow a LANE row: the team's tag, the spawn
+ * protection's shield, the team's ship lives (from AMyGameState), and what the lane does now or what an exit would do
+ * (from the replicated lane state and hint). Free ships keep PR A's panels.
  */
 UCLASS(Blueprintable)
 class AURA_API UAirshipHUDWidget : public UUserWidget
@@ -69,6 +73,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD", meta = (ClampMin = "0.0"))
 	float GunsRowHeight = 24.f;
+
+	/** Extra panel height (slate units) of the LANE row (team tag and lives, then the lane line), team ships only. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD", meta = (ClampMin = "0.0"))
+	float LaneRowHeight = 40.f;
 
 	/** Gunner mode: the panel's size (bottom-left, slate units). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Airship HUD")
@@ -134,6 +142,16 @@ private:
 
 	/** Gunner mode's paint: crosshair, gun mark, panel. */
 	int32 PaintGunner(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) const;
+
+	/** Team ships: the LANE row's texts (NativeTick, both panels). bForPilot: the pilot's own wording (what an exit does). */
+	void RefreshLaneValues(const AAirshipPawn* Ship, const FAirshipFlightTelemetry& Telemetry, bool bForPilot);
+
+	/** The LANE row at TopLeft, Width wide (slate units): team tag, shield, lives; the lane line under it. Returns the next layer. */
+	int32 PaintLaneRow(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 Layer, const FWidgetStyle& InWidgetStyle,
+		const FVector2f& TopLeft, float Width) const;
+
+	/** The ship is a team ship (the panels have the LANE row). */
+	bool IsTeamShipLayout() const;
 
 	TWeakObjectPtr<AAirshipPawn> Airship;
 
@@ -220,6 +238,15 @@ private:
 	float GunReloadSeconds = 0.f;
 	bool bGunInArc = true;
 	bool bGunReady = true;
+
+	// Team match (LANE row): the team's tag and colour, the lives text, the lane line, the shield's seconds left
+	bool bLaneRow = false;
+	FString TeamTag;
+	FLinearColor TeamTagColor = FLinearColor::Gray;
+	FString LivesText;
+	FString LaneText;
+	bool bLaneAlert = false;
+	float ShieldSeconds = 0.f;
 
 	/** Seconds since the boarding hint started (-1: not yet decided; it shows once per local player and session). */
 	float HintAge = -1.f;

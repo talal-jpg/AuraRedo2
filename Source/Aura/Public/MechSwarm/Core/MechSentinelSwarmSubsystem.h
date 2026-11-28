@@ -185,7 +185,7 @@ public:
 	// Global data
 	//----------------------------------------------------------------------//
 
-	/** Never null: GameMode rules > override > class defaults. */
+	/** Never null: override (SetRulesOverride) > GameMode rules > class defaults. */
 	const UMechSentinelSwarmRules* GetRules() const;
 
 	/** Use different rules at runtime (e.g. a difficulty change). Server only. */

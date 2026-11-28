@@ -4,14 +4,37 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Match/MyMatchTypes.h"
 #include "MyGameMode.generated.h"
 
+class AAirshipPawn;
+class AMyGameState;
+class APlayerStart;
+class AMyHexPathSpawner;
 class AMyHexPlatform;
+class AMyPlayerState;
+class UAbilitySystemComponent;
+class UMechSentinelSwarmRules;
+struct FOnAttributeChangeData;
 class UDA_MyAbilityInfo;
 class UMyLevelUpInfo;
 class UDA_MyEnemyCharacterClassInfo;
 class UMySpellMenuWidgetController;
 class UNiagaraSystem;
+
+/** Where the lobby stands now (AMyGameMode::ResolveLobbySpawn, Aura.Lobby.Status). */
+enum class EMyLobbyGround : uint8
+{
+	/** Nothing found: the PlayerStart with a fall catch only, no zone. */
+	None,
+	/** PlayerStarts with walkable ground under them; the zone around that ground. */
+	PlayerStarts,
+	/** The path's first platform; the zone around it. */
+	PathStart,
+	/** PathStart, waiting for the PCG to build that platform (pawns held, LobbyPathStartWait). */
+	Waiting
+};
+
 /**
  * 
  */
@@ -25,8 +48,31 @@ public:
 	
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	
-	// Refuses players the host banned from the lobby (Current Session > Ban) and joins past the lobby's player limit
+	// Refuses players the host banned from the lobby (Current Session > Ban) and joins past the lobby's player limit.
+	// Team match: also a join when both teams are full (1v1, 2v2)
 	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+	
+	/** Team match: match on / off and the rules (UMyMatchSettings, the command line, the URL options), the round. */
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	
+	/** Team match: the rules, round and expected players into AMyGameState, before any player logs in. */
+	virtual void InitGameState() override;
+	
+	/** Team match: gives the player a team before the engine picks his start spot (Team<id> PlayerStarts first). */
+	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
+	
+	/** Team match: swarm difficulty before the spawners' BeginPlay, then practice counts down at once, versus waits for its players. */
+	virtual void StartPlay() override;
+	
+	/** Team match: an unoccupied Team<id> PlayerStart, then any unoccupied one, then any (never none). Match off: the engine's. */
+	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
+	
+	/**
+	 * Team match: a player the engine starts while the match runs (a late joiner) spawns as a match-start player would
+	 * (aboard his ship in versus, else past the lead on his own side); a start that leaves him without a pawn retries
+	 * around the PlayerStart (8 directions at 250, 500, 750 cm). Match off: the engine's.
+	 */
+	virtual void RestartPlayer(AController* NewPlayer) override;
 	
 	/** Global, server side rules of the Mass sentinel swarm (targeting caps, armor formula, damage effects). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mech Sentinels")
@@ -50,12 +96,16 @@ public:
 	// over, so XP, level, spent points and abilities stay. AMyGameState plays RespawnFX there on every machine.
 	// -------------------------------------------------------------------------
 	
-	/** Server. Called for every (re)started pawn: watches it for death and destruction. */
+	/** Server. Called for every (re)started pawn: watches it for death and destruction. Team match: 600 m net cull distance. */
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	
+	/** Team match: the team counts, a countdown that loses its players, the forfeit timer. */
 	virtual void Logout(AController* Exiting) override;
 	
-	/** False while a respawn is pending, so a client's ServerRestartPlayer can't skip the wait. */
+	/**
+	 * False while a respawn is pending, so a client's ServerRestartPlayer can't skip the wait. Team match: false while a
+	 * versus match waits for its players or counts down (nobody races ahead before the start).
+	 */
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
 	
 	/** Off: dead players stay dead. */
@@ -81,7 +131,435 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Respawn", meta=(ClampMin="0"))
 	float RespawnHeightAboveTile=10.f;
 	
+	// -------------------------------------------------------------------------
+	// Team match (Docs/Airship/round2/SPEC_B.md): teams, team ships on their lanes, ship lives, match rules. Server
+	// only; AMyGameState replicates the state. With the match off (map not in UMyMatchSettings::MatchMaps,
+	// Aura.Match.Enable 0, URL Match=0) every player and ship stays team 255 and nothing below changes the game.
+	// -------------------------------------------------------------------------
+	
+	/** Decided in InitGame from MatchMaps, the CVar Aura.Match.Enable and the URL's Match option. */
+	bool IsMatchOn() const { return bMatchOn; }
+	
+	/**
+	 * Live: swarm difficulty, lives, friendly fire, grapple, assist, time limit (a changed limit restarts the clock). The
+	 * team mode takes effect at the next restart (GetNextTeamMode); the running round keeps its own.
+	 */
+	void ApplyRules(const FMyMatchRules& NewRules);
+	
+	/** The rules in force (the running round's team mode). */
+	const FMyMatchRules& GetMatchRules() const { return MatchRules; }
+	
+	/** The team mode the next restart uses (ApplyRules' latest). */
+	EMyTeamMode GetNextTeamMode() const { return NextTeamMode; }
+	
+	/** The running round (or its countdown) has two teams. False in practice. */
+	bool IsVersusRound() const { return bVersusRound || bCountdownVersus || bPracticeToVersus; }
+	
+	/** Console (Aura.Match.Rules TimeLimit=..): the time limit runs again from now. */
+	void RestartTimeLimit();
+	
+	/** Console (Aura.Match.ShipLives): TeamId may lose NewLives ships in all; LivesLeft = max(NewLives - ShipsLost, ship alive ? 1 : 0). */
+	void SetTeamShipLives(uint8 TeamId, int32 NewLives);
+	
+	/** The rules as URL options (?Teams=..?ShipLives=..?Swarm=..?TimeLimit=..?FF=..?GrappleShips=..?LaneAssist=..), the restart's. */
+	FString BuildRulesOptions(const FMyMatchRules& Rules, EMyTeamMode TeamMode) const;
+	
+	/**
+	 * Reads the rule options (Teams, ShipLives, Swarm, TimeLimit, FF, GrappleShips, LaneAssist) present in Options into
+	 * InOutRules, clamped (bad values logged with Source). True if any was present. The console's Aura.Match.Rules uses it.
+	 */
+	static bool ParseRulesOptions(const FString& Options, FMyMatchRules& InOutRules, const TCHAR* Source);
+	
+	/** Spawns TeamId's ship on its lane at progress U (cm), protected, and makes it the team's ship. Null when it can't. */
+	AAirshipPawn* SpawnTeamShip(uint8 TeamId, float U);
+	
+	/** Host (pause menu's Start match, Aura.Match.Start): WaitingToStart -> Countdown with whoever is in. */
+	void RequestStartMatch();
+	
+	/** Console: skips the countdown too. */
+	void StartMatchNow();
+	
+	void EndMatch(EMyMatchResult Result, uint8 WinningTeam, EMyMatchEndReason Reason);
+	
+	/** Remembers the teams, next round, reloads the map with the current rules as URL options. */
+	void RestartMatch();
+	
+	/** Console: ejects the player from the other team's ship first, then moves him and updates the counts. */
+	void SetPlayerTeam(AMyPlayerState* Player, uint8 TeamId);
+	
+	// -------------------------------------------------------------------------
+	// Lobby (Docs/Airship/round2/SPEC_B_LOBBY.md): an in-level lobby on the match map before every hosted match. Server
+	// only; AMyGameState replicates it (IsInLobby, GetLobbyStartBlock, ...). Code in MyGameModeLobby.cpp.
+	// -------------------------------------------------------------------------
+	
+	/** This map load starts in the lobby (InitGame: CVar Aura.Lobby.Enable, then the URL's Lobby=0|1). */
+	bool IsLobbyRound() const { return bLobbyRound; }
+	
+	/** Lobby rules apply: phase Lobby and the lobby's countdown (the game state's bInLobby). */
+	bool IsInLobby() const;
+	
+	/** The lobby's countdown runs. */
+	bool IsLobbyCountingDown() const;
+	
+	/** PC is the host: a local controller on the server (listen host, standalone). PostLogin's test. */
+	bool IsLobbyHost(const APlayerController* PC) const;
+	
+	/** Max Players with the lobby: the mode's maximum (2 for 1v1, 4 for 2v2), else the URL's Players (ExpectedPlayers). */
+	int32 GetLobbyMaxPlayers() const;
+	
+	/** The first reason the host can't start now (hard ones first), and how many players other than the host aren't ready. */
+	EMyLobbyStartBlock GetLobbyStartBlock(int32& OutNotReady) const;
+	
+	/**
+	 * Host: PR B's countdown with LobbyCountdownSeconds, forced, from the lobby (ships at its start, lobby rules until its
+	 * end). A hard block refuses; a soft one refuses without bForce ("click again"), except NotReady for a rematch. Bots
+	 * refuse it. False with OutWhy when refused.
+	 */
+	bool StartFromLobby(bool bForce, FText& OutWhy);
+	
+	/** The lobby countdown back to phase Lobby: the team ships released or removed. False when no lobby countdown runs. */
+	bool CancelLobbyStart(const FString& Reason, EMyLobbyStartBlock Cause = EMyLobbyStartBlock::None);
+	
+	/**
+	 * Player asks for Target (4.4): a move when the teams stay within one, a swap with the oldest request for his team,
+	 * else a pending request (OutWhy says so). 255 or his own team cancels a request. False with OutWhy when refused.
+	 */
+	bool RequestLobbyTeam(AMyPlayerState* Player, uint8 Target, FText& OutWhy);
+	
+	/** Host: moves Player to Target, no balance rule; a full team swaps one of its players (a request for Player's team first, else the last to join). */
+	bool MoveLobbyPlayer(AMyPlayerState* Player, uint8 Target, FText& OutWhy);
+	
+	/** A player's ready flag (not the host's), in phase Lobby. */
+	bool SetLobbyReady(AMyPlayerState* Player, bool bReady, FText& OutWhy);
+	
+	/**
+	 * Host: the rules and Max Players in phase Lobby (4.6). Refused when the mode or Max Players has no room for the
+	 * players in. The team mode applies at once (teams rebalanced); a team mode or Max Players change clears the ready
+	 * flags; one session update.
+	 */
+	bool ApplyLobbyRules(const FMyMatchRules& NewRules, int32 MaxPlayers, FText& OutWhy);
+	
+	/** The match end goes back to the lobby: this map load had a lobby, or the host has an online session now. */
+	bool WillReturnToLobby() const;
+	
+	/** Remembers the teams and travels (seamlessly outside PIE) to this map with ?Lobby=1 (the pause menu's BACK TO LOBBY). */
+	void ReturnToLobby();
+	
+	/** Where the lobby stands (3.1), for Request (InitGame: UMyMatchSettings::LobbySpawn). Aura.Lobby.Resolve calls it again. */
+	void ResolveLobbySpawn(EMyLobbySpawn Request);
+	
+	/** Every lobby pawn to a lobby spot (Aura.Lobby.Resolve); waits for a PathStart platform still being built. */
+	void SendLobbyPawnsToSpots();
+	
+	/** Tests: keeps Count bot player states (no pawn, a team by AssignTeam). Phase Lobby only to add. The number kept. */
+	int32 SetLobbyBots(int32 Count, FText& OutWhy);
+	
+	int32 GetNumLobbyBots() const;
+	
+	EMyLobbyGround GetLobbyGround() const { return LobbyGround; }
+	EMyLobbySpawn GetLobbySpawnRequest() const { return LobbySpawnRequest; }
+	const TArray<FBox>& GetLobbyZones() const { return LobbyZones; }
+	const FString& GetLobbyGroundText() const { return LobbyGroundText; }
+	bool IsLobbyGroundReady() const { return bLobbyGroundReady; }
+	static const TCHAR* GetLobbyGroundName(EMyLobbyGround Ground);
+	
+	/** Server travel (hard or seamless): every game mode timer stops (the old game mode lives on in the transition world), respawns and the swarm stop, bots go. */
+	virtual void StartToLeaveMap() override;
+	
+protected:
+	
+	/**
+	 * A seamless arrival (SPEC_B_LOBBY 5.4): keeps the copied team against the new round's mode and caps (before Super,
+	 * which picks the start spot), then OnPlayerArrived (host flag, airship pilot component, EvaluateTeams).
+	 */
+	virtual void InitSeamlessTravelPlayer(AController* NewController) override;
+	
+	/**
+	 * The seamless arrival on this map (server, before StartPlay): every carried player state is marked arriving
+	 * (AMyPlayerState::IsArriving) before Super replaces the ones whose owners have already loaded. The rest stay arriving
+	 * until ServerNotifyLoadedWorld replaces them (5.4 row 4).
+	 */
+	virtual void PostSeamlessTravel() override;
+	
 private:
+	
+	// -------------------------------------------------------------------------
+	// Team match state (server)
+	// -------------------------------------------------------------------------
+	
+	bool bMatchOn=false;
+	
+	/** The rules in force (InitGame's, then ApplyRules); copied into AMyGameState::MatchRules. */
+	FMyMatchRules MatchRules;
+	
+	/** ApplyRules' team mode, used by the restart (the running round keeps MatchRules.TeamMode). */
+	EMyTeamMode NextTeamMode=EMyTeamMode::Auto;
+	
+	/** The URL's Players (the host menu's Max Players), else UMyMatchSettings::DefaultExpectedPlayers. Auto versus waits for this many. */
+	int32 ExpectedPlayers=1;
+	
+	/** 0 on a fresh map load, +1 per restart (UMyMatchMemorySubsystem). */
+	int32 RoundIndex=0;
+	
+	/** The round that runs has two active teams (InProgress, set at the countdown's end). */
+	bool bVersusRound=false;
+	
+	/** The running countdown is a versus start (two active teams at its start): no pawns until it ends. */
+	bool bCountdownVersus=false;
+	
+	/** The running countdown was started by the host (Start match, Aura.Match.Start): it doesn't go back to waiting. */
+	bool bHostForcedStart=false;
+	
+	/** The running countdown turns a practice into versus (B1.3): the players already in keep playing through it. */
+	bool bPracticeToVersus=false;
+	
+	bool bTimeWarningSent=false;
+	bool bEndCheckPending=false;
+	bool bRestarting=false;
+	
+	/** RespawnPlayer's last resort RestartPlayer: no start-aboard rule for a respawn. */
+	bool bRestartFromRespawn=false;
+	
+	// --- Lobby (server) ---
+	
+	/** This map load started in the lobby (InitGame). */
+	bool bLobbyRound=false;
+	
+	/** The load came from a return or a restart (the URL had Round): a rematch is possible. */
+	bool bLobbyFromRound=false;
+	
+	/** Why bLobbyRound is what it is (the InitGame log). */
+	FString LobbyReason;
+	
+	/** EndMatch's WillReturnToLobby, kept for its end-screen timer. */
+	bool bEndReturnsToLobby=false;
+	
+	EMyLobbySpawn LobbySpawnRequest=EMyLobbySpawn::Auto;
+	EMyLobbyGround LobbyGround=EMyLobbyGround::None;
+	
+	/** False while PathStart waits for its platform: pawns are held (IsHoldingPawns). */
+	bool bLobbyGroundReady=true;
+	
+	/** SendLobbyPawnsToSpots asked while the ground wasn't ready. */
+	bool bLobbySendPawnsWhenReady=false;
+	
+	/** Zone boxes (none = the fall catch only). */
+	TArray<FBox> LobbyZones;
+	
+	/** PlayerStarts mode: the starts with ground under them (Lobby-tagged ones when there are any). */
+	TArray<TWeakObjectPtr<APlayerStart>> LobbyStarts;
+	
+	/** PathStart: the platform. */
+	TWeakObjectPtr<AMyHexPlatform> LobbyPlatform;
+	
+	/** "Floor (+ BP_MyHexPlatform_C_1)", for the logs and Aura.Lobby.Status. */
+	FString LobbyGroundText;
+	
+	/** No zone: a pawn below this goes back to the PlayerStart. */
+	double LobbyFallCatchZ=-UE_BIG_NUMBER;
+	
+	/** Spreads players over the lobby starts. */
+	int32 LobbySpotCounter=0;
+	
+	/** Server time the lobby began (StartPlay): the Arriving block's timeout and the PathStart wait. */
+	double LobbyStartServerTime=0.0;
+	
+	/** Since when each lobby pawn has been outside the zone. */
+	TMap<TWeakObjectPtr<APawn>, double> LobbyOutsideSince;
+	
+	FTimerHandle LobbyTickTimer;
+	
+	/** The wave spawners that were running when the lobby stopped the swarm: the round start resumes only these. */
+	TArray<TWeakObjectPtr<class AMechSentinelWaveSpawner>> LobbyStoppedSpawners;
+	
+	/** Aura.Lobby.Bots: AI controllers with a player state. */
+	TArray<TWeakObjectPtr<AController>> LobbyBots;
+	int32 LobbyBotCounter=0;
+	
+	/** The player count the swarm difficulty was last built for (the count factor follows it). */
+	int32 SwarmPlayerCount=-1;
+	
+	FTimerHandle CountdownTimer;
+	FTimerHandle MatchTickTimer;
+	FTimerHandle HealthTickTimer;
+	FTimerHandle RestartTimer;
+	
+	/** Ships placed in the map (seen at StartPlay): claimed by their ShipTeam<id> tag or removed in versus. */
+	TArray<TWeakObjectPtr<AAirshipPawn>> PlacedShips;
+	
+	/** Team ships and ship wrecks the game mode listens to. */
+	struct FWatchedShip
+	{
+		uint8 TeamId=MyMatch::NoTeam;
+		TWeakObjectPtr<UAbilitySystemComponent> ASC;
+		FDelegateHandle HealthHandle;
+	};
+	
+	TMap<TWeakObjectPtr<AAirshipPawn>, FWatchedShip> WatchedShips;
+	
+	/** Progress u of each team's last ship when it died (respawn fallback). */
+	float LastShipU[MyMatch::NumTeams]={};
+	
+	/** Server time each team ship last lost health (bRespawnAboard). */
+	double LastShipDamageTime[MyMatch::NumTeams]={};
+	
+	/** Fall death: since when each player's character has been falling with no base. */
+	TMap<TWeakObjectPtr<APawn>, double> FallingSince;
+	
+	/** The swarm rules asset copy with the difficulty's MaxAttackersPerPlayer (SetRulesOverride), kept alive here. */
+	UPROPERTY(Transient)
+	TObjectPtr<UMechSentinelSwarmRules> SwarmRulesCopy;
+	
+	TWeakObjectPtr<AMyHexPathSpawner> PathSpawner;
+	
+	// Setup
+	void ParseMatchOptions(const FString& Options);
+	bool IsPracticeStart() const;
+	int32 GetNeededPlayers() const;
+	bool IsHoldingPawns() const;
+	/** A countdown is on and Player's team isn't active yet: he starts when it ends, with the others (B1.3). */
+	bool IsWaitingForTeamStart(const AController* Player) const;
+	AMyGameState* GetMatchGameState() const;
+	EMyMatchPhase GetPhase() const;
+	double GetServerTime() const;
+	float GetLayoutScale();
+	
+	// Teams
+	/** PreferredTeam (a seamless arrival's copied team) is tried before the match memory, with the same cap test. */
+	void AssignTeam(AMyPlayerState* PlayerState, const FUniqueNetIdRepl& UniqueId, uint8 PreferredTeam = MyMatch::NoTeam);
+	void RecountTeams(const APlayerState* Leaving = nullptr);
+	void EvaluateTeams(const APlayerState* Leaving = nullptr);
+	int32 GetTeamCap() const;
+	bool IsStartConditionMet() const;
+	void UpdateHandicap();
+	int8 GetSideForTeam(uint8 TeamId) const;
+	static uint8 GetControllerTeam(const AController* Controller);
+	
+	// Flow
+	/** DelayOverride < 0 = MatchStartDelay. bFromLobby: untagged placed ships stay until the countdown's end (a cancel can't bring them back). */
+	void StartCountdown(bool bForced, float DelayOverride = -1.f, bool bFromLobby = false);
+	void OnCountdownEnd();
+	void BackToWaiting();
+	void StartPracticeToVersus(uint8 JoinedTeam);
+	void CancelPracticeToVersus();
+	void BeginRound();
+	void SpawnWaitingPlayers();
+	void ResetTeamsForRound();
+	void MatchTick();
+	void HealthTick();
+	void ScheduleEndCheck();
+	void CheckEnd();
+	void ResolveTimeLimit();
+	float GetTeamProgress(uint8 TeamId) const;
+	void UpdateForfeits();
+	void UpdateShipRespawns();
+	void UpdateFallDeaths();
+	void ApplySwarmDifficulty();
+	void StopSwarm();
+	
+	/** The lobby's end: the wave spawners that were running when the lobby began run again, Burrowers unpaused. */
+	void ResumeSwarm();
+	
+	/** RestartMatch and ReturnToLobby: the URL (Round, rules, Players, Lobby, SeamlessTravel) and the travel. */
+	void TravelToRound(bool bLobby);
+	
+	/** EndMatch's timer: ReturnToLobby or RestartMatch, as EndMatch decided. */
+	void OnEndScreenDone();
+	
+	/** Ends what Pawn was doing (boost, beam, a grapple's root motion) while it is still the ASC's avatar. */
+	static void CancelActiveAbilities(const AController* Controller, const APawn* Pawn);
+	
+	/** Unpossesses and destroys Controller's pawn (StartPlay's take-back, the lobby's end). False without a pawn. */
+	bool TakeBackPawn(AController* Controller, const TCHAR* Why);
+	
+	// --- Lobby (MyGameModeLobby.cpp) ---
+	
+	/** InitGame: bLobbyRound from the CVar Aura.Lobby.Enable, then the URL's Lobby option. Before ParseMatchOptions. */
+	void DecideLobby(const FString& Options);
+	
+	/** StartPlay's lobby branch: phase Lobby, swarm stopped, lobby tick, pawns. */
+	void BeginLobby();
+	
+	/** Every 0.25 s while in the lobby: the PathStart wait, the zone, the start block and the rematch flag. */
+	void LobbyTick();
+	void PollLobbyGround();
+	void UpdateLobbyZone();
+	
+	/** The start block, not-ready count and rematch flag into the game state (Leaving: a player in Logout). */
+	void UpdateLobbyState(const APlayerState* Leaving = nullptr);
+	
+	/** Every start block that applies, as bits (1 << EMyLobbyStartBlock). */
+	uint32 GetLobbyStartBlocks(int32& OutNotReady, const APlayerState* Leaving = nullptr) const;
+	bool ComputeLobbyRematch(const APlayerState* Leaving = nullptr) const;
+	
+	/** Arrived players on a team (bots included), the leaving one left out. */
+	int32 CountLobbyPlayers(const APlayerState* Leaving = nullptr) const;
+	
+	/** Every controller without a pawn that PlayerCanRestart allows gets one at a lobby spot. */
+	void SpawnLobbyPlayers();
+	
+	/** Controllers that have a pawn (CancelLobbyStart's log). */
+	int32 GetNumPlayerPawns() const;
+	
+	/** The first soft block of Mask the host's Start still has to confirm (a second click, bForce); NotReady not in a rematch. */
+	static EMyLobbyStartBlock GetLobbyConfirmBlock(uint32 Mask, bool bRematch);
+	
+	/** ReturnToLobby's Players: GetLobbyMaxPlayers, at least NumPlayers, and outside a lobby round the hosted session's slots. */
+	int32 GetReturnLobbyMaxPlayers(int32 NumPlayers) const;
+	
+	/** Teleports Character back to a lobby spot (the zone, the fall catch, Aura.Lobby.Resolve). */
+	void SendToLobbySpot(AController* Controller, ACharacter* Character, const TCHAR* Why, bool bMessage);
+	
+	void SetLobbyZoneAround(const AActor* Ground);
+	void SetLobbyGroundNone();
+	AMyHexPlatform* FindFirstPathPlatform() const;
+	
+	void MoveLobbyTeam(AMyPlayerState* Player, uint8 Target, const TCHAR* Why);
+	
+	/** A team mode change in the lobby: every request cleared, every team again by AssignTeam in join order. */
+	void RebalanceLobbyTeams();
+	
+	/** Every ready flag off (bLobbyRulesClearReady), the players told. */
+	void ClearLobbyReady(const TCHAR* Why);
+	
+	/** The lobby's end (BeginRound): every pawn taken back, every timed effect removed, pending respawns dropped. */
+	void TakeBackLobbyPawns();
+	
+	/** Every active effect with a duration above 0 (cooldowns, timed buffs). The number removed. */
+	static int32 RemoveTimedEffects(UAbilitySystemComponent* ASC);
+	
+	void StartSessionIfHost();
+	void EndSessionIfHost();
+	
+	/** The session's advertised rules, difficulty, slots and IN LOBBY / IN MATCH, when hosting one (else a log line). */
+	void AdvertiseIfHosting(bool bInMatch);
+	
+	/** PostLogin (hard) and InitSeamlessTravelPlayer (seamless): host flag, airship pilot component, the seamless EvaluateTeams. */
+	void OnPlayerArrived(APlayerController* PC, bool bSeamless);
+	
+	void SendLobbyMessage(AController* Controller, const FText& Text) const;
+	
+	// Team ships
+	/** bRemoveUntaggedPlaced false: a lobby start keeps untagged placed ships until its countdown ends. */
+	void ClaimOrSpawnShips(bool bTwoTeams, bool bRemoveUntaggedPlaced = true);
+	void RemoveUntaggedPlacedShips();
+	void AdoptTeamShip(AAirshipPawn* Ship, uint8 TeamId);
+	void WatchShip(AAirshipPawn* Ship, uint8 TeamId);
+	void UnwatchShip(AAirshipPawn* Ship);
+	void RemoveTeamShip(uint8 TeamId, const TCHAR* Reason);
+	void ProtectShip(AAirshipPawn* Ship) const;
+	void HealShip(AAirshipPawn* Ship) const;
+	float GetShipHealthFraction(const AAirshipPawn* Ship) const;
+	float GetShipRespawnU(uint8 TeamId) const;
+	bool FindAboardTransform(const AController* Controller, const AAirshipPawn* Ship, int32 SpotIndex, FTransform& OutTransform) const;
+	
+	UFUNCTION()
+	void OnTeamShipDied(AActor* DeadActor);
+	
+	UFUNCTION()
+	void OnTeamShipDestroyed(AActor* DestroyedActor);
+	
+	void OnTeamShipHealthChanged(const FOnAttributeChangeData& Data, TWeakObjectPtr<AAirshipPawn> WeakShip);
 	
 	/** Where a respawn's pawn goes. */
 	struct FRespawnSpot
@@ -95,6 +573,10 @@ private:
 		bool bOnTile=false;
 		TWeakObjectPtr<AMyHexPlatform> Platform;
 		FIntVector TileCoord=FIntVector::ZeroValue;
+		
+		/** Team match bRespawnAboard: a deck spot, kept relative to the moving ship until the pawn spawns. */
+		TWeakObjectPtr<AAirshipPawn> Ship;
+		FTransform ShipLocal;
 	};
 	
 	struct FPendingRespawn
@@ -131,6 +613,9 @@ private:
 	 * PlayerStart when nobody has landed on a platform yet. False = nowhere.
 	 */
 	bool FindRespawnSpot(AController* Controller, const FPawnFit& Fit, FRespawnSpot& OutSpot);
+	
+	/** A lobby spot for Controller's pawn (PathStart: a tile; PlayerStarts: a lobby start and FindTeleportSpot; none: the PlayerStart). */
+	bool GetLobbySpot(AController* Controller, const FPawnFit& Fit, FRespawnSpot& OutSpot);
 	
 	/** A live tile on Platform the pawn fits on: bridge path first (no props), then away from the edge, then near the centre. */
 	bool FindRespawnTile(AMyHexPlatform* Platform, const FPawnFit& Fit, const FRotator& Rotation, const AController* Controller,

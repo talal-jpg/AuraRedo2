@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Engine/NetSerialization.h"
 #include "GameplayEffectTypes.h"
+#include "Match/MyMatchTypes.h"
 #include "AirshipCannonball.generated.h"
 
 class AAirshipPawn;
@@ -28,6 +29,9 @@ class UStaticMeshComponent;
  * The ball blocks the Visibility channel and has health in gun units (BallMaxHealth), so the character gun and the
  * ship turrets can shoot it down (ApplyShotDamage): it then bursts in the air with its impact FX and deals no damage.
  * The shoot-down replicates as state (bShotDown), so every client stops its copy, late or not.
+ *
+ * Team match (round 2 PR B, SPEC_B B6.2): the ball carries its ship's team (SourceTeamId, stored at spawn: the ship may
+ * be gone when it lands) and spares that team's players, ships and turrets unless the rules allow friendly fire.
  */
 UCLASS()
 class AURA_API AAirshipCannonball : public AActor
@@ -43,10 +47,18 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 	/**
-	 * Server, between SpawnActorDeferred and FinishSpawning: the ship that fired, the launch velocity (cm/s) and the
-	 * damage spec (from the ship's ASC; its SetByCaller SetDamageByCaller is the direct-hit damage).
+	 * Server, between SpawnActorDeferred and FinishSpawning: the ship that fired (and its team, SourceTeamId), the launch
+	 * velocity (cm/s) and the damage spec (from the ship's ASC; its SetByCaller SetDamageByCaller is the direct-hit damage).
 	 */
 	void InitCannonball(AAirshipPawn* InShip, const FVector& InVelocity, const FGameplayEffectSpecHandle& InDamageSpec, float InDamage);
+
+	/**
+	 * The firing ship's team at spawn (server, replicated once): UMyTeamLibrary::GetTeamId reads it, so the friendly
+	 * fire rule holds after the ship is gone (a gone ship would resolve to 255). A free ship's ball takes its shooter's team
+	 * (UMyTeamLibrary::GetFiringTeamId: the gunner, else the pilot). 255 = nobody's team, or no match.
+	 */
+	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Airship|Cannonball")
+	uint8 SourceTeamId = MyMatch::NoTeam;
 
 	/** Server: also ignore this actor (the other ball of the same broadside). */
 	void IgnoreActor(AActor* Actor);
@@ -203,7 +215,7 @@ private:
 	UFUNCTION()
 	void OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
-	/** Server: the ship and what rides on it. */
+	/** Server: the ship and what rides on it, and (team match) the ship's teammates unless friendly fire is on. */
 	bool ShouldIgnore(const AActor* Actor) const;
 
 	/** Server: damage, splash, sentinels, multicast, hide. */

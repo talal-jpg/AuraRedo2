@@ -1,0 +1,633 @@
+{
+ "knobs": {
+  "seed": 1301,
+  "x_aft": -11.55,
+  "x_fwd": 8.6,
+  "x_fwd_plates": 6.95,
+  "chart_x": [
+   -12.0,
+   9.0,
+   0.05
+  ],
+  "chart_phi": [
+   30.0,
+   -80.0,
+   -0.5
+  ],
+  "chart_clear": 0.3,
+  "bilge_phi": -56.0,
+  "touch_tol": 0.02,
+  "step_tol": 0.012,
+  "plate": {
+   "gap": 0.015,
+   "t": 0.045,
+   "bevel": 0.014,
+   "cell_u": 0.6,
+   "cell_v": 0.25,
+   "cut": [
+    0.07,
+    0.17
+   ],
+   "cut_p": 0.3
+  },
+  "layer": 0.006,
+  "seam": 0.024,
+  "rivet": {
+   "r": 0.022,
+   "h": 0.012,
+   "inset": 0.07,
+   "spacing": 0.28
+  },
+  "upper": {
+   "w": [
+    0.8,
+    1.7
+   ],
+   "row_h": [
+    0.55,
+    0.95
+   ],
+   "top_off": 0.27,
+   "min_w": 0.35,
+   "min_h": 0.22,
+   "keep": 0.25,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "lower": {
+   "w": [
+    0.8,
+    1.6
+   ],
+   "row_h": [
+    0.7,
+    1.1
+   ],
+   "top_off": 0.04,
+   "min_w": 0.35,
+   "min_h": 0.22,
+   "keep": 0.25,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "fill": {
+   "w": [
+    0.35,
+    0.8
+   ],
+   "h": [
+    0.3,
+    0.6
+   ],
+   "min_w": 0.3,
+   "min_h": 0.24,
+   "mats": [
+    [
+     "paint_yellow",
+     0.5
+    ],
+    [
+     "paint_ochre",
+     0.5
+    ]
+   ]
+  },
+  "shingle": {
+   "p": 0.3,
+   "overlap": 0.08,
+   "t": 0.04,
+   "armour": 0.5
+  },
+  "frame": {
+   "p": 0.65,
+   "rim": 0.075,
+   "t": 0.035,
+   "inset_p": 0.0,
+   "min_w": 0.6,
+   "min_h": 0.45,
+   "edge": 0.09
+  },
+  "patch": {
+   "p": 0.7,
+   "t": 0.04,
+   "w": [
+    0.4,
+    0.8
+   ],
+   "h": [
+    0.3,
+    0.55
+   ],
+   "mats": [
+    [
+     "rust_red",
+     0.7
+    ],
+    [
+     "paint_ochre",
+     0.3
+    ]
+   ]
+  },
+  "batten": {
+   "p": 0.75,
+   "w": 0.12,
+   "t": 0.05,
+   "mat": "rust_red"
+  },
+  "slots": {
+   "up": 3,
+   "mid": 2,
+   "w": [
+    0.55,
+    0.8
+   ],
+   "h": [
+    0.32,
+    0.45
+   ],
+   "n": [
+    3,
+    4
+   ],
+   "slot_w": 0.05,
+   "ang": 58.0
+  },
+  "strake": {
+   "h": 0.2,
+   "t": 0.085,
+   "back_h": 0.6,
+   "back_t": 0.02,
+   "smooth": 0.9
+  },
+  "teeth": {
+   "w": [
+    0.7,
+    0.9
+   ],
+   "h": [
+    0.62,
+    0.78
+   ],
+   "gap": [
+    0.14,
+    0.2
+   ],
+   "t": 0.09,
+   "chamfer": 0.07
+  },
+  "channel": {
+   "v": [
+    1.02,
+    1.52
+   ],
+   "r": [
+    0.07,
+    0.058
+   ],
+   "clamp_step": 1.0
+  },
+  "bay": {
+   "v": [
+    1.62,
+    2.78
+   ],
+   "w": [
+    2.1,
+    1.6
+   ],
+   "rim": 0.1,
+   "rim_t": 0.05,
+   "depth": 0.11,
+   "pump_r": 0.068
+  },
+  "ubay": {
+   "v": [
+    0.1,
+    0.86
+   ],
+   "w": [
+    1.8,
+    1.6
+   ],
+   "x_pref": [
+    -7.4,
+    -2.3
+   ],
+   "rim": 0.08,
+   "depth": 0.1
+  },
+  "conduit": {
+   "r_up": [
+    0.03,
+    0.026
+   ],
+   "clamp_step": 0.7,
+   "fittings": 3,
+   "smooth": 0.75
+  },
+  "gusset": {
+   "step": 0.51,
+   "depth": 0.1,
+   "height": 0.22,
+   "t": 0.025
+  },
+  "pocket": {
+   "r": 2.85,
+   "rim_w": [
+    0.03,
+    0.19
+   ],
+   "rim_t": 0.05,
+   "cavity_bottom_h": -1.84,
+   "roof_h": -2.8
+  },
+  "pod": {
+   "gap": 0.012,
+   "t": 0.035,
+   "bevel": 0.01,
+   "rib_rivet_step": 20.0,
+   "hull_clear": 0.05,
+   "bundle_r": 0.05,
+   "hug_r": [
+    0.06,
+    0.05
+   ],
+   "act_r": 2.04,
+   "hoops": [
+    3.25,
+    3.6
+   ],
+   "mats": [
+    [
+     "rust_red",
+     0.45
+    ],
+    [
+     "rust_dark",
+     0.35
+    ],
+    [
+     "dark_metal",
+     0.2
+    ]
+   ]
+  },
+  "pa_boxes": "/mnt/new_partition/UnrealProjects/_AirshipWork/Saved/Airship/pa_hull_boxes.json"
+ },
+ "log": {
+  "chart_s": 3.8,
+  "rim_edge_points": {
+   "top": 113,
+   "aft": 82,
+   "fore": 136
+  },
+  "rim_pieces": 5,
+  "strake_runs": [
+   [
+    -11.55,
+    -9.6
+   ],
+   [
+    -4.65,
+    0.95
+   ]
+  ],
+  "pipe_spans": [
+   [
+    -11.55,
+    -10.15
+   ],
+   [
+    -4.75,
+    0.9
+   ]
+  ],
+  "bay_runs": [
+   [
+    -4.25,
+    0.1
+   ]
+  ],
+  "bays": [
+   [
+    -4.17,
+    -2.07
+   ],
+   [
+    -1.58,
+    0.02
+   ]
+  ],
+  "upper_bays": [
+   [
+    -8.1,
+    -6.3
+   ],
+   [
+    -3.1,
+    -1.5
+   ]
+  ],
+  "plates": {
+   "up_rows": 19,
+   "low_rows": 12,
+   "fill": 18,
+   "coverage_up": 0.748,
+   "free_m2_up": 23.6,
+   "free_m2_low": 27.5
+  },
+  "frame_patch_reasons": {
+   "eligible": 20,
+   "patch_keepout": 3,
+   "busy_or_small_fill": 23,
+   "patch_too_small": 4
+  },
+  "layers": {
+   "raised": 6,
+   "armour": 2,
+   "battens": 6,
+   "slotted": 5,
+   "frames": 3,
+   "patches": 6,
+   "calm_plates": 29,
+   "calm_share_of_area": 0.3
+  },
+  "skipped_on_step": 1,
+  "strake": {
+   "segments": 5,
+   "shifted_for_a_shelf": 21
+  },
+  "teeth": 5,
+  "gussets": 29,
+  "pipes": 4,
+  "bays_built": 6,
+  "conduits": 2,
+  "through_hull_fittings": 3,
+  "hull_rivets": 218,
+  "cavity": {
+   "stiffeners": 12,
+   "wall_sector": [
+    -175,
+    10
+   ]
+  },
+  "pod": {
+   "drum_plates": 16,
+   "big_plate_pieces": 11,
+   "hug_pipes": 2,
+   "rivets": 210
+  },
+  "nozzle": {
+   "rivets": 48,
+   "hoops": 2,
+   "fin_pieces": 36
+  },
+  "petals": 12,
+  "floating_pieces_removed": {},
+  "build_s": 6.3
+ },
+ "tris": {
+  "Hull": 32676,
+  "Pod_FL": 12336,
+  "Nozzle_FL": 2160,
+  "Petals_FL": 4032
+ },
+ "tris_total": 51204,
+ "tris_by_kind": {
+  "rim": 388,
+  "rivet": 12320,
+  "plate": 2578,
+  "fill": 1054,
+  "plate_raised": 656,
+  "batten": 228,
+  "frame": 360,
+  "patch": 390,
+  "slotted": 1200,
+  "strake": 428,
+  "tooth": 610,
+  "bracket": 580,
+  "channel": 272,
+  "pipe": 2816,
+  "clamp": 1792,
+  "gland": 1224,
+  "valve": 460,
+  "bay": 2764,
+  "housing": 2884,
+  "pump": 340,
+  "tank": 256,
+  "conduit": 3568,
+  "cavity": 1052,
+  "pod_plate": 3016,
+  "pod_band": 288,
+  "pod_patch": 1076,
+  "pod_box": 520,
+  "pod_pipe": 2340,
+  "piston": 2864,
+  "hoop": 768,
+  "fin": 720,
+  "petal": 1392
+ },
+ "nonmanifold_edges": {
+  "Hull": 0,
+  "Pod_FL": 0,
+  "Nozzle_FL": 0,
+  "Petals_FL": 0
+ },
+ "bones": {
+  "Hull": [
+   "Hull"
+  ],
+  "Pod_FL": [
+   "Thruster_FL"
+  ],
+  "Nozzle_FL": [
+   "Thruster_FL_Nozzle"
+  ],
+  "Petals_FL": [
+   "Thruster_FL_Petal00",
+   "Thruster_FL_Petal01",
+   "Thruster_FL_Petal02",
+   "Thruster_FL_Petal03",
+   "Thruster_FL_Petal04",
+   "Thruster_FL_Petal05",
+   "Thruster_FL_Petal06",
+   "Thruster_FL_Petal07",
+   "Thruster_FL_Petal08",
+   "Thruster_FL_Petal09",
+   "Thruster_FL_Petal10",
+   "Thruster_FL_Petal11"
+  ]
+ },
+ "checks": {
+  "hull_flank_vs_skin": {
+   "name": "hull details outside the FL pocket vs hull skin",
+   "max_dist_m": 0.199,
+   "worst": [
+    -2.751,
+    6.297,
+    -2.512
+   ],
+   "verts_over_limit": 0,
+   "over_limit_by_kind": {},
+   "verts": 17308,
+   "limit_m": 0.2,
+   "p99_m": 0.185
+  },
+  "hull_cavity_vs_skin": {
+   "name": "FL pocket cavity details vs hull skin (inside the cavity, no silhouette)",
+   "max_dist_m": 0.087,
+   "worst": [
+    2.718,
+    2.275,
+    0.764
+   ],
+   "verts_over_limit": 0,
+   "over_limit_by_kind": {},
+   "verts": 1028,
+   "limit_m": 0.2,
+   "p99_m": 0.082
+  },
+  "pod_vs_pod": {
+   "name": "pod details vs pod surface",
+   "max_dist_m": 0.308,
+   "worst": [
+    3.689,
+    7.133,
+    -2.661
+   ],
+   "verts_over_limit": 644,
+   "over_limit_by_kind": {
+    "pod_patch": 140,
+    "rivet": 168,
+    "pod_pipe": 188,
+    "clamp": 2,
+    "piston": 146
+   },
+   "verts": 6944,
+   "limit_m": 0.15,
+   "p99_m": 0.247
+  },
+  "nozzle_vs_pod": {
+   "name": "nozzle details vs pod surface",
+   "max_dist_m": 0.27,
+   "worst": [
+    3.733,
+    6.133,
+    -4.778
+   ],
+   "verts_over_limit": 120,
+   "over_limit_by_kind": {},
+   "verts": 1248,
+   "limit_m": 0.15,
+   "p99_m": 0.27
+  },
+  "petals_vs_pod": {
+   "name": "petal details vs pod surface",
+   "max_dist_m": 0.049,
+   "worst": [
+    4.839,
+    4.506,
+    -5.674
+   ],
+   "verts_over_limit": 0,
+   "over_limit_by_kind": {},
+   "verts": 2280,
+   "limit_m": 0.15,
+   "p99_m": 0.049
+  },
+  "pod_envelope": {
+   "name": "pod details outside the pod radial envelope",
+   "local_max_excess_m": 1.158,
+   "local_p99_m": 0.289,
+   "local_verts_over_0_15": 1138,
+   "local_over_0_15_by_kind": {
+    "pod_patch": 157,
+    "rivet": 384,
+    "pod_box": 48,
+    "pod_pipe": 298,
+    "clamp": 3,
+    "piston": 248
+   },
+   "verts": 6944,
+   "silhouette_max_excess_m": 0.103,
+   "silhouette_verts_over_0": 495,
+   "silhouette_over_0_by_kind": {
+    "pod_patch": 113,
+    "rivet": 183,
+    "pod_box": 199
+   },
+   "silhouette_verts_over_0_05": 63,
+   "silhouette_worst": {
+    "h": 1.91,
+    "deg": -14.2,
+    "r": 2.403,
+    "kind": "pod_patch"
+   }
+  },
+  "nozzle_envelope": {
+   "name": "nozzle details outside the pod radial envelope",
+   "local_max_excess_m": 0.307,
+   "local_p99_m": 0.306,
+   "local_verts_over_0_15": 168,
+   "local_over_0_15_by_kind": {
+    "fin": 168
+   },
+   "verts": 1248,
+   "silhouette_max_excess_m": -0.555,
+   "silhouette_verts_over_0": 0,
+   "silhouette_over_0_by_kind": {},
+   "silhouette_verts_over_0_05": 0,
+   "silhouette_worst": {
+    "h": 3.07,
+    "deg": -104.4,
+    "r": 1.555,
+    "kind": "fin"
+   }
+  },
+  "petal_envelope": {
+   "name": "petal details outside the pod radial envelope",
+   "local_max_excess_m": 0.05,
+   "local_p99_m": 0.048,
+   "local_verts_over_0_15": 0,
+   "local_over_0_15_by_kind": {},
+   "verts": 2280,
+   "silhouette_max_excess_m": -0.456,
+   "silhouette_verts_over_0": 0,
+   "silhouette_over_0_by_kind": {},
+   "silhouette_verts_over_0_05": 0,
+   "silhouette_worst": {
+    "h": 4.31,
+    "deg": -89.6,
+    "r": 1.654,
+    "kind": "piston"
+   }
+  },
+  "pa_boxes": {
+   "boxes": 103,
+   "verts": 25280,
+   "verts_inside_a_box": 1585,
+   "verts_above_a_box_top": 0,
+   "worst_cm_above_a_top": null
+  },
+  "hull_details_max_z": 2.232
+ },
+ "ship_tris_before": 68510,
+ "seconds": 8.1
+}

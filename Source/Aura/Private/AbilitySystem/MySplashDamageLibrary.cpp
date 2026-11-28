@@ -12,6 +12,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerState.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "Match/MyTeamLibrary.h"
 #include "MechSwarm/Combat/MechSentinelCombatLibrary.h"
 #include "MechSwarm/Core/MechSentinelSwarmRules.h"
 
@@ -98,6 +99,12 @@ bool UMySplashDamageLibrary::IsDamageableEnemy(const AActor* Actor, const AActor
 	}
 	// Never the instigator's own ability system, whichever actor it is reached through.
 	if (Instigator && ASC == UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Instigator))
+	{
+		return false;
+	}
+	// Match: never a teammate, his team's ship or its turrets, unless the rules allow friendly fire. The beam's hit and
+	// every splash (characters) come through here.
+	if (UMyTeamLibrary::IsFriendlyFireBlocked(Instigator, Actor))
 	{
 		return false;
 	}

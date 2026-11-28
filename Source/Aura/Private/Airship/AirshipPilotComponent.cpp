@@ -23,9 +23,12 @@
 #include "InputActionValue.h"
 #include "InputMappingContext.h"
 #include "Interfaces/MyCombatInterface.h"
+#include "Match/MyTeamLibrary.h"
 #include "UI/Settings/MyGameUserSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAirshipPilot, Log, All);
+
+TMulticastDelegate<void(const APlayerController*, EAirshipUseRefusal)> UAirshipPilotComponent::OnLocalUseRefused;
 
 UAirshipPilotComponent::UAirshipPilotComponent()
 {
@@ -146,11 +149,27 @@ bool UAirshipPilotComponent::TrySetupLocalInput()
 	return true;
 }
 
+namespace AirshipPilotComponentPrivate
+{
+	/**
+	 * The mapping lives on the local player, which a seamless travel's old and new controllers share: on a client the old
+	 * controller (and this component on it) can end play after the new one's component added the same context. Only the
+	 * controller that owns the local player now removes it (SPEC_B_LOBBY 5.4 row 10).
+	 */
+	bool OwnsLocalPlayerMappings(const UEnhancedInputLocalPlayerSubsystem* Subsystem, const APlayerController* PC)
+	{
+		const ULocalPlayer* LocalPlayer = Subsystem ? Subsystem->GetLocalPlayer() : nullptr;
+		return LocalPlayer && PC && LocalPlayer->PlayerController == PC;
+	}
+}
+
 void UAirshipPilotComponent::TeardownLocalInput()
 {
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = MappingSubsystem.Get())
 	{
-		if (const UInputMappingContext* Context = AddedMappingContext.Get())
+		const UInputMappingContext* Context = AddedMappingContext.Get();
+
+		if (Context && AirshipPilotComponentPrivate::OwnsLocalPlayerMappings(Subsystem, GetPlayerController()))
 		{
 			Subsystem->RemoveMappingContext(Context);
 		}
@@ -258,8 +277,8 @@ AAirshipPawn* UAirshipPilotComponent::FindBoardableAirship() const
 	const ACharacter* Character = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
 	const UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(this);
 
-	// On foot only (a pilot's pawn is the ship)
-	if (!Character || !Subsystem)
+	// On foot only (a pilot's pawn is the ship). The lobby locks every ship: no prompt (any machine, replicated state)
+	if (!Character || !Subsystem || UMyTeamLibrary::AreShipsLocked(this))
 	{
 		return nullptr;
 	}
@@ -271,7 +290,9 @@ AAirshipPawn* UAirshipPilotComponent::FindBoardableAirship() const
 
 	for (AAirshipPawn* Ship : Subsystem->GetAirships())
 	{
-		if (!Ship || Ship->IsAirshipDead() || Ship->HasPilot() || !Ship->IsWithinHelmReach(Character))
+		// Never the other team's ship (CanBoard is server only; the replicated team ids answer this on any machine)
+		if (!Ship || Ship->IsAirshipDead() || Ship->HasPilot() || !UMyTeamLibrary::CanUseShip(Character, Ship)
+			|| !Ship->IsWithinHelmReach(Character))
 		{
 			continue;
 		}
@@ -308,9 +329,9 @@ bool UAirshipPilotComponent::TryBoard(AAirshipPawn* Ship, bool bIgnoreRange)
 	{
 		if (bIgnoreRange)
 		{
-			// Console: the nearest free living ship, any distance
+			// Console: the nearest free living ship the player may use, any distance (a nearer enemy ship is skipped)
 			const UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(this);
-			Ship = Subsystem ? Subsystem->FindNearestAirship(Character->GetActorLocation(), true) : nullptr;
+			Ship = Subsystem ? Subsystem->FindNearestAirship(Character->GetActorLocation(), true, Character) : nullptr;
 		}
 		else
 		{
@@ -320,6 +341,14 @@ bool UAirshipPilotComponent::TryBoard(AAirshipPawn* Ship, bool bIgnoreRange)
 
 	if (!Ship)
 	{
+		return false;
+	}
+
+	// The lobby (console boards too): refused, and the player is told why
+	if (UMyTeamLibrary::AreShipsLocked(this))
+	{
+		UE_LOG(LogAirshipPilot, Log, TEXT("%s -> %s: refused (Locked: ships unlock when the match starts)"), *Character->GetName(), *Ship->GetName());
+		ClientUseRefused(EAirshipUseRefusal::Locked);
 		return false;
 	}
 
@@ -380,6 +409,14 @@ bool UAirshipPilotComponent::TryUseNearest()
 		return TryDismount();
 	}
 
+	// The lobby and its countdown: every ship is locked (the HUD's toast "Ships unlock when the match starts")
+	if (UMyTeamLibrary::AreShipsLocked(this))
+	{
+		UE_LOG(LogAirshipPilot, Log, TEXT("%s: F refused (Locked: the lobby)"), *Character->GetName());
+		ClientUseRefused(EAirshipUseRefusal::Locked);
+		return false;
+	}
+
 	// The nearest wins: the helm of a free living ship when the character stands at its wheel (IsWithinHelmReach: Talal
 	// 11-25, "only be able to drive once close enough to grab the steering wheel"; distance to the pilot seat), or a free
 	// station in range (3D distance to its seat). Anywhere else, on the deck, beside or under the hull, F does nothing.
@@ -387,11 +424,29 @@ bool UAirshipPilotComponent::TryUseNearest()
 	AAirshipPawn* BestShip = nullptr;
 	int32 BestStation = INDEX_NONE;
 	double BestDistSq = TNumericLimits<double>::Max();
+	const AAirshipPawn* EnemyShipInRange = nullptr;
 
 	for (AAirshipPawn* Ship : Subsystem->GetAirships())
 	{
 		if (!Ship || Ship->IsAirshipDead())
 		{
+			continue;
+		}
+
+		// Team match: the other team's ship is never used; remembered for the refusal's reason (its helm or a gun in range)
+		if (!UMyTeamLibrary::CanUseShip(Character, Ship))
+		{
+			bool bInRange = Ship->IsWithinHelmReach(Character);
+
+			for (int32 Station = 0; Station < Airship::NumStations && !bInRange; ++Station)
+			{
+				bInRange = Ship->IsWithinStationRange(Station, Location);
+			}
+
+			if (bInRange)
+			{
+				EnemyShipInRange = Ship;
+			}
 			continue;
 		}
 
@@ -427,7 +482,10 @@ bool UAirshipPilotComponent::TryUseNearest()
 
 	if (!BestShip)
 	{
-		UE_LOG(LogAirshipPilot, Log, TEXT("%s: F refused (no free helm or gun in range)"), *Character->GetName());
+		const EAirshipUseRefusal Reason = EnemyShipInRange ? EAirshipUseRefusal::EnemyShip : EAirshipUseRefusal::NothingInRange;
+		UE_LOG(LogAirshipPilot, Log, TEXT("%s: F refused (%s)"), *Character->GetName(),
+			EnemyShipInRange ? *FString::Printf(TEXT("%s is the other team's ship"), *EnemyShipInRange->GetName()) : TEXT("no free helm or gun in range"));
+		ClientUseRefused(Reason);
 		return false;
 	}
 
@@ -443,6 +501,14 @@ bool UAirshipPilotComponent::TryUseNearest()
 	return bMounted;
 }
 
+void UAirshipPilotComponent::ClientUseRefused_Implementation(EAirshipUseRefusal Reason)
+{
+	// The local player's own machine (a local controller on the server runs it at once): the HUD's toast. The log line
+	// is the harness's proof that the client got it (M2.1)
+	UE_LOG(LogAirshipPilot, Log, TEXT("%s: use refused (%s) on this machine"), *GetNameSafe(GetOwner()), *UEnum::GetValueAsString(Reason));
+	OnLocalUseRefused.Broadcast(GetPlayerController(), Reason);
+}
+
 bool UAirshipPilotComponent::TryMount(AAirshipPawn* Ship, int32 Station, bool bIgnoreRange)
 {
 	APlayerController* PC = GetPlayerController();
@@ -450,6 +516,13 @@ bool UAirshipPilotComponent::TryMount(AAirshipPawn* Ship, int32 Station, bool bI
 
 	if (!PC || !PC->HasAuthority() || !Character || Station < 0 || Station >= Airship::NumStations)
 	{
+		return false;
+	}
+
+	if (UMyTeamLibrary::AreShipsLocked(this))
+	{
+		UE_LOG(LogAirshipPilot, Log, TEXT("%s: station %d refused (Locked: ships unlock when the match starts)"), *Character->GetName(), Station);
+		ClientUseRefused(EAirshipUseRefusal::Locked);
 		return false;
 	}
 
@@ -843,7 +916,10 @@ void UAirshipPilotComponent::TeardownGunnerInput()
 {
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = GunnerMappingSubsystem.Get())
 	{
-		if (const UInputMappingContext* Context = GunnerMappingContext.Get())
+		const UInputMappingContext* Context = GunnerMappingContext.Get();
+
+		// The same rule as TeardownLocalInput: not the context a newer controller of this local player uses
+		if (Context && AirshipPilotComponentPrivate::OwnsLocalPlayerMappings(Subsystem, GetPlayerController()))
 		{
 			FModifyContextOptions Options;
 			Options.bNotifyUserSettings = true;

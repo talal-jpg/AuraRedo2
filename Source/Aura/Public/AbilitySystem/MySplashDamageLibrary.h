@@ -49,7 +49,11 @@ struct AURA_API FMySplashDamageSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Splash")
 	bool bDamageCharacters = true;
 
-	/** Also player characters (and ships players fly) other than the instigator. Off: no friendly fire. */
+	/**
+	 * Also player characters (and ships players fly) other than the instigator. Off: no player is hit. In a match the
+	 * instigator's teammates, their ship and its turrets are left out either way unless the rules allow friendly fire
+	 * (UMyTeamLibrary::IsFriendlyFireBlocked).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Splash", meta = (EditCondition = "bDamageCharacters"))
 	bool bDamagePlayers = true;
 
@@ -145,7 +149,11 @@ public:
 	/** The actor whose ability system takes damage for Actor: Actor or the first actor it is attached to with an ASC that has UMyAttributeSet. Null when none. */
 	static AActor* FindDamageableActor(AActor* Actor);
 
-	/** Actor (see FindDamageableActor) is something Instigator can damage: an ASC with UMyAttributeSet that is not the instigator's, alive, and not a player unless bIncludePlayers. */
+	/**
+	 * Actor (see FindDamageableActor) is something Instigator can damage: an ASC with UMyAttributeSet that is not the
+	 * instigator's, alive, not a player unless bIncludePlayers, and in a match not on the instigator's team (unless the
+	 * rules allow friendly fire, UMyTeamLibrary::IsFriendlyFireBlocked).
+	 */
 	static bool IsDamageableEnemy(const AActor* Actor, const AActor* Instigator, bool bIncludePlayers);
 
 	/** Player characters and ships players fly: the ASC lives on a player state, or the pawn is player controlled. */

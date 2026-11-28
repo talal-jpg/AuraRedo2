@@ -22,6 +22,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
+#include "Match/MyMatchTypes.h"
+#include "Match/MyTeamLibrary.h"
 #include "MechSwarm/Core/MechSentinelSwarmSubsystem.h"
 #include "TimerManager.h"
 #include "UObject/UnrealType.h"
@@ -149,7 +151,7 @@ TArray<AAirshipPawn*> UAirshipSubsystem::GetAirships() const
 	return Result;
 }
 
-AAirshipPawn* UAirshipSubsystem::FindNearestAirship(const FVector& Location, bool bOnlyBoardable) const
+AAirshipPawn* UAirshipSubsystem::FindNearestAirship(const FVector& Location, bool bOnlyBoardable, const APawn* ForUser) const
 {
 	AAirshipPawn* Best = nullptr;
 	double BestDistSq = TNumericLimits<double>::Max();
@@ -157,6 +159,12 @@ AAirshipPawn* UAirshipSubsystem::FindNearestAirship(const FVector& Location, boo
 	for (AAirshipPawn* Airship : GetAirships())
 	{
 		if (bOnlyBoardable && (Airship->IsAirshipDead() || Airship->HasPilot()))
+		{
+			continue;
+		}
+
+		// Aura.Airship.Board in a match: a nearer enemy ship would be picked and refused
+		if (ForUser && !UMyTeamLibrary::CanUseShip(ForUser, Airship))
 		{
 			continue;
 		}
@@ -171,6 +179,57 @@ AAirshipPawn* UAirshipSubsystem::FindNearestAirship(const FVector& Location, boo
 	}
 
 	return Best;
+}
+
+AAirshipPawn* UAirshipSubsystem::FindShipCarrying(const APawn* Pawn)
+{
+	if (!IsValid(Pawn))
+	{
+		return nullptr;
+	}
+
+	// A ship: its player is at the helm
+	if (const AAirshipPawn* Ship = Cast<AAirshipPawn>(Pawn))
+	{
+		return const_cast<AAirshipPawn*>(Ship);
+	}
+
+	const ACharacter* Character = Cast<ACharacter>(Pawn);
+
+	if (!Character)
+	{
+		return nullptr;
+	}
+
+	// Attached (the seated pilot, a gunner): the ship up the attach chain (a turret's seat is on the hull)
+	const AActor* Parent = Character->GetAttachParentActor();
+
+	for (int32 Depth = 0; Parent && Depth < 4; ++Depth, Parent = Parent->GetAttachParentActor())
+	{
+		if (const AAirshipPawn* Ship = Cast<AAirshipPawn>(Parent))
+		{
+			return const_cast<AAirshipPawn*>(Ship);
+		}
+	}
+
+	// On a deck or jumping on it (team-blind)
+	if (const UAirshipSubsystem* Subsystem = Get(Pawn))
+	{
+		for (AAirshipPawn* Ship : Subsystem->GetAirships())
+		{
+			if (Ship->IsRiding(Character))
+			{
+				return Ship;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+bool UAirshipSubsystem::IsShipBorne(const APawn* Pawn)
+{
+	return FindShipCarrying(Pawn) != nullptr;
 }
 
 bool UAirshipSubsystem::FindGunnerStation(const ACharacter* Character, AAirshipPawn*& OutShip, int32& OutStation) const
@@ -923,7 +982,7 @@ namespace AirshipConsole
 
 	FAutoConsoleCommandWithWorld GTelemetryCommand(
 		TEXT("Aura.Airship.Telemetry"),
-		TEXT("Aura.Airship.Telemetry - logs speed, altitude, attitude, fuel, health and the control scheme's state of every airship of this world, then the unpiloted mode, gunner stations, turrets and pilot health, then its hull inertia (Chaos principal moments, mass frame, hull-space COM)."),
+		TEXT("Aura.Airship.Telemetry - logs speed, altitude, attitude, fuel, health and the control scheme's state of every airship of this world, then the unpiloted mode, gunner stations, turrets and pilot health, then the team and lane (state, u, errors, target speed, clamp, recall, protection), then its hull inertia (Chaos principal moments, mass frame, hull-space COM)."),
 		FConsoleCommandWithWorldDelegate::CreateLambda([](UWorld* World)
 		{
 			if (UAirshipSubsystem* Subsystem = UAirshipSubsystem::Get(World))
@@ -961,6 +1020,14 @@ namespace AirshipConsole
 					UE_LOG(LogAirship, Log, TEXT("%s: unpiloted %d (drift %d hold %d, drift target %.1f m/s, hold offset %.1f m), stations 0x%02x gunners %d [%s], turrets [%s], pilot health %.0f, cannons ready 0x%x"),
 						*Ship->GetName(), static_cast<int32>(T.UnpilotedMode), T.bUnpilotedDrift ? 1 : 0, T.bUnpilotedHold ? 1 : 0, T.DriftTargetSpeedMS, T.HoldOffsetM,
 						T.StationMask, T.NumGunners, *Gunners, *TurretText, T.PilotHealth, T.CannonReadyMask);
+
+					// Round 2 PR B: the team, the lane (state, progress, errors, target speed, what limits it), the timers
+					const UEnum* LaneStates = StaticEnum<EMyLaneState>();
+					const UEnum* LaneClamps = StaticEnum<EMyLaneClamp>();
+					UE_LOG(LogAirship, Log, TEXT("%s: team %d, lane %s (%d) u %.1f m, lateral %.1f m, vertical %.1f m, lane yaw %.1f, target %.1f m/s, clamp %s, lane mode %d assist %d, recall in %.1f s, protected %.1f s, reel %d"),
+						*Ship->GetName(), static_cast<int32>(T.TeamId), LaneStates ? *LaneStates->GetNameStringByValue(T.LaneState) : TEXT("?"), static_cast<int32>(T.LaneState),
+						T.LaneUM, T.LaneLateralErrorM, T.LaneVerticalErrorM, T.LaneYawDeg, T.LaneTargetSpeedMS, LaneClamps ? *LaneClamps->GetNameStringByValue(T.LaneClamp) : TEXT("?"),
+						T.bUnpilotedLane ? 1 : 0, T.bLaneAssist ? 1 : 0, T.RecallInS, T.ProtectionLeftS, T.bIncomingReel ? 1 : 0);
 
 					// BASELINE.md 4a / 4f row 0: what GetInertiaTensor returns (Chaos's principal moments, largest / smallest /
 					// middle), the mass frame's rotation and position in the hull, and the hull-space COM. Read it before

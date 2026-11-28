@@ -9,8 +9,10 @@
 #include "GameFramework/RootMotionSource.h"
 #include "GA_GrappleSwing2.generated.h"
 
+class AAirshipPawn;
 class ACharacter;
 class UCharacterMovementComponent;
+class UPrimitiveComponent;
 struct FHitResult;
 
 // Phase of the swing source: hook flying, swinging on the rope, finished (removed next move)
@@ -38,7 +40,9 @@ enum class EGS2EndReason : uint8
 	Landed,
 	Timeout,
 	TooClose,
-	Snapped
+	Snapped,
+	// Ship reel only: reached the deck target, landed on the ship or is over its deck
+	Arrived
 };
 
 // Ability state machine
@@ -75,6 +79,12 @@ struct FGS2AnchorCandidate
 	bool bHasFloor=false;
 	float Score=-1.e9f;
 	bool bValid=false;
+
+	// Ship hook: reel onto this ship's deck instead of swinging (Anchor is then the deck target now)
+	bool bShipReel=false;
+	TWeakObjectPtr<AAirshipPawn> Ship;
+	FVector TargetHullLocal=FVector::ZeroVector;
+	FVector AnchorVelocity=FVector::ZeroVector;
 };
 
 struct FGS2SearchCtx
@@ -415,6 +425,24 @@ struct AURA_API FGameplayAbilityTargetData_GrappleSwing2 : public FGameplayAbili
 	UPROPERTY()
 	FVector AgainstMotionDir=FVector::ZeroVector;
 
+	// Ship hook (SPEC_B B7): reel onto AnchorActor's deck. Anchor is the deck target at ClientStartTime and moves on at
+	// AnchorVelocity, so both machines compute the same moving anchor without seeing the ship at the same time.
+	// The fields below are only sent when this is set.
+	UPROPERTY()
+	uint8 bShipReel=0;
+
+	// The AAirshipPawn, through the package map
+	UPROPERTY()
+	TWeakObjectPtr<AActor> AnchorActor;
+
+	// The deck target in the hull's space: the server checks it against its own view of the ship
+	UPROPERTY()
+	FVector TargetHullLocal=FVector::ZeroVector;
+
+	// The ship's velocity at the target on the client (linear plus angular x r)
+	UPROPERTY()
+	FVector AnchorVelocity=FVector::ZeroVector;
+
 	virtual UScriptStruct* GetScriptStruct() const override { return FGameplayAbilityTargetData_GrappleSwing2::StaticStruct(); }
 	virtual bool HasOrigin() const override { return true; }
 	virtual FTransform GetOrigin() const override { return FTransform(StartLocation); }
@@ -544,6 +572,107 @@ struct TStructOpsTypeTraits<FRootMotionSource_GrappleSwing2> : public TStructOps
 };
 
 /**
+ * Ship hook reel (SPEC_B B7.3), run by the CharacterMovementComponent each move like the swing, so it is predicted,
+ * replayed and corrected the same way.
+ *
+ * The anchor moves at a constant velocity, A(t) = AnchorStart + AnchorVelocity * t on the source clock, so the owning
+ * client and the server compute the same point at every move without seeing the ship at the same time. The velocity is
+ * a function of the position and the time only: V = AnchorVelocity + ReelSpeed * dir(A(t) + lift - X), with the lift
+ * bringing the player over the gunwale instead of into the side. It leaves with AnchorVelocity plus a small hop when it
+ * gets to the deck target, lands on the ship or is over its deck on this machine's view, or after MaxReelTime.
+ *
+ * Travel: the hook is flying, the source adds nothing (also the network buffer for the hook data, like the swing's).
+ * Swing: reeling (Override). Done: the last move outputs the leave velocity and the source is removed with it maintained.
+ */
+USTRUCT()
+struct AURA_API FRootMotionSource_GrappleReel2 : public FRootMotionSource
+{
+	GENERATED_BODY()
+
+	FRootMotionSource_GrappleReel2();
+
+	virtual ~FRootMotionSource_GrappleReel2() override = default;
+
+	// Identity, immutable, serialized (simulated copies can still draw the rope from it)
+
+	uint16 SwingId=0;
+
+	// Deck target at source time 0 (the client's ClientStartTime) and the constant velocity it moves at
+	FVector AnchorStart=FVector::ZeroVector;
+
+	FVector AnchorVelocity=FVector::ZeroVector;
+
+	// Config, built from the target data and the ability on each machine, never serialized
+
+	TSharedPtr<const FGrappleSwing2Tuning> Tuning;
+
+	float TravelTime=0.1f;
+
+	float ReelSpeed=3000.f;
+
+	float ArriveDistance=250.f;
+
+	float MaxReelTime=5.f;
+
+	float LiftFraction=0.25f;
+
+	float LiftMax=800.f;
+
+	float LeaveUpSpeed=200.f;
+
+	// This machine's view of the ship, read by the deck finish only (the motion itself never reads it)
+	TWeakObjectPtr<UPrimitiveComponent> Hull;
+
+	// Hull space: over the deck target's part of the deck, around the target's height
+	FBox DeckBoxLocal=FBox(ForceInit);
+
+	float DeckDropTolerance=200.f;
+
+	// State, serialized and copied in UpdateStateFrom
+
+	EGS2Phase Phase=EGS2Phase::Travel;
+
+	bool bPrevJump=false;
+
+	EGS2EndKind EndKind=EGS2EndKind::Release;
+
+	EGS2EndReason EndReason=EGS2EndReason::None;
+
+	// Source clock time the reel ends at, -1 = no end requested
+	float EndTime=-1.f;
+
+	float AttachTime=0.f;
+
+	FVector ReelVelocity=FVector::ZeroVector;
+
+	FVector GetAnchorAt(float Time) const { return AnchorStart+AnchorVelocity*Time; }
+
+	virtual FRootMotionSource* Clone() const override;
+	virtual bool Matches(const FRootMotionSource* Other) const override;
+	virtual bool MatchesAndHasSameState(const FRootMotionSource* Other) const override;
+	virtual bool UpdateStateFrom(const FRootMotionSource* SourceToTakeStateFrom, bool bMarkForSimulatedCatchup = false) override;
+	virtual void PrepareRootMotion(float SimulationTime, float MovementTickTime, const ACharacter& Character, const UCharacterMovementComponent& MoveComponent) override;
+	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override;
+	virtual UScriptStruct* GetScriptStruct() const override;
+	virtual FString ToSimpleString() const override;
+
+private:
+	FVector VelocityAt(const FVector& X, float Time, const FVector& Up) const;
+	bool IsOnShip(const ACharacter& Character, const UCharacterMovementComponent& MoveComponent, const FVector& X, float HalfHeight) const;
+	void Finish(const FVector& VOut, EGS2EndReason Reason, const UCharacterMovementComponent& MoveComponent, float T1, bool bJump);
+};
+
+template<>
+struct TStructOpsTypeTraits<FRootMotionSource_GrappleReel2> : public TStructOpsTypeTraitsBase2<FRootMotionSource_GrappleReel2>
+{
+	enum
+	{
+		WithNetSerializer = true,
+		WithCopy = true
+	};
+};
+
+/**
  * Spider-Man style grapple swing, second version. GA_GrappleSwing (v1) is left as it was.
  *
  * Press: aim-assisted search for an anchor above and ahead, then a short hook flight. Hold: a real pendulum that keeps
@@ -554,6 +683,12 @@ struct TStructOpsTypeTraits<FRootMotionSource_GrappleSwing2> : public TStructOps
  * Multiplayer: Local Predicted. The owning client sends the anchor once as target data, both machines simulate the swing
  * in a root motion source on the same moves, and the release is sent as a time on the source clock so it lands on the
  * same move on both. Simulated proxies follow the replicated movement; the rope is the looping GameplayCue.
+ *
+ * Ship hook (SPEC_B B7): the crosshair on an airship's hull (or a turret on it) within MaxShipHookDistance reels the
+ * player onto its deck instead (FRootMotionSource_GrappleReel2), no swing. Behind the match rule bGrappleShips (the
+ * settings' DefaultRules with no match running) and, by default, only the own team's ships and free ships. The server
+ * checks the reel against its own view of the ship and tells the ship while it runs (AAirshipPawn::NotifyIncomingReel),
+ * so a lane ship holds its speed and heading until the player is aboard.
  *
  * Blueprint setup: InputTag, add to StartupAbilities, a looping GameplayCue notify for RopeCueTag (Location = anchor,
  * EffectCauser = character, RawMagnitude = hook flight time). Add a "grappling" tag to ActivationOwnedTags and
@@ -710,6 +845,70 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Grapple|Network")
 	int32 RootMotionPriority=500;
 
+	// Ship hook (SPEC_B B7): reel onto an airship's deck. Only the crosshair ray picks ships (a deliberate aim), traced
+	// this far; the aim assist cone and the fan never do. 0 turns the ship hook off.
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float MaxShipHookDistance=12000.f;
+
+	// Only the own team's ships and free ships (team 255). Off: any ship, the enemy's deck included (open question Q1)
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	bool bShipHookOwnTeamOnly=true;
+
+	// Reel speed relative to the ship (cm/s): 120 m in 4 s
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelSpeed=3000.f;
+
+	// The reel ends this close to the deck target
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelArriveDistance=250.f;
+
+	// Reel time limit (s) after the hook arrives; it then leaves like an arrival, wherever it is
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelMaxTime=5.f;
+
+	// The reel aims this fraction of the distance above the target, so it comes over the gunwale instead of into the side
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelLiftFraction=0.25f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelLiftMax=800.f;
+
+	// The deck target sits this far above the hull's top surface (the walkable lid)
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelTargetHeight=150.f;
+
+	// The target stays within this of the hull's centre line (hull space Y), so an arrival short of it is still on deck
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelDeckHalfWidth=300.f;
+
+	// The target stays this far inside the hull's bounds at the bow and the stern
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelDeckInset=300.f;
+
+	// The reel also ends when the capsule is over the deck within this of the target's height (this machine's view)
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelDeckBoxMargin=200.f;
+
+	// Upward speed added to the ship's velocity when the reel ends, so the player drops onto the deck
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipReelLeaveUpSpeed=200.f;
+
+	// A ship faster than this (cm/s) can't be hooked; above the lane's top speed of 2800
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipHookMaxShipSpeed=3000.f;
+
+	// Server: how far its own hull point may be from the client's moving anchor, plus the ship's speed times
+	// ShipHookLatencyAllowance (client and server see the ship at different times). Checked at the start and during the reel
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipHookMaxDrift=600.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipHookLatencyAllowance=0.3f;
+
+	// Server: the client's anchor velocity may differ this much (cm/s) from the ship's velocity at the target
+	UPROPERTY(EditDefaultsOnly, Category = "Grapple|ShipHook")
+	float ShipHookMaxVelocityError=500.f;
+
 	// Visuals
 
 	// Looping cue while hooked. Location = anchor, Normal = anchor surface normal, RawMagnitude = hook flight time,
@@ -724,14 +923,16 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Grapple|Swing")
 	FGrappleSwing2Tuning Swing;
 
-	// Read-only swing state for animation or UI, works on the owner and the server
+	// Read-only swing state for animation or UI, works on the owner and the server. During a ship reel: the moving deck
+	// anchor (the rope end follows the ship), the distance to it, taut
 	UFUNCTION(BlueprintPure, Category = "Grapple")
 	static bool GetGrappleSwing2State(const ACharacter* Character, FVector& OutAnchor, float& OutRopeLength, bool& bOutTaut);
 
 	// Where the character is in the swing, from the angle to the anchor along its direction of motion:
 	// -1 where the rope caught (and while the hook is still flying), 0 straight below the anchor, 1 where the auto release
 	// lets go (the arc end angle, or earlier when the swing runs out of speed). Negative while heading toward the bottom
-	// and positive once past it, so steering keeps it right. False when there is no swing.
+	// and positive once past it, so steering keeps it right. False when there is no swing. A ship reel has no arc: -1
+	// (the pose where the rope pulls) for its whole length.
 	// Works on the owner and the server, like GetGrappleSwing2State
 	UFUNCTION(BlueprintPure, Category = "Grapple")
 	static bool GetGrappleSwing2Phase(const ACharacter* Character, float& OutPhase);
@@ -766,15 +967,38 @@ private:
 	void GatePoll();
 
 	void RequestEnd(FRootMotionSource_GrappleSwing2& Src, float EndTime, EGS2EndKind Kind);
+	void RequestEnd(FRootMotionSource_GrappleReel2& Src, float EndTime, EGS2EndKind Kind);
+	void SendEndTime(float EndTime, uint16 SwingId, EGS2EndKind Kind);
 	void EndLocal();
 	void RemoveCuePredicted();
 
 	// Never stores the pointer, the movement component deep-clones sources during replays
 	FRootMotionSource_GrappleSwing2* FindSource(TSharedPtr<FRootMotionSource>& OutHolder) const;
+	FRootMotionSource_GrappleReel2* FindReelSource(TSharedPtr<FRootMotionSource>& OutHolder) const;
 
 	bool TraceStatic(const FVector& Start, const FVector& End, FHitResult& OutHit) const;
 	bool TraceFloor(const FVector& Anchor, float& OutFloorHeight) const;
 	bool IsRopeObjectType(ECollisionChannel Channel) const;
+
+	// Ship hook (SPEC_B B7)
+	// The match rule (or the settings' default with no match) and MaxShipHookDistance > 0
+	bool IsShipHookOn() const;
+	// Crosshair hit on a ship: alive, allowed, slow enough, in range, a deck under the aimed point, the rope clear
+	bool EvaluateShipHit(const FHitResult& Hit, AAirshipPawn* Ship, const FGS2SearchCtx& Ctx, FGS2AnchorCandidate& Out) const;
+	// The deck target in hull space under AimPoint (X/Y clamped onto the deck, traced down onto the hull's top)
+	bool FindShipDeckTarget(UPrimitiveComponent& HullComp, const FVector& AimPoint, FVector& OutTargetLocal) const;
+	// The static rope traces, past the ship and every actor attached to it (its turrets' hit boxes are WorldDynamic)
+	bool TraceStaticPastShip(const FVector& Start, const FVector& End, const AActor* Ship, FHitResult& OutHit) const;
+	bool ServerValidateReel(const FGameplayAbilityTargetData_GrappleSwing2& Data) const;
+	// Server: the client's source time now for a reel that starts at ClientStartTime
+	float GetServerReelTime(float ClientStartTime) const;
+	TSharedPtr<FRootMotionSource> MakeReelSource(const FGameplayAbilityTargetData_GrappleSwing2& Data) const;
+	// Server, every Poll while the reel runs: false (and the reel dropped) when the ship left the anchor line or died
+	bool CheckReelOnServer(FRootMotionSource_GrappleReel2& Reel);
+	void DropReel(FRootMotionSource_GrappleReel2& Reel, const FString& Why);
+	// Server: tells the ship a reel toward it starts or ends (it holds its lane speed meanwhile)
+	void SetReelRegistered(bool bRegister);
+	void OnReelSafetyTimeout();
 
 	ACharacter* GetSwingCharacter() const;
 	UCharacterMovementComponent* GetSwingMovement() const;
@@ -839,4 +1063,20 @@ private:
 	FTimerHandle SearchTimerHandle;
 
 	FTimerHandle GateTimerHandle;
+
+	// Ship reel of this activation (both machines), from the target data
+	TWeakObjectPtr<AAirshipPawn> ReelShip;
+
+	FVector ReelTargetHullLocal=FVector::ZeroVector;
+
+	// Server: the ship was told about the reel (NotifyIncomingReel true) and not yet told it ended
+	bool bReelRegistered=false;
+
+	// The reeler the ship was told about, so the end names the same actor even while it is being destroyed
+	TWeakObjectPtr<AActor> ReelReeler;
+
+	// Listen server's own reel dropped by the server check: no re-fire while the button stays held
+	bool bReelDropped=false;
+
+	FTimerHandle ReelSafetyTimerHandle;
 };
