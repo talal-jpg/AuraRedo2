@@ -223,6 +223,15 @@ def mb_name(a):
         return None
 
 
+def mb_wkey(w):
+    """a world's cache key: its path. Every PIE copy of a map has the map's object name (UEDPIE_0_StartupMap.StartupMap and
+    UEDPIE_1_StartupMap.StartupMap are both "StartupMap"), so a name key mixes the machines of a listen run up."""
+    try:
+        return w.get_path_name() if w is not None else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def mb_pid(ps):
     """APlayerState::GetPlayerId (a BlueprintGetter), else its PlayerId property"""
     try:
@@ -812,7 +821,7 @@ class MBRun(object):
 
     def dump(self, w, label='state', max_age=0.0):
         """Aura.Match.Dump <file> on that machine, parsed (cached for max_age game seconds)"""
-        key = (mb_name(w), label)
+        key = (mb_wkey(w), label)   # the path: both PIE copies of a map are named after it (subsystem)
         c = self.dump_cache.get(key)
         if c is not None and self.now - c[0] <= max_age:
             return c[1]
@@ -1068,19 +1077,30 @@ class MBRun(object):
         return None, None
 
     # ------------------------------------------------------------------------------------------------- input
+    @staticmethod
+    def sub_in(s, w):
+        """the Enhanced Input subsystem s belongs to a local player in world w"""
+        try:
+            lp = s.get_outer()
+            return lp.get_class().get_name() == 'LocalPlayer' and mb_same(lp.get_world(), w)
+        except Exception:  # noqa: BLE001
+            return False
+
     def subsystem(self, w):
-        k = mb_name(w)
+        """the Enhanced Input subsystem of w's local player. Cached by the world's PATH (mb_wkey), and a cached one is used
+        only while its local player is still in w. The old cache key was mb_name(w): in a listen run both machines' worlds
+        are "StartupMap", so every machine got the subsystem looked up first. b80 2026-11-28: after LM1.6 had injected
+        the client's IA_Move, every injected IA_LMB of the host went to the CLIENT's local player (the client's gun fired,
+        the host's never did: 0 "HitActor" lines in LMF); with LM1.3 first it was the other way round (the client's IA_Move
+        and IA_LMB went to the host: LM1.6_input's 0.0 cm)."""
+        k = mb_wkey(w)
         s = self.subs.get(k)
-        if s is not None and valid(s):
+        if s is not None and valid(s) and self.sub_in(s, w):
             return s
         for s in unreal.ObjectIterator(unreal.EnhancedInputLocalPlayerSubsystem):
-            try:
-                lp = s.get_outer()
-                if lp.get_class().get_name() == 'LocalPlayer' and mb_same(lp.get_world(), w):
-                    self.subs[k] = s
-                    return s
-            except Exception:  # noqa: BLE001
-                pass
+            if self.sub_in(s, w):
+                self.subs[k] = s
+                return s
         return None
 
     def inject(self, w, action, vec=(1.0, 0.0, 0.0)):
@@ -1129,7 +1149,7 @@ class MBRun(object):
 
     def capture(self, w, label, frm, to, fov=60.0):
         """scene capture from the TEMP SceneCapture2D's PIE copy in that world; frm / to world points"""
-        k = mb_name(w)
+        k = mb_wkey(w)   # the path (see subsystem)
         if self.cap_dead.get(k) or self.ncap >= self.max_caps:
             return None
         try:

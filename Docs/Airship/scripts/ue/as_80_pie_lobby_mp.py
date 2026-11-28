@@ -76,7 +76,7 @@ MB_LOG_KEEP = tuple(MB_LOG_KEEP) + ('SeamlessTravel', 'ProcessServerTravel', 'no
 # the target passed the friendly-fire and ship filters, before the damage-off attribute set (LM1.3's positive control)
 MB_LOG_KEEP = tuple(MB_LOG_KEEP) + ('HitActor: ',)
 
-AS80_VERSION = 'as_80_pie_lobby_mp 2026-11-28d'
+AS80_VERSION = 'as_80_pie_lobby_mp 2026-11-28g'
 AS80_RULES_RE = re.compile(r'Teams=(\S+) ShipLives=(\d+) Swarm=(\d+) TimeLimit=(\d+) FF=(\d) GrappleShips=(\d) LaneAssist=(\d)')
 
 
@@ -231,6 +231,45 @@ class B80(LobbyMix, B75):
             self.check(key, 'FAIL', 'the client did not come back within %.0f s of open 127.0.0.1:%d (worlds %s)' % (
                 timeout, self.port, [(w.get_path_name(), self.role(w)) for w in self.pie_worlds(AS75_MAP)]))
         return dt
+
+    def pc_count(self, w):
+        """player controllers in that world (a seamless travel swaps each one for a new one: for a while both are there)"""
+        try:
+            return len(unreal.GameplayStatics.get_all_actors_of_class(w, unreal.PlayerController))
+        except Exception:  # noqa: BLE001
+            return None
+
+    def player_imc(self, pc):
+        """the controller's own IMC_PlayerInputMappingContext (AMyPlayerController2::SetupInputComponent always adds it)"""
+        for n in ('IMC_PlayerInputMappingContext', 'imc_player_input_mapping_context'):
+            try:
+                v = pc.get_editor_property(n)
+                if v is not None:
+                    return v
+            except Exception:  # noqa: BLE001
+                pass
+        return None
+
+    def imc_probe(self, w, pc):
+        """data for LM1.13: what the local Enhanced Input subsystem of world w has mapped: IMC_AirshipBoard and, as the
+        positive control, the controller's IMC_PlayerInputMappingContext; the raw return; the controller's input components
+        (the pilot component makes AirshipBoardInput right before it adds IMC_AirshipBoard)"""
+        out = {'pc': pc.get_name() if pc is not None else None}
+        try:
+            sub = self.subsystem(w)
+            out['sub_lp'] = sub.get_outer().get_name() if sub is not None else None
+            for key, imc in (('board', unreal.load_asset(LB_IMC_BOARD)), ('player', self.player_imc(pc) if pc is not None else None)):
+                if sub is None or imc is None:
+                    out[key] = None
+                    continue
+                raw = sub.has_mapping_context(imc)
+                # None when not mapped, else the priority (0 for both contexts): see LobbyMix.has_board_mapping
+                out[key] = raw is not None
+                out[key + '_raw'] = repr(raw)[:40]
+            out['input_components'] = sorted(c.get_name() for c in pc.get_components_by_class(unreal.InputComponent)) if pc is not None else None
+        except Exception as e:  # noqa: BLE001
+            out['error'] = repr(e)[:200]
+        return out
 
     def other_world(self):
         """a PIE world that is neither the server's nor a StartupMap client (a client sent to the menu by `disconnect`)"""
@@ -911,9 +950,15 @@ class B80(LobbyMix, B75):
         mb_editor_cmd('net.AllowPIESeamlessTravel 1')
         self.line('INFO', 'net.AllowPIESeamlessTravel 1 (RL14: a PIE seamless travel can take the editor down)')
         yield from self.until(lambda: all(self.alive(self.schar(p)) for p in self.P), 5.0)
-        teams0 = dict((p['join'], self.team(p)) for p in self.P)
+        # teams by player NAME: the join order (PlayerArray) changes in a seamless travel, while the name is copied over
+        # (APlayerState::CopyProperties)
+        names0 = [p['name'] for p in self.P]
+        cl_name = self.cl()['name']
+        teams0 = dict((p['name'], self.team(p)) for p in self.P)
         lpc0_obj = self.cl()['lpc']
         lpc0 = lpc0_obj.get_path_name()
+        # IMC_AirshipBoard before the travel, with the controller's own IMC as the positive control (data)
+        imc_before = {'client': self.imc_probe(self.cl()['w'], self.cl()['lpc']), 'host': self.imc_probe(self.sw, self.host()['lpc'])}
         self.scmd('Aura.Lobby.Start')
         yield from self.wait_phase('inprogress', 8.0)
         yield from self.wait(1.0)
@@ -931,7 +976,29 @@ class B80(LobbyMix, B75):
         remapped = False
         if back:
             remapped = yield from self.remap(30.0, old_world=cw_old, old_t=t_cw_old)
-        self.R.setdefault('lm1_13_pre', {})['client_remapped'] = bool(remapped)
+        # That first map is too early as well (final run 2026-11-28: the client's controller "the same object", no pilot
+        # component, teams {1: 0, 0: 0}, the third start "both aboard False"). AGameModeBase::HandleSeamlessTravelPlayer
+        # (GameModeBase.cpp:607-641) spawns a NEW controller for every player: for the host in PostSeamlessTravel, for the
+        # client only when his ServerNotifyLoadedWorld comes in ("Team: <name> arrives (seamless)"). Until then the
+        # server's list holds the client's carried old controller, and until the client acknowledges the swap (NMT_PCSwap,
+        # NetConnection.cpp HandleClientPlayer) his world holds the old one too. So: wait for every player's arrival line,
+        # then for one controller per player on the server and one on the client, then map everyone again.
+        arrived = swapped = mapped2 = False
+        if back:
+            arrived = yield from self.until(lambda: all(self.log_since(t0, 'Team: %s arrives (seamless)' % n) for n in names0), 30.0)
+        if arrived:
+            swapped = yield from self.until(lambda: self.pc_count(self.sw) == len(names0) and all(self.pc_count(w) == 1 for w in self.cws), 20.0)
+        if swapped:
+            yield from self.wait(1.0)
+            mapped2 = yield from self.remap(20.0)
+            if mapped2 and self.P and not self.P[0]['pcs'].is_local_controller():
+                self.P.sort(key=lambda p: 0 if p['pcs'].is_local_controller() else 1)
+                self.line('INFO', 'the host is not the server\'s first controller after the travel: players reordered, host first')
+        self.R.setdefault('lm1_13_pre', {}).update({'client_remapped': bool(remapped), 'arrived': bool(arrived), 'swapped': bool(swapped),
+                                                    'mapped_after_swap': bool(mapped2), 'client_name': (cl_name, self.cl()['name'] if len(self.P) > 1 else None)})
+        self.line('INFO', 'LM1.13: mapped at the new worlds %s; every arrival line %s; one controller per player (server %s, client %s) %s; mapped '
+                  'again %s; the client %s -> %s' % (bool(remapped), bool(arrived), self.pc_count(self.sw), [self.pc_count(w) for w in self.cws],
+                                                     bool(swapped), bool(mapped2), cl_name, self.cl()['name'] if len(self.P) > 1 else None))
         lob = yield from self.until(lambda: self.phase_of(self.sw) == 'lobby' and self.phase_of(self.cl()['w']) == 'lobby', 20.0)
         seam = [l[-200:] for _, l in self.log_since(t0, 'SeamlessTravel')]
         trav = [l[-200:] for _, l in self.log_since(t0, 'Match: back to the lobby')]
@@ -940,9 +1007,16 @@ class B80(LobbyMix, B75):
         new_pc = cl.get('lpc') is not None and not mb_same(cl['lpc'], lpc0_obj)
         comp_srv = self.has_pilot_component(cl['pcs'])
         comp_cl = self.has_pilot_component(cl['lpc'])
-        imc = self.has_board_mapping(cl['w'])
-        teams1 = dict((p['join'], self.team(p)) for p in self.P)
+        imc_at_once = {'client': self.imc_probe(cl['w'], cl['lpc']), 'host': self.imc_probe(self.sw, self.host()['lpc'])}
+        teams1 = dict((p['name'], self.team(p)) for p in self.P)
         yield from self.wait(5.0)
+        # IMC_AirshipBoard is read 5 s after the players were mapped again, like the counts: the pilot component retries its
+        # local setup every 0.25 s while its controller has no local player yet (AirshipPilotComponent.cpp:47-55, :80-90)
+        imc_5s = {'client': self.imc_probe(cl['w'], cl['lpc']), 'host': self.imc_probe(self.sw, self.host()['lpc'])}
+        imc = imc_5s['client'].get('board')
+        self.R['lm1_13_imc'] = {'before': imc_before, 'at_once': imc_at_once, 'after_5s': imc_5s}
+        self.line('INFO', 'LM1.13 IMC reads (board / the controller\'s own IMC / input components): before the travel %s; at once %s; after 5 s %s' % (
+            imc_before, imc_at_once, imc_5s))
         counts = {}
         for key, k in (('platforms', 'platform'), ('ships', 'ship')):
             counts[key] = (len(unreal.GameplayStatics.get_all_actors_of_class(self.sw, mb_cls(k))),
@@ -958,15 +1032,15 @@ class B80(LobbyMix, B75):
         st_arr = yield from self.lobby_status(self.sw)
         left_arr = (st_arr or {}).get('arriving')
         self.R['lm1_13'] = {'seamless_lines': seam[:6], 'travel': trav[:2], 'overlay_widget': overlay, 'arrival': arr[:2], 'arriving_after_5s': left_arr}
-        ok = (back and lob and seam and trav and 'seamless' in trav[0] and new_pc and comp_srv and comp_cl is not False and imc is not False
+        ok = (back and swapped and mapped2 and lob and seam and trav and 'seamless' in trav[0] and new_pc and comp_srv and comp_cl is True and imc is True
               and teams1 == teams0 and all(a == b for a, b in counts.values()) and not gc and not tl
               and n_arr is not None and n_arr >= 1 and left_arr == 0)
-        self.check('LM1.13_seamless', self.ok(ok), 'net.AllowPIESeamlessTravel 1, start, End 0: new worlds %s, both in phase Lobby %s; log %s / %s (want '
+        self.check('LM1.13_seamless', self.ok(ok), 'net.AllowPIESeamlessTravel 1, start, End 0: new worlds %s, every seamless arrival and the controller swap done %s, mapped again %s, both in phase Lobby %s; log %s / %s (want '
                    '"SeamlessTravel" lines and a seamless return); the client\'s controller %s -> %s, a new object %s (want true, 5.4 row 6), pilot component server %s / client %s, '
-                   'IMC_AirshipBoard mapped %s; teams %s -> %s (want kept); (server, client) counts after 5 s %s (want equal); GC errors %s, fall deaths %s '
+                   'IMC_AirshipBoard mapped %s (5 s after the map; at once %s; the controller\'s own IMC %s); teams %s -> %s (want kept); (server, client) counts after 5 s %s (want equal); GC errors %s, fall deaths %s '
                    '(want none); carried player states marked arriving %s (want >= 1, log %s), still arriving after 5 s %s (want 0); overlay widget %s '
                    '(data)' % (
-                       bool(back), bool(lob), seam[:2], trav[:1], lpc0, lpc1, new_pc, comp_srv, comp_cl, imc, teams0, teams1, counts, gc[:1], tl[:1],
+                       bool(back), bool(swapped), bool(mapped2), bool(lob), seam[:2], trav[:1], lpc0, lpc1, new_pc, comp_srv, comp_cl, imc, imc_at_once['client'].get('board'), imc_5s['client'].get('player'), teams0, teams1, counts, gc[:1], tl[:1],
                        n_arr, arr[:1], left_arr, overlay))
         self.scmd('Aura.Lobby.Start')
         ip = yield from self.wait_phase('inprogress', 8.0)

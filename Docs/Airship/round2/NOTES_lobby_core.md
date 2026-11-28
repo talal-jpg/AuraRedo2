@@ -377,7 +377,7 @@ FAIL. Reports: `Saved/Match/b74_main_lanes_run1/`, `b74_main_lanes_fix1/`, `b74_
     the 2.5 m/s^2 ramp that the same check requires, 28 m/s and back needs about 310 m: 4 -> 28 m/s takes about 154 m,
     and 28 -> 0 takes about 157 m. The player at u 200 m gave the ship 250 m (210 m behind him plus the 40 m lead), so
     25.2 m/s is the most it could reach. Two choices for the lead: read "at most" as written (`peak <= 29.0`), or put
-    the T2.1 player at u >= 320 m.
+    the T2.1 player at u >= 320 m. **Resolved in the final pass (section 11, row 18): the player at u 350 m, PASS.**
 
 ## 10. Editor stage fixes (2026-11-28, step 3: the multiplayer run as_80, and the review of steps 1-3)
 
@@ -459,8 +459,8 @@ Step 3's runs: `Saved/Match/b80_run1/` (`{'PASS': 14, 'FAIL': 6, 'SKIP': 4}`, st
     reported). Run 2: PASS, back after 0.2 s.
 13. `as_80_pie_lobby_mp.py:921-934`, LM1.13: after the seamless travel the client is mapped again once his new world is
     there. B75 found the server's new world first and mapped the client to his OLD world (still listed until his own
-    travel ends); every read of it then failed (run 2: 601 `phase_of` errors, then the test stopped). Written after the
-    last run: **not run**.
+    travel ends); every read of it then failed (run 2: 601 `phase_of` errors, then the test stopped). Ran in the final
+    pass, where it proved still too early (section 11, row 15).
 
 **Results (step 4)**
 
@@ -477,13 +477,110 @@ Step 3's runs: `Saved/Match/b80_run1/` (`{'PASS': 14, 'FAIL': 6, 'SKIP': 4}`, st
 * The panel fits the editor's narrow PIE viewport (`media/r2b_lobby_panel_pie_narrow.jpg`); DEFEAT in ink
   (`media/r2b_defeat_ink.jpg`); the bar and the lobby both read "MATCH STARTS IN n" in a lobby countdown.
 
-**Open: the listen host's gun in LMF.** Friendly fire is shown working across the two runs, never in one run: run 1
-(the host's gun hit the enemy hull [5.0]) gave no drop on his own ship with his crosshair on it 7 of 7 samples; run 2
-(the client's gun hit the enemy hull [5.0]) gave no drop on the client's own ship, crosshair 8 of 8; run 1's teammate
-window gave no drop and no server hit with the crosshair on the teammate. But in run 2 the host's gun made no server hit
-at all: crosshair on the enemy hull 7 of 8 samples, hull and turret health unchanged, crosshair on the enemy player 6 of
-8, no "HitActor" line in the whole session. Step 3's fix 1 showed the same on the enemy hull (crosshair on it 6 times,
-no drop), with another stage and no turret data. A possible pattern, from too few runs to be sure: run 2 and fix 1 began
-with LM1.6 (the host's first shot came after the match start), while run 1, where the host's gun worked, fired it in the
-lobby first (LM1.3). Next step (the review's): debug GA_GunShoot activation on the listen host after the start
-(`log LogAbilitySystem Verbose`, `showdebug abilitysystem`), or run LMF with and without LM1.3 before it.
+**Was open: the listen host's gun in LMF.** In run 2 (and step 3's fix 1) the host's gun made no server hit after the
+match start (crosshair on the enemy hull 7 of 8 samples, on the enemy player 6 of 8, no "HitActor" line in the session);
+in run 1, which fired in the lobby first (LM1.3), it worked. **Resolved below (14): the harness, not the product.**
+
+**Open item 1 (2026-11-28, after step 4): the host's gun was the harness's input injection. No C++ change.**
+
+14. `as_70_matchlib.py:1081-1105`, `MBRun.subsystem` (+ the new `sub_in`, and `mb_wkey` at `:226`): the Enhanced Input
+    subsystem a test injects into is now cached by the world's PATH and re-checked against the world on every use. The
+    old cache key was `mb_name(w)`, and both PIE copies of the map have the object name "StartupMap"
+    (`/Game/Maps/UEDPIE_0_StartupMap.StartupMap` and `UEDPIE_1_...`), so every machine got the subsystem of the world that
+    was looked up FIRST in the run. In run 2 and fix 1 that was the client (LM1.6_input injects his IA_Move): every
+    IA_LMB that `fire_at` meant for the host went into the client's local player (`fire_at` still aimed the host's view,
+    through his own controller, so his crosshair data looked right). In run 1, LM1.3 looked the host up first, and it was
+    the other way round: the client's IA_Move moved the host (LM1.6_input's "moved 0.0 cm" WARN of run 1 and of step 3's
+    run 1), and the client's LMF shots went to the host. The same name key was in `dump()` (`:824`) and `capture()`
+    (`:1152`); both are only called with one world today, and they now use `mb_wkey` too. Backups:
+    `Saved/Match/backup/item1/`.
+
+    **The probe** (one listen run, `Saved/Match/b80_item1_probe/`: wrapper `as80_gunprobe.py` = `AS80_ONLY = ('LM1.6',
+    'LMF', 'PROBE')`, no LM1.3, `log LogAbilitySystem Verbose` in the probe windows; report, result, harness log and the
+    editor log `Aura_item1_probe.log`). After the start, with the two players on one platform 15 m apart, the host's view
+    on the client for 1.5 s in each window:
+    * The old lookup (the pre-fix code, verbatim, primed client first as in run 2) returns `LocalPlayer_1` (world
+      `UEDPIE_1`, the client) for BOTH worlds; the fixed lookup returns `LocalPlayer_0` (`UEDPIE_0`) for the host's world
+      and `LocalPlayer_1` for the client's.
+    * Window A (old lookup): 0 "HitActor" lines on the client, no drop. The only gun activation was the CLIENT's: his
+      own machine `Activated [12] GA_GunShootBP_C_0 ... PredictionKey: [17/0]`, then the server's
+      `InternalServerTryActivateAbility: Accepted ClientActivation of Default__GA_GunShootBP_C with PredictionKey [17/0]`
+      (`Aura_item1_probe.log:5265-5267`); his crosshair was on a platform pillar, so it hit nothing. The host's
+      `AbilitySystem.Ability.ListGranted`: `GA_GunShootBP_C (Local Predicted - Client Or Server)`, not active.
+    * Window B (fixed lookup): `BP_MyPlayerState_C_0: Activated [5] GA_GunShootBP_C_0 ... PredictionKey: [Srv: 8]` (a
+      server key: the host's own activation, `:5322`), 0 "Accepted ClientActivation", ListGranted `**ACTIVE**`, 6
+      server "HitActor: BP_MyCharMech_C_4" lines, each one exactly 1 Health (GA_GunShoot's own PrevHealth / NewHealth
+      prints: 104 -> 103 ... 100 -> 99, 96 -> 95).
+    * The product side, read on both server ASCs mid-window: user ability activation not inhibited, GA_GunShootBP_C_0
+      granted, its asset tags not blocked (`AreAbilityTagsBlocked` false; the tag lists themselves did not read from
+      Python); the lobby's damage-off gate is the attribute set's IncomingDamage
+      (`MyAttributeSet.cpp:83`), after the HitActor line, so it can't stop a hit from being logged.
+    * Checks: `PROBE_cause` PASS. `PROBE_host_gun_after_start` FAIL by its own text only: the drops were [1.0, 3.0]
+      against a wanted [1.0]. The 3.0 is not the gun (every gun hit is 1, see above; 99 -> 96 came between two gun hits):
+      something else hit both players for 3 per hit, most likely the swarm (it resumes at the start): the host, whom
+      nobody shot, lost 3.0 in window A and 21 = 7 x 3.0 in window B. The probe's want was not changed.
+    * **The real checks in the same run, after the start, without LM1.3:** `LMF_own_ship` PASS (host on the enemy hull
+      [5.0], client on the enemy hull [5.0], neither on his own ship: every half in ONE run) and `LMF_players` PASS
+      (enemy [1.0] with 6 server hits, teammate none with 0 hits). LM1.6_input: the client's IA_Move moved him 522 cm.
+      Report head `{'PASS': 8, 'FAIL': 1, 'SKIP': 3}` (the FAIL is the probe line above).
+
+## 11. Final evidence pass (2026-11-28): harness fixes only, no C++ change
+
+The runs:
+
+* as_80, all scenarios with the seamless test last (`Saved/Match/b80_final_run1/`): `{'PASS': 22, 'FAIL': 2, 'SKIP': 3}`.
+  Every LM and LMF check passed except LM1.13_seamless and LM1.13_third_start. That includes LMF_own_ship and LMF_players,
+  with every half, in a run where LM1.3 and LM1.6 ran first.
+* LM1.13, fix 1 (`b80_final_fix1_lm113/`): `{'PASS': 3, 'FAIL': 1, 'SKIP': 3}`. Third start PASS. Seamless FAIL on the IMC
+  read only.
+* LM1.13, fix 2 (`b80_final_fix2_lm113/`): the same head. The probe showed that the IMC read was the harness's (row 17).
+* as_74 T2.1 (`b74_main_t21_final/`): `{'PASS': 3, 'SKIP': 1}`.
+
+No crash in any of these runs. Backups of the files changed here: `Saved/Match/backup/final/`.
+
+15. `as_80_pie_lobby_mp.py:986-1000`, LM1.13: after the travel, the harness waits for every player's "Team: <name> arrives
+    (seamless)" line (30 s). Then it waits for one player controller per player on the server and one on the client
+    (`pc_count`, `:235`, 20 s). Only then, after 1 s, does it map everyone again, with the host first.
+    * Why: the final run mapped the players as soon as the new worlds were there. In 5.8,
+      `AGameModeBase::HandleSeamlessTravelPlayer` (`GameModeBase.cpp:607-641`) spawns a NEW controller for every player:
+      for the host in PostSeamlessTravel, and for the client only when his `ServerNotifyLoadedWorld` comes in.
+    * Until then the server's list holds the client's carried old controller. Until the client acknowledges the swap
+      (`UNetConnection::HandleClientPlayer`, NMT_PCSwap), his world holds the old one too.
+    * The first map therefore read the carried old objects. The result: "a new object False", no pilot component,
+      teams `{1: 0, 0: 0}`, and in the third start "both aboard False", plus 2 `schar` errors (`ObjectInstance is null`).
+    * In both fix runs: every arrival line, server 2 / client 1 controllers, mapped again. Then: the client's controller
+      `BP_MyPlayerController2_C_0 -> _C_1` (a new object), the pilot component on both machines, and the teams kept.
+      Also: equal platform and ship counts after 5 s (65 / 65, 0 / 0), no GC error, no fall death, "seamless arrival,
+      2 carried", 0 arriving after 5 s, and the third start with both aboard.
+    * The product's seamless path did what SPEC_B_LOBBY 5.4 rows 4-7 and 13 describe.
+16. `as_80_pie_lobby_mp.py`, LM1.13: the teams before and after the travel are keyed by player NAME (the join order, the
+    PlayerArray order, changes in a seamless travel; `APlayerState::CopyProperties` keeps the name).
+17. `as_79_lobbylib.py:238`, `has_board_mapping`, and `as_80_pie_lobby_mp.py:253`, `imc_probe` (new): the IMC read is now
+    `has_mapping_context(imc) is not None`.
+    * Why: `HasMappingContext(Context, int32& OutFoundPriority)` returns a bool with an out parameter. UE Python then
+      returns `None` when the C++ returns false, and the out value when it returns true (`PyGenUtil.cpp:2669-2674`).
+    * IMC_AirshipBoard's priority is 0 (`UAirshipSettings::BoardMappingPriority`), so `bool(0)` read a mapped context as
+      missing.
+    * Fix 2's probe recorded `0` for IMC_AirshipBoard and for the controller's own IMC_PlayerInputMappingContext. That
+      was on both machines, before the travel, at once after it, and 5 s later.
+    * So the context was mapped on the client after the seamless return, and SPEC_B_LOBBY 5.4 row 10's guard holds. One
+      correction to that row: in 5.8 the applied contexts live on the controller's `UEnhancedPlayerInput`
+      (`EnhancedInputSubsystemInterface.cpp:265-270`, `EnhancedInputSubsystems.cpp:73-81`), not on the local player.
+      The new controller's pilot component adds its own context, so the guard only stops the old controller's teardown
+      from removing it through the shared subsystem.
+    * LM1.13 now takes the IMC read 5 s after the map (like the counts) and logs the positive control and the earlier
+      reads as data.
+    * **This read has not run since the fix** (the pass allowed two fix rounds). `as_60_pie_mp_round2.py:790-796` (part
+      A) has the same `bool()` read; its airship context is not at priority 0 there, so it was not touched.
+18. `as_74_pie_match.py:587-594`, T2.1: the player stands at u 350 m (was 200 m; the lead's call: u >= 330 m, the band
+    unchanged).
+    * Result: peak 28.05 m/s (27-29), settled 40.13 m ahead in TeamPace, overshoot 0.38 m, ramp 2.50 m/s^2, lateral,
+      vertical and heading 0.
+    * A 1D model of the pace law (0.3 /s gain, 15 m aim, 6 to 28 m/s, 2.5 m/s^2 ramp, sqrt brake into the cap) gives
+      25.3 m/s for the old staging (25.2 measured) and 28.0 from u 300 m on.
+    * At u 350 m the path extends first (within ExtendDistance of the 400 m end), so the cruise end is never the clamp.
+
+**Seen in the final run, not PR B:** an engine PCG ensure (`!Container->bAreResourcesInaccessible`,
+`PCGManagedResourceContainer.cpp:353`). It fired on the client when the server closed an `AMyHexBridge`'s channel during LMS
+(`AMyHexBridge::EndPlay` -> `UPCGComponent::EndPlay`), and it is 8 of the run's log lines. The client also logs "GiveAbility
+called ... on the client, not allowed!" for the startup abilities at every pawn spawn, from the first spawn of the run on.

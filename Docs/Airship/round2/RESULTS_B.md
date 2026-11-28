@@ -9,7 +9,7 @@ on top of redo3 5d178bf (PR #19, part A).
 **Related docs:**
 
 * Design: `SPEC_B.md` (match and lanes) and `SPEC_B_LOBBY.md` rev 2 (lobby).
-* Code notes: `NOTES_lobby_core.md` (sections 9 and 10 cover this stage's fixes) and `NOTES_lobby_ui.md`.
+* Code notes: `NOTES_lobby_core.md` (sections 9 to 11 cover this stage's fixes) and `NOTES_lobby_ui.md`.
 * The stage runbook: `EDITOR_STAGE_B.md`.
 * Player's guide: `../HOW_TO_FLY.md` ("Team match").
 
@@ -121,6 +121,21 @@ Talal's lean rule allows one solo PIE run (as_79) and one multiplayer PIE run (a
 behaviour he asked about got its own check (an as_74 subset). Each failing check was fixed, then re-run on its own with
 `AS79_ONLY` / `AS80_ONLY` wrappers. No threshold was changed.
 
+**The final evidence (2026-11-28, after every fix in section 4):**
+
+| Run | Checks run | Report head |
+|---|---|---|
+| **as_80 final run (11:18)**, listen, 2 players | all, seamless on, LM1.13 last | **PASS 22, FAIL 2, SKIP 3.** Every LM and LMF check passed in this one run, except the two LM1.13 checks. Those two failed on the harness (3.3). |
+| as_80, LM1.13 fix 1 (11:26) | LM1.13 (LM1.1 always runs) | PASS 3, FAIL 1, SKIP 3. LM1.13_third_start passed. LM1.13_seamless failed on one read only. |
+| as_80, LM1.13 fix 2 (11:33) | LM1.13 | PASS 3, FAIL 1, SKIP 3. The same read failed again, and the probe in this run showed that the read itself was wrong. Read correctly, the recorded value means the context is mapped (3.3). The fixed read has not run. |
+| **as_74, T2.1 restaged (11:36)**, standalone | settle + T2.1 | **PASS 3, SKIP 1.** Peak 28.05 m/s. |
+| as_79 (solo) | see 3.2 | Every check passed (17 PASS + 1 SKIP over the runs). Not re-run in this pass. |
+
+So **23 of the 24 as_80 checks have a PIE PASS**: 22 in the final run, plus LM1.13_third_start in both fix runs. The
+24th, LM1.13_seamless, passes in its recorded data but not yet as a reported PASS (section 7, item 1). The editor did not
+crash in any of these runs. Evidence: `Saved/Match/b80_final_run1/`, `b80_final_fix1_lm113/`, `b80_final_fix2_lm113/`,
+`b74_main_t21_final/`.
+
 ### 3.1 Asset scripts (one editor session, no PIE)
 
 | Script | Result |
@@ -158,8 +173,38 @@ The runbook expects `{'PASS': 17, 'SKIP': 1}`. Across the first run and the re-r
 
 ### 3.3 Multiplayer run: as_80 (listen server, 2 players)
 
-The runbook expects `{'PASS': 24, 'SKIP': 3}`. **21 of the 24 checks passed in at least one run.** LMF_own_ship never
-passed in a single run, although each of its halves passed in some run. The two LM1.13 checks have not passed.
+The runbook expects `{'PASS': 24, 'SKIP': 3}`. The final run (`b80_final_run1/`, 121 game s, 189 s of wall time) ran
+every scenario in one PIE session, with the seamless test last. Its head was **PASS 22, FAIL 2, SKIP 3**. The LM1.13 rows
+come from the two fix runs after it.
+
+| Check | Final result |
+|---|---|
+| LM1.1_lobby, LM1.1_panels | PASS. Both players are in the lobby on teams 0 / 1. The host sees START and no READY; the client sees READY and no START. |
+| LM1.2_zone | PASS. The client was back in the zone after 0.63 s, and his machine showed the zone message. |
+| LM1.3_no_damage | PASS. The host's gun hit the client 6 times in the lobby (6 server "HitActor" lines), with no health drop. |
+| LM1.4_switch, LM1.4_2v2 | PASS. Switch requests, swaps and the 2v2 rebalance work (with console bots). |
+| LM1.5_rules, LM1.5_ready_kept | PASS. The client saw the host's rules 0.13 s later. A 1v1 with 3 players in was refused. |
+| LM1.6_strict, LM1.6_input, LM1.6_aboard | PASS. Both players were on their own ship's deck 0.0 s after the start. The client's injected IA_Move moved him 522 cm. |
+| **LMF_own_ship** | **PASS, every half in one run:** the host's and the client's guns each did 5.0 to the other team's hull, and nothing to their own ship. |
+| **LMF_players** | **PASS:** the enemy took 1.0 with 6 server hits. The teammate took nothing (crosshair on him in 7 samples, 0 server hits). The friendly-fire return comes before the HitActor print, so "0 hits" alone can't tell a blocked shot from no shot: the positive control is the enemy window just before it (same shooter and aim, 6 hits). |
+| LM1.7_rejoin_match | PASS. The client rejoined during the match and was aboard team 1's ship 0.2 s later. |
+| LMS_lives, LMS_eliminated | PASS. A lost ship cost one life, and a new ship came 10.37 s later. The last kill ended the match with team 0 winning, on both machines. |
+| LM1.8_return | PASS. Back in the lobby with the same teams and rules, and the ready flags cleared. |
+| LM1.9, LM1.10, LM1.11 (rejoins) | PASS. A player who leaves and rejoins (in the lobby, during the countdown, or on the end screen) ends up in the right place. |
+| LM1.12_cancel, LM1.12_reopen | PASS. A disconnect cancelled a 1v1 countdown 0.1 s later, and the client joined again after 0.2 s. |
+| **LM1.13_third_start** | **PASS in both fix runs:** a third start after the seamless return put both players aboard. |
+| LM1.13_seamless | **Passes in its data, not yet as a PASS line.** In both fix runs every part held: the seamless travel lines, new worlds, both players in the lobby, a new controller for the client, the pilot component on both machines, the teams kept, equal platform and ship counts, no GC error, no fall death, "seamless arrival, 2 carried", and 0 still arriving after 5 s. The one FAIL was "IMC_AirshipBoard mapped False", and that was the harness misreading the answer. The engine's HasMappingContext returns a bool plus the priority. UE Python gives `None` for false and the priority for true (`PyGenUtil.cpp:2669-2674`). The board context's priority is 0, so `bool(0)` read it as unmapped. The fix 2 probe recorded `0` (mapped, priority 0) for IMC_AirshipBoard and for the controller's own context, on both machines, before and after the travel. The read is fixed (`is not None`) but has not run (the two-round limit). |
+| SKIP LM.host_crash, LM.steam_seamless, LM.menu_end_to_end | Manual (section 6). |
+
+What else the final run's log shows:
+
+* 4 harness read errors (`schar` 2, `phase_of` 2): the first `schar` came during the LM1.10 rejoin, the rest while a world was swapped. The run's LM1.13 FAILs came from the same stale-controller reads (fixed afterwards).
+* One fall death: the client, when LMS killed his ship.
+* 8 ensures, all from one engine PCG ensure (`!Container->bAreResourcesInaccessible`, `PCGManagedResourceContainer.cpp:353`). It fired on the client when the server closed the channel of an `AMyHexBridge` (`AMyHexBridge::EndPlay` -> `UPCGComponent::EndPlay`) during LMS. That is the hex bridge code, not PR B (section 7).
+
+Two grabs from the final run, about 6 s apart (host and client): each player aboard his own team's ship in the 1v1 match (section 8).
+
+**History: the earlier as_80 runs**
 
 | Run | Checks run | Report head |
 |---|---|---|
@@ -167,50 +212,42 @@ passed in a single run, although each of its halves passed in some run. The two 
 | Step 3, fix 1 (09:43) | LM1.6, LMF, LMS, LM1.8 to LM1.13 | PASS 7, FAIL 2, SKIP 8. The worlds did not come back within 150 s. |
 | Step 4, run 1 (10:23) | LM1.3, LM1.6, LMF, LMS, LM1.8 to LM1.13 | PASS 15, FAIL 3. The editor crashed in LM1.13, so there is no report; the lines are in `b80_s4run1/b80_log.txt`. |
 | Step 4, run 2 (10:42) | LM1.6, LMF, LMS, LM1.8, LM1.12, LM1.13 | PASS 10, FAIL 3, SKIP 3 |
+| Item 1 probe (11:10) | LM1.6, LMF, a gun probe (no LM1.3) | PASS 8, FAIL 1, SKIP 3. Both LMF checks passed. The FAIL was the probe's own strict line. `Saved/Match/b80_item1_probe/` |
 
-The travel fix (section 4, C++ row 2) landed between step 3 and step 4. The step 3 failures from LM1.8 on came from
-the bug it fixes.
-
-| Check | Result |
-|---|---|
-| LM1.1_lobby, LM1.1_panels | PASS in every run. Both players are in the lobby on teams 0 / 1. The host sees START and no READY; the client sees READY and no START. |
-| LM1.2_zone | PASS. The client was back in the zone after 0.53 s. |
-| LM1.3_no_damage | PASS. The host's gun hit the client 6 times in the lobby, with no health drop. |
-| LM1.4_switch, LM1.4_2v2 | PASS. Switch requests, swaps and the 2v2 rebalance work (with console bots). |
-| LM1.5_rules, LM1.5_ready_kept | PASS. The client saw the host's rules 0.2 s later. A 1v1 with 3 players in was refused. |
-| LM1.6_strict, LM1.6_input, LM1.6_aboard | PASS in every run. Both players were on their own ship's deck 0.0 s after the start. |
-| LMF_own_ship | **FAIL.** Each half passed in some run, never all in one run (section 7). |
-| LMF_players | PASS in step 4 run 1: the enemy took 1.0, and the teammate took nothing with 0 server hits. FAIL in run 2: the host's gun made no server hit at all. |
-| LM1.7_rejoin_match | PASS. The client rejoined during the match, aboard team 1's ship within 0.2 s. |
-| LMS_lives, LMS_eliminated | PASS in every run. A lost ship cost one life and a new ship came 10.1 to 10.4 s later. The last kill ended the match with team 0 winning, on both machines. |
-| LM1.8_return | PASS in both step 4 runs. Back in the lobby with the same teams and rules, and the ready flags cleared. |
-| LM1.9, LM1.10, LM1.11 (rejoins) | PASS (step 4 run 1). A player who leaves and rejoins (in the lobby, during the countdown, or on the end screen) ends up in the right place. |
-| LM1.12_cancel, LM1.12_reopen | PASS. A disconnect cancelled a 1v1 countdown within 0.1 s, and the client joined again after 0.2 s. |
-| LM1.13_seamless | **FAIL.** In run 1 the editor crashed (fixed in C++, section 4). In run 2 the seamless return itself worked ("seamless arrival, 2 carried", both players in the lobby), but the harness lost track of the client. The harness fix has not run. |
-| LM1.13_third_start | Never ran. |
-| SKIP LM.host_crash, LM.steam_seamless, LM.menu_end_to_end | Manual (section 6). |
+* The travel fix (section 4, C++ row 2) landed between step 3 and step 4. The step 3 failures from LM1.8 on came from the
+  bug it fixes.
+* The earlier LMF failures, including the host's gun making no server hit after the start, were the harness's input
+  injection (section 4, harness).
+* The earlier LM1.13 failures:
+  * step 4 run 1: the editor crash, fixed in C++;
+  * step 4 run 2: the harness lost track of the client after the travel.
 
 ### 3.4 Lanes: as_74 main pass, the lane checks only
 
-| Run | Checks run | Report head |
-|---|---|---|
-| Lanes, run 1 (09:14) | settle + T2.1, T2.4, T2.7, T2.10 | PASS 3, FAIL 3, SKIP 1 |
-| Fix 1 (09:19) | T2.4, T2.10 | PASS 3, FAIL 1, SKIP 1 |
-| Fix 2 (09:22) | T2.4 | PASS 3, SKIP 1 |
+**Final: T2.1 restaged (11:36, `Saved/Match/b74_main_t21_final/`): PASS 3, SKIP 1.**
 
 | Check | Result |
 |---|---|
 | T1.1_practice_start | PASS. Countdown, play at 5.03 s, the player aboard team 0's ship. |
 | T1.2_team_ship | PASS. The ship spawned exactly on the lane spawn point, Cruising and protected. |
+| **T2.1_pace** | **PASS (final run).** The player stood at u 350 m: peak 28.05 m/s (band 27 to 29, unchanged). The ship settled 40.13 m ahead in TeamPace, with 0.38 m overshoot and a 2.50 m/s² ramp. The lead's call: the staging moved from u 200 m to u >= 330 m. At 200 m the ship had 250 m, and 28 m/s and back needs about 310 m. |
 | **T2.7_park_in_lane** | **PASS. This is Talal's case.** The ship was flown out of its lane and back in, and the pilot left the helm at 1.5 m/s. The ship was Cruising 0.0 s later and at 6 m/s after 2.2 s. |
 | T2.4_assist | PASS. Boarding a cruising ship gave Assist at once, with 5.98 to 6.06 m/s for 10 s with no input. The broadside fired. |
 | T2.10_recall | PASS. The ship was left 200 m out of its lane. It was Returning at 20.0 s and Cruising at 46 s, with no hull damage. |
-| T2.1_pace | **FAIL on one number.** The peak was 25.2 m/s, and the harness wants 27 to 29. The rest passes: the ship settled 40.1 m ahead of the player, with 0.33 m overshoot and a 2.5 m/s² ramp. Reaching 28 m/s and stopping again needs about 310 m, and this staging gives 250 m. Section 7 has the lead's choice. |
 | SKIP T7.1_hud_text | Not readable from Python. |
+
+**History**
+
+| Run | Checks run | Report head |
+|---|---|---|
+| Lanes, run 1 (09:14) | settle + T2.1, T2.4, T2.7, T2.10 | PASS 3, FAIL 3, SKIP 1. T2.1 peaked at 25.2 m/s with the player at u 213 m. |
+| Fix 1 (09:19) | T2.4, T2.10 | PASS 3, FAIL 1, SKIP 1 |
+| Fix 2 (09:22) | T2.4 | PASS 3, SKIP 1 |
+| T2.1 restaged (11:36) | T2.1 | PASS 3, SKIP 1 |
 
 ## 4. Fixes made in the editor stage
 
-Each fix is in `NOTES_lobby_core.md` sections 9 and 10 (file:line, why, which check). Both builds exited 0, with only
+Each fix is in `NOTES_lobby_core.md` sections 9 to 11 (file:line, why, which check). Both builds exited 0, with only
 the two old bIsFocusable warnings.
 
 **C++**
@@ -219,7 +256,7 @@ the two old bIsFocusable warnings.
 |---|---|---|---|
 | `MyHUD.cpp:109-122` | The lobby panel goes in the viewport layer (ZOrder 5) | The HUD's globes, ability icons and crosshair were drawn over the panel and its START button | LB1.1_panel, LB1.4_rules, window grabs |
 | `MyGameModeLobby.cpp:1673-1680`, `TravelToRound` | A relative ServerTravel, plus `?Lobby=0` when needed | An absolute travel made the next map listen on port 7777, while clients came back to the old port (17777 in PIE). The client froze on the end screen. | LM1.8 to LM1.12 |
-| `MechSentinelClientBubble.h:88` / `.cpp:245` | A Tick guard: skip the tick when the bubble's world is gone | "Assertion failed: World" crashed the client on a seamless return to the lobby. A packaged game would crash every client on every seamless lobby return. | LM1.13, run 2 |
+| `MechSentinelClientBubble.h:88` / `.cpp:245` | A Tick guard: skip the tick when the bubble's world is gone | "Assertion failed: World" crashed the client on the PIE seamless return to the lobby. A packaged client takes the same path (untested). | LM1.13, run 2 |
 | `AirshipPawn.cpp:416-418` | StationAims start at zero | Every team-ship spawn logged "WriteQuantizedVector: Value isn't finite" (since part A) | 0 such errors in the as_80 logs |
 | `MyMatchHUDWidget.cpp:448-449`, `:489-492` | A lobby round's bar says MATCH STARTS IN n, and DEFEAT is drawn in ink | The bar and the big text showed two different countdown texts, and the losing team saw DEFEAT in the winner's colour | window grabs |
 
@@ -244,8 +281,20 @@ the two old bIsFocusable warnings.
   * a new world is detected by the server clock going back;
   * LMF restaged;
   * LM1.12's reopen reads the world name before the `open`;
-  * LM1.13 maps the client again after the travel (not yet run);
   * LM1.6_input warns when the client moved 0 cm.
+* `as_70_matchlib.py`, `subsystem`: the injected input goes to the right machine. The cache key was the world's
+  name, and both PIE worlds are named "StartupMap", so in a listen run every machine got the input subsystem looked up
+  first (`NOTES_lobby_core.md` 10, row 14).
+* **Final pass** (`NOTES_lobby_core.md` section 11):
+  * **LM1.13 maps the players only once the seamless travel is done.** It waits for every player's "arrives
+    (seamless)" line, then for one controller per player on the server and one on the client. Only then does it map
+    the players again. Before, it read old objects that were being replaced: the engine gives every player a new
+    controller in a seamless travel, and the client gets his only when he has loaded.
+  * **The teams are compared by player name.** The join order changes in a seamless travel.
+  * **The IMC_AirshipBoard read.** UE Python returns `None` or the priority (0 here), and `bool(0)` read a mapped
+    context as missing. The read is now `is not None`, and LM1.13 also reads the controller's own context as a
+    positive control.
+  * **T2.1 stages the player at u 350 m.** This was the lead's call; the 27 to 29 m/s band is unchanged.
 
 ## 5. Defaults chosen (Q-L1 to Q-L4)
 
@@ -290,23 +339,35 @@ Talal's lobby questions were never answered, so the code uses these defaults (`S
 * **The beam's knockback on a teammate** (`LaunchCharacter` in GA_BeamBP): nobody has read that graph yet.
 * **The swarm against a ship in the new lane states** (Cruising, Assist).
 * **Regressions:** the part A regression on L_AirshipTest (as_76) and the multiplayer match without the lobby (as_75).
+  as_75 injects input through the same as_70 `subsystem` as as_80. Any earlier as_75 result where both machines had input
+  injected may have had the input mixup of section 4. It is fixed now, but those results are worth a second look.
 
 ## 7. Open items
 
-1. **Friendly fire in one run (LMF).** Every part has passed, but split across two runs:
-   * Run 1: the host's gun hurt the enemy hull and the enemy player, and did nothing to his own ship or to his
-     teammate.
-   * Run 2: the client's gun hurt the enemy hull and did nothing to his own ship. But the host's gun made no server
-     hit at all after the match start, although his crosshair was on the targets.
-
-   Next step: debug GA_GunShoot on the listen host after the start, or run LMF with and without LM1.3 before it.
-2. **LM1.13 needs one more listen run:** `AS80_ONLY = ('LM1.13',)` with seamless travel on. It checks the harness
-   remap and the crash guard's follow-up checks.
-3. **T2.1, the lead's choice.** SPEC_B T2.1 says "at most 28 ±1 m/s", but the harness wants a peak of 27 to 29.
-   Either change the check to peak <= 29 (as the spec reads), or stage the player at u >= 330 m.
-4. **The crash guard is in Mech Sentinel code (the PR #3 area).** Talal should know: without it, packaged clients
-   crash on a seamless lobby return.
-5. **Cosmetic, not fixed:**
+1. **LM1.13_seamless needs one short listen run to report its PASS.** Run `AS80_ONLY = ('LM1.13',)` with the PIE
+   seamless travel on; it takes about 1.5 minutes of wall time.
+   * Both fix runs met every condition of the check except the IMC_AirshipBoard read, and that read was the harness's
+     misreading of a mapped context (3.3).
+   * The fixed read (`is not None`) has not run. The two fix rounds this pass allowed were used up.
+   * LM1.13_third_start already passed in both fix runs.
+2. **Done: the listen host's gun after the start was the harness, not the game.** The harness picked the machine to
+   inject input into by the world's name, and both PIE worlds are named "StartupMap". In the final run, LMF_own_ship
+   and LMF_players passed with every half, after LM1.3 and with LM1.6 injecting the client's input first. Details:
+   `NOTES_lobby_core.md` section 10, row 14.
+3. **Done: T2.1.** The player was restaged at u 350 m (the lead's call). It passed with a peak of 28.05 m/s, and the
+   band is unchanged.
+4. **The crash guard is in Mech Sentinel code (the PR #3 area).** Talal should know: without it the client crashed on the
+   PIE seamless return, and a packaged client takes the same path (untested). With it, the PIE seamless return ran three times in this pass with no crash.
+5. **Seen in the final run, not PR B:**
+   * An engine PCG ensure on the client when the server closed a hex bridge's channel during LMS (`AMyHexBridge::EndPlay`
+     -> `UPCGComponent::EndPlay`, `PCGManagedResourceContainer.cpp:353`, 8 log lines). Talal's hex bridge code; worth a
+     look if it shows outside PIE.
+   * "GiveAbility called ... on the client, not allowed!" for the startup abilities, at every pawn spawn on a client. It
+     shows from the first spawn of the run, not only after travel.
+   * The ensure site is existing bridge/PCG teardown code, but what closed the bridge's channel was not traced, and PR B
+     changes bridge culling in a match (MyHexBridgeSubsystem), so PR B may be involved. The GiveAbility errors were
+     already there in part A.
+6. **Cosmetic, not fixed:**
    * On a client, the host's rules show in grey text on near black.
    * Console bots can push a team past Max Players ("ORANGE 2 / 1").
    * In practice, the match bar's SHIPS LOST bar touches its title (see the countdown image).
@@ -332,6 +393,11 @@ All the images are window grabs from the PIE runs.
 **The countdown.** Esc cancels it, and the ship waits, protected.
 
 ![Countdown](media/r2b_lobby_countdown.jpg)
+
+**The 1v1 match on both machines (final as_80 run).** The host is on the left, aboard BLUE's ship; the client is on the
+right, aboard ORANGE's. Each one's match bar marks his own team (YOU), and the marker at the edge points to the other ship.
+
+![1v1 match, both aboard](media/r2b_match_1v1_both_aboard.jpg)
 
 **At the helm of a cruising ship: LANE AUTO at 6 m/s**
 

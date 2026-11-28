@@ -26,7 +26,7 @@
 #           (SPEC_B_LOBBY 7.7: practice starts aboard); T1.2 one team
 #           ship, team 0, at the lane spawn point +-1 m, yaw +-2 deg, Waiting / Cruising, protected
 #  T2.3     Aura.Lane.Debug 1: the dump's lane points at v = +-(H + LaneClearance) within 50 cm; capture
-#  T2.1     player on a platform at u 200 m: peak 27-29 m/s, settles 40 +-3 m ahead (TeamPace), overshoot <= 1 m, errors
+#  T2.1     player on a platform at u 350 m (spec: 200 m, restaged 2026-11-28): peak 27-29 m/s, settles 40 +-3 m ahead (TeamPace), overshoot <= 1 m, errors
 #  T2.2     LaneMaxLead 0: settles at CruiseEndU +-3 m, <= 0.3 m/s, PathEnd, path end unchanged 20 s
 #  T2.1b    player moved at 20 m/s along a row for 60 s: after 15 s the hull stays < 100 m from him
 #  T2.9     the team-side platform edge walked 1 km (a spot every 50 m): gap to the hull's inner side (14-84 m, < 115 m)
@@ -585,10 +585,12 @@ class B74(MBRun):
         self.cmd(self.w, 'Aura.Lane.Debug 0')
 
     def t_pace(self):
-        """T2.1"""
-        c = yield from self.foot(20000.0)
+        """T2.1. The player stands at u 350 m (SPEC_B T2.1 says 200 m; the lead's call, 2026-11-28): from the spawn near
+        u -10 m, 4 -> 28 m/s and back down to the cap at the 2.5 m/s^2 ramp takes about 310 m, and the 200 m staging gave
+        the ship 250 m, so it peaked at 25.2 m/s. At u 350 m it has about 400 m. The 27-29 m/s band is unchanged."""
+        c = yield from self.foot(35000.0)
         if c is None:
-            self.check('T2.1_pace', 'FAIL', 'no living player to stand at u 200 m')
+            self.check('T2.1_pace', 'FAIL', 'no living player to stand at u 350 m')
             return
         up = self.u_of(c)
         lead_cap = float(self.setting('LaneMaxLead', 4000.0))

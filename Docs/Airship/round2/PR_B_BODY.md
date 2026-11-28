@@ -44,39 +44,46 @@ Airship round 2, part B: ship lanes, teams, ship lives, match rules and an in-le
 All runs were PIE in the airship clone, following the lean rule: one solo run, one multiplayer run, and the lane check.
 Failing checks were fixed and re-run on their own. No threshold was changed.
 
+- **Multiplayer, as_80 (listen server, 2 players), the final full run: PASS 22, FAIL 2, SKIP 3.** It ran every scenario
+  in one PIE session, with the seamless return last, and the editor did not crash.
+  - Every check except the two LM1.13 ones passed, including:
+    - **friendly fire, in one run:** each player's gun hurts the other team's hull (5.0) and not his own ship; the host's
+      gun hurts the enemy player (1.0, 6 server hits) and not a teammate (no drop; the positive control is the enemy
+      window just before it, same shooter and aim);
+    - the rejoins, ship lives and elimination, the **return to the lobby with teams and rules kept**, and the
+      disconnect cancel.
+  - The two FAILs were LM1.13, the PIE seamless return, and both were the harness: it read the players before the seamless
+    travel had given them their new controllers. After that fix:
+    - **LM1.13_third_start passed** in both re-runs;
+    - **LM1.13_seamless met every condition** in both re-runs: new controller, pilot component, teams, counts, arrivals,
+      no crash. Its one FAIL was the harness misreading IMC_AirshipBoard as unmapped. UE Python returns the priority, 0
+      here, for a mapped context, and `bool(0)` is False. That read is fixed but has not run yet (one short listen run).
+  - So 23 of the 24 checks have a PIE PASS, and the 24th passes in its data.
+- **Lanes, as_74:**
+  - **T2.1 PASS:** peak 28.05 m/s, settled 40.1 m ahead, with the player staged at u 350 m (the spec's u 200 m was too
+    short for the 2.5 m/s^2 ramp to reach 28 m/s).
+  - **T2.7 PASS:** your "parked in lane again and unmounted" case, Cruising 0.0 s after leaving the helm and 6 m/s after
+    2.2 s.
+  - T2.4 (assist) and T2.10 (recall after 20 s) PASS.
+- **Solo, as_79 (standalone):** all **17 PASS + 1 SKIP** (the runbook's expected count), reached over the first run and
+  four re-runs.
 - **Asset scripts:**
   - as_72: OK.
   - as_77: OK, with 0 missing, 0 wrong class and 0 style fallbacks.
   - as_78: 36 PASS.
   - as_73: 30 PASS, 0 FAIL.
-- **Solo, as_79 (standalone):** all **17 PASS + 1 SKIP** (the runbook's expected count), reached over the first run and
-  four re-runs. The first run's head was PASS 13, FAIL 4, SKIP 1; the last re-run's (LB1.2) was PASS 5, SKIP 1.
-- **Multiplayer, as_80 (listen server, 2 players): 21 of 24 checks passed in at least one run.**
-  - Report heads, in order: PASS 14 FAIL 6 SKIP 4; PASS 7 FAIL 2 SKIP 8; PASS 15 FAIL 3 (crash, no report); PASS 10
-    FAIL 3 SKIP 3.
-  - Passed: the lobby and panels, zone, damage off in the lobby, team switches and 2v2, rules, start, rejoins, ship
-    lives and elimination, the **return to the lobby with teams and rules kept**, and the disconnect cancel.
-  - Not passed:
-    - `LMF_own_ship`: each half passed in some run, never all in one run.
-    - `LM1.13_seamless`: the seamless return worked in run 2, but the harness lost track of the client. Its fix has not
-      run.
-    - `LM1.13_third_start`: never ran.
-- **Lanes, as_74 lane checks:**
-  - **T2.7 PASS.** This is your "parked in lane again and unmounted" case: Cruising 0.0 s after leaving the helm, and 6
-    m/s after 2.2 s.
-  - T2.4 (assist) and T2.10 (recall after 20 s) PASS.
-  - T2.1 FAIL on one number: a peak of 25.2 m/s against the harness's 27 to 29. The staging gives the ship 250 m, but 28
-    m/s and back needs about 310 m. That is the lead's call.
 - **Fixes made in the editor stage (C++):**
   - The lobby panel is drawn above the HUD overlay (`MyHUD.cpp`).
   - Relative ServerTravel (`MyGameModeLobby.cpp`). Without it, the client froze on the end screen, because the next
     map listened on port 7777 instead of the session's port.
   - A crash guard on a seamless return in the Mech Sentinel client bubble (`MechSentinelClientBubble.*`). Without it,
-    packaged clients crash on every seamless lobby return.
+    the client crashed on the PIE seamless return; a packaged client takes the same path (untested).
   - StationAims start at zero (`AirshipPawn.cpp`). This removes a log error, present since part A, on every ship spawn.
   - Countdown and DEFEAT text (`MyMatchHUDWidget.cpp`).
 - **Fixes made in the editor stage (widget):** the panel scales down to fit narrow viewports, and long names are
-  clipped. Details: `NOTES_lobby_core.md` sections 9 and 10.
+  clipped.
+- **Harness fixes:** the earlier "host's gun makes no hit after the start" was the harness sending both machines' input
+  to one of them. Details: `NOTES_lobby_core.md` sections 9 to 11.
 
 ## Defaults chosen (Q-L1 to Q-L4)
 
@@ -89,7 +96,7 @@ Failing checks were fixed and re-run on their own. No threshold was changed.
 ## Not tested / manual
 
 - **Needs you:**
-  - Two packaged Steam machines, for the seamless return to the lobby (PIE uses the IP driver and a hard travel).
+  - Two packaged Steam machines, for the seamless return to the lobby (PIE uses the IP driver and, by default, a hard travel).
   - The main menu end to end: Host, rules in the panel, LEAVE.
   - Host leave and host crash.
   - Play Solo -> Open Lobby -> back to the lobby.
@@ -103,8 +110,10 @@ Failing checks were fixed and re-run on their own. No threshold was changed.
   - the beam knockback on a teammate;
   - the part A regression (as_76) and the multiplayer match without the lobby (as_75).
 - **Open:**
-  - In one as_80 run the listen host's gun made no server hit after the start. The cause was not found.
-  - LM1.13 needs one more listen run.
+  - One short listen run of LM1.13 with the fixed IMC read, to report its PASS.
+  - Seen in PIE: a PCG ensure in the existing bridge/PCG teardown when a client's hex bridge is destroyed (the trigger
+    was not traced; PR B's match bridge culling may be involved), and client "GiveAbility ... not allowed" errors at
+    every spawn (already there in part A).
   - Cosmetic: grey read-only rules on the client, and the SHIPS LOST bar touching its title in practice.
 
 ## Content files changed
@@ -128,7 +137,8 @@ Your local tree has no change to these four (checked read-only).
   - GA_GrappleSwing2 (the ship hook);
   - MechSentinelWaveSpawner and BurrowerSpawnSubsystem (difficulty);
   - MechSentinelClientBubble (the crash guard);
-  - MainMenu3, PauseMenu3 and MultiplayerSessionsSubsystem (the lobby);
+  - MainMenu3, PauseMenu3, SessionEntry3, MultiplayerSessionsSubsystem and MultiplayerSessionTypes (the lobby);
+  - BurrowerCharacter and MechSentinelSwarmSubsystem (small hooks);
   - MyHexPathSpawner and MyHexBridgeSubsystem.
 - **Your local files are not touched:** StartupMap, BurrowerSettings.h, MyHexPlatform.h, BP_MyCharMech,
   GE_GunShootDamage, GA_GunShootBP and GA_BeamBP.

@@ -240,7 +240,13 @@ class LobbyMix(object):
         try:
             imc = unreal.load_asset(LB_IMC_BOARD)
             sub = self.subsystem(w)
-            return bool(sub.has_mapping_context(imc)) if sub is not None and imc is not None else None
+            if sub is None or imc is None:
+                return None
+            # HasMappingContext(Context, OutFoundPriority) returns a bool with an out parameter: UE Python gives None when
+            # the C++ returns false and the out value (the priority) when it returns true (PyGenUtil.cpp:2669-2674). The
+            # board context's priority is 0 (UAirshipSettings::BoardMappingPriority), so bool() of the result read a mapped
+            # context as False (as_80 LM1.13, 2026-11-28).
+            return sub.has_mapping_context(imc) is not None
         except Exception:  # noqa: BLE001
             return None
 
